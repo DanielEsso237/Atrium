@@ -1,0 +1,7 @@
+Migrations Alembic pour Atrium.
+
+  alembic revision --autogenerate -m "message"
+  alembic upgrade head
+  alembic downgrade -1
+
+L'URL de connexion vient de app/core/config.py (fichier .env), pas d'alembic.ini.
