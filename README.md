@@ -32,7 +32,10 @@ mécanisme d'arrière-plan.
 atrium/
 ├── docs/
 │   ├── 01-modele-de-donnees.md      MCD/MLD, décisions de modélisation
-│   └── 02-base-locale-drift.md      schéma SQLite, types, index
+│   ├── 02-base-locale-drift.md      schéma SQLite, types, index
+│   ├── 03-workflows.md              parcours métier, opération par opération
+│   └── le-classeur-de-l-hotel.html  présentation sans jargon, fichier autonome
+│                                    à envoyer à qui doit comprendre le système
 ├── backend/
 │   ├── .venv/                       Python 3.11
 │   ├── alembic/versions/            migrations
