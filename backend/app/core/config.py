@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     @property
     def sync_database_url(self) -> str:
         """URL synchrone, utilisee par Alembic."""
-        return self.database_url.replace("+asyncpg", "").replace("+psycopg", "")
+        return self.database_url.replace("+asyncpg", "+psycopg")
 
     # --- Synchronisation ---
     # Fenetre glissante repliquee sur les tablettes (cf. docs/01-modele-de-donnees.md).
