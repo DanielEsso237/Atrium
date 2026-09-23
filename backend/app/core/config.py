@@ -31,7 +31,14 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    # Glissant : chaque rafraichissement repart pour 30 jours, une tablette en
+    # service ne redemande donc jamais le mot de passe.
     refresh_token_expire_days: int = 30
+    # Fenetre pendant laquelle un jeton qui vient d'etre echange reste
+    # acceptable : la reponse du premier echange a pu se perdre (Wi-Fi), la
+    # tablette renvoie alors l'ancien jeton. Au-dela, c'est une reutilisation
+    # suspecte et toute la session de l'appareil est revoquee.
+    refresh_reuse_grace_seconds: int = 60
 
     # --- CORS ---
     # Necessaire uniquement pour developper l'application Flutter dans un

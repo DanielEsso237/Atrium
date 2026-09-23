@@ -6,23 +6,22 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import permission_codes, require_permission
 from app.db.session import get_session
 from app.models import (
+    CashSession,
     Folio,
     FolioItem,
     Invoice,
     InvoiceLine,
-    NumberSequence,
     Payment,
     StayNight,
     User,
 )
-from app.models.enums import ChargeCategory, FolioStatus, InvoiceStatus
+from app.models.enums import CashSessionStatus, ChargeCategory, FolioStatus, InvoiceStatus
 from app.schemas.billing import (
     FolioItemIn,
     FolioItemOut,
@@ -31,73 +30,20 @@ from app.schemas.billing import (
     PaymentIn,
 )
 from app.services.business_day import current_business_date
+from app.services import folios as folio_service
+from app.services.folios import recompute_totals
+from app.services.numbering import Scope, next_number
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(tags=["facturation"])
 
 
-async def _next_sequence(
-    session: AsyncSession,
-    hotel_id: uuid.UUID,
-    scope: str,
-    prefix: str | None = None,
-    padding: int = 6,
-    period: str = "ALL",
-) -> str:
-    """Numerotation legale (F1.4) : contrairement aux references internes
-
-    (folios, reservations, clients), une facture emise doit etre continue et
-    sans trou. `UPDATE ... RETURNING` verrouille la ligne le temps de
-    l'increment, ce qui rend deux emissions concurrentes serialisees plutot
-    que susceptibles de produire le meme numero -- une vraie sequence, pas un
-    COUNT approximatif comme ailleurs dans ce projet.
-    """
-    await session.execute(
-        insert(NumberSequence)
-        .values(
-            hotel_id=hotel_id,
-            scope=scope,
-            period=period,
-            prefix=prefix,
-            padding=padding,
-            current_value=0,
-        )
-        .on_conflict_do_nothing(index_elements=["hotel_id", "scope", "period"])
+async def _get_folio(
+    session: AsyncSession, folio_id: uuid.UUID, user: User, *, for_update: bool = False
+) -> Folio:
+    return await folio_service.get_folio(
+        session, folio_id, user.hotel_id, for_update=for_update
     )
-    result = await session.execute(
-        update(NumberSequence)
-        .where(
-            NumberSequence.hotel_id == hotel_id,
-            NumberSequence.scope == scope,
-            NumberSequence.period == period,
-        )
-        .values(current_value=NumberSequence.current_value + 1)
-        .returning(NumberSequence.current_value, NumberSequence.prefix, NumberSequence.padding)
-    )
-    value, pfx, pad = result.one()
-    return f"{pfx or ''}{value:0{pad}d}"
-
-
-async def _recompute_totals(session: AsyncSession, folio: Folio) -> None:
-    """Recalcule `charges_total`/`balance` depuis les lignes en base plutot
-
-    que depuis `folio.items` en memoire : evite toute ambiguite sur l'etat de
-    chargement de la relation apres un `session.get()`.
-    """
-    charges = await session.scalar(
-        select(func.coalesce(func.sum(FolioItem.amount), 0)).where(
-            FolioItem.folio_id == folio.id, FolioItem.is_void.is_(False)
-        )
-    )
-    folio.charges_total = charges or 0
-    folio.balance = folio.charges_total - folio.payments_total
-
-
-async def _get_folio(session: AsyncSession, folio_id: uuid.UUID, user: User) -> Folio:
-    folio = await session.get(Folio, folio_id)
-    if folio is None or folio.hotel_id != user.hotel_id or folio.deleted_at is not None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Folio introuvable.")
-    return folio
 
 
 @router.get("/folios", response_model=list[FolioOut])
@@ -143,7 +89,7 @@ async def add_folio_item(
     exactement l'exemple cite par docs/01-modele-de-donnees.md pour justifier
     des permissions granulaires plutot qu'un seul controle global sur le folio.
     """
-    folio = await _get_folio(session, folio_id, user)
+    folio = await _get_folio(session, folio_id, user, for_update=True)
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
     if payload.category == ChargeCategory.DISCOUNT and "folio.discount" not in permission_codes(
@@ -175,7 +121,7 @@ async def add_folio_item(
     )
     session.add(item)
     await session.flush()
-    await _recompute_totals(session, folio)
+    await recompute_totals(session, folio)
     await session.commit()
     await session.refresh(item)
     return item
@@ -193,7 +139,7 @@ async def post_stay_nights(
     cloture journaliere du paragraphe 5.1, qui operera plus tard sur tout
     l'hotel d'un coup.
     """
-    folio = await _get_folio(session, folio_id, user)
+    folio = await _get_folio(session, folio_id, user, for_update=True)
     if folio.reservation_room_id is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "Ce folio n'est pas rattache a un sejour."
@@ -203,6 +149,7 @@ async def post_stay_nights(
         select(StayNight).where(
             StayNight.reservation_room_id == folio.reservation_room_id,
             StayNight.is_posted.is_(False),
+            StayNight.deleted_at.is_(None),
         )
     )
     nights = list(result.scalars().all())
@@ -228,7 +175,7 @@ async def post_stay_nights(
         night.is_posted = True
         night.posted_at = now
 
-    await _recompute_totals(session, folio)
+    await recompute_totals(session, folio)
     await session.commit()
     await session.refresh(folio, attribute_names=["items"])
     return folio
@@ -243,14 +190,28 @@ async def record_payment(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.write")),
 ) -> Folio:
-    folio = await _get_folio(session, folio_id, user)
+    folio = await _get_folio(session, folio_id, user, for_update=True)
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
+
+    # Rattachement a la session de caisse ouverte du caissier : c'est ce qui
+    # permet de calculer l'attendu et l'ecart a la fermeture. La ligne de
+    # session est verrouillee pour ne pas croiser une fermeture en cours.
+    cash_session_id = await session.scalar(
+        select(CashSession.id)
+        .where(
+            CashSession.user_id == user.id,
+            CashSession.status == CashSessionStatus.OPEN,
+            CashSession.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
 
     business_date = await current_business_date(session, user.hotel_id)
     payment = Payment(
         hotel_id=user.hotel_id,
         folio_id=folio.id,
+        cash_session_id=cash_session_id,
         method=payload.method,
         amount=payload.amount,
         reference=payload.reference,
@@ -260,9 +221,8 @@ async def record_payment(
         business_date=business_date,
     )
     session.add(payment)
-
-    folio.payments_total += payload.amount
-    await _recompute_totals(session, folio)
+    await session.flush()
+    await recompute_totals(session, folio)
     await session.commit()
     await session.refresh(folio, attribute_names=["items"])
     return folio
@@ -274,7 +234,7 @@ async def close_folio(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.write")),
 ) -> Folio:
-    folio = await _get_folio(session, folio_id, user)
+    folio = await _get_folio(session, folio_id, user, for_update=True)
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est pas ouvert.")
     if folio.balance != 0:
@@ -301,10 +261,11 @@ async def issue_invoice(
 
     Cette route s'execute directement sur le serveur central -- contrairement
     a une facture emise hors ligne depuis une tablette, elle n'a pas besoin de
-    numero provisoire : `_next_sequence` attribue tout de suite le numero
-    legal definitif (voir le commentaire du modele `Invoice`).
+    numero provisoire : `next_number` attribue tout de suite le numero
+    legal definitif (voir le commentaire du modele `Invoice` et
+    app/services/numbering.py).
     """
-    folio = await _get_folio(session, folio_id, user)
+    folio = await _get_folio(session, folio_id, user, for_update=True)
 
     result = await session.execute(
         select(FolioItem).where(FolioItem.folio_id == folio.id, FolioItem.is_void.is_(False))
@@ -319,7 +280,9 @@ async def issue_invoice(
     tax_total = sum(i.tax_amount for i in items)
     total = sum(i.amount for i in items)
 
-    number = await _next_sequence(session, user.hotel_id, scope="INVOICE", prefix="FA-")
+    # Numero legal attribue en dernier, une fois tous les controles passes :
+    # le verrou de la sequence n'est tenu que jusqu'au commit, juste apres.
+    number = await next_number(session, user.hotel_id, Scope.INVOICE)
 
     invoice = Invoice(
         hotel_id=user.hotel_id,

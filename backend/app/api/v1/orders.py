@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
@@ -15,16 +15,11 @@ from app.models import Folio, FolioItem, MenuItem, Order, OrderItem, Reservation
 from app.models.enums import ChargeCategory, FolioStatus, OrderStatus, OrderType, ReservationStatus
 from app.schemas.orders import OrderIn, OrderOut
 from app.services.business_day import current_business_date
+from app.services.folios import recompute_totals
+from app.services.numbering import Scope, next_number
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(prefix="/orders", tags=["commandes"])
-
-
-async def _next_order_number(session: AsyncSession, hotel_id: uuid.UUID) -> str:
-    count = await session.scalar(
-        select(func.count()).select_from(Order).where(Order.hotel_id == hotel_id)
-    )
-    return f"ORD-{(count or 0) + 1:06d}"
 
 
 async def _get_order(session: AsyncSession, order_id: uuid.UUID, user: User) -> Order:
@@ -71,10 +66,33 @@ async def create_order(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "room_id est obligatoire pour un room service."
         )
 
+    # Tous les articles en une requete, et tous les controles avant la
+    # premiere ecriture (et avant de prendre un numero de commande).
+    menu_ids = {line.menu_item_id for line in payload.items}
+    menu_items = {
+        m.id: m
+        for m in (
+            await session.execute(
+                select(MenuItem).where(
+                    MenuItem.id.in_(menu_ids),
+                    MenuItem.hotel_id == user.hotel_id,
+                    MenuItem.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+    }
+    if menu_ids - menu_items.keys():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Article de menu invalide.")
+    unavailable = [m.label for m in menu_items.values() if not m.is_available]
+    if unavailable:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"Plus disponible : {', '.join(sorted(unavailable))}."
+        )
+
     business_date = await current_business_date(session, user.hotel_id)
     order = Order(
         hotel_id=user.hotel_id,
-        number=await _next_order_number(session, user.hotel_id),
+        number=await next_number(session, user.hotel_id, Scope.ORDER),
         outlet_id=payload.outlet_id,
         type=payload.type,
         status=OrderStatus.DRAFT,
@@ -92,15 +110,7 @@ async def create_order(
     subtotal = 0
     tax_total = 0
     for line in payload.items:
-        menu_item = await session.get(MenuItem, line.menu_item_id)
-        if menu_item is None or menu_item.hotel_id != user.hotel_id:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, "Article de menu invalide."
-            )
-        if not menu_item.is_available:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, f"'{menu_item.label}' n'est plus disponible."
-            )
+        menu_item = menu_items[line.menu_item_id]
         amount = menu_item.price * line.quantity
         tax_amount = amount * menu_item.tax_rate // 100
         session.add(
@@ -226,10 +236,13 @@ async def serve_order(
                 "Cette chambre n'a pas de sejour en cours : aucun folio a debiter.",
             )
         folio = await session.scalar(
-            select(Folio).where(
+            select(Folio)
+            .where(
                 Folio.reservation_room_id == active_line.id,
                 Folio.status == FolioStatus.OPEN,
+                Folio.deleted_at.is_(None),
             )
+            .with_for_update()
         )
         if folio is None:
             raise HTTPException(
@@ -257,8 +270,7 @@ async def serve_order(
                 posted_at=dt.datetime.now(dt.timezone.utc),
             )
         )
-        folio.charges_total += order.total
-        folio.balance = folio.charges_total - folio.payments_total
+        await recompute_totals(session, folio)
         order.folio_id = folio.id
 
     await session.commit()

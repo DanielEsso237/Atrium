@@ -92,3 +92,60 @@ class CheckInIn(BaseModel):
 
 class CancelIn(BaseModel):
     reason: str | None = None
+
+
+class ReservationRoomUpdate(BaseModel):
+    """Modification d'une ligne (F1.1). Seuls les champs envoyes changent."""
+
+    id: uuid.UUID
+    room_type_id: uuid.UUID | None = None
+    arrival_date: dt.date | None = None
+    departure_date: dt.date | None = None
+    adults: int | None = Field(default=None, ge=1)
+    children: int | None = Field(default=None, ge=0)
+    nightly_rate: int | None = Field(
+        default=None, ge=0, description="FCFA ; sur changement de type, tarif du nouveau type"
+    )
+
+
+class ReservationUpdate(BaseModel):
+    """PATCH /reservations/{id} : entete du dossier et/ou lignes a modifier."""
+
+    adults: int | None = Field(default=None, ge=1)
+    children: int | None = Field(default=None, ge=0)
+    special_requests: str | None = None
+    internal_notes: str | None = None
+    rooms: list[ReservationRoomUpdate] = Field(default_factory=list)
+
+
+class CalendarCell(BaseModel):
+    """Une chambre un jour donne ; champs de sejour a null si la chambre est libre."""
+
+    room_id: uuid.UUID
+    room_number: str
+    date: dt.date
+    reservation_room_id: uuid.UUID | None = None
+    reservation_id: uuid.UUID | None = None
+    reference: str | None = None
+    guest_name: str | None = None
+    status: ReservationStatus | None = None
+
+
+class CalendarUnassigned(BaseModel):
+    """Ligne de reservation sans chambre physique : placee par type, pas par numero."""
+
+    reservation_room_id: uuid.UUID
+    reservation_id: uuid.UUID
+    reference: str
+    guest_name: str
+    room_type_id: uuid.UUID
+    arrival_date: dt.date
+    departure_date: dt.date
+    status: ReservationStatus
+
+
+class CalendarOut(BaseModel):
+    date_from: dt.date
+    date_to: dt.date
+    rows: list[CalendarCell]
+    unassigned: list[CalendarUnassigned]

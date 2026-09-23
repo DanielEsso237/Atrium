@@ -12,12 +12,21 @@ class LoginIn(BaseModel):
 
     employee_code: str
     password: str
+    # Tablette enregistree (table `devices`), facultatif : rattache le jeton
+    # de rafraichissement a l'appareil pour pouvoir le revoquer seul.
+    device_id: uuid.UUID | None = None
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str
 
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: str
+    refresh_expires_in: int
 
 
 class RoleOut(BaseModel):

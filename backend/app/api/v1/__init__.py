@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.billing import router as billing_router
+from app.api.v1.cash_sessions import router as cash_sessions_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.guests import router as guests_router
 from app.api.v1.hotel import router as hotel_router
@@ -25,6 +26,7 @@ from app.api.v1.users import router as users_router
 router = APIRouter()
 router.include_router(auth_router)
 router.include_router(billing_router)
+router.include_router(cash_sessions_router)
 router.include_router(dashboard_router)
 router.include_router(guests_router)
 router.include_router(hotel_router)
