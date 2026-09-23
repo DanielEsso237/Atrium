@@ -30,6 +30,7 @@ from app.schemas.billing import (
     InvoiceOut,
     PaymentIn,
 )
+from app.services.business_day import current_business_date
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(tags=["facturation"])
@@ -158,6 +159,7 @@ async def add_folio_item(
         # le reduire (bug reel trouve en testant ce fichier).
         amount = -amount
     tax_amount = amount * payload.tax_rate // 100
+    business_date = await current_business_date(session, user.hotel_id)
     item = FolioItem(
         folio_id=folio.id,
         category=payload.category,
@@ -167,7 +169,7 @@ async def add_folio_item(
         amount=amount,
         tax_amount=tax_amount,
         tax_rate=payload.tax_rate,
-        business_date=dt.date.today(),
+        business_date=business_date,
         posted_by=user.id,
         posted_at=dt.datetime.now(dt.timezone.utc),
     )
@@ -245,6 +247,7 @@ async def record_payment(
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
 
+    business_date = await current_business_date(session, user.hotel_id)
     payment = Payment(
         hotel_id=user.hotel_id,
         folio_id=folio.id,
@@ -254,7 +257,7 @@ async def record_payment(
         notes=payload.notes,
         received_by=user.id,
         received_at=dt.datetime.now(dt.timezone.utc),
-        business_date=dt.date.today(),
+        business_date=business_date,
     )
     session.add(payment)
 

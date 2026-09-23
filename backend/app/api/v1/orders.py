@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.models import Folio, FolioItem, MenuItem, Order, OrderItem, ReservationRoom, User
 from app.models.enums import ChargeCategory, FolioStatus, OrderStatus, OrderType, ReservationStatus
 from app.schemas.orders import OrderIn, OrderOut
+from app.services.business_day import current_business_date
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(prefix="/orders", tags=["commandes"])
@@ -70,6 +71,7 @@ async def create_order(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "room_id est obligatoire pour un room service."
         )
 
+    business_date = await current_business_date(session, user.hotel_id)
     order = Order(
         hotel_id=user.hotel_id,
         number=await _next_order_number(session, user.hotel_id),
@@ -80,7 +82,7 @@ async def create_order(
         room_id=payload.room_id,
         guest_id=payload.guest_id,
         covers=payload.covers,
-        business_date=dt.date.today(),
+        business_date=business_date,
         opened_at=dt.datetime.now(dt.timezone.utc),
         notes=payload.notes,
     )
@@ -244,7 +246,11 @@ async def serve_order(
                 amount=order.total,
                 tax_amount=order.tax_total,
                 tax_rate=0,
-                business_date=dt.date.today(),
+                # La charge appartient a la journee hoteliere de la commande,
+                # pas a celle du moment ou le serveur la reporte : une
+                # commande ouverte a 23 h et servie a 0 h 30 reste sur la
+                # meme journee, comme l'addition papier.
+                business_date=order.business_date,
                 source_table="orders",
                 source_id=order.id,
                 posted_by=user.id,

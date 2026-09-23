@@ -58,14 +58,39 @@ atrium/
 ```bash
 cd backend
 .venv/Scripts/activate            # Windows
-cp .env.example .env              # puis renseigner DATABASE_URL
+cp .env.example .env              # puis renseigner DATABASE_URL et SECRET_KEY
 
 alembic upgrade head              # crée le schéma
-uvicorn app.main:app --reload     # (à venir)
+uvicorn app.main:app --reload
+pytest                            # tests purs, sans base
 ```
 
+**Le `.env` est obligatoire.** `SECRET_KEY` n'a pas de valeur par défaut : sans
+elle, le serveur refuse de démarrer avec un message qui dit quoi faire. Une clé
+par défaut connue de tous rendrait les jetons JWT forgeables par quiconque a lu
+le dépôt. La générer avec :
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Hors `ENV=dev`, une valeur d'exemple ou de moins de 32 caractères est refusée.
+
 **Prérequis : PostgreSQL 13 ou supérieur** (`gen_random_uuid()` en natif).
-Non installé sur la machine de développement à ce jour.
+PostgreSQL 18 est installé sur la machine de développement ; le service
+`postgresql-x64-18` doit être démarré. Les migrations n'ont pas encore été
+jouées contre une vraie base.
+
+Tests :
+
+```bash
+pytest                            # tests purs uniquement
+TEST_DATABASE_URL=postgresql+asyncpg://... pytest   # + tests marqués `db`
+```
+
+Les tests marqués `@pytest.mark.db` sont ignorés tant que `TEST_DATABASE_URL`
+est absent, pour qu'un `pytest` sur une machine sans base reste vert au lieu de
+produire des erreurs de connexion qu'on apprend vite à ignorer.
 
 Migrations :
 
