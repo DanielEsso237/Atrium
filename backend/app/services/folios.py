@@ -53,6 +53,7 @@ async def recompute_totals(session: AsyncSession, folio: Folio) -> None:
             )
         ).where(Payment.folio_id == folio.id, Payment.deleted_at.is_(None))
     )
-    folio.charges_total = charges or 0
-    folio.payments_total = payments or 0
+    # SUM(bigint) renvoie un numeric (Decimal) : on reste en francs entiers.
+    folio.charges_total = int(charges or 0)
+    folio.payments_total = int(payments or 0)
     folio.balance = folio.charges_total - folio.payments_total

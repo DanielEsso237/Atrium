@@ -50,7 +50,9 @@ async def _expected_cash(session: AsyncSession, cash_session: CashSession) -> in
             Payment.deleted_at.is_(None),
         )
     )
-    return cash_session.opening_float + (cash_in or 0)
+    # SUM(bigint) renvoie un numeric (Decimal) : int() pour les montants
+    # entiers du projet et pour la serialisation JSON du rapport de shift.
+    return cash_session.opening_float + int(cash_in or 0)
 
 
 @router.post("", response_model=CashSessionOut, status_code=status.HTTP_201_CREATED)
