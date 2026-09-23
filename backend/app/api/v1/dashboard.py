@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
@@ -10,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_session
+from app.services.business_day import current_business_date
 from app.models import HousekeepingTask, Reservation, ReservationRoom, User
 from app.models.enums import ReservationStatus, TaskStatus
 from app.schemas.dashboard import DashboardSummary, OccupancySummary, RevenueByCategory
@@ -29,7 +29,7 @@ async def get_summary(
     Ouvert a tout utilisateur connecte : c'est l'ecran d'accueil de tout le
     monde sur tablette, pas un rapport reserve a la direction.
     """
-    today = dt.date.today()
+    today = await current_business_date(session, user.hotel_id)
 
     occ_row = (
         await session.execute(
