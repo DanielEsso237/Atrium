@@ -1,6 +1,6 @@
 /// Routes de l'application.
 ///
-/// Trois ecrans pour l'instant. La redirection vers la connexion est posee au
+/// Les ecrans de l'application. La redirection vers la connexion est posee au
 /// niveau du routeur et non dans chaque ecran : sur une tablette en mode
 /// kiosque, un ecran accessible sans session serait une porte ouverte.
 library;
@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/guests/guests_screen.dart';
 import '../features/rooms/room_board_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -49,6 +50,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/chambres',
         builder: (_, _) => const RoomBoardScreen(),
+      ),
+      GoRoute(
+        path: '/clients',
+        builder: (_, _) => const GuestsScreen(),
       ),
     ],
   );
