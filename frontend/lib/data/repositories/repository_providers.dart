@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database_provider.dart';
 import '../remote/remote_providers.dart';
+import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
@@ -16,6 +17,10 @@ import 'sync_repository.dart';
 
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),
+);
+
+final folioRepositoryProvider = Provider<FolioRepository>(
+  (ref) => FolioRepository(ref.watch(databaseProvider)),
 );
 
 final reservationRepositoryProvider = Provider<ReservationRepository>(

@@ -298,7 +298,7 @@ class _Modules extends StatelessWidget {
       (Icons.build_outlined, 'Maintenance', null),
       (Icons.cleaning_services_outlined, 'Housekeeping', null),
       (Icons.people_outline, 'Clients', '/clients'),
-      (Icons.receipt_long_outlined, 'Factures', null),
+      (Icons.receipt_long_outlined, 'Factures', '/factures'),
     ];
 
     return _Grille(
