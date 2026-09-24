@@ -1,8 +1,16 @@
 /// Ecran de connexion.
 ///
-/// Deux voies, comme le prevoit le paragraphe 6.2 : le code agent avec un
-/// pave numerique pour le PIN (l'usage courant en service, gants ou mains
-/// occupees), et la saisie classique pour l'administration.
+/// Deux voies, comme le prevoit le paragraphe 6.2 :
+///
+/// - **le code PIN**, l'usage courant en service. Dix agents se succedent sur
+///   la meme tablette de comptoir ; un pave numerique se tape vite, souvent
+///   sans regarder, et parfois avec des gants.
+/// - **le mot de passe**, pour l'administration et les ecrans de direction,
+///   ou la session dure la journee et ou le secret doit etre plus solide que
+///   quatre chiffres.
+///
+/// Le meme code agent sert aux deux : c'est le secret qui change, pas
+/// l'identite.
 library;
 
 import 'package:flutter/material.dart';
@@ -14,6 +22,8 @@ import '../../data/local/seed_activity.dart';
 import 'auth_locale.dart';
 import 'session.dart';
 
+enum _Voie { pin, motDePasse }
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -23,13 +33,17 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _codeAgent = TextEditingController(text: 'ADMIN01');
+  final _motDePasse = TextEditingController();
   String _pin = '';
+  _Voie _voie = _Voie.pin;
+  bool _motDePasseVisible = false;
 
   static const _longueurPin = 4;
 
   @override
   void dispose() {
     _codeAgent.dispose();
+    _motDePasse.dispose();
     super.dispose();
   }
 
@@ -45,13 +59,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _valider() async {
+    final secret = _voie == _Voie.pin ? _pin : _motDePasse.text;
+    if (secret.isEmpty) return;
+
     final ok = await ref.read(sessionProvider.notifier).connecter(
           codeAgent: _codeAgent.text,
-          secret: _pin,
+          secret: secret,
         );
-    // Le PIN se vide apres un echec : reessayer ne doit pas demander
+
+    // Le secret se vide apres un echec : reessayer ne doit pas demander
     // d'effacer quatre fois.
-    if (!ok && mounted) setState(() => _pin = '');
+    if (!ok && mounted) {
+      setState(() {
+        _pin = '';
+        _motDePasse.clear();
+      });
+    }
+  }
+
+  void _changerDeVoie(_Voie voie) {
+    if (voie == _voie) return;
+    setState(() {
+      _voie = voie;
+      _pin = '';
+      _motDePasse.clear();
+    });
   }
 
   @override
@@ -93,14 +125,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   style: const TextStyle(fontSize: 20, letterSpacing: 1.5),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-                _Pastilles(saisis: _pin.length, total: _longueurPin),
-                const SizedBox(height: 8),
+                _ChoixVoie(voie: _voie, onChange: _changerDeVoie),
+                const SizedBox(height: 20),
 
                 if (session.echec != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       _messageEchec(session.echec!),
                       textAlign: TextAlign.center,
@@ -112,18 +144,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
 
-                _PaveNumerique(
-                  onChiffre: _chiffre,
-                  onEffacer: _effacer,
-                  actif: !session.enCours,
-                ),
+                if (_voie == _Voie.pin) ...[
+                  _Pastilles(saisis: _pin.length, total: _longueurPin),
+                  const SizedBox(height: 16),
+                  _PaveNumerique(
+                    onChiffre: _chiffre,
+                    onEffacer: _effacer,
+                    actif: !session.enCours,
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: _motDePasse,
+                    obscureText: !_motDePasseVisible,
+                    autofillHints: const [AutofillHints.password],
+                    onSubmitted: (_) => _valider(),
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        iconSize: 26,
+                        tooltip: _motDePasseVisible ? 'Masquer' : 'Afficher',
+                        icon: Icon(
+                          _motDePasseVisible
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _motDePasseVisible = !_motDePasseVisible,
+                        ),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 19),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: session.enCours ? null : _valider,
+                    child: session.enCours
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          )
+                        : const Text('Se connecter'),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
                 // Rappel du jeu de demonstration. Disparaitra avec la vraie
                 // authentification : il n'a de sens que tant qu'aucun serveur
                 // ne delivre de jeton.
                 Text(
-                  'Demonstration — ADMIN01 ou RECEP01, code $pinDemo',
+                  'Demonstration — ADMIN01 ou RECEP01\n'
+                  'code $pinDemo, mot de passe $motDePasseDemo',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 15, color: schema.outline),
                 ),
@@ -138,8 +210,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _messageEchec(EchecConnexion echec) => switch (echec) {
         EchecConnexion.utilisateurInconnu => 'Code agent inconnu.',
         EchecConnexion.compteDesactive => 'Ce compte est desactive.',
-        EchecConnexion.secretInvalide => 'Code incorrect.',
+        EchecConnexion.secretInvalide => _voie == _Voie.pin
+            ? 'Code incorrect.'
+            : 'Mot de passe incorrect.',
       };
+}
+
+class _ChoixVoie extends StatelessWidget {
+  const _ChoixVoie({required this.voie, required this.onChange});
+
+  final _Voie voie;
+  final void Function(_Voie) onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<_Voie>(
+      segments: const [
+        ButtonSegment(
+          value: _Voie.pin,
+          icon: Icon(Icons.dialpad),
+          label: Text('Code PIN'),
+        ),
+        ButtonSegment(
+          value: _Voie.motDePasse,
+          icon: Icon(Icons.password),
+          label: Text('Mot de passe'),
+        ),
+      ],
+      selected: {voie},
+      onSelectionChanged: (s) => onChange(s.first),
+      style: ButtonStyle(
+        textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 16)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
 }
 
 class _Pastilles extends StatelessWidget {
