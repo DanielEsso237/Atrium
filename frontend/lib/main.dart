@@ -15,7 +15,7 @@ import 'core/theme.dart';
 import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
 import 'data/local/seed.dart';
-import 'data/local/seed_activity.dart';
+import 'data/local/seed_accounts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +25,7 @@ Future<void> main() async {
   // Les deux jeux sont idempotents (`insertOnConflictUpdate`) : les rejouer a
   // chaque demarrage rafraichit le parametrage sans rien dupliquer.
   await seedDemoData(db);
-  await seedDemoActivity(db);
+  await seedAccounts(db);
 
   runApp(
     ProviderScope(
