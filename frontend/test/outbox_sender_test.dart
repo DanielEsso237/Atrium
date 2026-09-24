@@ -220,6 +220,51 @@ void main() {
     expect(premiere.lastError, 'champ manquant');
   });
 
+  group('ce que le passage apprend de l\'etat du reseau', () {
+    test('une file vide n\'apprend rien : ni en ligne, ni hors ligne', () async {
+      final rapport = await OutboxSender(db: db, api: _FauxApi()).drain();
+
+      // Aucune requete n'est partie. Repondre « en ligne » ici afficherait un
+      // indicateur vert a une tablette debranchee.
+      expect(rapport.joignable, isNull);
+    });
+
+    test('une ecriture passee prouve que le serveur repond', () async {
+      await creerClient();
+      final rapport = await OutboxSender(db: db, api: _FauxApi()).drain();
+
+      expect(rapport.joignable, isTrue);
+    });
+
+    test('un refus prouve aussi que le serveur repond', () async {
+      await creerClient();
+      final rapport = await OutboxSender(
+        db: db,
+        api: _FauxApi(
+          echec: const ApiException(ApiFailure.invalid, 'champ manquant'),
+        ),
+      ).drain();
+
+      // Le serveur a dit non : il est donc bien joignable. Confondre un refus
+      // avec une coupure ferait afficher « hors ligne » a une tablette
+      // parfaitement connectee, et cacherait le vrai probleme.
+      expect(rapport.arret, DrainStop.bloque);
+      expect(rapport.joignable, isTrue);
+    });
+
+    test('une coupure se distingue d\'un refus', () async {
+      await creerClient();
+      final rapport = await OutboxSender(
+        db: db,
+        api: _FauxApi(
+          echec: const ApiException(ApiFailure.offline, 'injoignable'),
+        ),
+      ).drain();
+
+      expect(rapport.joignable, isFalse);
+    });
+  });
+
   test('renvoyer apres un acquittement perdu ne renvoie rien', () async {
     await creerClient();
     final api = _FauxApi();

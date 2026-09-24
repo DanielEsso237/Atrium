@@ -89,6 +89,26 @@ class DrainReport {
 
   bool get tout => arret == DrainStop.termine;
 
+  /// Le serveur a-t-il repondu ? `null` quand on ne peut pas savoir.
+  ///
+  /// Une file vide ne fait partir aucune requete : le passage reussit sans
+  /// rien apprendre de l'etat du reseau. Confondre ce cas avec « en ligne »
+  /// ferait afficher un indicateur vert a une tablette debranchee, ce qui est
+  /// pire que pas d'indicateur du tout.
+  bool? get joignable {
+    if (envoyees > 0) return true;
+    switch (arret) {
+      // Un refus vient du serveur : il a donc bien repondu.
+      case DrainStop.bloque:
+      case DrainStop.sessionInvalide:
+        return true;
+      case DrainStop.horsLigne:
+        return false;
+      case DrainStop.termine:
+        return null;
+    }
+  }
+
   @override
   String toString() =>
       'DrainReport($envoyees envoyees, $restantes restantes, $arret'

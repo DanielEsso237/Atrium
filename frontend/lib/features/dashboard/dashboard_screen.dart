@@ -15,6 +15,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
 import '../auth/session.dart';
+import '../sync/sync_status.dart';
 
 final dashboardProvider = StreamProvider<DashboardSummary>(
   (ref) => ref.watch(databaseProvider).watchDashboard(),
@@ -44,28 +45,38 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
           if (session.estConnecte) ...[
-            // Dire honnetement qui a authentifie l'agent. Une tablette qui
-            // travaille hors ligne doit le montrer au moment ou ca arrive,
-            // pas le laisser decouvrir en fin de service.
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: Tooltip(
-                  message: session.online
-                      ? 'Authentifie par le serveur central'
-                      : 'Serveur injoignable — authentifie par cette tablette',
-                  child: Chip(
-                    avatar: Icon(
-                      session.online ? Icons.cloud_done : Icons.cloud_off,
-                      size: 20,
+            // Dire honnetement ou en est la tablette. L'etat vient du dernier
+            // echange, pas de la connexion : sinon un agent doit se
+            // deconnecter et se reconnecter pour que l'application remarque
+            // que le serveur est revenu, ce que personne ne fera en service.
+            // Tant qu'aucun echange n'a rien appris, on retombe sur ce que
+            // disait l'authentification.
+            Builder(
+              builder: (context) {
+                final enLigne = ref.watch(syncProvider).joignable ?? session.online;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Center(
+                    child: Tooltip(
+                      message: enLigne
+                          ? 'Dernier echange avec le serveur : reussi'
+                          : 'Serveur injoignable — la tablette travaille seule '
+                                'et garde ses ecritures',
+                      child: Chip(
+                        avatar: Icon(
+                          enLigne ? Icons.cloud_done : Icons.cloud_off,
+                          size: 20,
+                        ),
+                        label: Text(enLigne ? 'En ligne' : 'Hors ligne'),
+                        backgroundColor: enLigne
+                            ? null
+                            : Theme.of(context).colorScheme.tertiaryContainer,
+                      ),
                     ),
-                    label: Text(session.online ? 'En ligne' : 'Hors ligne'),
-                    backgroundColor: session.online
-                        ? null
-                        : Theme.of(context).colorScheme.tertiaryContainer,
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
           if (session.estConnecte)
