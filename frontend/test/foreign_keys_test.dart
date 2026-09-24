@@ -32,7 +32,9 @@ void main() {
   });
   tearDown(() async => db.close());
 
-  Future<void> insertHotel() => db.into(db.hotels).insert(
+  Future<void> insertHotel() => db
+      .into(db.hotels)
+      .insert(
         HotelsCompanion.insert(
           id: hotelId,
           createdAt: now,
@@ -43,23 +45,23 @@ void main() {
       );
 
   FoliosCompanion folio() => FoliosCompanion.insert(
-        id: folioId,
-        createdAt: now,
-        updatedAt: now,
-        hotelId: hotelId,
-        number: 'F-0001',
-      );
+    id: folioId,
+    createdAt: now,
+    updatedAt: now,
+    hotelId: hotelId,
+    number: 'F-0001',
+  );
 
   FolioItemsCompanion folioItem() => FolioItemsCompanion.insert(
-        id: itemId,
-        createdAt: now,
-        updatedAt: now,
-        folioId: folioId,
-        category: ChargeCategory.FNB,
-        label: 'Cafe',
-        businessDate: '2026-09-15',
-        amount: const Value(500),
-      );
+    id: itemId,
+    createdAt: now,
+    updatedAt: now,
+    folioId: folioId,
+    category: ChargeCategory.FNB,
+    label: 'Cafe',
+    businessDate: '2026-09-15',
+    amount: const Value(500),
+  );
 
   test('une charge sans folio est refusee', () async {
     await insertHotel();
