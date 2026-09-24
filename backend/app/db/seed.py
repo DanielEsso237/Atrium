@@ -137,6 +137,16 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_READ),
     (RECEPTION_ROLE, RESERVATION_MANAGE),
     (RECEPTION_ROLE, FOLIO_READ),
+    # Porter des charges fait partie du metier de la reception, et le check-in
+    # en porte deja une tout seul : la nuitee arrive sur l'ardoise au moment
+    # de l'arrivee. Sans ce droit, un receptionniste produisait des ecritures
+    # que le serveur lui refusait ensuite -- 403 a chaque tentative de
+    # remontee, et une file bloquee derriere.
+    #
+    # `folio.discount` reste hors de sa portee : c'est la remise, pas la
+    # charge, qui demande un second regard. La separation reception / caisse
+    # se joue la, pas sur le fait de facturer une nuit.
+    (RECEPTION_ROLE, FOLIO_WRITE),
     (RECEPTION_ROLE, PRINT_REPRINT),
     (MANAGER_ROLE, USERS_READ),
     (RESTAURANT_ROLE, RESTAURANT_READ),
