@@ -8,6 +8,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database_provider.dart';
+import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
@@ -37,5 +38,13 @@ final syncRepositoryProvider = Provider<SyncRepository>(
   (ref) => SyncRepository(
     ref.watch(databaseProvider),
     ref.watch(catalogApiProvider),
+  ),
+);
+
+/// Montee des ecritures locales vers le serveur.
+final outboxSenderProvider = Provider<OutboxSender>(
+  (ref) => OutboxSender(
+    db: ref.watch(databaseProvider),
+    api: ref.watch(apiClientProvider),
   ),
 );
