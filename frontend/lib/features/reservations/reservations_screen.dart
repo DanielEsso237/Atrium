@@ -51,11 +51,41 @@ final reservationFilterProvider =
       ReservationFilterNotifier.new,
     );
 
+/// Texte saisi dans la barre de recherche.
+class ReservationSearch extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void update(String value) => state = value;
+}
+
+final reservationSearchProvider = NotifierProvider<ReservationSearch, String>(
+  ReservationSearch.new,
+);
+
 final reservationsProvider = StreamProvider<List<ReservationSummary>>((ref) {
   final filter = ref.watch(reservationFilterProvider);
+  final search = ref.watch(reservationSearchProvider).trim().toLowerCase();
+
   return ref
       .watch(reservationRepositoryProvider)
-      .watchReservations(statuses: filter.statuses);
+      .watchReservations(statuses: filter.statuses)
+      .map((list) {
+        if (search.isEmpty) return list;
+        // La recherche porte sur ce qu'un receptionniste a sous les yeux ou
+        // au telephone : un nom, une reference, un numero de chambre. Filtrer
+        // ici plutot qu'en SQL garde la requete simple, et une reception ne
+        // manipule jamais assez de lignes pour que ca se sente.
+        return list.where((r) {
+          final champs = [
+            r.guestName,
+            r.reference,
+            r.roomNumber ?? '',
+            r.roomTypeLabel,
+          ].join(' ').toLowerCase();
+          return champs.contains(search);
+        }).toList();
+      });
 });
 
 class ReservationsScreen extends ConsumerWidget {
@@ -77,7 +107,19 @@ class ReservationsScreen extends ConsumerWidget {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
+            child: TextField(
+              onChanged: (v) =>
+                  ref.read(reservationSearchProvider.notifier).update(v),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher un nom, une reference, une chambre…',
+                prefixIcon: Icon(Icons.search),
+              ),
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
             child: Row(
               children: [
                 for (final f in ReservationFilter.values)
@@ -106,7 +148,10 @@ class ReservationsScreen extends ConsumerWidget {
               data: (list) => list.isEmpty
                   ? Center(
                       child: Text(
-                        'Aucune reservation dans ce filtre.',
+                        ref.watch(reservationSearchProvider).trim().isEmpty
+                            ? 'Aucune reservation dans ce filtre.'
+                            : 'Aucune reservation ne correspond a cette '
+                                  'recherche.',
                         style: TextStyle(fontSize: 18, color: schema.outline),
                       ),
                     )
