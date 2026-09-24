@@ -11,6 +11,7 @@ from app.models.enums import ChargeCategory, FolioStatus, FolioType, InvoiceStat
 
 
 class FolioItemIn(BaseModel):
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     category: ChargeCategory
     label: str = Field(min_length=1, max_length=160)
     quantity: int = Field(default=1, ge=1)
@@ -52,6 +53,7 @@ class FolioOut(BaseModel):
 
 
 class PaymentIn(BaseModel):
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     method: PaymentMethod
     amount: int = Field(gt=0, description="FCFA")
     reference: str | None = None

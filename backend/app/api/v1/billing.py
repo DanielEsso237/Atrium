@@ -5,11 +5,12 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import permission_codes, require_permission
+from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import (
     CashSession,
@@ -75,11 +76,15 @@ async def get_folio(
 
 
 @router.post(
-    "/folios/{folio_id}/items", response_model=FolioItemOut, status_code=status.HTTP_201_CREATED
+    "/folios/{folio_id}/items",
+    response_model=FolioItemOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Charge deja enregistree (meme id) : etat actuel"}},
 )
 async def add_folio_item(
     folio_id: uuid.UUID,
     payload: FolioItemIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.write")),
 ) -> FolioItem:
@@ -90,6 +95,15 @@ async def add_folio_item(
     des permissions granulaires plutot qu'un seul controle global sur le folio.
     """
     folio = await _get_folio(session, folio_id, user, for_update=True)
+    # Rejeu avant tout autre controle : une charge renvoyee apres la cloture
+    # du folio a bel et bien ete portee, elle ne doit pas recevoir un 409.
+    if payload.id is not None:
+        existing = await session.get(FolioItem, payload.id)
+        if existing is not None:
+            if existing.folio_id != folio.id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Charge introuvable.")
+            response.status_code = status.HTTP_200_OK
+            return existing
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
     if payload.category == ChargeCategory.DISCOUNT and "folio.discount" not in permission_codes(
@@ -107,6 +121,7 @@ async def add_folio_item(
     tax_amount = amount * payload.tax_rate // 100
     business_date = await current_business_date(session, user.hotel_id)
     item = FolioItem(
+        id=payload.id or uuid7(),
         folio_id=folio.id,
         category=payload.category,
         label=payload.label,
@@ -182,15 +197,31 @@ async def post_stay_nights(
 
 
 @router.post(
-    "/folios/{folio_id}/payments", response_model=FolioOut, status_code=status.HTTP_201_CREATED
+    "/folios/{folio_id}/payments",
+    response_model=FolioOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Paiement deja enregistre (meme id) : etat du folio"}},
 )
 async def record_payment(
     folio_id: uuid.UUID,
     payload: PaymentIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.write")),
 ) -> Folio:
+    """Encaissement. Un paiement rejoue (meme id) n'est jamais compte deux
+
+    fois : 200 avec l'etat actuel du folio, sans rien reecrire.
+    """
     folio = await _get_folio(session, folio_id, user, for_update=True)
+    if payload.id is not None:
+        existing = await session.get(Payment, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id or existing.folio_id != folio.id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Paiement introuvable.")
+            response.status_code = status.HTTP_200_OK
+            await session.refresh(folio, attribute_names=["items"])
+            return folio
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
 
@@ -209,6 +240,7 @@ async def record_payment(
 
     business_date = await current_business_date(session, user.hotel_id)
     payment = Payment(
+        id=payload.id or uuid7(),
         hotel_id=user.hotel_id,
         folio_id=folio.id,
         cash_session_id=cash_session_id,

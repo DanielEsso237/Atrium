@@ -85,6 +85,9 @@ _PERMISSIONS_NEEDED = [
     "stock.read", "stock.write",
     "printing.read", "printing.write",
     "users.read",
+    "guests.read", "guests.write",
+    "reservation.read", "reservation.create", "reservation.manage",
+    "folio.read", "folio.write",
 ]
 
 
