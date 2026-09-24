@@ -21,6 +21,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../sync/sync_status.dart';
 import 'room_detail_panel.dart';
 
 final roomBoardProvider = StreamProvider<List<RoomBoardEntry>>(
@@ -67,7 +68,12 @@ class RoomBoardScreen extends ConsumerWidget {
           onPressed: () => context.go('/'),
         ),
         title: const Text('Plan des chambres'),
-        actions: const [PendingWritesBadge(), SizedBox(width: 16)],
+        actions: [
+          const PendingWritesBadge(),
+          const SizedBox(width: 8),
+          _BoutonRafraichir(),
+          const SizedBox(width: 16),
+        ],
       ),
       body: chambres.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -262,6 +268,50 @@ class _Legende extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Rapatrie le parc depuis le serveur, a la demande.
+///
+/// Un bouton et non un rafraichissement automatique : la reception doit
+/// pouvoir decider quand elle recharge, et surtout voir si ca a marche.
+class _BoutonRafraichir extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sync = ref.watch(syncProvider);
+
+    if (sync.running) {
+      return const Padding(
+        padding: EdgeInsets.all(14),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
+    }
+
+    return IconButton(
+      iconSize: 28,
+      tooltip: 'Rapatrier le parc depuis le serveur',
+      icon: const Icon(Icons.sync),
+      onPressed: () async {
+        final outcome = await ref.read(syncProvider.notifier).refresh();
+        if (!context.mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              outcome.offline
+                  ? "Serveur injoignable — le plan garde les donnees de la tablette."
+                  : outcome.succeeded
+                  ? '${outcome.rooms} chambres rapatriees du serveur.'
+                  : 'Echec : ${outcome.error}',
+            ),
+          ),
+        );
+      },
     );
   }
 }
