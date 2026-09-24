@@ -61,11 +61,14 @@ void main() {
     }
   });
 
-  test('chacun ouvre sur son outil de travail', () async {
+  test('tout le monde ouvre sur le tableau de bord', () async {
+    // Ouvrir directement sur un ecran fait gagner un clic a celui qui y
+    // allait, et en coute un a tous les autres. Le mecanisme reste en place
+    // pour un metier qui n'aura qu'un seul ecran.
     final reception = await accessProfileFor(db, await idDe('RECEP01'));
     final admin = await accessProfileFor(db, await idDe('ADMIN01'));
 
-    expect(reception.homeRoute, '/chambres');
+    expect(reception.homeRoute, '/');
     expect(admin.homeRoute, '/');
   });
 

@@ -60,7 +60,15 @@ typedef _RoleDemo = (String id, String code, String label, String? accueil);
 
 const _roles = <_RoleDemo>[
   (_roleAdmin, 'ADMIN', 'Administrateur', '/'),
-  (_roleReception, 'RECEPTION', 'Reception', '/chambres'),
+  // La reception ouvre sur le tableau de bord, pas sur le plan des chambres.
+  // Ouvrir directement sur un ecran fait gagner un clic a celui qui allait y
+  // aller, et en coute un a tous les autres : il faut revenir en arriere pour
+  // atteindre les clients, les reservations ou les factures. Le tableau de
+  // bord est le carrefour, c'est de la qu'on part.
+  //
+  // La colonne garde son sens pour un metier qui n'a qu'un ecran -- le
+  // housekeeping le jour ou il existera.
+  (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
   ('01920000-0000-7000-8000-000000004004', 'RESTAURANT', 'Restauration', null),
   (
