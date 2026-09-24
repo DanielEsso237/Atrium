@@ -58,7 +58,7 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     # --- Base de donnees ---
-    database_url: str = "postgresql+asyncpg://atrium:change-me@localhost:5432/atrium"
+    database_url: str = "postgresql+asyncpg://atrium:kusakabe@localhost:5432/atrium"
 
     @property
     def sync_database_url(self) -> str:

@@ -53,11 +53,18 @@ async def _create_or_422(session: AsyncSession, obj) -> None:
 @router.get(
     "/printers",
     response_model=list[PrinterOut],
-    dependencies=[Depends(require_permission("printing.read"))],
 )
-async def list_printers(session: AsyncSession = Depends(get_session)) -> list[Printer]:
+async def list_printers(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("printing.read")),
+) -> list[Printer]:
     result = await session.execute(
-        select(Printer).where(Printer.deleted_at.is_(None)).order_by(Printer.logical_name)
+        select(Printer)
+        .where(
+            Printer.hotel_id == user.hotel_id,
+            Printer.deleted_at.is_(None),
+        )
+        .order_by(Printer.logical_name)
     )
     return list(result.scalars().all())
 
@@ -102,11 +109,18 @@ async def update_printer(
 @router.get(
     "/document-types",
     response_model=list[DocumentTypeOut],
-    dependencies=[Depends(require_permission("printing.read"))],
 )
-async def list_document_types(session: AsyncSession = Depends(get_session)) -> list[DocumentType]:
+async def list_document_types(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("printing.read")),
+) -> list[DocumentType]:
     result = await session.execute(
-        select(DocumentType).where(DocumentType.deleted_at.is_(None)).order_by(DocumentType.label)
+        select(DocumentType)
+        .where(
+            DocumentType.hotel_id == user.hotel_id,
+            DocumentType.deleted_at.is_(None),
+        )
+        .order_by(DocumentType.label)
     )
     return list(result.scalars().all())
 
@@ -131,12 +145,17 @@ async def create_document_type(
 @router.get(
     "/print-routes",
     response_model=list[PrintRouteOut],
-    dependencies=[Depends(require_permission("printing.read"))],
 )
-async def list_print_routes(session: AsyncSession = Depends(get_session)) -> list[PrintRoute]:
+async def list_print_routes(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("printing.read")),
+) -> list[PrintRoute]:
     result = await session.execute(
         select(PrintRoute)
-        .where(PrintRoute.deleted_at.is_(None))
+        .where(
+            PrintRoute.hotel_id == user.hotel_id,
+            PrintRoute.deleted_at.is_(None),
+        )
         .order_by(PrintRoute.document_type_id, PrintRoute.priority.desc())
     )
     return list(result.scalars().all())
@@ -167,14 +186,17 @@ async def create_print_route(
 @router.get(
     "/document-templates",
     response_model=list[DocumentTemplateOut],
-    dependencies=[Depends(require_permission("printing.read"))],
 )
 async def list_document_templates(
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("printing.read")),
 ) -> list[DocumentTemplate]:
     result = await session.execute(
         select(DocumentTemplate)
-        .where(DocumentTemplate.deleted_at.is_(None))
+        .where(
+            DocumentTemplate.hotel_id == user.hotel_id,
+            DocumentTemplate.deleted_at.is_(None),
+        )
         .order_by(DocumentTemplate.document_type_id, DocumentTemplate.version.desc())
     )
     return list(result.scalars().all())

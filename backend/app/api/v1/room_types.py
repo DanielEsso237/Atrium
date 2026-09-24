@@ -19,16 +19,20 @@ router = APIRouter(prefix="/room-types", tags=["types de chambres"])
 @router.get(
     "",
     response_model=list[RoomTypeOut],
-    dependencies=[Depends(require_permission("room_types.read"))],
 )
-async def list_room_types(session: AsyncSession = Depends(get_session)) -> list[RoomType]:
+async def list_room_types(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("room_types.read")),
+) -> list[RoomType]:
     result = await session.execute(
         select(RoomType)
-        .where(RoomType.deleted_at.is_(None))
+        .where(
+            RoomType.hotel_id == user.hotel_id,
+            RoomType.deleted_at.is_(None),
+        )
         .order_by(RoomType.sort_order, RoomType.label)
     )
     return list(result.scalars().all())
-
 
 @router.post(
     "",
