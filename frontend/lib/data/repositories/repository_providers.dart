@@ -8,9 +8,11 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database_provider.dart';
+import '../remote/remote_providers.dart';
 import 'guest_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
+import 'sync_repository.dart';
 
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),
@@ -23,4 +25,12 @@ final reservationRepositoryProvider = Provider<ReservationRepository>(
 /// Nombre d'ecritures qui attendent de remonter au serveur.
 final pendingWritesProvider = StreamProvider<int>(
   (ref) => ref.watch(databaseProvider).watchPendingCount(),
+);
+
+/// Descente des donnees du serveur vers Drift.
+final syncRepositoryProvider = Provider<SyncRepository>(
+  (ref) => SyncRepository(
+    ref.watch(databaseProvider),
+    ref.watch(catalogApiProvider),
+  ),
 );

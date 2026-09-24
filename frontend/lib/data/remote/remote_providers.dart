@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
 import 'auth_api.dart';
+import 'catalog_api.dart';
 import 'token_store.dart';
 
 /// Adresse du serveur central.
@@ -32,4 +33,8 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final authApiProvider = Provider<AuthApi>(
   (ref) => AuthApi(ref.watch(apiClientProvider), ref.watch(tokenStoreProvider)),
+);
+
+final catalogApiProvider = Provider<CatalogApi>(
+  (ref) => CatalogApi(ref.watch(apiClientProvider)),
 );

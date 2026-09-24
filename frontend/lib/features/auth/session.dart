@@ -5,12 +5,15 @@
 /// la trace (`online`), pour que l'interface puisse le dire honnetement.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/remote/remote_providers.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../sync/sync_status.dart';
 import 'auth_locale.dart';
 
 final authLocaleProvider = Provider<AuthLocale>(
@@ -86,6 +89,13 @@ class SessionNotifier extends Notifier<SessionState> {
 
     if (resultat.succeeded) {
       state = SessionState(agent: resultat.user, online: resultat.online);
+
+      // Connexion en ligne : on rapatrie le referentiel dans la foulee, sans
+      // attendre. L'ecran s'affiche tout de suite avec ce que la base
+      // contient deja, et se repeint quand les vraies donnees arrivent.
+      if (resultat.online) {
+        unawaited(ref.read(syncProvider.notifier).refresh());
+      }
       return true;
     }
 
