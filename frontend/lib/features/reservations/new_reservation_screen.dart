@@ -12,7 +12,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
-import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/repositories/repository_providers.dart';
