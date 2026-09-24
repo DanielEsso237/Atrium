@@ -12,6 +12,9 @@ import 'package:atrium/data/local/queries/rooms_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/local/seed_activity.dart';
 import 'package:atrium/features/auth/auth_locale.dart';
+// Import restreint : drift exporte aussi un `isNull`, qui masquerait celui
+// de `matcher` et casserait les `expect(..., isNull)` de ce fichier.
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -162,6 +165,29 @@ void main() {
       expect(resultat.echec, EchecConnexion.utilisateurInconnu);
     });
 
+    test('le mot de passe ouvre aussi la session', () async {
+      // Deux voies pour la meme identite : le PIN en service, le mot de passe
+      // pour l'administration (cahier des charges 6.2).
+      final resultat = await AuthLocale(db).connecter(
+        codeAgent: 'ADMIN01',
+        secret: motDePasseDemo,
+      );
+
+      expect(resultat.estReussie, isTrue);
+    });
+
+    test('le PIN ne passe pas pour un mot de passe, et inversement', () async {
+      final auth = AuthLocale(db);
+
+      // Les deux empreintes sont distinctes : une saisie qui vaut pour l'une
+      // ne doit pas ouvrir l'autre par accident.
+      expect(pinDemo, isNot(motDePasseDemo));
+      expect(
+        (await auth.connecter(codeAgent: 'ADMIN01', secret: 'ChangeMe')).echec,
+        EchecConnexion.secretInvalide,
+      );
+    });
+
     test('une vraie empreinte serveur ne peut pas etre validee hors ligne', () {
       // Garde-fou : le jour ou de vraies empreintes bcrypt arriveront sans que
       // ce stub ait ete remplace, la connexion doit echouer bruyamment plutot
@@ -171,6 +197,61 @@ void main() {
       expect(AuthLocale.verifierSecret('1234', bcrypt), isFalse);
       expect(AuthLocale.verifierSecret('', bcrypt), isFalse);
       expect(AuthLocale.verifierSecret('1234', null), isFalse);
+    });
+  });
+
+  group('roles', () {
+    test('les sept roles du serveur sont semes', () async {
+      final roles = await db.select(db.roles).get();
+      expect(roles, hasLength(7));
+      expect(
+        roles.map((r) => r.code),
+        containsAll(['ADMIN', 'RECEPTION', 'HOUSEKEEPING', 'MANAGER']),
+      );
+    });
+
+    test('chaque compte de demonstration porte un role', () async {
+      final liens = await db.select(db.userRoles).get();
+      expect(liens, hasLength(2));
+    });
+
+    test('la reception et l administration n ouvrent pas au meme endroit',
+        () async {
+      // C'est le paragraphe 3.4 : une seule application, des interfaces
+      // differentes selon le metier.
+      Future<String?> accueil(String code) async {
+        final r = await (db.select(db.roles)..where((t) => t.code.equals(code)))
+            .getSingle();
+        return r.homeRoute;
+      }
+
+      expect(await accueil('ADMIN'), '/');
+      expect(await accueil('RECEPTION'), '/chambres');
+    });
+
+    test('la reception a moins de droits que l administration', () async {
+      Future<Set<String>> droits(String roleCode) async {
+        final role =
+            await (db.select(db.roles)..where((t) => t.code.equals(roleCode)))
+                .getSingle();
+        final lignes = await db.customSelect(
+          'SELECT p.code FROM role_permissions rp '
+          'JOIN permissions p ON p.id = rp.permission_id '
+          'WHERE rp.role_id = ?1',
+          variables: [Variable.withString(role.id)],
+        ).get();
+        return lignes.map((l) => l.read<String>('code')).toSet();
+      }
+
+      final admin = await droits('ADMIN');
+      final reception = await droits('RECEPTION');
+
+      expect(reception, isNotEmpty);
+      expect(reception.length, lessThan(admin.length));
+      expect(reception, contains('rooms.read'));
+      // La reception ne touche pas au restaurant ni a la maintenance.
+      expect(reception, isNot(contains('order.read')));
+      expect(reception, isNot(contains('maintenance.read')));
     });
   });
 }
