@@ -301,8 +301,8 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
               guestId: guestId,
               status: Value(statut),
               source: const Value(ReservationSource.DIRECT),
-              arrivalDate: dateIso(arrivee),
-              departureDate: dateIso(depart),
+              arrivalDate: formatIsoDate(arrivee),
+              departureDate: formatIsoDate(depart),
               estimatedTotal: Value(tarif * nuits),
               syncState: const Value(SyncState.synced),
             ),
@@ -316,8 +316,8 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
               reservationId: reservationId,
               roomTypeId: typeChambre,
               roomId: Value(_chambre(numero)),
-              arrivalDate: dateIso(arrivee),
-              departureDate: dateIso(depart),
+              arrivalDate: formatIsoDate(arrivee),
+              departureDate: formatIsoDate(depart),
               nightlyRate: Value(tarif),
               status: Value(statut),
               checkedInAt: statut == ReservationStatus.CHECKED_IN
@@ -348,7 +348,7 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
     }
 
     // --- Consommations du jour ------------------------------------------
-    final journee = dateIso(aujourdhui);
+    final journee = formatIsoDate(aujourdhui);
     var rang = 0;
 
     for (final (cleSejour, categorie, libelle, montant) in _charges) {

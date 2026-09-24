@@ -47,7 +47,7 @@ extension DashboardQueries on AtriumDatabase {
   /// bouge sans que personne ne rafraichisse. C'est ce qui donnera le temps
   /// reel du paragraphe 3.2 une fois la synchronisation branchee.
   Stream<DashboardSummary> watchDashboard({DateTime? jour}) {
-    final journee = dateIso(jour ?? DateTime.now());
+    final journee = formatIsoDate(jour ?? DateTime.now());
 
     return customSelect(
       '''

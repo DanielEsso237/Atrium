@@ -215,7 +215,7 @@ class _CarteChambre extends StatelessWidget {
                 ),
               ),
               Text(
-                '${chambre.typeLabel} · ${montantFcfa(chambre.rate)}',
+                '${chambre.typeLabel} · ${formatAmount(chambre.rate)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

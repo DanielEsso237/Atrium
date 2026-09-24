@@ -153,7 +153,7 @@ class _Caracteristiques extends StatelessWidget {
       enfant: Column(
         children: [
           _Ligne(cle: 'Categorie', valeur: chambre.typeLabel),
-          _Ligne(cle: 'Tarif de reference', valeur: montantFcfa(chambre.rate)),
+          _Ligne(cle: 'Tarif de reference', valeur: formatAmount(chambre.rate)),
           _Ligne(cle: 'Etage', valeur: chambre.floorLabel ?? '—'),
           // Les trois axes, affiches separement et non fondus en un seul mot :
           // c'est ce qui permet a la reception et au housekeeping de lire la
@@ -177,8 +177,8 @@ class _Sejour extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final arrivee = dateDepuisIso(sejour.arrivee);
-    final depart = dateDepuisIso(sejour.depart);
+    final arrivee = parseIsoDate(sejour.arrivee);
+    final depart = parseIsoDate(sejour.depart);
 
     return _Bloc(
       titre: 'Sejour en cours',
@@ -187,20 +187,20 @@ class _Sejour extends StatelessWidget {
           _Ligne(cle: 'Client', valeur: sejour.clientNom, gras: true),
           _Ligne(
             cle: 'Arrivee',
-            valeur: arrivee == null ? sejour.arrivee : dateCourte(arrivee),
+            valeur: arrivee == null ? sejour.arrivee : formatShortDate(arrivee),
           ),
           _Ligne(
             cle: 'Depart',
-            valeur: depart == null ? sejour.depart : dateCourte(depart),
+            valeur: depart == null ? sejour.depart : formatShortDate(depart),
           ),
           _Ligne(
             cle: 'Personnes',
             valeur: '${sejour.adultes} adulte(s), ${sejour.enfants} enfant(s)',
           ),
-          _Ligne(cle: 'Tarif de la nuit', valeur: montantFcfa(sejour.tarifNuit)),
+          _Ligne(cle: 'Tarif de la nuit', valeur: formatAmount(sejour.tarifNuit)),
           _Ligne(
             cle: 'Solde de l\'ardoise',
-            valeur: montantFcfa(sejour.soldeArdoise),
+            valeur: formatAmount(sejour.soldeArdoise),
             gras: true,
           ),
         ],
@@ -249,7 +249,7 @@ class _Consommations extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          montantFcfa(l.montant),
+                          formatAmount(l.montant),
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
