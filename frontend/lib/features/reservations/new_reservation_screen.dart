@@ -37,8 +37,7 @@ class NewReservationScreen extends ConsumerStatefulWidget {
 class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
   String? _guestId;
   RoomTypeSummary? _roomType;
-  late DateTime _arrival;
-  late DateTime _departure;
+  DateTimeRange? _dates;
   int _adults = 1;
   int _children = 0;
   int? _rateOverride;
@@ -52,8 +51,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     super.initState();
     _guestId = widget.guestId;
     final today = DateTime.now();
-    _arrival = DateTime(today.year, today.month, today.day);
-    _departure = _arrival.add(const Duration(days: 1));
+    _dates = DateTimeRange(
+      start: DateTime(today.year, today.month, today.day),
+      end: DateTime(today.year, today.month, today.day + 1),
+    );
   }
 
   @override
@@ -62,7 +63,8 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     super.dispose();
   }
 
-  int get _nights => _departure.difference(_arrival).inDays;
+  int get _nights =>
+      _dates == null ? 0 : _dates!.end.difference(_dates!.start).inDays;
 
   /// Le tarif applique : celui saisi, sinon celui de la categorie.
   ///
@@ -72,68 +74,27 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
 
   int get _total => _rate * (_nights < 1 ? 1 : _nights);
 
-  bool get _canSave => _guestId != null && _roomType != null && _nights > 0;
+  bool get _canSave =>
+      _guestId != null && _roomType != null && _dates != null && _nights > 0;
 
-  /// Change la date d'arrivee.
-  ///
-  /// Si le depart devient anterieur ou egal, il suit : un sejour de zero nuit
-  /// n'existe pas, et il serait absurde de laisser la saisie dans un etat
-  /// invalide que l'utilisateur devrait ensuite reparer lui-meme.
-  Future<void> _pickArrival() async {
+  Future<void> _pickDates() async {
     final today = DateTime.now();
-    final picked = await showDatePicker(
+    final range = await showDateRangePicker(
       context: context,
-      initialDate: _arrival,
       firstDate: DateTime(today.year - 1),
       lastDate: DateTime(today.year + 2),
-      helpText: "Date d'arrivee",
-      confirmText: 'Valider',
-      cancelText: 'Annuler',
+      initialDateRange: _dates,
+      helpText: 'Dates du sejour',
+      saveText: 'Valider',
     );
-    if (picked == null) return;
-
-    setState(() {
-      _arrival = picked;
-      if (!_departure.isAfter(_arrival)) {
-        _departure = _arrival.add(const Duration(days: 1));
-      }
-      // Les chambres libres dependent de la periode : une chambre choisie
-      // pour d'autres dates n'a plus de raison de rester selectionnee.
-      _roomId = null;
-    });
-  }
-
-  /// Change la date de depart.
-  ///
-  /// Le calendrier ne s'ouvre qu'a partir du lendemain de l'arrivee : une
-  /// date impossible ne doit meme pas etre proposee.
-  Future<void> _pickDeparture() async {
-    final minimum = _arrival.add(const Duration(days: 1));
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _departure.isBefore(minimum) ? minimum : _departure,
-      firstDate: minimum,
-      lastDate: _arrival.add(const Duration(days: 365)),
-      helpText: 'Date de depart',
-      confirmText: 'Valider',
-      cancelText: 'Annuler',
-    );
-    if (picked == null) return;
-    setState(() {
-      _departure = picked;
-      _roomId = null;
-    });
-  }
-
-  /// Fixe le depart a un nombre de nuits depuis l'arrivee.
-  ///
-  /// La plupart des sejours font une, deux ou sept nuits : un bouton evite
-  /// d'ouvrir un calendrier pour compter sur ses doigts.
-  void _setNights(int nights) {
-    setState(() {
-      _departure = _arrival.add(Duration(days: nights));
-      _roomId = null;
-    });
+    if (range != null) {
+      setState(() {
+        _dates = range;
+        // Les chambres libres dependent de la periode : une chambre choisie
+        // pour d'autres dates n'a plus de raison de rester selectionnee.
+        _roomId = null;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -145,8 +106,8 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
         .create(
           guestId: _guestId!,
           roomTypeId: _roomType!.typeId,
-          arrival: _arrival,
-          departure: _departure,
+          arrival: _dates!.start,
+          departure: _dates!.end,
           nightlyRate: _rate,
           adults: _adults,
           children: _children,
@@ -200,49 +161,18 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
                   title: 'Le sejour',
                   child: Column(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _DateField(
-                              label: 'Arrivee',
-                              icon: Icons.login,
-                              date: _arrival,
-                              onTap: _pickArrival,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _DateField(
-                              label: 'Depart',
-                              icon: Icons.logout,
-                              date: _departure,
-                              onTap: _pickDeparture,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Text(
-                            '$_nights nuit${_nights > 1 ? 's' : ''}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          for (final n in [1, 2, 3, 7])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text('$n nuit${n > 1 ? 's' : ''}'),
-                                selected: _nights == n,
-                                onSelected: (_) => _setNights(n),
-                                labelStyle: const TextStyle(fontSize: 15),
-                              ),
-                            ),
-                        ],
+                      OutlinedButton.icon(
+                        onPressed: _pickDates,
+                        icon: const Icon(Icons.date_range),
+                        label: Text(
+                          _dates == null
+                              ? 'Choisir les dates'
+                              : '${formatShortDate(_dates!.start)}  →  '
+                                    '${formatShortDate(_dates!.end)}'
+                                    '   ·   $_nights nuit'
+                                    '${_nights > 1 ? 's' : ''}',
+                          style: const TextStyle(fontSize: 18),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       roomTypes.when(
@@ -300,11 +230,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                if (_roomType != null)
+                if (_roomType != null && _dates != null)
                   _AvailableRooms(
                     roomTypeId: _roomType!.typeId,
-                    arrival: _arrival,
-                    departure: _departure,
+                    range: _dates!,
                     selected: _roomId,
                     onSelect: (id) => setState(() => _roomId = id),
                   ),
@@ -391,15 +320,13 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
 class _AvailableRooms extends ConsumerWidget {
   const _AvailableRooms({
     required this.roomTypeId,
-    required this.arrival,
-    required this.departure,
+    required this.range,
     required this.selected,
     required this.onSelect,
   });
 
   final String roomTypeId;
-  final DateTime arrival;
-  final DateTime departure;
+  final DateTimeRange range;
   final String? selected;
   final void Function(String?) onSelect;
 
@@ -414,8 +341,8 @@ class _AvailableRooms extends ConsumerWidget {
             .read(reservationRepositoryProvider)
             .availableRooms(
               roomTypeId: roomTypeId,
-              arrival: arrival,
-              departure: departure,
+              arrival: range.start,
+              departure: range.end,
             ),
         builder: (context, snap) {
           if (!snap.hasData) return const LinearProgressIndicator();
@@ -462,71 +389,6 @@ class _AvailableRooms extends ConsumerWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Une date, presentee comme un champ plutot qu'un bouton.
-///
-/// Le libelle reste visible au-dessus de la valeur : sur une tablette, un
-/// bouton portant « 24/09/2026 » sans etiquette ne dit pas s'il s'agit de
-/// l'arrivee ou du depart.
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.icon,
-    required this.date,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final DateTime date;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          decoration: BoxDecoration(
-            border: Border.all(color: schema.outline),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: schema.primary, size: 26),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(fontSize: 14, color: schema.outline),
-                    ),
-                    Text(
-                      formatShortDate(date),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.edit_calendar_outlined, color: schema.outline),
-            ],
-          ),
-        ),
       ),
     );
   }
