@@ -131,4 +131,122 @@ void main() {
     )..where((f) => f.id.equals(folioId))).getSingle();
     expect(folio.chargesTotal, 50000);
   });
+
+  group('encaisser', () {
+    Future<int> solde() async {
+      final f = await (db.select(
+        db.folios,
+      )..where((f) => f.id.equals(folioId))).getSingle();
+      return f.balance;
+    }
+
+    setUp(() async {
+      await repo.addCharge(
+        folioId: folioId,
+        category: ChargeCategory.ROOM,
+        label: 'Nuitee',
+        unitPrice: 50000,
+      );
+    });
+
+    test('un encaissement complet solde l ardoise', () async {
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.CASH,
+        amount: 50000,
+      );
+      expect(await solde(), 0);
+    });
+
+    test('on ne peut pas encaisser deux fois la meme facture', () async {
+      // Constate a l usage. Rien ne plantait : le solde passait simplement en
+      // negatif, et l ecart ne se voyait qu a la caisse en fin de service,
+      // sans moyen de savoir quel client avait trop paye.
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.CASH,
+        amount: 50000,
+      );
+
+      await expectLater(
+        repo.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: 50000,
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await solde(), 0, reason: 'le refus ne doit rien avoir ecrit');
+    });
+
+    test('on ne peut pas encaisser plus que le reste du', () async {
+      // Un client qui tend 60 000 pour 50 000 fait enregistrer 50 000 : les
+      // 10 000 rendus sont de la manipulation d especes.
+      await expectLater(
+        repo.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: 60000,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await solde(), 50000);
+    });
+
+    test('deux encaissements partiels sont possibles', () async {
+      // Le cas legitime : le client paie en deux fois, au comptoir.
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.CASH,
+        amount: 30000,
+      );
+      expect(await solde(), 20000);
+
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.MOBILE_MONEY,
+        amount: 20000,
+      );
+      expect(await solde(), 0);
+    });
+
+    test('un montant nul ou negatif est refuse', () async {
+      await expectLater(
+        repo.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: 0,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      await expectLater(
+        repo.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: -5000,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await solde(), 50000);
+    });
+
+    test('une ardoise close n accepte plus rien', () async {
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.CASH,
+        amount: 50000,
+      );
+      await repo.close(folioId);
+
+      await expectLater(
+        repo.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: 1000,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
 }

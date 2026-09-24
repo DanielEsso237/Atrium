@@ -14,11 +14,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
-import '../../data/local/enums.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'charge_labels.dart';
+import 'payment_dialog.dart';
 
 final foliosProvider = StreamProvider<List<FolioSummary>>(
   (ref) => ref.watch(folioRepositoryProvider).watchFolios(),
@@ -395,9 +395,11 @@ class _Actions extends ConsumerWidget {
   }
 
   Future<void> _encaisser(BuildContext context, WidgetRef ref) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => _PaymentDialog(folio: folio),
+    await showPaymentDialog(
+      context,
+      folioId: folio.id,
+      guestName: folio.guestName,
+      balance: folio.balance,
     );
   }
 
@@ -417,115 +419,6 @@ class _Actions extends ConsumerWidget {
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
     }
-  }
-}
-
-class _PaymentDialog extends ConsumerStatefulWidget {
-  const _PaymentDialog({required this.folio});
-
-  final FolioSummary folio;
-
-  @override
-  ConsumerState<_PaymentDialog> createState() => _PaymentDialogState();
-}
-
-class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
-  late final TextEditingController _amount;
-  final _reference = TextEditingController();
-  PaymentMethod _method = PaymentMethod.CASH;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Pre-rempli au solde : le cas courant est qu'on encaisse tout.
-    _amount = TextEditingController(text: '${widget.folio.balance}');
-  }
-
-  @override
-  void dispose() {
-    _amount.dispose();
-    _reference.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final montant = int.tryParse(_amount.text.trim()) ?? 0;
-    if (montant <= 0) return;
-    setState(() => _busy = true);
-
-    await ref
-        .read(folioRepositoryProvider)
-        .addPayment(
-          folioId: widget.folio.id,
-          method: _method,
-          amount: montant,
-          reference: _reference.text.trim().isEmpty
-              ? null
-              : _reference.text.trim(),
-          receivedBy: ref.read(sessionProvider).agent?.id,
-        );
-
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${formatAmount(montant)} encaisse.')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Encaisser — ${widget.folio.guestName}'),
-      content: SizedBox(
-        width: 460,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<PaymentMethod>(
-              initialValue: _method,
-              decoration: const InputDecoration(labelText: 'Moyen'),
-              items: [
-                for (final m in PaymentMethod.values)
-                  DropdownMenuItem(
-                    value: m,
-                    child: Text(paymentMethodLabel(m)),
-                  ),
-              ],
-              onChanged: (v) =>
-                  setState(() => _method = v ?? PaymentMethod.CASH),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amount,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Montant (FCFA)',
-                helperText: 'Reste du : ${formatAmount(widget.folio.balance)}',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _reference,
-              decoration: const InputDecoration(
-                labelText: 'Reference',
-                helperText: 'Numero de transaction, facultatif',
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _save,
-          child: const Text('Encaisser'),
-        ),
-      ],
-    );
   }
 }
 
