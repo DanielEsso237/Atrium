@@ -209,6 +209,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _messageEchec(LoginFailure echec) => switch (echec) {
     LoginFailure.unknownUser => 'Code agent inconnu.',
     LoginFailure.disabledAccount => 'Ce compte est desactive.',
+    LoginFailure.locked =>
+      'Compte verrouille apres cinq echecs. Reessayez dans quinze minutes.',
     LoginFailure.wrongSecret =>
       _voie == _Voie.pin ? 'Code incorrect.' : 'Mot de passe incorrect.',
     // Cas propre au mode hors connexion : le serveur ne repond pas, et cet
