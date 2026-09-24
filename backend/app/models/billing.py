@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,6 +50,14 @@ class Folio(SyncBase, HotelScoped):
     __table_args__ = (
         UniqueConstraint("hotel_id", "number"),
         Index("ix_folios_status", "status"),
+        # Un seul folio vivant par sejour : un check-in relance apres une
+        # coupure reseau ne peut pas en ouvrir un second (migration 0004).
+        Index(
+            "uq_folios_reservation_room_active",
+            "reservation_room_id",
+            unique=True,
+            postgresql_where=text("reservation_room_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
     )
 
     number: Mapped[str] = mapped_column(String(32))
@@ -230,7 +239,17 @@ class CashSession(SyncBase, HotelScoped):
     """
 
     __tablename__ = "cash_sessions"
-    __table_args__ = (Index("ix_cash_sessions_user_status", "user_id", "status"),)
+    __table_args__ = (
+        Index("ix_cash_sessions_user_status", "user_id", "status"),
+        # Une seule session ouverte par caissier, garanti par la base meme
+        # sous deux ouvertures simultanees (migration 0004).
+        Index(
+            "uq_cash_sessions_user_open",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'OPEN' AND deleted_at IS NULL"),
+        ),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT")

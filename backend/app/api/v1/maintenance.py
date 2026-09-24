@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
@@ -21,18 +21,10 @@ from app.schemas.maintenance import (
     MaintenanceTicketOut,
     ResolveIn,
 )
+from app.services.numbering import Scope, next_number
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(prefix="/maintenance-tickets", tags=["maintenance"])
-
-
-async def _next_ticket_number(session: AsyncSession, hotel_id: uuid.UUID) -> str:
-    count = await session.scalar(
-        select(func.count()).select_from(MaintenanceTicket).where(
-            MaintenanceTicket.hotel_id == hotel_id
-        )
-    )
-    return f"TCK-{(count or 0) + 1:06d}"
 
 
 async def _get_ticket(session: AsyncSession, ticket_id: uuid.UUID, user: User) -> MaintenanceTicket:
@@ -74,7 +66,7 @@ async def create_ticket(
     """
     ticket = MaintenanceTicket(
         hotel_id=user.hotel_id,
-        number=await _next_ticket_number(session, user.hotel_id),
+        number=await next_number(session, user.hotel_id, Scope.MAINTENANCE_TICKET),
         status=TicketStatus.OPEN,
         reported_by=user.id,
         reported_at=dt.datetime.now(dt.timezone.utc),

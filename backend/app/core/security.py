@@ -9,6 +9,8 @@ secret.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import secrets
 import uuid
 
 from jose import JWTError, jwt
@@ -36,6 +38,21 @@ def create_access_token(user_id: uuid.UUID) -> str:
     )
     payload = {"sub": str(user_id), "exp": expire, "type": "access"}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def new_refresh_token() -> tuple[str, str]:
+    """Jeton de rafraichissement opaque : (valeur a remettre au client, hachage).
+
+    256 bits aleatoires : un SHA-256 suffit a proteger la table (rien a
+    deviner par force brute, contrairement a un mot de passe), et il se
+    retrouve par egalite -- donc par index -- sans bcrypt ligne a ligne.
+    """
+    plain = secrets.token_urlsafe(32)
+    return plain, hash_refresh_token(plain)
+
+
+def hash_refresh_token(plain: str) -> str:
+    return hashlib.sha256(plain.encode()).hexdigest()
 
 
 def decode_access_token(token: str) -> uuid.UUID | None:

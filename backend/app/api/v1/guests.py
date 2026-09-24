@@ -5,29 +5,16 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
 from app.db.session import get_session
 from app.models import Guest, User
 from app.schemas.guests import GuestIn, GuestOut
+from app.services.numbering import Scope, next_number
 
 router = APIRouter(prefix="/guests", tags=["clients"])
-
-
-async def _next_code(session: AsyncSession, hotel_id: uuid.UUID) -> str:
-    """Code lisible sequentiel (CLI-000001).
-
-    Base sur un COUNT, pas sur une sequence PostgreSQL dediee : suffisant tant
-    que la creation de clients reste a faible concurrence (un seul poste
-    reception a la fois sur l'etablissement pilote). A revoir avec une
-    sequence par hotel si plusieurs postes creent des clients en parallele.
-    """
-    count = await session.scalar(
-        select(func.count()).select_from(Guest).where(Guest.hotel_id == hotel_id)
-    )
-    return f"CLI-{(count or 0) + 1:06d}"
 
 
 @router.get("", response_model=list[GuestOut])
@@ -60,7 +47,7 @@ async def create_guest(
 ) -> Guest:
     guest = Guest(
         hotel_id=user.hotel_id,
-        code=await _next_code(session, user.hotel_id),
+        code=await next_number(session, user.hotel_id, Scope.GUEST),
         **payload.model_dump(),
     )
     session.add(guest)
