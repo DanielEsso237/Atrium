@@ -37,7 +37,9 @@ mixin OutboxWriter {
     required SyncOp operation,
     required Map<String, Object?> payload,
   }) async {
-    await db.into(db.outboxEntries).insert(
+    await db
+        .into(db.outboxEntries)
+        .insert(
           OutboxEntriesCompanion.insert(
             entityTable: table,
             entityId: id,

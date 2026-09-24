@@ -102,6 +102,7 @@ class _Tuiles extends StatelessWidget {
           valeur: '${resume.reservationsActives}',
           detail: 'en cours',
           couleur: CouleursEtat.reservee,
+          route: '/reservations',
         ),
         _Tuile(
           icone: Icons.login_outlined,
@@ -151,8 +152,8 @@ class _Grille extends StatelessWidget {
         final colonnes = contraintes.maxWidth >= 1000
             ? 3
             : contraintes.maxWidth >= 620
-                ? 2
-                : 1;
+            ? 2
+            : 1;
 
         return GridView.count(
           shrinkWrap: true,
@@ -175,6 +176,7 @@ class _Tuile extends StatelessWidget {
     required this.valeur,
     required this.couleur,
     this.detail,
+    this.route,
   });
 
   final IconData icone;
@@ -183,65 +185,76 @@ class _Tuile extends StatelessWidget {
   final String? detail;
   final Color couleur;
 
+  /// Une tuile qui mene quelque part devient cliquable. Les autres restent
+  /// purement informatives — pas de faux bouton.
+  final String? route;
+
   @override
   Widget build(BuildContext context) {
     final schema = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: couleur.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icone, color: couleur, size: 28),
+    final contenu = Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: couleur.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    titre.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 14,
+            child: Icon(icone, color: couleur, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  titre.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: schema.outline,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    valeur,
+                    style: const TextStyle(
+                      fontSize: 30,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: schema.outline,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      valeur,
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                ),
+                if (detail != null)
+                  Text(
+                    detail!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, color: schema.outline),
                   ),
-                  if (detail != null)
-                    Text(
-                      detail!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 15, color: schema.outline),
-                    ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (route != null)
+            Icon(Icons.chevron_right, color: schema.outline, size: 26),
+        ],
       ),
+    );
+
+    if (route == null) return Card(child: contenu);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(onTap: () => context.go(route!), child: contenu),
     );
   }
 }
@@ -330,19 +343,19 @@ class _TuilesSquelette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _Grille(
-        enfants: List.generate(
-          6,
-          (_) => Card(
-            child: Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              ),
-            ),
+    enfants: List.generate(
+      6,
+      (_) => Card(
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 3),
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _Erreur extends StatelessWidget {

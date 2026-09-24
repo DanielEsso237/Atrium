@@ -20,6 +20,7 @@ class ReservationSummary {
     required this.departure,
     required this.status,
     required this.nightlyRate,
+    required this.roomTypeId,
     required this.roomTypeLabel,
     this.roomNumber,
   });
@@ -37,6 +38,7 @@ class ReservationSummary {
   final String departure;
   final ReservationStatus status;
   final int nightlyRate;
+  final String roomTypeId;
   final String roomTypeLabel;
   final String? roomNumber;
 
@@ -46,6 +48,14 @@ class ReservationSummary {
       (status == ReservationStatus.CONFIRMED ||
           status == ReservationStatus.PENDING);
   bool get canCheckOut => status == ReservationStatus.CHECKED_IN;
+}
+
+/// Une chambre libre, proposee a l'attribution.
+class AvailableRoom {
+  const AvailableRoom({required this.id, required this.number});
+
+  final String id;
+  final String number;
 }
 
 class ReservationRepository with OutboxWriter {
@@ -68,6 +78,7 @@ class ReservationRepository with OutboxWriter {
              rr.id AS line_id, rr.arrival_date, rr.departure_date,
              rr.nightly_rate, rr.status AS line_status,
              g.first_name, g.last_name,
+             rr.room_type_id,
              rt.label AS type_label,
              ch.number AS room_number
         FROM reservations r
@@ -110,6 +121,57 @@ class ReservationRepository with OutboxWriter {
           if (statuses == null) return all.toList();
           return all.where((v) => statuses.contains(v.status)).toList();
         });
+  }
+
+  /// Les chambres libres d'une categorie sur une periode.
+  ///
+  /// `availableRoomNumbers` de `rooms_queries.dart` ne renvoie que des
+  /// numeros ; l'attribution a besoin de l'identifiant. Meme test de
+  /// chevauchement, sur un intervalle **semi-ouvert** : un sejour du 12 au 15
+  /// occupe les nuits du 12, 13 et 14 et libere la chambre le 15. Ecrire `<=`
+  /// inventerait un conflit entre un depart et une arrivee le meme jour, soit
+  /// une chambre invendable par jour et par rotation.
+  Future<List<AvailableRoom>> availableRooms({
+    required String roomTypeId,
+    required DateTime arrival,
+    required DateTime departure,
+  }) async {
+    final rows = await db
+        .customSelect(
+          '''
+      SELECT r.id, r.number
+        FROM rooms r
+       WHERE r.room_type_id = ?1
+         AND r.deleted_at IS NULL
+         AND r.is_active = 1
+         AND r.is_out_of_order = 0
+         AND NOT EXISTS (
+               SELECT 1 FROM reservation_rooms rr
+                WHERE rr.room_id = r.id
+                  AND rr.deleted_at IS NULL
+                  AND rr.status IN ('PENDING','CONFIRMED','CHECKED_IN')
+                  AND rr.arrival_date   < ?3
+                  AND rr.departure_date > ?2
+             )
+       ORDER BY r.number
+      ''',
+          variables: [
+            Variable.withString(roomTypeId),
+            Variable.withString(dateIso(arrival)),
+            Variable.withString(dateIso(departure)),
+          ],
+          readsFrom: {db.rooms, db.reservationRooms},
+        )
+        .get();
+
+    return rows
+        .map(
+          (r) => AvailableRoom(
+            id: r.read<String>('id'),
+            number: r.read<String>('number'),
+          ),
+        )
+        .toList();
   }
 
   /// Cree une reservation et sa ligne de sejour.
