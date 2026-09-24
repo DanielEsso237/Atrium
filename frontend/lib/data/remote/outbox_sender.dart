@@ -29,8 +29,6 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'api_client.dart';
 
-const _base = '/api/v1';
-
 /// Les tables que la file sait remonter.
 ///
 /// La liste sert aussi de garde-fou : le nom de table vient de la base et
@@ -46,6 +44,10 @@ const _tablesConnues = {
 };
 
 /// Une requete prete a partir.
+///
+/// `chemin` s'ecrit **sans** `/api/v1` : le prefixe est deja dans le `baseUrl`
+/// du client. L'ajouter ici donnait `/api/v1/api/v1/guests`, donc un 404 sur
+/// la premiere entree, donc toute la file bloquee derriere elle.
 class _Envoi {
   const _Envoi(this.chemin, this.corps);
   final String chemin;
@@ -300,7 +302,7 @@ class OutboxSender {
 
     switch (entree.entityTable) {
       case 'guests':
-        return _Envoi('$_base/guests', _sansNuls({
+        return _Envoi('/guests', _sansNuls({
           'id': p['id'],
           'first_name': p['first_name'],
           'last_name': p['last_name'],
@@ -312,7 +314,7 @@ class OutboxSender {
         }));
 
       case 'reservations':
-        return _Envoi('$_base/reservations', _sansNuls({
+        return _Envoi('/reservations', _sansNuls({
           'id': p['id'],
           'guest_id': p['guest_id'],
           'adults': p['adults'],
@@ -326,7 +328,7 @@ class OutboxSender {
       case 'folio_items':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('$_base/folios/$folioId/items', _sansNuls({
+        return _Envoi('/folios/$folioId/items', _sansNuls({
           'id': p['id'],
           'category': p['category'],
           'label': p['label'],
@@ -337,7 +339,7 @@ class OutboxSender {
       case 'payments':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('$_base/folios/$folioId/payments', _sansNuls({
+        return _Envoi('/folios/$folioId/payments', _sansNuls({
           'id': p['id'],
           'method': p['method'],
           'amount': p['amount'],
@@ -347,7 +349,7 @@ class OutboxSender {
       case 'folios':
         // Seule fermeture pour l'instant ; le folio nait au check-in.
         if (p['status'] != 'CLOSED') return null;
-        return _Envoi('$_base/folios/${p['id']}/close', const {});
+        return _Envoi('/folios/${p['id']}/close', const {});
 
       default:
         return null;
@@ -394,7 +396,7 @@ class OutboxSender {
     if (ligne == null) return null;
 
     final resId = ligne.read<String>('reservation_id');
-    final chemin = '$_base/reservations/$resId/rooms/$lineId';
+    final chemin = '/reservations/$resId/rooms/$lineId';
 
     switch (p['status']) {
       case 'CHECKED_IN':

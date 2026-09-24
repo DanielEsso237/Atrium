@@ -86,12 +86,39 @@ void main() {
     expect(rapport.envoyees, 1);
     expect(await enAttente(), 0);
 
-    expect(api.appels.single.chemin, '/api/v1/guests');
+    expect(api.appels.single.chemin, '/guests');
     expect(api.appels.single.corps['id'], id);
     expect(api.appels.single.corps['first_name'], 'Amadou');
 
     final ligne = await guests.byId(id);
     expect(ligne!.syncState, SyncState.synced);
+  });
+
+  test('aucun chemin ne reecrit le prefixe deja pose par le client', () async {
+    // Vecu : le moteur prefixait `/api/v1` alors que le `baseUrl` du client
+    // le portait deja. Resultat, `/api/v1/api/v1/guests`, un 404 sur la
+    // premiere entree, et toute la file bloquee derriere elle.
+    final guestId = await creerClient();
+    await reservations.create(
+      guestId: guestId,
+      roomTypeId: typeStandard,
+      arrival: DateTime.utc(2026, 9, 20),
+      departure: DateTime.utc(2026, 9, 22),
+      nightlyRate: 25000,
+    );
+
+    final api = _FauxApi();
+    await OutboxSender(db: db, api: api).drain();
+
+    expect(api.appels, isNotEmpty);
+    for (final appel in api.appels) {
+      expect(
+        appel.chemin,
+        isNot(contains('/api/v1')),
+        reason: 'le prefixe vient du baseUrl, pas du moteur',
+      );
+      expect(appel.chemin, startsWith('/'));
+    }
   });
 
   test('le hotel_id local ne part pas : le serveur le deduit du jeton', () async {
@@ -123,7 +150,7 @@ void main() {
     await OutboxSender(db: db, api: api).drain();
 
     final reservation = api.appels.last;
-    expect(reservation.chemin, '/api/v1/reservations');
+    expect(reservation.chemin, '/reservations');
 
     final lignes = reservation.corps['rooms'] as List;
     final ligne = lignes.single as Map<String, Object?>;
@@ -147,7 +174,7 @@ void main() {
 
     expect(
       api.appels.map((a) => a.chemin),
-      ['/api/v1/guests', '/api/v1/reservations'],
+      ['/guests', '/reservations'],
     );
   });
 
