@@ -18,6 +18,35 @@ import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/rooms/room_board_screen.dart';
 
+/// La permission qu'exige chaque zone de l'application (3.4).
+///
+/// Poser la regle ici plutot que dans chaque ecran : un ecran ajoute plus tard
+/// sans sa verification serait une porte ouverte, et personne ne s'en
+/// apercevrait avant la mise en service.
+///
+/// Les reservations relevent de `rooms.read` faute de permission dediee cote
+/// serveur : elles sont le travail de la reception, qui voit deja le plan. A
+/// revoir le jour ou `reservations.read` existera.
+const _permissionParZone = <String, String>{
+  '/chambres': 'rooms.read',
+  '/reservations': 'rooms.read',
+  '/clients': 'guests.read',
+  '/factures': 'folio.read',
+};
+
+/// La permission exigee par un chemin, sous-routes comprises.
+///
+/// Publique pour etre testable : c'est la barriere reelle de l'application,
+/// celle qui tient meme si un ecran oublie de se cacher.
+String? permissionPour(String chemin) {
+  for (final entree in _permissionParZone.entries) {
+    if (chemin == entree.key || chemin.startsWith('${entree.key}/')) {
+      return entree.value;
+    }
+  }
+  return null;
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   // `refreshListenable` redemande la redirection a chaque changement de
   // session : la connexion et la deconnexion n'ont donc pas a naviguer
@@ -34,11 +63,27 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: session,
     redirect: (context, etat) {
-      final connecte = ref.read(sessionProvider).estConnecte;
+      final session = ref.read(sessionProvider);
       final surConnexion = etat.matchedLocation == '/connexion';
 
-      if (!connecte) return surConnexion ? null : '/connexion';
-      if (surConnexion) return '/';
+      if (!session.estConnecte) return surConnexion ? null : '/connexion';
+
+      // Chacun ouvre sur son outil de travail : le receptionniste sur le plan
+      // des chambres, l'administrateur sur le tableau de bord. On verifie
+      // quand meme le droit, sinon un accueil mal parametre enverrait l'agent
+      // sur un ecran qui le renvoie aussitot -- une boucle infinie.
+      if (surConnexion) {
+        final accueil = session.acces.homeRoute;
+        final requise = accueil == null ? null : permissionPour(accueil);
+        final autorise = requise == null || session.acces.peut(requise);
+        return autorise ? (accueil ?? '/') : '/';
+      }
+
+      // Le tableau de bord reste ouvert a tous : c'est le point de repli de
+      // cette regle, il ne peut pas etre lui-meme refuse.
+      final requise = permissionPour(etat.matchedLocation);
+      if (requise != null && !session.acces.peut(requise)) return '/';
+
       return null;
     },
     routes: [
