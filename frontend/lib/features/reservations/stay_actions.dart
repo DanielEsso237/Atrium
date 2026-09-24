@@ -14,6 +14,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/formats.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 
@@ -57,17 +58,33 @@ Future<bool> confirmCheckOut(
   required String lineId,
   required String guestName,
   required String roomNumber,
-  int balance = 0,
 }) async {
+  // Le solde est lu ici plutot que passe par l'appelant : la liste des
+  // reservations ne le connait pas, et il serait absurde d'obliger chaque
+  // ecran a aller le chercher pour poser la meme question.
+  final folio = await ref
+      .read(folioRepositoryProvider)
+      .openFolioForStay(lineId);
+  final balance = folio?.balance ?? 0;
+
+  if (!context.mounted) return false;
+
   final ok = await _confirm(
     context,
     title: 'Enregistrer le depart',
-    message:
-        '$guestName libere la chambre $roomNumber.\n\n'
-        'La chambre repassera libre mais SALE : elle apparaitra dans la liste '
-        'du housekeeping et dans la tuile « a nettoyer ».'
-        '${balance > 0 ? '\n\nAttention : l\'ardoise n\'est pas soldee.' : ''}',
-    action: 'Enregistrer le depart',
+    message: [
+      '$guestName libere la chambre $roomNumber.',
+      '',
+      'La chambre repassera libre mais SALE : elle apparaitra dans la liste '
+          'du housekeeping et dans la tuile « a nettoyer ».',
+      // Laisser partir un client qui doit encore de l'argent est
+      // irrattrapable : le montant exact s'affiche, pas un vague avertissement.
+      if (balance > 0) ...[
+        '',
+        'ATTENTION : il reste ${formatAmount(balance)} a encaisser.',
+      ],
+    ].join('\n'),
+    action: balance > 0 ? 'Laisser partir quand meme' : 'Enregistrer le depart',
     danger: balance > 0,
   );
   if (!ok) return false;

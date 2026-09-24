@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
+import '../features/billing/folios_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/guests/guests_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
@@ -45,6 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
       GoRoute(path: '/chambres', builder: (_, _) => const RoomBoardScreen()),
       GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
+      GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
       GoRoute(
         path: '/reservations',
         builder: (_, _) => const ReservationsScreen(),

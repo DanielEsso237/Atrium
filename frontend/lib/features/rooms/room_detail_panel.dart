@@ -16,6 +16,7 @@ import '../../core/formats.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../billing/add_charge_dialog.dart';
 import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
@@ -358,7 +359,6 @@ class _Actions extends ConsumerWidget {
                         lineId: sejour.ligneId,
                         guestName: sejour.clientNom,
                         roomNumber: chambre.number,
-                        balance: sejour.soldeArdoise,
                       );
                       if (fait && context.mounted) Navigator.of(context).pop();
                     },
@@ -367,11 +367,17 @@ class _Actions extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // TODO(api) : porter une consommation a l'ardoise (F1.4), prochaine
-          // branche.
+          // Une consommation ne se porte que sur une ardoise ouverte, donc
+          // uniquement pendant un sejour en cours.
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: null,
+              onPressed: (sejour == null || sejour.folioId == null)
+                  ? null
+                  : () => showAddChargeDialog(
+                      context,
+                      folioId: sejour.folioId!,
+                      guestName: sejour.clientNom,
+                    ),
               icon: const Icon(Icons.add_shopping_cart),
               label: const Text('Consommation'),
             ),
