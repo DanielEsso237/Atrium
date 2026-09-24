@@ -225,6 +225,31 @@ async def record_payment(
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
 
+    # Le solde est recalcule avant d'etre oppose au montant : il est maintenu a
+    # chaque ecriture, mais l'opposer a de l'argent merite de le relire plutot
+    # que de faire confiance a la colonne.
+    #
+    # Ce controle arrive **apres** la reprise d'un paiement deja enregistre,
+    # plus haut. L'ordre n'est pas negociable : un renvoi de tablette porte sur
+    # un paiement qui a justement solde le folio, et le refuser ici bloquerait
+    # la file d'envoi et toutes les ecritures derriere elle.
+    await recompute_totals(session, folio)
+    if folio.balance <= 0:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Ce folio est deja solde : il n'y a rien a encaisser.",
+        )
+    if payload.amount > folio.balance:
+        # Un client qui tend 60 000 pour une note de 50 000 fait enregistrer
+        # 50 000 : les 10 000 rendus sont de la manipulation d'especes, pas une
+        # ligne de folio. Sans ce refus le solde passe en negatif, et l'ecart
+        # n'apparait qu'a la fermeture de caisse, sans qu'on sache de quel
+        # client il vient.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Il ne reste que {folio.balance} a encaisser sur ce folio.",
+        )
+
     # Rattachement a la session de caisse ouverte du caissier : c'est ce qui
     # permet de calculer l'attendu et l'ecart a la fermeture. La ligne de
     # session est verrouillee pour ne pas croiser une fermeture en cours.
