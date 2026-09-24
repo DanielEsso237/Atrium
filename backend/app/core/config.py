@@ -33,6 +33,23 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 30
 
+    # --- CORS ---
+    # Necessaire uniquement pour developper l'application Flutter dans un
+    # navigateur : la page est servie sur un port et l'API sur un autre, donc
+    # deux origines differentes du point de vue du navigateur. Sur une
+    # tablette Android, la cible reelle, CORS n'existe pas.
+    #
+    # Liste separee par des virgules. En dev, `*` par defaut ; hors dev, la
+    # valeur doit etre donnee explicitement -- une API ouverte a tous les
+    # sites n'a rien a faire en production.
+    cors_origins: str = "*"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        if self.env != "dev" and self.cors_origins.strip() == "*":
+            return []
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     # --- Base de donnees ---
     database_url: str = "postgresql+asyncpg://atrium:change-me@localhost:5432/atrium"
 
