@@ -7,6 +7,7 @@ import '../../core/formats.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import 'folio_repository.dart';
 import 'outbox.dart';
 
 /// Une reservation telle qu'affichee dans la liste de la reception.
@@ -393,6 +394,17 @@ class ReservationRepository with OutboxWriter {
         },
       );
     });
+
+    // Les nuits sont portees APRES la transaction : elles ouvrent leurs
+    // propres transactions, et SQLite n'en imbrique pas. Le folio existe
+    // desormais, donc elles ont ou atterrir.
+    //
+    // Sans cette ligne, le client repartirait en payant ses consommations et
+    // zero franc de chambre.
+    await FolioRepository(
+      db,
+      hotelId: hotelId,
+    ).postStayNights(folioId: folioId, stayLineId: lineId, postedBy: by);
   }
 
   /// Enregistre le depart : la chambre se libere et devient sale.
