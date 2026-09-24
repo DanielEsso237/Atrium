@@ -41,6 +41,7 @@ dependencies:
   flutter_riverpod: ^3.3.2
   intl: ^0.20.3
   sqlite3: ^3.5.2
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
