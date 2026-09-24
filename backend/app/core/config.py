@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
 
     # --- Base de donnees ---
-    database_url: str = "postgresql+asyncpg://atrium:change-me@localhost:5432/atrium"
+    database_url: str = "postgresql+asyncpg://atrium:kusakabe@localhost:5432/atrium"
 
     @property
     def sync_database_url(self) -> str:

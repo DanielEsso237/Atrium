@@ -17,18 +17,25 @@ router = APIRouter(prefix="/rooms", tags=["chambres"])
 @router.get(
     "",
     response_model=list[RoomOut],
-    dependencies=[Depends(require_permission("rooms.read"))],
 )
-async def list_rooms(session: AsyncSession = Depends(get_session)) -> list[Room]:
+async def list_rooms(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("rooms.read")),
+) -> list[Room]:
     """Plan de l'hotel (cahier des charges, paragraphe 5.2).
 
-    Toutes les chambres actives, triees par numero, avec leur type et leur
-    etage deja charges (relations `lazy="joined"` sur le modele) -- pas de
-    requete supplementaire par chambre.
+    Toutes les chambres actives de l'hotel de l'utilisateur, triees par
+    numero, avec leur type et leur etage deja charges (relations
+    `lazy="joined"` sur le modele) -- pas de requete supplementaire par
+    chambre.
     """
     result = await session.execute(
         select(Room)
-        .where(Room.deleted_at.is_(None), Room.is_active.is_(True))
+        .where(
+            Room.hotel_id == user.hotel_id,
+            Room.deleted_at.is_(None),
+            Room.is_active.is_(True),
+        )
         .order_by(Room.number)
     )
     return list(result.scalars().all())

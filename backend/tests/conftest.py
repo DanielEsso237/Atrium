@@ -54,25 +54,155 @@ def database_url() -> str:
 
 
 # ---------------------------------------------------------------------------
-# A COMPLETER -- fixtures de base de donnees
-#
-# Le squelette ci-dessous attend la branche `fix/hotel-scoping` : c'est la que
-# les fixtures `session`, `client`, et surtout **deux hotels avec un
-# utilisateur chacun** prennent leur sens, puisqu'elles servent a prouver
-# qu'un utilisateur de l'hotel A ne voit pas les donnees de l'hotel B.
-#
-# La forme attendue :
-#
-#   @pytest.fixture
-#   async def session(database_url): ...      # AsyncSession sur une base neuve
-#   @pytest.fixture
-#   async def hotel_a(session): ...           # + un utilisateur et son jeton
-#   @pytest.fixture
-#   async def hotel_b(session): ...
-#   @pytest.fixture
-#   async def client(session): ...            # httpx.AsyncClient sur app
-#
-# Elles ne sont pas ecrites ici pour ne pas figer un choix (base recreee par
-# session ou transaction annulee par test) avant d'avoir un PostgreSQL sous la
-# main pour mesurer lequel est tenable.
+# Fixtures de base de donnees -- fix/hotel-scoping
 # ---------------------------------------------------------------------------
+
+import uuid
+
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
+from app.main import app
+from app.db.session import get_session
+from app.core.security import hash_secret
+from app.models import (
+    Base,
+    Hotel,
+    User,
+    Role,
+    Permission,
+    RolePermission,
+    UserRole,
+)
+
+# Toutes les permissions dont les tests de cloisonnement ont besoin --
+# une seule liste, pour ne pas la repeter a chaque route testee.
+_PERMISSIONS_NEEDED = [
+    "rooms.read", "rooms.write",
+    "room_types.read", "room_types.write",
+    "restaurant.read", "restaurant.write",
+    "stock.read", "stock.write",
+    "printing.read", "printing.write",
+    "users.read",
+]
+
+
+@pytest.fixture
+async def session(database_url):
+    """Une base Postgres de test, vide au debut de chaque test, detruite
+
+    a la fin. `TEST_DATABASE_URL` doit deja exister et etre vide au
+    depart -- ne jamais pointer cette variable sur la base de dev.
+    """
+    engine = create_async_engine(database_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as s:
+        yield s
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+async def _make_hotel_with_admin(session, code: str, employee_code: str):
+    """Cree un hotel + un utilisateur qui a TOUTES les permissions testees.
+
+    Les permissions sont un referentiel global (contrainte unique sur
+    `code`, sans hotel_id) : on les reutilise si elles existent deja au
+    lieu d'essayer de les recreer a chaque hotel de test.
+    """
+    hotel = Hotel(
+        id=uuid.uuid4(),
+        code=code,
+        name=f"Hotel {code}",
+        timezone="Africa/Abidjan",
+        currency="XOF",
+    )
+    session.add(hotel)
+    await session.flush()
+
+    role = Role(id=uuid.uuid4(), code=f"TESTALL_{code}", label="Test all", is_system=True)
+    session.add(role)
+    await session.flush()
+
+    result = await session.execute(
+        select(Permission).where(Permission.code.in_(_PERMISSIONS_NEEDED))
+    )
+    existing = {p.code: p for p in result.scalars().all()}
+
+    for perm_code in _PERMISSIONS_NEEDED:
+        perm = existing.get(perm_code)
+        if perm is None:
+            perm = Permission(id=uuid.uuid4(), code=perm_code, label=perm_code, module="test")
+            session.add(perm)
+            await session.flush()
+            existing[perm_code] = perm
+        session.add(RolePermission(role_id=role.id, permission_id=perm.id))
+
+    user = User(
+        id=uuid.uuid4(),
+        hotel_id=hotel.id,
+        employee_code=employee_code,
+        first_name="Test",
+        last_name=code,
+        password_hash=hash_secret("Test1234!"),
+        is_active=True,
+        must_change_password=False,
+    )
+    session.add(user)
+    await session.flush()
+    session.add(UserRole(user_id=user.id, role_id=role.id))
+
+    await session.commit()
+    return hotel, user
+
+
+@pytest.fixture
+async def hotel_a(session):
+    return await _make_hotel_with_admin(session, "HTA", "ADMIN_A")
+
+
+@pytest.fixture
+async def hotel_b(session):
+    return await _make_hotel_with_admin(session, "HTB", "ADMIN_B")
+
+
+@pytest.fixture
+async def client(session):
+    """Client HTTP qui appelle l'app FastAPI directement (pas de vrai
+
+    serveur reseau), en la faisant utiliser NOTRE session de test au lieu
+    de la vraie base de dev.
+    """
+    async def _override_get_session():
+        yield session
+
+    app.dependency_overrides[get_session] = _override_get_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def login():
+    """Fixture qui expose la fonction de connexion aux tests.
+
+    Evite un `from conftest import ...` : pytest injecte les fixtures par
+    nom, sans jamais avoir besoin d'importer ce module comme un module
+    normal (ce qui echoue selon la structure du package `tests/`).
+    """
+
+    async def _login(client, employee_code: str) -> str:
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json={"employee_code": employee_code, "password": "Test1234!"},
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()["access_token"]
+
+    return _login

@@ -38,11 +38,18 @@ async def _get_scoped(session: AsyncSession, model, obj_id: uuid.UUID, user: Use
 @router.get(
     "/suppliers",
     response_model=list[SupplierOut],
-    dependencies=[Depends(require_permission("stock.read"))],
 )
-async def list_suppliers(session: AsyncSession = Depends(get_session)) -> list[Supplier]:
+async def list_suppliers(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("stock.read")),
+) -> list[Supplier]:
     result = await session.execute(
-        select(Supplier).where(Supplier.deleted_at.is_(None)).order_by(Supplier.name)
+        select(Supplier)
+        .where(
+            Supplier.hotel_id == user.hotel_id,
+            Supplier.deleted_at.is_(None),
+        )
+        .order_by(Supplier.name)
     )
     return list(result.scalars().all())
 
@@ -81,14 +88,17 @@ async def update_supplier(
 @router.get(
     "/product-categories",
     response_model=list[ProductCategoryOut],
-    dependencies=[Depends(require_permission("stock.read"))],
 )
 async def list_product_categories(
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("stock.read")),
 ) -> list[ProductCategory]:
     result = await session.execute(
         select(ProductCategory)
-        .where(ProductCategory.deleted_at.is_(None))
+        .where(
+            ProductCategory.hotel_id == user.hotel_id,
+            ProductCategory.deleted_at.is_(None),
+        )
         .order_by(ProductCategory.sort_order, ProductCategory.label)
     )
     return list(result.scalars().all())
@@ -132,11 +142,18 @@ async def update_product_category(
 @router.get(
     "/products",
     response_model=list[ProductOut],
-    dependencies=[Depends(require_permission("stock.read"))],
 )
-async def list_products(session: AsyncSession = Depends(get_session)) -> list[Product]:
+async def list_products(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("stock.read")),
+) -> list[Product]:
     result = await session.execute(
-        select(Product).where(Product.deleted_at.is_(None)).order_by(Product.label)
+        select(Product)
+        .where(
+            Product.hotel_id == user.hotel_id,
+            Product.deleted_at.is_(None),
+        )
+        .order_by(Product.label)
     )
     return list(result.scalars().all())
 
@@ -180,18 +197,20 @@ async def update_product(
 @router.get(
     "/stock-locations",
     response_model=list[StockLocationOut],
-    dependencies=[Depends(require_permission("stock.read"))],
 )
 async def list_stock_locations(
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("stock.read")),
 ) -> list[StockLocation]:
     result = await session.execute(
         select(StockLocation)
-        .where(StockLocation.deleted_at.is_(None))
+        .where(
+            StockLocation.hotel_id == user.hotel_id,
+            StockLocation.deleted_at.is_(None),
+        )
         .order_by(StockLocation.sort_order, StockLocation.label)
     )
     return list(result.scalars().all())
-
 
 @router.post(
     "/stock-locations",

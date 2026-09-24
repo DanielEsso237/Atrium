@@ -40,12 +40,17 @@ async def _get_scoped(session: AsyncSession, model, obj_id: uuid.UUID, user: Use
 @router.get(
     "/outlets",
     response_model=list[OutletOut],
-    dependencies=[Depends(require_permission("restaurant.read"))],
 )
-async def list_outlets(session: AsyncSession = Depends(get_session)) -> list[Outlet]:
+async def list_outlets(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.read")),
+) -> list[Outlet]:
     result = await session.execute(
         select(Outlet)
-        .where(Outlet.deleted_at.is_(None))
+        .where(
+            Outlet.hotel_id == user.hotel_id,
+            Outlet.deleted_at.is_(None),
+        )
         .order_by(Outlet.sort_order, Outlet.label)
     )
     return list(result.scalars().all())
@@ -70,12 +75,17 @@ async def create_outlet(
 @router.get(
     "/prep-stations",
     response_model=list[PrepStationOut],
-    dependencies=[Depends(require_permission("restaurant.read"))],
 )
-async def list_prep_stations(session: AsyncSession = Depends(get_session)) -> list[PrepStation]:
+async def list_prep_stations(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.read")),
+) -> list[PrepStation]:
     result = await session.execute(
         select(PrepStation)
-        .where(PrepStation.deleted_at.is_(None))
+        .where(
+            PrepStation.hotel_id == user.hotel_id,
+            PrepStation.deleted_at.is_(None),
+        )
         .order_by(PrepStation.sort_order, PrepStation.label)
     )
     return list(result.scalars().all())
@@ -102,12 +112,17 @@ async def create_prep_station(
 @router.get(
     "/tables",
     response_model=list[RestaurantTableOut],
-    dependencies=[Depends(require_permission("restaurant.read"))],
 )
-async def list_tables(session: AsyncSession = Depends(get_session)) -> list[RestaurantTable]:
+async def list_tables(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.read")),
+) -> list[RestaurantTable]:
     result = await session.execute(
         select(RestaurantTable)
-        .where(RestaurantTable.deleted_at.is_(None))
+        .where(
+            RestaurantTable.hotel_id == user.hotel_id,
+            RestaurantTable.deleted_at.is_(None),
+        )
         .order_by(RestaurantTable.number)
     )
     return list(result.scalars().all())
@@ -134,12 +149,17 @@ async def create_table(
 @router.get(
     "/menu-categories",
     response_model=list[MenuCategoryOut],
-    dependencies=[Depends(require_permission("restaurant.read"))],
 )
-async def list_menu_categories(session: AsyncSession = Depends(get_session)) -> list[MenuCategory]:
+async def list_menu_categories(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.read")),
+) -> list[MenuCategory]:
     result = await session.execute(
         select(MenuCategory)
-        .where(MenuCategory.deleted_at.is_(None))
+        .where(
+            MenuCategory.hotel_id == user.hotel_id,
+            MenuCategory.deleted_at.is_(None),
+        )
         .order_by(MenuCategory.sort_order, MenuCategory.label)
     )
     return list(result.scalars().all())
@@ -166,11 +186,18 @@ async def create_menu_category(
 @router.get(
     "/menu-items",
     response_model=list[MenuItemOut],
-    dependencies=[Depends(require_permission("restaurant.read"))],
 )
-async def list_menu_items(session: AsyncSession = Depends(get_session)) -> list[MenuItem]:
+async def list_menu_items(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.read")),
+) -> list[MenuItem]:
     result = await session.execute(
-        select(MenuItem).where(MenuItem.deleted_at.is_(None)).order_by(MenuItem.sort_order, MenuItem.label)
+        select(MenuItem)
+        .where(
+            MenuItem.hotel_id == user.hotel_id,
+            MenuItem.deleted_at.is_(None),
+        )
+        .order_by(MenuItem.sort_order, MenuItem.label)
     )
     return list(result.scalars().all())
 
