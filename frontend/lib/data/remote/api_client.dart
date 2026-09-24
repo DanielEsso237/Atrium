@@ -32,6 +32,11 @@ enum ApiFailure {
   /// changera rien.
   forbidden,
 
+  /// Compte verrouille apres cinq echecs. Le serveur le relache au bout de
+  /// quinze minutes ; inutile de reessayer avant, et surtout inutile de
+  /// laisser l'agent croire qu'il se trompe de mot de passe.
+  locked,
+
   /// Introuvable, ou appartenant a un autre hotel.
   notFound,
 
@@ -97,6 +102,9 @@ class ApiClient {
   final TokenStore _tokens;
   final Future<void> Function()? _onUnauthorized;
 
+  /// Le rafraichissement en cours, s'il y en a un.
+  Future<bool>? _refreshing;
+
   Dio get raw => _dio;
 
   Future<Map<String, dynamic>> get(
@@ -132,7 +140,10 @@ class ApiClient {
       data is Map<String, dynamic> ? data : <String, dynamic>{};
 
   /// Envoie, traduit les echecs, et previent en cas de 401.
-  Future<Object?> _send(Future<Response<dynamic>> Function() call) async {
+  Future<Object?> _send(
+    Future<Response<dynamic>> Function() call, {
+    bool isRetry = false,
+  }) async {
     final Response<dynamic> response;
     try {
       response = await call();
@@ -146,22 +157,69 @@ class ApiClient {
     final failure = switch (code) {
       401 => ApiFailure.unauthorized,
       403 => ApiFailure.forbidden,
+      423 => ApiFailure.locked,
       404 => ApiFailure.notFound,
       409 => ApiFailure.conflict,
       422 => ApiFailure.invalid,
       _ => ApiFailure.server,
     };
 
-    if (failure == ApiFailure.unauthorized) {
-      // TODO(api) : tenter `POST /auth/refresh` avant d'abandonner la
-      // session. L'endpoint n'existe pas encore cote serveur -- voir
-      // docs/04-contrat-api.md. En attendant, un 401 renvoie a la connexion,
-      // soit une deconnexion par heure en mode kiosque.
+    if (failure == ApiFailure.unauthorized && !isRetry) {
+      // Le jeton d'acces vit 60 minutes. Sans ce rafraichissement, une
+      // tablette en mode kiosque deconnecterait son agent une fois par
+      // heure, en plein service.
+      if (await _refresh()) return _send(call, isRetry: true);
+
+      // Le rafraichissement a echoue : la session est reellement finie.
       await _tokens.clear();
       await _onUnauthorized?.call();
     }
 
     throw ApiException(failure, _detailOf(response.data));
+  }
+
+  /// Echange le jeton de rafraichissement contre une nouvelle paire.
+  ///
+  /// Renvoie `true` si la requete d'origine peut etre rejouee.
+  ///
+  /// Un seul echange a la fois : cinq requetes qui prennent un 401 ensemble
+  /// ne doivent pas lancer cinq rafraichissements concurrents. Les quatre
+  /// dernieres attendent le resultat du premier -- le serveur verrouille la
+  /// ligne de son cote, mais autant ne pas l'y obliger.
+  Future<bool> _refresh() {
+    return _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+  }
+
+  Future<bool> _doRefresh() async {
+    final refresh = await _tokens.readRefresh();
+    if (refresh == null) return false;
+
+    try {
+      // Requete nue, sans repasser par `_send` : un 401 sur le
+      // rafraichissement lui-meme doit s'arreter la, pas relancer la
+      // mecanique.
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refresh},
+      );
+      final code = response.statusCode ?? 0;
+      if (code < 200 || code >= 300) return false;
+
+      final data = response.data;
+      if (data is! Map) return false;
+      final access = data['access_token'] as String?;
+      final nouveau = data['refresh_token'] as String?;
+      if (access == null || nouveau == null) return false;
+
+      // Le serveur emet un NOUVEAU jeton de rafraichissement a chaque
+      // echange : garder l'ancien conduirait a se faire refuser au suivant.
+      await _tokens.save(accessToken: access, refreshToken: nouveau);
+      return true;
+    } on DioException {
+      // Serveur injoignable pendant l'echange : la session n'est pas
+      // forcement finie, mais cette requete-ci ne passera pas.
+      return false;
+    }
   }
 
   ApiFailure _failureOf(DioException e) => switch (e.type) {

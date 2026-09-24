@@ -28,6 +28,11 @@ enum LoginFailure {
   disabledAccount,
   wrongSecret,
 
+  /// Compte verrouille apres cinq echecs. Le serveur le relache au bout de
+  /// quinze minutes : le dire, plutot que de laisser l'agent s'acharner sur
+  /// un mot de passe qui est peut-etre le bon.
+  locked,
+
   /// Serveur injoignable **et** aucune empreinte locale utilisable.
   offlineAndUnknown,
 }
@@ -68,11 +73,11 @@ class AuthRepository {
     } on ApiException catch (e) {
       if (!e.isOffline) {
         // Le serveur a tranche. On ne repasse pas derriere lui.
-        return LoginResult.failed(
-          e.failure == ApiFailure.unauthorized
-              ? LoginFailure.wrongSecret
-              : LoginFailure.wrongSecret,
-        );
+        return LoginResult.failed(switch (e.failure) {
+          ApiFailure.locked => LoginFailure.locked,
+          ApiFailure.forbidden => LoginFailure.disabledAccount,
+          _ => LoginFailure.wrongSecret,
+        });
       }
       // Serveur injoignable : c'est le cas normal d'une tablette dans un
       // couloir, pas une erreur. On verifie localement.

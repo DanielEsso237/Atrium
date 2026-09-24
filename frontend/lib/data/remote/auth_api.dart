@@ -8,20 +8,37 @@ library;
 import 'api_client.dart';
 import 'token_store.dart';
 
-/// Ce que le serveur renvoie a la connexion.
+/// Ce que le serveur renvoie a la connexion et au rafraichissement
+/// (`TokenOut`).
 class AuthSession {
   const AuthSession({
     required this.accessToken,
-    required this.userId,
-    this.refreshToken,
+    required this.refreshToken,
+    required this.expiresIn,
+    this.userId = '',
   });
 
   final String accessToken;
+
+  /// Echangeable contre une nouvelle paire tant qu'il n'a pas expire.
+  /// C'est lui qui evite de redemander le mot de passe toutes les heures.
+  final String refreshToken;
+
+  /// Duree de vie du jeton d'acces, en secondes.
+  final int expiresIn;
+
   final String userId;
 
-  /// Pas encore emis par le serveur : `POST /auth/refresh` n'existe pas.
-  /// Le champ est la pour que la bascule ne change rien aux appelants.
-  final String? refreshToken;
+  static AuthSession? fromJson(Map<String, dynamic> data) {
+    final access = data['access_token'] as String?;
+    final refresh = data['refresh_token'] as String?;
+    if (access == null || refresh == null) return null;
+    return AuthSession(
+      accessToken: access,
+      refreshToken: refresh,
+      expiresIn: (data['expires_in'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class AuthApi {
@@ -30,7 +47,7 @@ class AuthApi {
   final ApiClient _client;
   final TokenStore _tokens;
 
-  /// Se connecte et conserve le jeton.
+  /// Se connecte et conserve la paire de jetons.
   ///
   /// Leve une `ApiException` : `offline` si le serveur est injoignable — ce
   /// qui n'est pas une erreur pour une tablette dans un couloir, mais un cas
@@ -47,26 +64,54 @@ class AuthApi {
       },
     );
 
-    final token = data['access_token'] as String?;
-    if (token == null) {
+    final session = AuthSession.fromJson(data);
+    if (session == null) {
       throw const ApiException(
         ApiFailure.server,
         'Reponse de connexion sans jeton.',
       );
     }
 
+    await _tokens.save(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
+
     // L'identifiant de l'agent vient de `GET /auth/me` : la reponse de login
-    // ne porte que le jeton.
-    await _tokens.save(accessToken: token);
+    // ne porte que les jetons.
     final me = await _client.get('/auth/me');
     final userId = me['id'] as String? ?? '';
+    await _tokens.save(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      userId: userId,
+    );
 
-    await _tokens.save(accessToken: token, userId: userId);
-
-    return AuthSession(accessToken: token, userId: userId);
+    return AuthSession(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      expiresIn: session.expiresIn,
+      userId: userId,
+    );
   }
 
-  Future<void> logout() => _tokens.clear();
+  /// Revoque le jeton de rafraichissement cote serveur, puis efface le
+  /// magasin local.
+  ///
+  /// Une deconnexion hors ligne efface quand meme le magasin : l'agent
+  /// suivant ne doit pas heriter de la session du precedent, serveur
+  /// joignable ou non. Le jeton d'acces expire de lui-meme en 60 minutes.
+  Future<void> logout() async {
+    final refresh = await _tokens.readRefresh();
+    if (refresh != null) {
+      try {
+        await _client.post('/auth/logout', body: {'refresh_token': refresh});
+      } on ApiException {
+        // Sans importance : le serveur nettoiera a l'expiration.
+      }
+    }
+    await _tokens.clear();
+  }
 
   /// L'agent deja connecte, si un jeton valide a survecu au redemarrage.
   ///

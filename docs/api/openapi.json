@@ -56,6 +56,177 @@
         "title": "AvailabilityOut",
         "type": "object"
       },
+      "CalendarCell": {
+        "description": "Une chambre un jour donne ; champs de sejour a null si la chambre est libre.",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "guest_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guest Name"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "reservation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reservation Id"
+          },
+          "reservation_room_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reservation Room Id"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "room_number": {
+            "title": "Room Number",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReservationStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "room_id",
+          "room_number",
+          "date"
+        ],
+        "title": "CalendarCell",
+        "type": "object"
+      },
+      "CalendarOut": {
+        "properties": {
+          "date_from": {
+            "format": "date",
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "format": "date",
+            "title": "Date To",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarCell"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "unassigned": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarUnassigned"
+            },
+            "title": "Unassigned",
+            "type": "array"
+          }
+        },
+        "required": [
+          "date_from",
+          "date_to",
+          "rows",
+          "unassigned"
+        ],
+        "title": "CalendarOut",
+        "type": "object"
+      },
+      "CalendarUnassigned": {
+        "description": "Ligne de reservation sans chambre physique : placee par type, pas par numero.",
+        "properties": {
+          "arrival_date": {
+            "format": "date",
+            "title": "Arrival Date",
+            "type": "string"
+          },
+          "departure_date": {
+            "format": "date",
+            "title": "Departure Date",
+            "type": "string"
+          },
+          "guest_name": {
+            "title": "Guest Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "reservation_id": {
+            "format": "uuid",
+            "title": "Reservation Id",
+            "type": "string"
+          },
+          "reservation_room_id": {
+            "format": "uuid",
+            "title": "Reservation Room Id",
+            "type": "string"
+          },
+          "room_type_id": {
+            "format": "uuid",
+            "title": "Room Type Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          }
+        },
+        "required": [
+          "reservation_room_id",
+          "reservation_id",
+          "reference",
+          "guest_name",
+          "room_type_id",
+          "arrival_date",
+          "departure_date",
+          "status"
+        ],
+        "title": "CalendarUnassigned",
+        "type": "object"
+      },
       "CancelIn": {
         "properties": {
           "reason": {
@@ -72,6 +243,180 @@
         },
         "title": "CancelIn",
         "type": "object"
+      },
+      "CashSessionCloseIn": {
+        "properties": {
+          "counted_amount": {
+            "description": "Especes comptees, FCFA",
+            "minimum": 0.0,
+            "title": "Counted Amount",
+            "type": "integer"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "counted_amount"
+        ],
+        "title": "CashSessionCloseIn",
+        "type": "object"
+      },
+      "CashSessionOpenIn": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "opening_float": {
+            "description": "Fond de caisse, FCFA",
+            "minimum": 0.0,
+            "title": "Opening Float",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "opening_float"
+        ],
+        "title": "CashSessionOpenIn",
+        "type": "object"
+      },
+      "CashSessionOut": {
+        "properties": {
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "counted_amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counted Amount"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "expected_amount": {
+            "title": "Expected Amount",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "opening_float": {
+            "title": "Opening Float",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CashSessionStatus"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "variance": {
+            "title": "Variance",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "device_id",
+          "status",
+          "opened_at",
+          "opening_float",
+          "closed_at",
+          "expected_amount",
+          "counted_amount",
+          "variance",
+          "notes"
+        ],
+        "title": "CashSessionOut",
+        "type": "object"
+      },
+      "CashSessionStatus": {
+        "enum": [
+          "OPEN",
+          "CLOSED"
+        ],
+        "title": "CashSessionStatus",
+        "type": "string"
       },
       "ChargeCategory": {
         "enum": [
@@ -1746,6 +2091,18 @@
       "LoginIn": {
         "description": "Connexion par identifiant employe + mot de passe (exigence 6.2).",
         "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
           "employee_code": {
             "title": "Employee Code",
             "type": "string"
@@ -3730,6 +4087,19 @@
         "title": "ProductOut",
         "type": "object"
       },
+      "RefreshIn": {
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshIn",
+        "type": "object"
+      },
       "ReservationIn": {
         "properties": {
           "adults": {
@@ -4061,6 +4431,94 @@
         "title": "ReservationRoomOut",
         "type": "object"
       },
+      "ReservationRoomUpdate": {
+        "description": "Modification d'une ligne (F1.1). Seuls les champs envoyes changent.",
+        "properties": {
+          "adults": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adults"
+          },
+          "arrival_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrival Date"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          },
+          "departure_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "nightly_rate": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FCFA ; sur changement de type, tarif du nouveau type",
+            "title": "Nightly Rate"
+          },
+          "room_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Type Id"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ReservationRoomUpdate",
+        "type": "object"
+      },
       "ReservationSource": {
         "enum": [
           "DIRECT",
@@ -4084,6 +4542,66 @@
         ],
         "title": "ReservationStatus",
         "type": "string"
+      },
+      "ReservationUpdate": {
+        "description": "PATCH /reservations/{id} : entete du dossier et/ou lignes a modifier.",
+        "properties": {
+          "adults": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adults"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationRoomUpdate"
+            },
+            "title": "Rooms",
+            "type": "array"
+          },
+          "special_requests": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Requests"
+          }
+        },
+        "title": "ReservationUpdate",
+        "type": "object"
       },
       "ResolveIn": {
         "properties": {
@@ -4265,6 +4783,239 @@
         "title": "RoleOut",
         "type": "object"
       },
+      "RoomChargeOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ChargeCategory"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "posted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted At"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "label",
+          "quantity",
+          "amount",
+          "business_date",
+          "posted_at"
+        ],
+        "title": "RoomChargeOut",
+        "type": "object"
+      },
+      "RoomDetailOut": {
+        "description": "Fiche complete d'une chambre (paragraphe 5.2, panneau de detail).",
+        "properties": {
+          "current_stay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomStayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_status": {
+            "title": "Display Status",
+            "type": "string"
+          },
+          "floor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FloorOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "folio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoomFolioOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "housekeeping_status": {
+            "$ref": "#/components/schemas/HousekeepingStatus"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_out_of_order": {
+            "title": "Is Out Of Order",
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "occupancy_status": {
+            "$ref": "#/components/schemas/OccupancyStatus"
+          },
+          "out_of_order_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Order Reason"
+          },
+          "out_of_order_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Order Until"
+          },
+          "price": {
+            "title": "Price",
+            "type": "integer"
+          },
+          "recent_charges": {
+            "items": {
+              "$ref": "#/components/schemas/RoomChargeOut"
+            },
+            "title": "Recent Charges",
+            "type": "array"
+          },
+          "room_type": {
+            "$ref": "#/components/schemas/app__schemas__rooms__RoomTypeOut"
+          },
+          "stay_history": {
+            "items": {
+              "$ref": "#/components/schemas/RoomStayOut"
+            },
+            "title": "Stay History",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "occupancy_status",
+          "housekeeping_status",
+          "is_out_of_order",
+          "display_status",
+          "room_type",
+          "floor",
+          "price",
+          "floor_id",
+          "is_active",
+          "out_of_order_reason",
+          "out_of_order_until",
+          "notes"
+        ],
+        "title": "RoomDetailOut",
+        "type": "object"
+      },
+      "RoomFolioOut": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "integer"
+          },
+          "charges_total": {
+            "title": "Charges Total",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "payments_total": {
+            "title": "Payments Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "charges_total",
+          "payments_total",
+          "balance"
+        ],
+        "title": "RoomFolioOut",
+        "type": "object"
+      },
       "RoomIn": {
         "description": "Creation d'une chambre physique (admin).",
         "properties": {
@@ -4352,6 +5103,85 @@
         "title": "RoomOut",
         "type": "object"
       },
+      "RoomStayOut": {
+        "description": "Un sejour dans la chambre (en cours ou passe).",
+        "properties": {
+          "arrival_date": {
+            "format": "date",
+            "title": "Arrival Date",
+            "type": "string"
+          },
+          "checked_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked In At"
+          },
+          "checked_out_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked Out At"
+          },
+          "departure_date": {
+            "format": "date",
+            "title": "Departure Date",
+            "type": "string"
+          },
+          "guest_id": {
+            "format": "uuid",
+            "title": "Guest Id",
+            "type": "string"
+          },
+          "guest_name": {
+            "title": "Guest Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "reservation_id": {
+            "format": "uuid",
+            "title": "Reservation Id",
+            "type": "string"
+          },
+          "reservation_room_id": {
+            "format": "uuid",
+            "title": "Reservation Room Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          }
+        },
+        "required": [
+          "reservation_id",
+          "reservation_room_id",
+          "reference",
+          "guest_id",
+          "guest_name",
+          "arrival_date",
+          "departure_date",
+          "status",
+          "checked_in_at",
+          "checked_out_at"
+        ],
+        "title": "RoomStayOut",
+        "type": "object"
+      },
       "RoomTypeIn": {
         "description": "Creation/mise a jour d'une categorie (admin).\n\n`default_rate` est le tarif de base affiche partout tant que le systeme\nde plans tarifaires saisonniers (rate_plans/rate_plan_prices, deja\nmodelises) n'a pas d'ecran dedie -- prevu avec les reservations (Phase 2),\npas avant : sans reservation pour les consommer, ces tarifs saisonniers ne\ncontroleraient encore rien.",
         "properties": {
@@ -4408,6 +5238,61 @@
           "default_rate"
         ],
         "title": "RoomTypeIn",
+        "type": "object"
+      },
+      "RoomUpdate": {
+        "description": "PATCH d'une chambre (admin). Seuls les champs envoyes changent.\n\nPas de `is_out_of_order` ici : ce drapeau est pilote par les tickets de\nmaintenance bloquants (ouverture/cloture), le modifier a la main casserait\nce chainage.",
+        "properties": {
+          "floor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "room_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Type Id"
+          }
+        },
+        "title": "RoomUpdate",
         "type": "object"
       },
       "StockLevelOut": {
@@ -4915,6 +5800,14 @@
             "title": "Expires In",
             "type": "integer"
           },
+          "refresh_expires_in": {
+            "title": "Refresh Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
           "token_type": {
             "default": "bearer",
             "title": "Token Type",
@@ -4923,7 +5816,9 @@
         },
         "required": [
           "access_token",
-          "expires_in"
+          "expires_in",
+          "refresh_token",
+          "refresh_expires_in"
         ],
         "title": "TokenOut",
         "type": "object"
@@ -5360,6 +6255,41 @@
         ]
       }
     },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Revoque le jeton de rafraichissement presente. Idempotent : un jeton\n\ninconnu repond aussi 204, pour ne rien apprendre a qui essaie des valeurs.\nLe jeton d'acces en cours expire de lui-meme (60 min au plus).",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
     "/api/v1/auth/me": {
       "get": {
         "operationId": "me_api_v1_auth_me_get",
@@ -5383,6 +6313,179 @@
         "summary": "Me",
         "tags": [
           "authentification"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "Echange un jeton de rafraichissement contre une nouvelle paire.\n\nLa ligne est verrouillee le temps de l'echange : deux envois simultanes\ndu meme jeton (double tap, nouvelle tentative reseau) passent l'un apres\nl'autre, le second tombe dans la fenetre de tolerance.",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
+    "/api/v1/cash-sessions": {
+      "post": {
+        "operationId": "open_cash_session_api_v1_cash_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashSessionOpenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Open Cash Session",
+        "tags": [
+          "caisse"
+        ]
+      }
+    },
+    "/api/v1/cash-sessions/current": {
+      "get": {
+        "operationId": "current_cash_session_api_v1_cash_sessions_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Current Cash Session",
+        "tags": [
+          "caisse"
+        ]
+      }
+    },
+    "/api/v1/cash-sessions/{session_id}/close": {
+      "post": {
+        "description": "Fermeture : comptage physique, attendu recalcule, ecart = compte - attendu.\n\nSeul le titulaire ferme sa session. La ligne est verrouillee : un paiement\nne peut pas s'y rattacher pendant qu'on calcule l'attendu (voir\n`record_payment`, qui verrouille la meme ligne).",
+        "operationId": "close_cash_session_api_v1_cash_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashSessionCloseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Close Cash Session",
+        "tags": [
+          "caisse"
         ]
       }
     },
@@ -5735,7 +6838,7 @@
     },
     "/api/v1/folios/{folio_id}/invoice": {
       "post": {
-        "description": "Gel du folio a l'instant present (F1.4).\n\nCette route s'execute directement sur le serveur central -- contrairement\na une facture emise hors ligne depuis une tablette, elle n'a pas besoin de\nnumero provisoire : `_next_sequence` attribue tout de suite le numero\nlegal definitif (voir le commentaire du modele `Invoice`).",
+        "description": "Gel du folio a l'instant present (F1.4).\n\nCette route s'execute directement sur le serveur central -- contrairement\na une facture emise hors ligne depuis une tablette, elle n'a pas besoin de\nnumero provisoire : `next_number` attribue tout de suite le numero\nlegal definitif (voir le commentaire du modele `Invoice` et\napp/services/numbering.py).",
         "operationId": "issue_invoice_api_v1_folios__folio_id__invoice_post",
         "parameters": [
           {
@@ -8630,6 +9733,65 @@
         ]
       }
     },
+    "/api/v1/reservations/calendar": {
+      "get": {
+        "description": "F1.1 -- planning : une ligne par chambre et par jour, bornes incluses.\n\nDeux requetes quelle que soit la periode (chambres, puis sejours qui la\nchevauchent), la grille est assemblee en memoire. Les lignes sans chambre\nattribuee -- le cas normal avant le jour d'arrivee -- sont renvoyees a part\ndans `unassigned`, sinon le planning paraitrait vide.",
+        "operationId": "reservation_calendar_api_v1_reservations_calendar_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reservation Calendar",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
     "/api/v1/reservations/{reservation_id}": {
       "get": {
         "operationId": "get_reservation_api_v1_reservations__reservation_id__get",
@@ -8673,6 +9835,63 @@
           }
         ],
         "summary": "Get Reservation",
+        "tags": [
+          "reservations"
+        ]
+      },
+      "patch": {
+        "description": "F1.1 -- modification : dates, nombre de personnes, type de chambre.\n\nL'entete (personnes, demandes, notes) reste modifiable tant que le dossier\nn'est pas annule. Une ligne, elle, n'est modifiable qu'avant l'arrivee :\nune fois le sejour pris en charge, ses dates vivent dans le folio et le\ncheck-out, plus ici. Tout est controle avant la premiere ecriture, comme a\nla creation.",
+        "operationId": "update_reservation_api_v1_reservations__reservation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Reservation",
         "tags": [
           "reservations"
         ]
@@ -8738,7 +9957,7 @@
     },
     "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/check-in": {
       "post": {
-        "description": "F1.2 -- attribution de la chambre physique si elle n'a pas deja ete\n\nfaite, puis bascule de la chambre en occupee (voir docs/01, \"trois axes\nd'etat\" : ce champ est independant du statut menage).",
+        "description": "F1.2 -- attribution de la chambre physique si elle n'a pas deja ete\n\nfaite, puis bascule de la chambre en occupee (voir docs/01, \"trois axes\nd'etat\" : ce champ est independant du statut menage).\n\nLa ligne et la chambre sont verrouillees (`FOR UPDATE`) : deux tablettes\nqui installent deux clients dans la meme chambre au meme moment passent\nl'une apres l'autre, et la seconde voit la chambre occupee.",
         "operationId": "check_in_api_v1_reservations__reservation_id__rooms__room_line_id__check_in_post",
         "parameters": [
           {
@@ -8807,7 +10026,7 @@
     },
     "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/check-out": {
       "post": {
-        "description": "F1.3 -- la chambre redevient vacante mais sale : le menage est un\n\nevenement a part (voir housekeeping, a venir), pas une consequence\nautomatique du depart.",
+        "description": "F1.3 -- la chambre redevient vacante mais sale : le menage est un\n\nevenement a part (voir housekeeping), pas une consequence automatique du\ndepart.",
         "operationId": "check_out_api_v1_reservations__reservation_id__rooms__room_line_id__check_out_post",
         "parameters": [
           {
@@ -9030,7 +10249,7 @@
     },
     "/api/v1/rooms": {
       "get": {
-        "description": "Plan de l'hotel (cahier des charges, paragraphe 5.2).\n\nToutes les chambres actives, triees par numero, avec leur type et leur\netage deja charges (relations `lazy=\"joined\"` sur le modele) -- pas de\nrequete supplementaire par chambre.",
+        "description": "Plan de l'hotel (cahier des charges, paragraphe 5.2).\n\nToutes les chambres actives de l'hotel de l'utilisateur, triees par\nnumero, avec leur type et leur etage deja charges (relations\n`lazy=\"joined\"` sur le modele) -- pas de requete supplementaire par\nchambre.",
         "operationId": "list_rooms_api_v1_rooms_get",
         "responses": {
           "200": {
@@ -9099,6 +10318,112 @@
           }
         ],
         "summary": "Create Room",
+        "tags": [
+          "chambres"
+        ]
+      }
+    },
+    "/api/v1/rooms/{room_id}": {
+      "get": {
+        "description": "Fiche complete d'une chambre (paragraphe 5.2) : type, prix, etage, les\n\ntrois axes d'etat, le sejour en cours (client, dates), le solde de son\nfolio, ses dernieres consommations et l'historique des sejours.\n\nQuatre requetes au plus, toutes sur index, et uniquement les colonnes\naffichees : `Reservation` et `Folio` chargent sinon toutes leurs lignes\n(relations `selectin`) pour rien.",
+        "operationId": "get_room_api_v1_rooms__room_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Room",
+        "tags": [
+          "chambres"
+        ]
+      },
+      "patch": {
+        "description": "Numero, type, etage, activation. `is_out_of_order` n'est pas modifiable\n\nici : il reste pilote par les tickets de maintenance bloquants.\n\nUne chambre occupee ne change ni de type (le sejour en cours a ete vendu\ndans sa categorie) ni d'etat actif (elle disparaitrait du plan avec un\nclient dedans).",
+        "operationId": "update_room_api_v1_rooms__room_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Room",
         "tags": [
           "chambres"
         ]

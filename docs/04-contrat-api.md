@@ -21,7 +21,7 @@ Aucune base de données n'est nécessaire : FastAPI construit le schéma à part
 des définitions de routes, sans une requête SQL. Le versionner permet à
 quelqu'un de développer l'application Flutter sans serveur qui tourne.
 
-État au 24 septembre 2026 : **70 endpoints, 101 schémas.**
+État au 24 septembre 2026 : **77 endpoints, 116 schémas.**
 
 ---
 
@@ -91,11 +91,18 @@ documentation Swagger.
 
 Le jeton se présente ensuite en en-tête : `Authorization: Bearer <jeton>`.
 
-**Durée de vie : 60 minutes.** `refresh_token_expire_days` vaut 30 dans la
-configuration et la table `refresh_tokens` existe, mais **`POST /auth/refresh`
-n'est pas encore implémenté**. En attendant, un 401 renvoie l'agent vers
-l'écran de connexion. Sur une tablette en mode kiosque, c'est une déconnexion
-par heure : c'est le premier endpoint à brancher dès qu'il existe.
+**Durée de vie : 60 minutes**, puis `POST /auth/refresh` échange le jeton de
+rafraîchissement contre une nouvelle paire. Le serveur émet **un nouveau jeton
+de rafraîchissement à chaque échange** : garder l'ancien conduit à se faire
+refuser au suivant.
+
+La tablette rafraîchit toute seule sur un 401 et rejoue la requête, une seule
+fois. Plusieurs requêtes qui prennent un 401 ensemble partagent le même
+échange plutôt que d'en lancer cinq.
+
+`POST /auth/logout` révoque le jeton de rafraîchissement. Il est idempotent —
+un jeton inconnu répond aussi 204, pour ne rien apprendre à qui essaie des
+valeurs. Le jeton d'accès en cours expire de lui-même.
 
 Les permissions sont vérifiées route par route (`require_permission`). Un droit
 manquant donne **403**, pas 401.
@@ -115,7 +122,8 @@ formes.
 | Code | Sens | Ce que fait la tablette |
 |---|---|---|
 | 401 | jeton absent, invalide ou expiré | retour à l'écran de connexion |
-| 403 | droit manquant | message, pas de redirection |
+| 403 | droit manquant, ou compte désactivé | message, pas de redirection |
+| 423 | compte verrouillé après cinq échecs | message, relâché après 15 min |
 | 404 | introuvable, ou appartient à un autre hôtel | message |
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
@@ -133,16 +141,15 @@ contraire en écrivant le client.
 
 Vérifié sur `main` au 24 septembre 2026 :
 
-- `POST /auth/refresh` — sur le chemin critique de la couche réseau
-- `GET /rooms/{id}` et `PATCH /rooms/{id}` — seule la liste existe
-- `PATCH /reservations/{id}` — création et annulation seulement
-- `GET /reservations/calendar`
-- les sessions de caisse — le rôle Caissier n'a aucune API
+Livré depuis : `POST /auth/refresh` et `/auth/logout`, `GET` et
+`PATCH /rooms/{id}`, `PATCH /reservations/{id}`, le calendrier, les sessions
+de caisse, et la numérotation par séquence (`services/numbering.py`) qui
+remplace les `COUNT` concurrents.
 
-Et un défaut connu : les références `RES-`, `FOL-`, `ORD-` et les codes clients
-sont attribués par un `COUNT` côté serveur. Deux postes simultanés produisent
-le même numéro. La bonne mécanique existe dans `billing.py` (`_next_sequence`,
-`UPDATE … RETURNING`) et doit être généralisée.
+Reste côté tablette : les références `CLI-`, `RES-` et `FOL-` créées hors
+ligne sont encore attribuées par un `COUNT` local. Acceptable pour une
+référence interne sur une seule tablette, à remplacer quand la file
+d'attente remontera au serveur.
 
 ## Le principe qui gouverne tout le reste
 
