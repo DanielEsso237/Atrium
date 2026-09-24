@@ -16,10 +16,13 @@ import '../../core/formats.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
-final ficheChambreProvider =
-    StreamProvider.family<FicheChambre, String>((ref, roomId) {
+final ficheChambreProvider = StreamProvider.family<FicheChambre, String>((
+  ref,
+  roomId,
+) {
   return ref.watch(databaseProvider).watchFicheChambre(roomId);
 });
 
@@ -71,6 +74,11 @@ class _Fiche extends ConsumerWidget {
                     _Sejour(sejour: f.sejour!),
                     const SizedBox(height: 16),
                     _Consommations(lignes: f.consommations),
+                  ] else if (f.attendu != null) ...[
+                    _Bloc(
+                      titre: 'Arrivee attendue',
+                      enfant: _Sejour(sejour: f.attendu!),
+                    ),
                   ] else
                     _Bloc(
                       titre: 'Sejour en cours',
@@ -85,7 +93,7 @@ class _Fiche extends ConsumerWidget {
               ),
             ),
           ),
-          _Actions(occupee: fiche.value?.estOccupee ?? false),
+          _Actions(fiche: fiche.value, chambre: chambre),
         ],
       ),
     );
@@ -197,7 +205,10 @@ class _Sejour extends StatelessWidget {
             cle: 'Personnes',
             valeur: '${sejour.adultes} adulte(s), ${sejour.enfants} enfant(s)',
           ),
-          _Ligne(cle: 'Tarif de la nuit', valeur: formatAmount(sejour.tarifNuit)),
+          _Ligne(
+            cle: 'Tarif de la nuit',
+            valeur: formatAmount(sejour.tarifNuit),
+          ),
           _Ligne(
             cle: 'Solde de l\'ardoise',
             valeur: formatAmount(sejour.soldeArdoise),
@@ -236,8 +247,10 @@ class _Consommations extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(l.libelle,
-                                  style: const TextStyle(fontSize: 17)),
+                              Text(
+                                l.libelle,
+                                style: const TextStyle(fontSize: 17),
+                              ),
                               Text(
                                 '${l.categorie.name} · ${l.journee}',
                                 style: TextStyle(
@@ -293,13 +306,17 @@ class _Historique extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
-  const _Actions({required this.occupee});
+class _Actions extends ConsumerWidget {
+  const _Actions({required this.fiche, required this.chambre});
 
-  final bool occupee;
+  final FicheChambre? fiche;
+  final RoomBoardEntry chambre;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sejour = fiche?.sejour;
+    final attendu = fiche?.attendu;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -308,25 +325,50 @@ class _Actions extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // TODO(api) : POST /reservations/{id}/rooms/{ligne}/check-in
+          // Le check-in n'a de sens que si un sejour attribue attend, et le
+          // check-out que si quelqu'un est la. Les deux ne sont jamais
+          // proposes ensemble : ce serait offrir une action impossible.
           Expanded(
             child: FilledButton.icon(
-              onPressed: null,
+              onPressed: attendu == null
+                  ? null
+                  : () async {
+                      final fait = await confirmCheckIn(
+                        context,
+                        ref,
+                        lineId: attendu.ligneId,
+                        guestName: attendu.clientNom,
+                        roomNumber: chambre.number,
+                      );
+                      if (fait && context.mounted) Navigator.of(context).pop();
+                    },
               icon: const Icon(Icons.login),
               label: const Text('Check-in'),
             ),
           ),
           const SizedBox(width: 12),
-          // TODO(api) : POST .../check-out
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: null,
+              onPressed: sejour == null
+                  ? null
+                  : () async {
+                      final fait = await confirmCheckOut(
+                        context,
+                        ref,
+                        lineId: sejour.ligneId,
+                        guestName: sejour.clientNom,
+                        roomNumber: chambre.number,
+                        balance: sejour.soldeArdoise,
+                      );
+                      if (fait && context.mounted) Navigator.of(context).pop();
+                    },
               icon: const Icon(Icons.logout),
               label: const Text('Check-out'),
             ),
           ),
           const SizedBox(width: 12),
-          // TODO(api) : POST /folios/{id}/items
+          // TODO(api) : porter une consommation a l'ardoise (F1.4), prochaine
+          // branche.
           Expanded(
             child: OutlinedButton.icon(
               onPressed: null,

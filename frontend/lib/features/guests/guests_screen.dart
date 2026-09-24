@@ -27,8 +27,9 @@ class GuestSearch extends Notifier<String> {
   void update(String value) => state = value;
 }
 
-final guestSearchProvider =
-    NotifierProvider<GuestSearch, String>(GuestSearch.new);
+final guestSearchProvider = NotifierProvider<GuestSearch, String>(
+  GuestSearch.new,
+);
 
 final guestsProvider = StreamProvider<List<GuestRow>>((ref) {
   final search = ref.watch(guestSearchProvider);
@@ -100,13 +101,16 @@ class _GuestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final schema = Theme.of(context).colorScheme;
-    final initials = '${guest.firstName.isEmpty ? '' : guest.firstName[0]}'
+    final initials =
+        '${guest.firstName.isEmpty ? '' : guest.firstName[0]}'
         '${guest.lastName.isEmpty ? '' : guest.lastName[0]}';
 
     return Card(
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 12,
+        ),
         leading: CircleAvatar(
           radius: 26,
           backgroundColor: schema.primaryContainer,
@@ -219,7 +223,7 @@ class _GuestSheet extends ConsumerWidget {
                         value: guest.idDocumentNumber == null
                             ? '—'
                             : '${guest.idDocumentType?.name ?? ''} '
-                                '${guest.idDocumentNumber}',
+                                  '${guest.idDocumentNumber}',
                       ),
                     ],
                   ),
@@ -244,7 +248,8 @@ class _GuestSheet extends ConsumerWidget {
                                 for (final s in stays)
                                   _Row(
                                     label: s.reference,
-                                    value: '${s.arrival} → ${s.departure} · '
+                                    value:
+                                        '${s.arrival} → ${s.departure} · '
                                         '${s.status}',
                                   ),
                               ],
@@ -300,7 +305,9 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
 
-    final guest = await ref.read(guestRepositoryProvider).create(
+    final guest = await ref
+        .read(guestRepositoryProvider)
+        .create(
           firstName: _firstName.text,
           lastName: _lastName.text,
           phone: _vide(_phone.text),
@@ -338,8 +345,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                       child: TextFormField(
                         controller: _firstName,
                         textCapitalization: TextCapitalization.words,
-                        decoration:
-                            const InputDecoration(labelText: 'Prenom'),
+                        decoration: const InputDecoration(labelText: 'Prenom'),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Requis' : null,
                       ),
@@ -428,26 +434,26 @@ class _Block extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 12),
-              child,
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: Theme.of(context).colorScheme.outline,
+            ),
           ),
-        ),
-      );
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    ),
+  );
 }
 
 class _Row extends StatelessWidget {
@@ -458,24 +464,22 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 170,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 170,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              color: Theme.of(context).colorScheme.outline,
             ),
-            Expanded(
-              child: Text(value, style: const TextStyle(fontSize: 17)),
-            ),
-          ],
+          ),
         ),
-      );
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 17))),
+      ],
+    ),
+  );
 }

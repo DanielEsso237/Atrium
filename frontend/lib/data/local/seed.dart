@@ -121,7 +121,9 @@ Future<void> seedDemoData(AtriumDatabase db) async {
   final now = DateTime.now().toUtc();
 
   await db.transaction(() async {
-    await db.into(db.hotels).insertOnConflictUpdate(
+    await db
+        .into(db.hotels)
+        .insertOnConflictUpdate(
           HotelsCompanion.insert(
             id: _hotel,
             createdAt: now,
@@ -135,7 +137,9 @@ Future<void> seedDemoData(AtriumDatabase db) async {
         );
 
     for (final (id, code, label, order) in _floorSeeds) {
-      await db.into(db.floors).insertOnConflictUpdate(
+      await db
+          .into(db.floors)
+          .insertOnConflictUpdate(
             FloorsCompanion.insert(
               id: id,
               createdAt: now,
@@ -150,7 +154,9 @@ Future<void> seedDemoData(AtriumDatabase db) async {
     }
 
     for (final t in roomTypeSeeds) {
-      await db.into(db.roomTypes).insertOnConflictUpdate(
+      await db
+          .into(db.roomTypes)
+          .insertOnConflictUpdate(
             RoomTypesCompanion.insert(
               id: t.id,
               createdAt: now,
@@ -167,7 +173,9 @@ Future<void> seedDemoData(AtriumDatabase db) async {
     }
 
     for (final r in roomSeeds) {
-      await db.into(db.rooms).insertOnConflictUpdate(
+      await db
+          .into(db.rooms)
+          .insertOnConflictUpdate(
             RoomsCompanion.insert(
               // Identifiant derive du numero : stable d'une execution a
               // l'autre, donc rejouable. Le segment `03` distingue les

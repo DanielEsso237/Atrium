@@ -60,14 +60,7 @@ enum ChargeCategory {
 
 enum InvoiceStatus { DRAFT, ISSUED, PAID, CANCELLED }
 
-enum PaymentMethod {
-  CASH,
-  CARD,
-  TRANSFER,
-  MOBILE_MONEY,
-  CITY_LEDGER,
-  VOUCHER,
-}
+enum PaymentMethod { CASH, CARD, TRANSFER, MOBILE_MONEY, CITY_LEDGER, VOUCHER }
 
 enum CashSessionStatus { OPEN, CLOSED }
 
@@ -95,25 +88,11 @@ enum HousekeepingTaskType {
   INSPECTION,
 }
 
-enum TaskStatus {
-  PENDING,
-  ASSIGNED,
-  IN_PROGRESS,
-  DONE,
-  INSPECTED,
-  CANCELLED,
-}
+enum TaskStatus { PENDING, ASSIGNED, IN_PROGRESS, DONE, INSPECTED, CANCELLED }
 
 enum Priority { LOW, NORMAL, HIGH, URGENT }
 
-enum TicketStatus {
-  OPEN,
-  ASSIGNED,
-  IN_PROGRESS,
-  RESOLVED,
-  CLOSED,
-  CANCELLED,
-}
+enum TicketStatus { OPEN, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED, CANCELLED }
 
 // --- Stocks -----------------------------------------------------------------
 

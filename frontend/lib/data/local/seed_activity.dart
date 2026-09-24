@@ -61,9 +61,19 @@ const _roles = <_RoleDemo>[
   (_roleReception, 'RECEPTION', 'Reception', '/chambres'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
   ('01920000-0000-7000-8000-000000004004', 'RESTAURANT', 'Restauration', null),
-  ('01920000-0000-7000-8000-000000004005', 'HOUSEKEEPING', 'Housekeeping', null),
+  (
+    '01920000-0000-7000-8000-000000004005',
+    'HOUSEKEEPING',
+    'Housekeeping',
+    null,
+  ),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
-  ('01920000-0000-7000-8000-000000004007', 'MANAGER', 'Manager / Direction', null),
+  (
+    '01920000-0000-7000-8000-000000004007',
+    'MANAGER',
+    'Manager / Direction',
+    null,
+  ),
 ];
 
 /// Les permissions qui commandent les six boutons du tableau de bord.
@@ -73,12 +83,42 @@ const _roles = <_RoleDemo>[
 typedef _PermissionDemo = (String id, String code, String label, String module);
 
 const _permissions = <_PermissionDemo>[
-  ('01920000-0000-7000-8000-000000004104', 'rooms.read', 'Consulter le plan des chambres', 'rooms'),
-  ('01920000-0000-7000-8000-000000004105', 'guests.read', 'Consulter les fiches clients', 'guests'),
-  ('01920000-0000-7000-8000-000000004121', 'folio.read', 'Consulter les folios', 'folio'),
-  ('01920000-0000-7000-8000-000000004123', 'order.read', 'Consulter les commandes restaurant', 'order'),
-  ('01920000-0000-7000-8000-000000004126', 'housekeeping.read', 'Consulter les taches de nettoyage', 'housekeeping'),
-  ('01920000-0000-7000-8000-000000004128', 'maintenance.read', 'Consulter les tickets de maintenance', 'maintenance'),
+  (
+    '01920000-0000-7000-8000-000000004104',
+    'rooms.read',
+    'Consulter le plan des chambres',
+    'rooms',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004105',
+    'guests.read',
+    'Consulter les fiches clients',
+    'guests',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004121',
+    'folio.read',
+    'Consulter les folios',
+    'folio',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004123',
+    'order.read',
+    'Consulter les commandes restaurant',
+    'order',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004126',
+    'housekeeping.read',
+    'Consulter les taches de nettoyage',
+    'housekeeping',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004128',
+    'maintenance.read',
+    'Consulter les tickets de maintenance',
+    'maintenance',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -102,7 +142,12 @@ String _id(String suffixe) =>
     '01920000-0000-7000-8000-000000$suffixe'.padRight(36, '0').substring(0, 36);
 
 /// Une chambre dont on force l'etat, pour que le plan montre les cinq couleurs.
-typedef _EtatChambre = (String numero, OccupancyStatus, HousekeepingStatus, bool);
+typedef _EtatChambre = (
+  String numero,
+  OccupancyStatus,
+  HousekeepingStatus,
+  bool,
+);
 
 /// Les numeros doivent exister dans `seed.dart` : 101, 102, 103, 123, 201 a
 /// 204, 301, 302, 309, 401 a 403, 501, 502, 510, 567. Une chambre inconnue est
@@ -146,7 +191,12 @@ const _sejours = <_SejourDemo>[
 ];
 
 /// Consommations du jour, pour que la tuile « CA jour » ne soit pas a zero.
-typedef _ChargeDemo = (String cleSejour, ChargeCategory, String libelle, int montant);
+typedef _ChargeDemo = (
+  String cleSejour,
+  ChargeCategory,
+  String libelle,
+  int montant,
+);
 
 const _charges = <_ChargeDemo>[
   ('01', ChargeCategory.FNB, 'Diner restaurant', 18500),
@@ -164,7 +214,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
 
   await db.transaction(() async {
     // --- Personnel -----------------------------------------------------
-    await db.into(db.users).insertOnConflictUpdate(
+    await db
+        .into(db.users)
+        .insertOnConflictUpdate(
           UsersCompanion.insert(
             id: utilisateurDemo,
             createdAt: maintenant,
@@ -181,7 +233,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
           ),
         );
 
-    await db.into(db.users).insertOnConflictUpdate(
+    await db
+        .into(db.users)
+        .insertOnConflictUpdate(
           UsersCompanion.insert(
             id: _receptionniste,
             createdAt: maintenant,
@@ -199,7 +253,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
 
     // --- Roles, permissions, rattachements -------------------------------
     for (final (id, code, label, accueil) in _roles) {
-      await db.into(db.roles).insertOnConflictUpdate(
+      await db
+          .into(db.roles)
+          .insertOnConflictUpdate(
             RolesCompanion.insert(
               id: id,
               createdAt: maintenant,
@@ -214,7 +270,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
     }
 
     for (final (id, code, label, module) in _permissions) {
-      await db.into(db.permissions).insertOnConflictUpdate(
+      await db
+          .into(db.permissions)
+          .insertOnConflictUpdate(
             PermissionsCompanion.insert(
               id: id,
               createdAt: maintenant,
@@ -227,7 +285,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
     }
 
     for (final (roleId, permissionId) in _droits) {
-      await db.into(db.rolePermissions).insertOnConflictUpdate(
+      await db
+          .into(db.rolePermissions)
+          .insertOnConflictUpdate(
             RolePermissionsCompanion.insert(
               roleId: roleId,
               permissionId: permissionId,
@@ -241,7 +301,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
     ]) {
-      await db.into(db.userRoles).insertOnConflictUpdate(
+      await db
+          .into(db.userRoles)
+          .insertOnConflictUpdate(
             UserRolesCompanion.insert(userId: userId, roleId: roleId),
           );
     }
@@ -250,8 +312,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
     // Les trois axes sont ecrits separement : c'est tout l'interet du modele,
     // la pastille du plan se calcule ensuite a l'affichage.
     for (final (numero, occupation, menage, horsService) in _etats) {
-      await (db.update(db.rooms)..where((r) => r.id.equals(_chambre(numero))))
-          .write(
+      await (db.update(
+        db.rooms,
+      )..where((r) => r.id.equals(_chambre(numero)))).write(
         RoomsCompanion(
           occupancyStatus: Value(occupation),
           housekeepingStatus: Value(menage),
@@ -278,7 +341,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
       final typeChambre = await _typeDeLaChambre(db, numero);
       if (typeChambre == null) continue;
 
-      await db.into(db.guests).insertOnConflictUpdate(
+      await db
+          .into(db.guests)
+          .insertOnConflictUpdate(
             GuestsCompanion.insert(
               id: guestId,
               createdAt: maintenant,
@@ -291,7 +356,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
             ),
           );
 
-      await db.into(db.reservations).insertOnConflictUpdate(
+      await db
+          .into(db.reservations)
+          .insertOnConflictUpdate(
             ReservationsCompanion.insert(
               id: reservationId,
               createdAt: maintenant,
@@ -308,7 +375,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
             ),
           );
 
-      await db.into(db.reservationRooms).insertOnConflictUpdate(
+      await db
+          .into(db.reservationRooms)
+          .insertOnConflictUpdate(
             ReservationRoomsCompanion.insert(
               id: ligneId,
               createdAt: maintenant,
@@ -330,7 +399,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
       // Une ardoise n'existe que pour un sejour en cours : rien ne se
       // consomme avant d'etre arrive.
       if (statut == ReservationStatus.CHECKED_IN) {
-        await db.into(db.folios).insertOnConflictUpdate(
+        await db
+            .into(db.folios)
+            .insertOnConflictUpdate(
               FoliosCompanion.insert(
                 id: folioId,
                 createdAt: maintenant,
@@ -353,7 +424,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
 
     for (final (cleSejour, categorie, libelle, montant) in _charges) {
       rang++;
-      await db.into(db.folioItems).insertOnConflictUpdate(
+      await db
+          .into(db.folioItems)
+          .insertOnConflictUpdate(
             FolioItemsCompanion.insert(
               id: _id('11${rang.toString().padLeft(2, '0')}'),
               createdAt: maintenant,
@@ -378,7 +451,9 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
       if (statut != ReservationStatus.CHECKED_IN) continue;
       rang++;
 
-      await db.into(db.folioItems).insertOnConflictUpdate(
+      await db
+          .into(db.folioItems)
+          .insertOnConflictUpdate(
             FolioItemsCompanion.insert(
               id: _id('12${rang.toString().padLeft(2, '0')}'),
               createdAt: maintenant,
@@ -416,8 +491,8 @@ Future<void> seedDemoActivity(AtriumDatabase db) async {
 /// changer, et un jeu de demonstration ne doit jamais empecher l'application
 /// de demarrer pour une chambre renumerotee.
 Future<String?> _typeDeLaChambre(AtriumDatabase db, String numero) async {
-  final ligne = await (db.select(db.rooms)
-        ..where((r) => r.id.equals(_chambre(numero))))
-      .getSingleOrNull();
+  final ligne = await (db.select(
+    db.rooms,
+  )..where((r) => r.id.equals(_chambre(numero)))).getSingleOrNull();
   return ligne?.roomTypeId;
 }

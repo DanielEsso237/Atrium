@@ -84,15 +84,15 @@ extension DashboardQueries on AtriumDatabase {
       variables: [Variable.withString(journee)],
       readsFrom: {rooms, reservations, reservationRooms, folioItems},
     ).watchSingle().map(
-          (row) => DashboardSummary(
-            chambresTotal: row.read<int>('total'),
-            chambresOccupees: row.read<int>('occupees'),
-            reservationsActives: row.read<int>('reservations'),
-            arriveesDuJour: row.read<int>('arrivees'),
-            departsDuJour: row.read<int>('departs'),
-            caDuJour: row.read<int>('ca'),
-            chambresANettoyer: row.read<int>('a_nettoyer'),
-          ),
-        );
+      (row) => DashboardSummary(
+        chambresTotal: row.read<int>('total'),
+        chambresOccupees: row.read<int>('occupees'),
+        reservationsActives: row.read<int>('reservations'),
+        arriveesDuJour: row.read<int>('arrivees'),
+        departsDuJour: row.read<int>('departs'),
+        caDuJour: row.read<int>('ca'),
+        chambresANettoyer: row.read<int>('a_nettoyer'),
+      ),
+    );
   }
 }

@@ -42,10 +42,9 @@ class SessionNotifier extends Notifier<SessionState> {
   }) async {
     state = const SessionState(enCours: true);
 
-    final resultat = await ref.read(authLocaleProvider).connecter(
-          codeAgent: codeAgent,
-          secret: secret,
-        );
+    final resultat = await ref
+        .read(authLocaleProvider)
+        .connecter(codeAgent: codeAgent, secret: secret);
 
     if (resultat.estReussie) {
       state = SessionState(agent: resultat.utilisateur);
@@ -61,5 +60,6 @@ class SessionNotifier extends Notifier<SessionState> {
   void deconnecter() => state = const SessionState();
 }
 
-final sessionProvider =
-    NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
+  SessionNotifier.new,
+);

@@ -70,12 +70,14 @@ class RoomBoardEntry {
   /// differentes.
   RoomDisplayStatus get displayStatus {
     if (isOutOfOrder) return RoomDisplayStatus.MAINTENANCE;
-    if (occupancy == OccupancyStatus.OCCUPIED) return RoomDisplayStatus.OCCUPIED;
+    if (occupancy == OccupancyStatus.OCCUPIED)
+      return RoomDisplayStatus.OCCUPIED;
     if (housekeeping == HousekeepingStatus.DIRTY ||
         housekeeping == HousekeepingStatus.IN_PROGRESS) {
       return RoomDisplayStatus.CLEANING;
     }
-    if (occupancy == OccupancyStatus.RESERVED) return RoomDisplayStatus.RESERVED;
+    if (occupancy == OccupancyStatus.RESERVED)
+      return RoomDisplayStatus.RESERVED;
     return RoomDisplayStatus.AVAILABLE;
   }
 }
@@ -139,26 +141,26 @@ extension RoomsQueries on AtriumDatabase {
       ''',
       readsFrom: {rooms, roomTypes, floors},
     ).watch().map(
-          (rows) => rows
-              .map(
-                (row) => RoomBoardEntry(
-                  roomId: row.read<String>('id'),
-                  number: row.read<String>('number'),
-                  typeCode: row.read<String>('type_code'),
-                  typeLabel: row.read<String>('type_label'),
-                  rate: row.read<int>('default_rate'),
-                  floorLabel: row.read<String?>('floor_label'),
-                  occupancy: OccupancyStatus.values.byName(
-                    row.read<String>('occupancy_status'),
-                  ),
-                  housekeeping: HousekeepingStatus.values.byName(
-                    row.read<String>('housekeeping_status'),
-                  ),
-                  isOutOfOrder: row.read<int>('is_out_of_order') == 1,
-                ),
-              )
-              .toList(),
-        );
+      (rows) => rows
+          .map(
+            (row) => RoomBoardEntry(
+              roomId: row.read<String>('id'),
+              number: row.read<String>('number'),
+              typeCode: row.read<String>('type_code'),
+              typeLabel: row.read<String>('type_label'),
+              rate: row.read<int>('default_rate'),
+              floorLabel: row.read<String?>('floor_label'),
+              occupancy: OccupancyStatus.values.byName(
+                row.read<String>('occupancy_status'),
+              ),
+              housekeeping: HousekeepingStatus.values.byName(
+                row.read<String>('housekeeping_status'),
+              ),
+              isOutOfOrder: row.read<int>('is_out_of_order') == 1,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// Chambres disponibles d'une categorie sur une periode donnee.

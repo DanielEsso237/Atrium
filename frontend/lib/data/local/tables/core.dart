@@ -19,8 +19,9 @@ class Hotels extends Table with SyncedTableColumns {
   TextColumn get website => text().withLength(max: 160).nullable()();
   TextColumn get taxId => text().withLength(max: 40).nullable()();
   TextColumn get logoPath => text().withLength(max: 255).nullable()();
-  TextColumn get timezone =>
-      text().withLength(max: 64).withDefault(const Constant('Africa/Abidjan'))();
+  TextColumn get timezone => text()
+      .withLength(max: 64)
+      .withDefault(const Constant('Africa/Abidjan'))();
   TextColumn get currency =>
       text().withLength(max: 8).withDefault(const Constant('XOF'))();
 

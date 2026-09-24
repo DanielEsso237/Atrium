@@ -51,10 +51,11 @@ class AuthLocale {
   }) async {
     final code = codeAgent.trim().toUpperCase();
 
-    final utilisateurs = await (_db.select(_db.users)
-          ..where((u) => u.employeeCode.equals(code) & u.deletedAt.isNull())
-          ..limit(1))
-        .get();
+    final utilisateurs =
+        await (_db.select(_db.users)
+              ..where((u) => u.employeeCode.equals(code) & u.deletedAt.isNull())
+              ..limit(1))
+            .get();
 
     if (utilisateurs.isEmpty) {
       return const ResultatConnexion.echouee(EchecConnexion.utilisateurInconnu);

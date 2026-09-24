@@ -30,25 +30,25 @@ final roomBoardProvider = StreamProvider<List<RoomBoardEntry>>(
 ({String label, Color couleur}) apparence(RoomDisplayStatus etat) =>
     switch (etat) {
       RoomDisplayStatus.AVAILABLE => (
-          label: 'Disponible',
-          couleur: CouleursEtat.disponible
-        ),
+        label: 'Disponible',
+        couleur: CouleursEtat.disponible,
+      ),
       RoomDisplayStatus.OCCUPIED => (
-          label: 'Occupee',
-          couleur: CouleursEtat.occupee
-        ),
+        label: 'Occupee',
+        couleur: CouleursEtat.occupee,
+      ),
       RoomDisplayStatus.RESERVED => (
-          label: 'Reservee',
-          couleur: CouleursEtat.reservee
-        ),
+        label: 'Reservee',
+        couleur: CouleursEtat.reservee,
+      ),
       RoomDisplayStatus.CLEANING => (
-          label: 'Nettoyage',
-          couleur: CouleursEtat.nettoyage
-        ),
+        label: 'Nettoyage',
+        couleur: CouleursEtat.nettoyage,
+      ),
       RoomDisplayStatus.MAINTENANCE => (
-          label: 'Maintenance',
-          couleur: CouleursEtat.maintenance
-        ),
+        label: 'Maintenance',
+        couleur: CouleursEtat.maintenance,
+      ),
     };
 
 class RoomBoardScreen extends ConsumerWidget {
@@ -143,9 +143,7 @@ class _GrilleChambres extends StatelessWidget {
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
           childAspectRatio: 1.7,
-          children: [
-            for (final c in chambres) _CarteChambre(chambre: c),
-          ],
+          children: [for (final c in chambres) _CarteChambre(chambre: c)],
         );
       },
     );
@@ -175,10 +173,7 @@ class _CarteChambre extends StatelessWidget {
             // Bande de couleur a gauche : lisible en biais, quand la tablette
             // est posee sur le comptoir et qu'on la regarde de trois quarts.
             gradient: LinearGradient(
-              colors: [
-                vue.couleur.withValues(alpha: 0.14),
-                Colors.white,
-              ],
+              colors: [vue.couleur.withValues(alpha: 0.14), Colors.white],
               stops: const [0, 0.22],
             ),
           ),
@@ -257,7 +252,10 @@ class _Legende extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(apparence(etat).label, style: const TextStyle(fontSize: 16)),
+                Text(
+                  apparence(etat).label,
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
         ],
