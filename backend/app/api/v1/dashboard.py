@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.services.business_day import current_business_date
-from app.models import HousekeepingTask, Reservation, ReservationRoom, User
-from app.models.enums import ReservationStatus, TaskStatus
+from app.models import Reservation, ReservationRoom, Room, User
+from app.models.enums import HousekeepingStatus, ReservationStatus
 from app.schemas.dashboard import DashboardSummary, OccupancySummary, RevenueByCategory
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -117,14 +117,30 @@ async def get_summary(
     revenue_by_category = [RevenueByCategory(**row) for row in revenue_rows]
     revenue_total = sum(row.amount for row in revenue_by_category)
 
+    # Les CHAMBRES sales, et non les taches de menage en attente.
+    #
+    # La question posee par cette tuile est « combien de chambres ne sont pas
+    # pretes ? ». Une chambre sale doit etre nettoyee, qu'une fiche de travail
+    # ait ete ouverte pour elle ou non -- et dans un hotel ou la gouvernante
+    # fait simplement le tour, aucune tache n'est creee : la tuile afficherait
+    # toujours zero, ce qui est pire qu'une tuile absente.
+    #
+    # Le compte des taches reste utile, mais il repond a une autre question --
+    # la charge de travail du housekeeping -- et merite son propre libelle.
+    #
+    # IN_PROGRESS est volontairement exclu : une chambre en cours de nettoyage
+    # est deja prise en charge, elle n'est plus « a nettoyer ». C'est la meme
+    # definition que la tablette, pour que les deux cotes disent le meme
+    # chiffre.
     rooms_to_clean = (
         await session.scalar(
             select(func.count())
-            .select_from(HousekeepingTask)
+            .select_from(Room)
             .where(
-                HousekeepingTask.hotel_id == user.hotel_id,
-                HousekeepingTask.business_date == today,
-                HousekeepingTask.status.in_((TaskStatus.PENDING, TaskStatus.ASSIGNED)),
+                Room.hotel_id == user.hotel_id,
+                Room.deleted_at.is_(None),
+                Room.is_active.is_(True),
+                Room.housekeeping_status == HousekeepingStatus.DIRTY,
             )
         )
         or 0
