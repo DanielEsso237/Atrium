@@ -148,13 +148,15 @@ class _Tuiles extends StatelessWidget {
           detail: taux == null ? null : '$taux % d\'occupation',
           couleur: CouleursEtat.occupee,
         ),
+        // Indicateur seulement : on y va par le bouton du bas, comme pour les
+        // cinq autres modules. Une tuile qui compte et qui navigue melange
+        // deux roles, et laissait les reservations sans porte d'entree propre.
         _Tuile(
           icone: Icons.event_outlined,
           titre: 'Reservations',
           valeur: '${resume.reservationsActives}',
           detail: 'en cours',
           couleur: CouleursEtat.reservee,
-          route: '/reservations',
         ),
         _Tuile(
           icone: Icons.login_outlined,
@@ -228,7 +230,6 @@ class _Tuile extends StatelessWidget {
     required this.valeur,
     required this.couleur,
     this.detail,
-    this.route,
   });
 
   final IconData icone;
@@ -236,10 +237,6 @@ class _Tuile extends StatelessWidget {
   final String valeur;
   final String? detail;
   final Color couleur;
-
-  /// Une tuile qui mene quelque part devient cliquable. Les autres restent
-  /// purement informatives — pas de faux bouton.
-  final String? route;
 
   @override
   Widget build(BuildContext context) {
@@ -296,18 +293,14 @@ class _Tuile extends StatelessWidget {
               ],
             ),
           ),
-          if (route != null)
-            Icon(Icons.chevron_right, color: schema.outline, size: 26),
         ],
       ),
     );
 
-    if (route == null) return Card(child: contenu);
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: () => context.go(route!), child: contenu),
-    );
+    // Purement informative : les tuiles comptent, les boutons du bas mènent
+    // quelque part. Melanger les deux faisait de la tuile « Reservations » la
+    // seule porte d'entree vers un module, ce que rien n'annoncait.
+    return Card(child: contenu);
   }
 }
 
@@ -325,7 +318,15 @@ class _Modules extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const modules = [
-      (Icons.room_service_outlined, 'Reception', '/chambres', 'rooms.read'),
+      // Nomme d'apres l'ecran qu'il ouvre, pas d'apres le metier : dire
+      // « Reception » a un receptionniste ne lui apprend rien, alors que
+      // « Plan des chambres » lui dit ou il va.
+      (Icons.grid_view_outlined, 'Plan des chambres', '/chambres', 'rooms.read'),
+      // Les reservations ont leur bouton : elles se gerent, elles ne se
+      // consultent pas seulement. Leur tuile plus haut reste un indicateur,
+      // et un indicateur ne devrait pas etre la seule porte d'entree vers le
+      // travail qu'il mesure.
+      (Icons.event_outlined, 'Reservations', '/reservations', 'rooms.read'),
       (Icons.restaurant_outlined, 'Restaurant', null, 'order.read'),
       (Icons.build_outlined, 'Maintenance', null, 'maintenance.read'),
       (
