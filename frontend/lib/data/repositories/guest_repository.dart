@@ -48,17 +48,17 @@ class GuestRepository with OutboxWriter {
     if (q.isEmpty) return query.watch();
 
     return query.watch().map(
-          (rows) => rows.where((g) {
-            final champs = [
-              g.lastName,
-              g.firstName,
-              g.code,
-              g.phone ?? '',
-              g.email ?? '',
-            ].join(' ').toLowerCase();
-            return champs.contains(q);
-          }).toList(),
-        );
+      (rows) => rows.where((g) {
+        final champs = [
+          g.lastName,
+          g.firstName,
+          g.code,
+          g.phone ?? '',
+          g.email ?? '',
+        ].join(' ').toLowerCase();
+        return champs.contains(q);
+      }).toList(),
+    );
   }
 
   Future<GuestRow?> byId(String id) =>
@@ -104,7 +104,9 @@ class GuestRepository with OutboxWriter {
         'created_by': createdBy,
       },
       action: () async {
-        await db.into(db.guests).insert(
+        await db
+            .into(db.guests)
+            .insert(
               GuestsCompanion.insert(
                 id: id,
                 createdAt: now,
@@ -131,17 +133,20 @@ class GuestRepository with OutboxWriter {
   }
 
   Future<String> _nextCode() async {
-    final row = await db.customSelect(
-      'SELECT COUNT(*) AS n FROM guests WHERE hotel_id = ?1',
-      variables: [Variable.withString(hotelId)],
-    ).getSingle();
+    final row = await db
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM guests WHERE hotel_id = ?1',
+          variables: [Variable.withString(hotelId)],
+        )
+        .getSingle();
     return 'CLI-${(row.read<int>('n') + 1).toString().padLeft(5, '0')}';
   }
 
   /// Les sejours d'un client, du plus recent au plus ancien.
   Future<List<GuestStay>> stays(String guestId) async {
-    final rows = await db.customSelect(
-      '''
+    final rows = await db
+        .customSelect(
+          '''
       SELECT r.reference, rr.arrival_date, rr.departure_date, rr.status
         FROM reservations r
         JOIN reservation_rooms rr ON rr.reservation_id = r.id
@@ -149,9 +154,10 @@ class GuestRepository with OutboxWriter {
        ORDER BY rr.arrival_date DESC
        LIMIT 20
       ''',
-      variables: [Variable.withString(guestId)],
-      readsFrom: {db.reservations, db.reservationRooms},
-    ).get();
+          variables: [Variable.withString(guestId)],
+          readsFrom: {db.reservations, db.reservationRooms},
+        )
+        .get();
 
     return rows
         .map(
