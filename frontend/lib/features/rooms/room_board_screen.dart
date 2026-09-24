@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
@@ -66,6 +67,7 @@ class RoomBoardScreen extends ConsumerWidget {
           onPressed: () => context.go('/'),
         ),
         title: const Text('Plan des chambres'),
+        actions: const [PendingWritesBadge(), SizedBox(width: 16)],
       ),
       body: chambres.when(
         loading: () => const Center(child: CircularProgressIndicator()),

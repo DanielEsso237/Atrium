@@ -11,19 +11,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
+import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
+import '../guests/guest_picker.dart';
 
 final roomTypesProvider = FutureProvider<List<RoomTypeSummary>>(
   (ref) => ref.watch(databaseProvider).roomTypeSummaries(),
-);
-
-final allGuestsProvider = StreamProvider<List<GuestRow>>(
-  (ref) => ref.watch(guestRepositoryProvider).watchGuests(),
 );
 
 class NewReservationScreen extends ConsumerStatefulWidget {
@@ -130,7 +128,6 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guests = ref.watch(allGuestsProvider);
     final roomTypes = ref.watch(roomTypesProvider);
     final schema = Theme.of(context).colorScheme;
 
@@ -142,6 +139,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
           onPressed: () => context.go('/reservations'),
         ),
         title: const Text('Nouvelle reservation'),
+        actions: const [PendingWritesBadge(), SizedBox(width: 16)],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -153,28 +151,9 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
               children: [
                 _Section(
                   title: 'Le client',
-                  child: guests.when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Lecture impossible : $e'),
-                    data: (list) => DropdownButtonFormField<String>(
-                      initialValue: _guestId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Client',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      items: [
-                        for (final g in list)
-                          DropdownMenuItem(
-                            value: g.id,
-                            child: Text(
-                              '${g.lastName.toUpperCase()} ${g.firstName}'
-                              '  ·  ${g.code}',
-                            ),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _guestId = v),
-                    ),
+                  child: GuestPicker(
+                    selectedId: _guestId,
+                    onSelected: (id) => setState(() => _guestId = id),
                   ),
                 ),
                 const SizedBox(height: 16),
