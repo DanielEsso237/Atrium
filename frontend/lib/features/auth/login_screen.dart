@@ -19,7 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../data/local/seed_activity.dart';
-import 'auth_locale.dart';
+import '../../data/repositories/auth_repository.dart';
 import 'session.dart';
 
 enum _Voie { pin, motDePasse }
@@ -206,11 +206,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  String _messageEchec(EchecConnexion echec) => switch (echec) {
-    EchecConnexion.utilisateurInconnu => 'Code agent inconnu.',
-    EchecConnexion.compteDesactive => 'Ce compte est desactive.',
-    EchecConnexion.secretInvalide =>
+  String _messageEchec(LoginFailure echec) => switch (echec) {
+    LoginFailure.unknownUser => 'Code agent inconnu.',
+    LoginFailure.disabledAccount => 'Ce compte est desactive.',
+    LoginFailure.wrongSecret =>
       _voie == _Voie.pin ? 'Code incorrect.' : 'Mot de passe incorrect.',
+    // Cas propre au mode hors connexion : le serveur ne repond pas, et cet
+    // agent ne s'est jamais connecte sur cette tablette. Le dire, plutot que
+    // de laisser croire a un mauvais mot de passe.
+    LoginFailure.offlineAndUnknown =>
+      'Serveur injoignable, et cet agent est inconnu de cette tablette.',
   };
 }
 

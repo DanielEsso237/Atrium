@@ -43,6 +43,31 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (session.estConnecte) ...[
+            // Dire honnetement qui a authentifie l'agent. Une tablette qui
+            // travaille hors ligne doit le montrer au moment ou ca arrive,
+            // pas le laisser decouvrir en fin de service.
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: Tooltip(
+                  message: session.online
+                      ? 'Authentifie par le serveur central'
+                      : 'Serveur injoignable — authentifie par cette tablette',
+                  child: Chip(
+                    avatar: Icon(
+                      session.online ? Icons.cloud_done : Icons.cloud_off,
+                      size: 20,
+                    ),
+                    label: Text(session.online ? 'En ligne' : 'Hors ligne'),
+                    backgroundColor: session.online
+                        ? null
+                        : Theme.of(context).colorScheme.tertiaryContainer,
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (session.estConnecte)
             Padding(
               padding: const EdgeInsets.only(right: 16),
