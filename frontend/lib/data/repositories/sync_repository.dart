@@ -108,7 +108,19 @@ class SyncRepository {
             );
       }
 
+      // Les chambres dont une ecriture locale attend de remonter ne sont PAS
+      // ecrasees. Sans cette regle, un check-in fait hors ligne disparait au
+      // premier rapatriement : le serveur ignore tout de lui, il renvoie la
+      // chambre libre, et l'agent voit son client s'evaporer du plan.
+      //
+      // La regle generale : tant qu'une modification n'est pas remontee, la
+      // version locale fait foi. C'est le serveur qui est en retard, pas la
+      // tablette.
+      final enAttente = await _roomsWithPendingWrites();
+
       for (final r in rooms) {
+        if (enAttente.contains(r.id)) continue;
+
         await db
             .into(db.rooms)
             .insertOnConflictUpdate(
@@ -135,6 +147,35 @@ class SyncRepository {
     });
 
     return SyncOutcome.done(rooms.length);
+  }
+
+  /// Les chambres qu'une ecriture locale protege de l'ecrasement.
+  ///
+  /// Deux sources, parce qu'elles ne disent pas la meme chose :
+  ///
+  /// - `syncState = pending` sur la chambre elle-meme : elle a ete modifiee
+  ///   ici et n'est pas remontee ;
+  /// - la file d'attente : un check-in modifie la LIGNE DE SEJOUR, pas
+  ///   directement la chambre, mais il change son occupation. Sans regarder
+  ///   la file, on ecraserait quand meme.
+  Future<Set<String>> _roomsWithPendingWrites() async {
+    final lignes = await db
+        .customSelect(
+          """
+      SELECT id FROM rooms WHERE sync_state = 'pending'
+      UNION
+      SELECT rr.room_id
+        FROM outbox_entries o
+        JOIN reservation_rooms rr ON rr.id = o.entity_id
+       WHERE o.entity_table = 'reservation_rooms'
+         AND o.status IN ('PENDING','FAILED')
+         AND rr.room_id IS NOT NULL
+      """,
+          readsFrom: {db.rooms, db.outboxEntries, db.reservationRooms},
+        )
+        .get();
+
+    return lignes.map((l) => l.read<String>('id')).toSet();
   }
 
   /// Traduit un statut du serveur, en gardant la valeur par defaut la plus

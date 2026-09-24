@@ -11,6 +11,7 @@
 library;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'token_store.dart';
 
@@ -192,7 +193,17 @@ class ApiClient {
 
   Future<bool> _doRefresh() async {
     final refresh = await _tokens.readRefresh();
-    if (refresh == null) return false;
+    if (refresh == null) {
+      // Pas de jeton de rafraichissement : soit la session date d'avant que
+      // le serveur n'en emette, soit le magasin securise n'a rien conserve.
+      // Le dire, sinon l'application se contente de deconnecter sans qu'on
+      // sache pourquoi.
+      debugPrint(
+        'Atrium : aucun jeton de rafraichissement en magasin, '
+        'la session ne peut pas etre prolongee. Se reconnecter.',
+      );
+      return false;
+    }
 
     try {
       // Requete nue, sans repasser par `_send` : un 401 sur le

@@ -18,7 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
-import '../../data/local/seed_activity.dart';
+import '../../data/local/seed_accounts.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'session.dart';
 
