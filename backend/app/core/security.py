@@ -32,6 +32,20 @@ def verify_secret(plain: str, hashed: str | None) -> bool:
     return _pwd_context.verify(plain, hashed)
 
 
+def secret_accepte(plain: str, password_hash: str | None, pin_hash: str | None) -> bool:
+    """Le secret saisi ouvre-t-il la session ?
+
+    Mot de passe **ou** code PIN, sans que l'agent ait a dire lequel : sur une
+    tablette de comptoir, l'ecran de connexion propose un pave numerique et un
+    champ mot de passe, et le serveur n'a pas besoin de savoir lequel a servi.
+
+    Un compte sans PIN (`pin_hash` nul) n'est pas pour autant ouvert :
+    `verify_secret` refuse un hachage absent. C'est le cas par defaut de tout
+    compte cree par l'administration.
+    """
+    return verify_secret(plain, password_hash) or verify_secret(plain, pin_hash)
+
+
 def create_access_token(user_id: uuid.UUID) -> str:
     expire = dt.datetime.now(dt.timezone.utc) + dt.timedelta(
         minutes=settings.access_token_expire_minutes

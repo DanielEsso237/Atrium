@@ -158,6 +158,17 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
 DEMO_ADMIN = uuid.UUID("01920000-0000-7000-8000-000000050001")
 DEMO_ADMIN_PASSWORD = "ChangeMe123!"
 
+# Le receptionniste manquait ici alors que la tablette le connaissait depuis
+# toujours, avec ce meme identifiant. Resultat : hors ligne il se connectait,
+# en ligne le serveur refusait un compte qu'il n'avait jamais vu -- et
+# l'application refuse a juste titre de se rabattre sur la base locale quand
+# un serveur joignable dit non.
+DEMO_RECEPTION = uuid.UUID("01920000-0000-7000-8000-000000050002")
+
+# Le PIN sert aux releves de poste ; le mot de passe reste pour une premiere
+# connexion et pour l'administration.
+DEMO_PIN = "1234"
+
 DEFAULT_PRINTER = uuid.UUID("01920000-0000-7000-8000-000000006001")
 DOCUMENT_TYPES = [
     (uuid.UUID("01920000-0000-7000-8000-000000006101"), "KITCHEN_TICKET", "Ticket cuisine/bar", PrinterKind.THERMAL),
@@ -202,8 +213,16 @@ async def seed(session: AsyncSession) -> None:
     await upsert(Role, [{"id": rid, "code": code, "label": label, "is_system": True} for rid, code, label in ROLES])
     await upsert(Permission, [{"id": pid, "code": code, "label": label, "module": module} for pid, code, label, module in PERMISSIONS])
     await upsert_link(RolePermission, [{"role_id": role_id, "permission_id": perm_id} for role_id, perm_id in ROLE_PERMISSIONS], index_elements=["role_id", "permission_id"])
-    await upsert(User, [{"id": DEMO_ADMIN, "hotel_id": HOTEL, "employee_code": "ADMIN01", "first_name": "Admin", "last_name": "Atrium", "email": "admin@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "is_active": True, "must_change_password": False}])
-    await upsert_link(UserRole, [{"user_id": DEMO_ADMIN, "role_id": ADMIN_ROLE}], index_elements=["user_id", "role_id"])
+    await upsert(User, [
+        {"id": DEMO_ADMIN, "hotel_id": HOTEL, "employee_code": "ADMIN01", "first_name": "Admin", "last_name": "Atrium", "email": "admin@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
+        # Meme jeu de colonnes que la ligne precedente : un `insert` a
+        # plusieurs valeurs refuse des lignes de formes differentes.
+        {"id": DEMO_RECEPTION, "hotel_id": HOTEL, "employee_code": "RECEP01", "first_name": "Awa", "last_name": "Traore", "email": "reception@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
+    ])
+    await upsert_link(UserRole, [
+        {"user_id": DEMO_ADMIN, "role_id": ADMIN_ROLE},
+        {"user_id": DEMO_RECEPTION, "role_id": RECEPTION_ROLE},
+    ], index_elements=["user_id", "role_id"])
     await upsert(Printer, [{"id": DEFAULT_PRINTER, "hotel_id": HOTEL, "logical_name": "IMP_DEFAUT_01", "label": "Imprimante par defaut", "kind": PrinterKind.LASER, "protocol": PrinterProtocol.IPP}])
     await upsert(DocumentType, [{"id": did, "hotel_id": HOTEL, "code": code, "label": label, "default_kind": kind} for did, code, label, kind in DOCUMENT_TYPES])
     await upsert(PrintRoute, [{"id": rid, "hotel_id": HOTEL, "document_type_id": doc_type_id, "printer_id": DEFAULT_PRINTER, "priority": 0} for rid, doc_type_id in PRINT_ROUTES])
@@ -217,7 +236,8 @@ async def main() -> None:
     async with factory() as session:
         await seed(session)
     await engine.dispose()
-    print(f"{len(ROOM_TYPES)} categories, {len(ROOMS)} chambres, {len(ROLES)} roles, {len(PERMISSIONS)} permissions, 1 utilisateur demo (ADMIN01 / {DEMO_ADMIN_PASSWORD}).")
+    print(f"{len(ROOM_TYPES)} categories, {len(ROOMS)} chambres, {len(ROLES)} roles, {len(PERMISSIONS)} permissions.")
+    print(f"Comptes demo : ADMIN01 et RECEP01 — mot de passe {DEMO_ADMIN_PASSWORD}, code PIN {DEMO_PIN}.")
 
 
 if __name__ == "__main__":

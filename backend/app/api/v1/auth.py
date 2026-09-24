@@ -30,7 +30,7 @@ from app.core.security import (
     create_access_token,
     hash_refresh_token,
     new_refresh_token,
-    verify_secret,
+    secret_accepte,
 )
 from app.db.session import get_session
 from app.models import Device, RefreshToken, User
@@ -93,7 +93,16 @@ async def login(
             detail="Compte temporairement verrouille, reessayez plus tard.",
         )
 
-    if not verify_secret(payload.password, user.password_hash):
+    # Mot de passe **ou** code PIN : sur une tablette de comptoir que dix
+    # agents se passent dans la journee, taper un mot de passe complet a chaque
+    # releve est intenable -- c'est pour ca que l'ecran de connexion propose un
+    # pave numerique. Le PIN etait hache et stocke depuis le debut, mais jamais
+    # verifie : il ne fonctionnait donc qu'en mode hors ligne.
+    #
+    # Quatre chiffres se devinent, evidemment. Ce qui protege ici n'est pas la
+    # longueur du secret mais le verrouillage au bout de cinq essais, quelques
+    # lignes plus bas, et le fait que la tablette soit derriere un comptoir.
+    if not secret_accepte(payload.password, user.password_hash, user.pin_hash):
         user.failed_login_count += 1
         if user.failed_login_count >= 5:
             user.locked_until = now + dt.timedelta(minutes=15)
