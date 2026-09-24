@@ -103,8 +103,7 @@ part 'database.g.dart';
   ],
 )
 class AtriumDatabase extends _$AtriumDatabase {
-  AtriumDatabase([QueryExecutor? executor])
-      : super(executor ?? ouvrirBase());
+  AtriumDatabase([QueryExecutor? executor]) : super(executor ?? ouvrirBase());
 
   /// Utilise par les tests : base en memoire, jetee a la fin.
   AtriumDatabase.memory() : super(ouvrirBaseMemoire());
@@ -123,16 +122,16 @@ class AtriumDatabase extends _$AtriumDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await _createIndexes();
-        },
-        beforeOpen: (details) async {
-          // Integrite referentielle : desactivee par defaut dans SQLite, il
-          // faut la redemander a chaque ouverture de connexion.
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      await _createIndexes();
+    },
+    beforeOpen: (details) async {
+      // Integrite referentielle : desactivee par defaut dans SQLite, il
+      // faut la redemander a chaque ouverture de connexion.
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
   /// Applique un lot venu du serveur en differant le controle des cles
   /// etrangeres jusqu'au commit.

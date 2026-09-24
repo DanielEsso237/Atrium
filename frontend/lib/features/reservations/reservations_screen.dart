@@ -17,6 +17,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import 'assign_room_dialog.dart';
+import 'stay_actions.dart';
 
 /// Les filtres, tels qu'un receptionniste les pense.
 enum ReservationFilter {
@@ -235,13 +236,13 @@ class _ReservationCard extends ConsumerWidget {
   }
 }
 
-class _RoomAndAction extends StatelessWidget {
+class _RoomAndAction extends ConsumerWidget {
   const _RoomAndAction({required this.reservation});
 
   final ReservationSummary reservation;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final schema = Theme.of(context).colorScheme;
 
     if (!reservation.hasRoom) {
@@ -265,14 +266,50 @@ class _RoomAndAction extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Row(
       children: [
-        Text('Chambre', style: TextStyle(fontSize: 14, color: schema.outline)),
-        Text(
-          reservation.roomNumber!,
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'Chambre',
+              style: TextStyle(fontSize: 14, color: schema.outline),
+            ),
+            Text(
+              reservation.roomNumber!,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
+        // Un seul bouton a la fois : l'etape suivante du sejour, jamais les
+        // deux. Un sejour termine n'en propose aucun.
+        if (reservation.canCheckIn) ...[
+          const SizedBox(width: 20),
+          FilledButton.icon(
+            onPressed: () => confirmCheckIn(
+              context,
+              ref,
+              lineId: reservation.lineId,
+              guestName: reservation.guestName,
+              roomNumber: reservation.roomNumber!,
+            ),
+            icon: const Icon(Icons.login),
+            label: const Text('Check-in'),
+          ),
+        ] else if (reservation.canCheckOut) ...[
+          const SizedBox(width: 20),
+          OutlinedButton.icon(
+            onPressed: () => confirmCheckOut(
+              context,
+              ref,
+              lineId: reservation.lineId,
+              guestName: reservation.guestName,
+              roomNumber: reservation.roomNumber!,
+            ),
+            icon: const Icon(Icons.logout),
+            label: const Text('Check-out'),
+          ),
+        ],
       ],
     );
   }

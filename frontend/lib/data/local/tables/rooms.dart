@@ -7,7 +7,8 @@ import '../columns.dart';
 import '../enums.dart';
 
 @DataClassName('FloorRow')
-class Floors extends Table with SyncedTableColumns, HotelScoped, RefTableColumns {
+class Floors extends Table
+    with SyncedTableColumns, HotelScoped, RefTableColumns {
   TextColumn get code => text().withLength(max: 16)();
   TextColumn get label => text().withLength(max: 80)();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
@@ -59,10 +60,10 @@ class Rooms extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get roomTypeId => text().withLength(min: 36, max: 36)();
   TextColumn get floorId => text().nullable()();
 
-  TextColumn get occupancyStatus => textEnum<OccupancyStatus>()
-      .withDefault(const Constant('VACANT'))();
-  TextColumn get housekeepingStatus => textEnum<HousekeepingStatus>()
-      .withDefault(const Constant('CLEAN'))();
+  TextColumn get occupancyStatus =>
+      textEnum<OccupancyStatus>().withDefault(const Constant('VACANT'))();
+  TextColumn get housekeepingStatus =>
+      textEnum<HousekeepingStatus>().withDefault(const Constant('CLEAN'))();
 
   BoolColumn get isOutOfOrder => boolean().withDefault(const Constant(false))();
   TextColumn get outOfOrderReason => text().withLength(max: 255).nullable()();
@@ -111,7 +112,8 @@ class RatePlanPrices extends Table with SyncedTableColumns {
 }
 
 @DataClassName('TaxRow')
-class Taxes extends Table with SyncedTableColumns, HotelScoped, RefTableColumns {
+class Taxes extends Table
+    with SyncedTableColumns, HotelScoped, RefTableColumns {
   TextColumn get code => text().withLength(max: 32)();
   TextColumn get label => text().withLength(max: 120)();
   TextColumn get mode => textEnum<TaxMode>()();

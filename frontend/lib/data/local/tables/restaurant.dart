@@ -76,6 +76,7 @@ class MenuItems extends Table
   TextColumn get label => text().withLength(max: 160)();
   TextColumn get description => text().nullable()();
   TextColumn get menuCategoryId => text().withLength(min: 36, max: 36)();
+
   /// Nul pour un article qui ne se prepare pas : droit d'entree en boite de
   /// nuit, acces piscine, bouteille vendue telle quelle. Une telle ligne ne
   /// produit aucun ticket de production, et le routage l'ignore.
@@ -164,6 +165,7 @@ class OrderItems extends Table with SyncedTableColumns {
   TextColumn get orderId =>
       text().references(Orders, #id, onDelete: KeyAction.cascade)();
   TextColumn get menuItemId => text().nullable()();
+
   /// Nul pour un article qui ne se prepare pas : droit d'entree en boite de
   /// nuit, acces piscine, bouteille vendue telle quelle. Une telle ligne ne
   /// produit aucun ticket de production, et le routage l'ignore.

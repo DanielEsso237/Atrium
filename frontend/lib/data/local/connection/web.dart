@@ -43,5 +43,5 @@ QueryExecutor ouvrirBase() {
 /// dans un navigateur. Echouer ici plutot que de charger un second moteur
 /// WebAssembly pour un cas d'usage qui n'existe pas.
 QueryExecutor ouvrirBaseMemoire() => throw UnsupportedError(
-      "AtriumDatabase.memory() n'est pas disponible sur le web.",
-    );
+  "AtriumDatabase.memory() n'est pas disponible sur le web.",
+);

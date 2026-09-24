@@ -47,7 +47,7 @@ extension DashboardQueries on AtriumDatabase {
   /// bouge sans que personne ne rafraichisse. C'est ce qui donnera le temps
   /// reel du paragraphe 3.2 une fois la synchronisation branchee.
   Stream<DashboardSummary> watchDashboard({DateTime? jour}) {
-    final journee = dateIso(jour ?? DateTime.now());
+    final journee = formatIsoDate(jour ?? DateTime.now());
 
     return customSelect(
       '''
@@ -84,15 +84,15 @@ extension DashboardQueries on AtriumDatabase {
       variables: [Variable.withString(journee)],
       readsFrom: {rooms, reservations, reservationRooms, folioItems},
     ).watchSingle().map(
-          (row) => DashboardSummary(
-            chambresTotal: row.read<int>('total'),
-            chambresOccupees: row.read<int>('occupees'),
-            reservationsActives: row.read<int>('reservations'),
-            arriveesDuJour: row.read<int>('arrivees'),
-            departsDuJour: row.read<int>('departs'),
-            caDuJour: row.read<int>('ca'),
-            chambresANettoyer: row.read<int>('a_nettoyer'),
-          ),
-        );
+      (row) => DashboardSummary(
+        chambresTotal: row.read<int>('total'),
+        chambresOccupees: row.read<int>('occupees'),
+        reservationsActives: row.read<int>('reservations'),
+        arriveesDuJour: row.read<int>('arrivees'),
+        departsDuJour: row.read<int>('departs'),
+        caDuJour: row.read<int>('ca'),
+        chambresANettoyer: row.read<int>('a_nettoyer'),
+      ),
+    );
   }
 }

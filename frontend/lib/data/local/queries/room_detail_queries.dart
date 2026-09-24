@@ -70,15 +70,24 @@ class SejourPasse {
 class FicheChambre {
   const FicheChambre({
     required this.sejour,
+    required this.attendu,
     required this.consommations,
     required this.historique,
   });
 
   final SejourEnCours? sejour;
+
+  /// Le sejour attribue a cette chambre mais pas encore pris en charge.
+  ///
+  /// C'est ce qui permet de faire le check-in depuis le plan : la reception
+  /// clique sur la chambre du client qui se presente, sans passer par la
+  /// liste des reservations.
+  final SejourEnCours? attendu;
   final List<Consommation> consommations;
   final List<SejourPasse> historique;
 
   bool get estOccupee => sejour != null;
+  bool get attendUneArrivee => sejour == null && attendu != null;
 }
 
 extension RoomDetailQueries on AtriumDatabase {
@@ -92,8 +101,10 @@ extension RoomDetailQueries on AtriumDatabase {
       final sejour = await _sejourEnCours(roomId);
       yield FicheChambre(
         sejour: sejour,
-        consommations:
-            sejour?.folioId == null ? const [] : await _consommations(sejour!.folioId!),
+        attendu: sejour != null ? null : await _sejourAttendu(roomId),
+        consommations: sejour?.folioId == null
+            ? const []
+            : await _consommations(sejour!.folioId!),
         historique: await _historique(roomId),
       );
     }
@@ -101,9 +112,9 @@ extension RoomDetailQueries on AtriumDatabase {
 
   /// Emet a chaque fois qu'une des tables de la fiche bouge.
   Stream<void> _declencheur(String roomId) => customSelect(
-        'SELECT 1',
-        readsFrom: {reservationRooms, folios, folioItems, guests},
-      ).watch();
+    'SELECT 1',
+    readsFrom: {reservationRooms, folios, folioItems, guests},
+  ).watch();
 
   Future<SejourEnCours?> _sejourEnCours(String roomId) async {
     final lignes = await customSelect(
@@ -133,13 +144,51 @@ extension RoomDetailQueries on AtriumDatabase {
     return SejourEnCours(
       ligneId: r.read<String>('id'),
       folioId: r.read<String?>('folio_id'),
-      clientNom: '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
+      clientNom:
+          '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
       arrivee: r.read<String>('arrival_date'),
       depart: r.read<String>('departure_date'),
       adultes: r.read<int>('adults'),
       enfants: r.read<int>('children'),
       tarifNuit: r.read<int>('nightly_rate'),
       soldeArdoise: r.read<int?>('balance') ?? 0,
+    );
+  }
+
+  /// Le sejour attribue a cette chambre et pas encore arrive.
+  Future<SejourEnCours?> _sejourAttendu(String roomId) async {
+    final lignes = await customSelect(
+      '''
+      SELECT rr.id, rr.arrival_date, rr.departure_date, rr.adults, rr.children,
+             rr.nightly_rate,
+             g.first_name, g.last_name
+        FROM reservation_rooms rr
+        JOIN reservations res ON res.id = rr.reservation_id
+        JOIN guests g         ON g.id  = res.guest_id
+       WHERE rr.room_id = ?1
+         AND rr.deleted_at IS NULL
+         AND rr.status IN ('PENDING','CONFIRMED')
+       ORDER BY rr.arrival_date
+       LIMIT 1
+      ''',
+      variables: [Variable.withString(roomId)],
+      readsFrom: {reservationRooms, reservations, guests},
+    ).get();
+
+    if (lignes.isEmpty) return null;
+    final r = lignes.first;
+
+    return SejourEnCours(
+      ligneId: r.read<String>('id'),
+      folioId: null,
+      clientNom:
+          '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
+      arrivee: r.read<String>('arrival_date'),
+      depart: r.read<String>('departure_date'),
+      adultes: r.read<int>('adults'),
+      enfants: r.read<int>('children'),
+      tarifNuit: r.read<int>('nightly_rate'),
+      soldeArdoise: 0,
     );
   }
 

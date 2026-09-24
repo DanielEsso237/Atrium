@@ -35,7 +35,7 @@ class DashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 8),
             child: Center(
               child: Text(
-                dateLongue(DateTime.now()),
+                formatLongDate(DateTime.now()),
                 style: const TextStyle(fontSize: 17),
               ),
             ),
@@ -121,7 +121,7 @@ class _Tuiles extends StatelessWidget {
         _Tuile(
           icone: Icons.payments_outlined,
           titre: 'CA du jour',
-          valeur: montantCourt(resume.caDuJour),
+          valeur: formatAmountShort(resume.caDuJour),
           detail: 'journee hoteliere',
           couleur: const Color(0xFF00695C),
         ),

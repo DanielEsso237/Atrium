@@ -62,10 +62,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final secret = _voie == _Voie.pin ? _pin : _motDePasse.text;
     if (secret.isEmpty) return;
 
-    final ok = await ref.read(sessionProvider.notifier).connecter(
-          codeAgent: _codeAgent.text,
-          secret: secret,
-        );
+    final ok = await ref
+        .read(sessionProvider.notifier)
+        .connecter(codeAgent: _codeAgent.text, secret: secret);
 
     // Le secret se vide apres un echec : reessayer ne doit pas demander
     // d'effacer quatre fois.
@@ -208,12 +207,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _messageEchec(EchecConnexion echec) => switch (echec) {
-        EchecConnexion.utilisateurInconnu => 'Code agent inconnu.',
-        EchecConnexion.compteDesactive => 'Ce compte est desactive.',
-        EchecConnexion.secretInvalide => _voie == _Voie.pin
-            ? 'Code incorrect.'
-            : 'Mot de passe incorrect.',
-      };
+    EchecConnexion.utilisateurInconnu => 'Code agent inconnu.',
+    EchecConnexion.compteDesactive => 'Ce compte est desactive.',
+    EchecConnexion.secretInvalide =>
+      _voie == _Voie.pin ? 'Code incorrect.' : 'Mot de passe incorrect.',
+  };
 }
 
 class _ChoixVoie extends StatelessWidget {

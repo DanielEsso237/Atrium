@@ -14,7 +14,7 @@ library;
 ///
 /// Corollaire pour la couche reseau : ne jamais convertir en `double` en
 /// chemin. Un `int` qui part, un `int` qui revient.
-String montantFcfa(int montant) {
+String formatAmount(int montant) {
   final signe = montant < 0 ? '-' : '';
   final chiffres = montant.abs().toString();
   final tampon = StringBuffer();
@@ -33,8 +33,8 @@ String montantFcfa(int montant) {
 ///
 /// 1 250 000 devient `1,25 M`. En dessous du million, le montant complet passe
 /// sans probleme et reste plus lisible qu'une approximation.
-String montantCourt(int montant) {
-  if (montant.abs() < 1000000) return montantFcfa(montant);
+String formatAmountShort(int montant) {
+  if (montant.abs() < 1000000) return formatAmount(montant);
   final millions = montant / 1000000;
   final texte = millions.toStringAsFixed(millions.abs() >= 10 ? 0 : 2);
   return '${texte.replaceAll('.', ',')} M FCFA';
@@ -45,7 +45,7 @@ String montantCourt(int montant) {
 /// Les colonnes `arrival_date`, `departure_date` et `business_date` sont du
 /// texte ISO, pas des horodatages : ce sont des **dates**, sans heure ni
 /// fuseau. Une nuitee du 12 est la nuitee du 12 partout.
-String dateIso(DateTime jour) {
+String formatIsoDate(DateTime jour) {
   final m = jour.month.toString().padLeft(2, '0');
   final j = jour.day.toString().padLeft(2, '0');
   return '${jour.year}-$m-$j';
@@ -67,18 +67,18 @@ const _mois = [
 ];
 
 /// Date lisible pour l'en-tete des ecrans : `23 septembre 2026`.
-String dateLongue(DateTime jour) =>
+String formatLongDate(DateTime jour) =>
     '${jour.day} ${_mois[jour.month - 1]} ${jour.year}';
 
 /// Date compacte pour les listes et les fiches : `23/09/2026`.
-String dateCourte(DateTime jour) {
+String formatShortDate(DateTime jour) {
   final m = jour.month.toString().padLeft(2, '0');
   final j = jour.day.toString().padLeft(2, '0');
   return '$j/$m/${jour.year}';
 }
 
 /// Relit une date ISO de la base. Renvoie `null` si le texte est inexploitable.
-DateTime? dateDepuisIso(String? iso) {
+DateTime? parseIsoDate(String? iso) {
   if (iso == null || iso.length < 10) return null;
   return DateTime.tryParse(iso.substring(0, 10));
 }
