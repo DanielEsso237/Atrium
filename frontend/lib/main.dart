@@ -16,6 +16,7 @@ import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
 import 'data/local/seed.dart';
 import 'data/local/seed_accounts.dart';
+import 'features/sync/sync_status.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,12 @@ class AtriumApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Surveille la file d'envoi pour toute la duree de vie de l'application.
+    // Sans ce `watch`, Riverpod detruirait le planificateur faute d'auditeur,
+    // et la remontee automatique n'aurait lieu que sur les ecrans qui
+    // l'observent -- c'est-a-dire aucun.
+    ref.watch(syncSchedulerProvider);
+
     return MaterialApp.router(
       title: 'Atrium',
       debugShowCheckedModeBanner: false,
