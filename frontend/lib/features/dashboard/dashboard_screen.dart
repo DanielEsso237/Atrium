@@ -83,9 +83,22 @@ class DashboardScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Center(
-                child: Chip(
-                  avatar: const Icon(Icons.person_outline, size: 20),
-                  label: Text(session.nomAffiche),
+                // Le role a cote du nom : sur une tablette partagee par dix
+                // agents dans la journee, savoir sous quelle casquette on est
+                // connecte explique pourquoi l'ecran ne montre pas la meme
+                // chose qu'au collegue d'a cote.
+                child: Tooltip(
+                  message: session.acces.roles.isEmpty
+                      ? 'Compte rattache a aucun role'
+                      : session.acces.roles.join(', '),
+                  child: Chip(
+                    avatar: const Icon(Icons.person_outline, size: 20),
+                    label: Text(
+                      session.acces.roles.isEmpty
+                          ? session.nomAffiche
+                          : '${session.nomAffiche} · ${session.acces.roles.first}',
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -298,23 +311,58 @@ class _Tuile extends StatelessWidget {
   }
 }
 
-class _Modules extends StatelessWidget {
+/// Les six modules du paragraphe 5.1, filtres par les droits de l'agent (3.4).
+///
+/// Un housekeeper n'a que faire des factures, et les lui montrer grises ne
+/// l'aide pas : ca encombre un ecran de tablette et lui fait essayer une porte
+/// fermee. Le module qu'on ne peut pas ouvrir ne s'affiche pas.
+///
+/// Le filtrage ici est un confort d'interface, pas une securite : la vraie
+/// barriere est dans le routeur, qui refuse la route meme atteinte autrement.
+class _Modules extends ConsumerWidget {
   const _Modules();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const modules = [
-      (Icons.room_service_outlined, 'Reception', '/chambres'),
-      (Icons.restaurant_outlined, 'Restaurant', null),
-      (Icons.build_outlined, 'Maintenance', null),
-      (Icons.cleaning_services_outlined, 'Housekeeping', null),
-      (Icons.people_outline, 'Clients', '/clients'),
-      (Icons.receipt_long_outlined, 'Factures', '/factures'),
+      (Icons.room_service_outlined, 'Reception', '/chambres', 'rooms.read'),
+      (Icons.restaurant_outlined, 'Restaurant', null, 'order.read'),
+      (Icons.build_outlined, 'Maintenance', null, 'maintenance.read'),
+      (
+        Icons.cleaning_services_outlined,
+        'Housekeeping',
+        null,
+        'housekeeping.read',
+      ),
+      (Icons.people_outline, 'Clients', '/clients', 'guests.read'),
+      (Icons.receipt_long_outlined, 'Factures', '/factures', 'folio.read'),
     ];
+
+    final acces = ref.watch(sessionProvider).acces;
+    final visibles = modules.where((m) => acces.peut(m.$4)).toList();
+
+    // Un agent sans aucun rattachement : le dire, plutot que de laisser une
+    // page blanche qui se lit comme une panne.
+    if (visibles.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Aucun module ne vous est ouvert. '
+            'Votre compte n\'est rattache a aucun role — '
+            'demandez a l\'administrateur de le faire.',
+            style: TextStyle(
+              fontSize: 17,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ),
+      );
+    }
 
     return _Grille(
       enfants: [
-        for (final (icone, label, route) in modules)
+        for (final (icone, label, route, _) in visibles)
           _BoutonModule(icone: icone, label: label, route: route),
       ],
     );

@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
+import '../../data/local/queries/access_queries.dart';
 import '../../data/remote/remote_providers.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../sync/sync_status.dart';
@@ -48,10 +49,18 @@ class SessionState {
     this.enCours = false,
     this.echec,
     this.online = false,
+    this.acces = const AccessProfile(),
   });
 
   /// Agent connecte, ou `null` si personne ne l'est.
   final UserRow? agent;
+
+  /// Ce a quoi cet agent a droit (3.4).
+  ///
+  /// Charge a la connexion, en meme temps que l'agent : les deux vont
+  /// ensemble, et un ecran qui aurait l'un sans l'autre afficherait soit tout,
+  /// soit rien, le temps d'une reconstruction.
+  final AccessProfile acces;
 
   /// Une tentative de connexion est en cours.
   final bool enCours;
@@ -88,7 +97,15 @@ class SessionNotifier extends Notifier<SessionState> {
         .login(employeeCode: codeAgent, secret: secret);
 
     if (resultat.succeeded) {
-      state = SessionState(agent: resultat.user, online: resultat.online);
+      final acces = await accessProfileFor(
+        ref.read(databaseProvider),
+        resultat.user!.id,
+      );
+      state = SessionState(
+        agent: resultat.user,
+        online: resultat.online,
+        acces: acces,
+      );
 
       // Connexion en ligne : on rapatrie le referentiel dans la foulee, sans
       // attendre. L'ecran s'affiche tout de suite avec ce que la base
