@@ -111,13 +111,29 @@ pas se jouer sur une base différente de celle que sert l'API.
 cd frontend
 flutter pub get
 dart run build_runner build     # génère database.g.dart
-flutter test                    # 7 tests : schéma, index, montants, clés étrangères
-flutter run -d windows
+flutter test                    # 36 tests
 ```
 
-Développer sur **Windows desktop** : la base Drift est alors un fichier
-`.sqlite` ouvrable dans DB Browser pendant que l'application tourne. On ne
-branche une tablette Android que pour tester le tactile et l'impression.
+Trois façons de lancer l'application, par ordre d'utilité :
+
+| Cible | Commande | Pour quoi |
+|---|---|---|
+| Appareil Android | `flutter run -d <appareil>` | **la vraie cible.** Tactile, impression, vrai stockage hors ligne |
+| Navigateur | `flutter run -d chrome` | itérer vite sur la mise en page — redimensionner dans les outils de développement pour simuler une tablette |
+| Windows desktop | `flutter run -d windows` | la base est un fichier `.sqlite` ouvrable dans DB Browser pendant que l'application tourne |
+
+**Windows desktop exige Visual Studio avec la charge de travail C++** (plusieurs
+gigaoctets). Sans elle, `flutter run -d windows` échoue sur
+`Unable to find suitable Visual Studio toolchain`. Ce n'est pas un prérequis du
+projet : un appareil Android branché en USB suffit, et c'est de toute façon la
+plateforme de production.
+
+**Le navigateur n'est qu'un outil de mise en page.** La base y vit dans
+IndexedDB via SQLite compilé en WebAssembly, pas dans un fichier : le web ne
+prouve donc rien sur le comportement hors ligne réel. Les deux fichiers
+nécessaires (`web/sqlite3.wasm`, `web/drift_worker.js`) sont versionnés et
+doivent être remis à jour si `drift` ou `sqlite3` changent de version majeure.
+Le choix de l'implémentation se fait dans `lib/data/local/connection/`.
 
 Après toute modification d'une table Drift, relancer `build_runner`.
 
