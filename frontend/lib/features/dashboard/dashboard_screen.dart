@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
 import '../auth/session.dart';
@@ -31,6 +32,8 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Hotel Atrium'),
         actions: [
+          const PendingWritesBadge(),
+          const SizedBox(width: 12),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
