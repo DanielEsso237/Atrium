@@ -21,6 +21,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../../data/remote/outbox_sender.dart';
 import '../sync/sync_status.dart';
 import 'room_detail_panel.dart';
 
@@ -272,10 +273,10 @@ class _Legende extends StatelessWidget {
   }
 }
 
-/// Rapatrie le parc depuis le serveur, a la demande.
+/// Echange avec le serveur, a la demande : on remonte, puis on rapatrie.
 ///
 /// Un bouton et non un rafraichissement automatique : la reception doit
-/// pouvoir decider quand elle recharge, et surtout voir si ca a marche.
+/// pouvoir decider quand elle echange, et surtout voir si ca a marche.
 class _BoutonRafraichir extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -294,24 +295,62 @@ class _BoutonRafraichir extends ConsumerWidget {
 
     return IconButton(
       iconSize: 28,
-      tooltip: 'Rapatrier le parc depuis le serveur',
+      tooltip: 'Echanger avec le serveur',
       icon: const Icon(Icons.sync),
       onPressed: () async {
-        final outcome = await ref.read(syncProvider.notifier).refresh();
+        await ref.read(syncProvider.notifier).refresh();
         if (!context.mounted) return;
 
+        final etat = ref.read(syncProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              outcome.offline
-                  ? "Serveur injoignable — le plan garde les donnees de la tablette."
-                  : outcome.succeeded
-                  ? '${outcome.rooms} chambres rapatriees du serveur.'
-                  : 'Echec : ${outcome.error}',
-            ),
+            content: Text(_resume(etat)),
+            // Une file bloquee ne se resout pas toute seule : elle reste
+            // affichee le temps d'etre lue, en rouge, contrairement au reste.
+            duration: etat.isBlocked
+                ? const Duration(seconds: 10)
+                : const Duration(seconds: 4),
+            backgroundColor: etat.isBlocked
+                ? Theme.of(context).colorScheme.error
+                : null,
           ),
         );
       },
     );
   }
+}
+
+/// Ce que l'echange a donne, en une phrase pour la reception.
+///
+/// Les deux sens y figurent, et dans cet ordre : ce qui est parti compte plus
+/// que ce qui est arrive. Un receptionniste qui a enregistre six arrivees hors
+/// ligne veut d'abord savoir qu'elles sont remontees.
+String _resume(SyncUiState etat) {
+  final push = etat.push;
+  final pull = etat.last;
+
+  if (push != null && push.arret == DrainStop.bloque) {
+    return 'Une ecriture est refusee par le serveur et bloque les suivantes : '
+        '${push.detail}';
+  }
+  if (push != null && push.arret == DrainStop.sessionInvalide) {
+    return 'Session expiree — reconnectez-vous pour remonter les ecritures.';
+  }
+
+  final monte = push?.envoyees ?? 0;
+  final remonte = monte == 0
+      ? null
+      : '$monte ecriture${monte > 1 ? 's' : ''} remontee${monte > 1 ? 's' : ''}';
+
+  if (pull == null || pull.offline) {
+    return remonte == null
+        ? 'Serveur injoignable — le plan garde les donnees de la tablette.'
+        : '$remonte, puis le serveur a cesse de repondre.';
+  }
+  if (!pull.succeeded) {
+    return 'Echec : ${pull.error}';
+  }
+
+  final descendu = '${pull.rooms} chambres rapatriees';
+  return remonte == null ? '$descendu.' : '$remonte, $descendu.';
 }
