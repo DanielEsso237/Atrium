@@ -18,6 +18,9 @@ class GuestIn(BaseModel):
     que de bloquer le check-in en attendant une adresse complete.
     """
 
+    # Cle generee hors ligne par la tablette (app/core/ids.py). Un renvoi du
+    # meme id met la fiche a jour au lieu d'en creer une seconde.
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
     title: str | None = None

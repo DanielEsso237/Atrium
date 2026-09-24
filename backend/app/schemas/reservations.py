@@ -11,6 +11,7 @@ from app.models.enums import ReservationSource, ReservationStatus
 
 
 class ReservationRoomIn(BaseModel):
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     room_type_id: uuid.UUID
     arrival_date: dt.date
     departure_date: dt.date
@@ -28,6 +29,7 @@ class ReservationRoomIn(BaseModel):
 
 
 class ReservationIn(BaseModel):
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     guest_id: uuid.UUID
     source: ReservationSource = ReservationSource.DIRECT
     adults: int = Field(default=1, ge=1)
@@ -35,6 +37,15 @@ class ReservationIn(BaseModel):
     special_requests: str | None = None
     internal_notes: str | None = None
     rooms: list[ReservationRoomIn] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _distinct_ids(self) -> "ReservationIn":
+        ids = [line.id for line in self.rooms if line.id is not None]
+        if self.id is not None:
+            ids.append(self.id)
+        if len(ids) != len(set(ids)):
+            raise ValueError("Identifiants en double dans la reservation.")
+        return self
 
 
 class ReservationRoomOut(BaseModel):
@@ -86,6 +97,9 @@ class AvailabilityOut(BaseModel):
 class CheckInIn(BaseModel):
     room_id: uuid.UUID | None = Field(
         default=None, description="Obligatoire si aucune chambre n'a encore ete assignee"
+    )
+    folio_id: uuid.UUID | None = Field(
+        default=None, description="Id du folio ouvert par la tablette ; absent = genere"
     )
     key_card_code: str | None = None
 

@@ -436,6 +436,19 @@
       },
       "CheckInIn": {
         "properties": {
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id du folio ouvert par la tablette ; absent = genere",
+            "title": "Folio Id"
+          },
           "key_card_code": {
             "anyOf": [
               {
@@ -713,6 +726,19 @@
         "properties": {
           "category": {
             "$ref": "#/components/schemas/ChargeCategory"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "label": {
             "maxLength": 160,
@@ -1038,6 +1064,19 @@
               }
             ],
             "title": "Gender"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "id_document_expiry": {
             "anyOf": [
@@ -3143,6 +3182,19 @@
             "title": "Amount",
             "type": "integer"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "method": {
             "$ref": "#/components/schemas/PaymentMethod"
           },
@@ -4119,6 +4171,19 @@
             "title": "Guest Id",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "internal_notes": {
             "anyOf": [
               {
@@ -4301,6 +4366,19 @@
             "format": "date",
             "title": "Departure Date",
             "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "nightly_rate": {
             "anyOf": [
@@ -6912,6 +6990,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Charge deja enregistree (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -6946,6 +7027,7 @@
     },
     "/api/v1/folios/{folio_id}/payments": {
       "post": {
+        "description": "Encaissement. Un paiement rejoue (meme id) n'est jamais compte deux\n\nfois : 200 avec l'etat actuel du folio, sans rien reecrire.",
         "operationId": "record_payment_api_v1_folios__folio_id__payments_post",
         "parameters": [
           {
@@ -6970,6 +7052,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Paiement deja enregistre (meme id) : etat du folio"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -7111,6 +7196,7 @@
         ]
       },
       "post": {
+        "description": "Cree une fiche client, ou la met a jour si la tablette renvoie le meme id.\n\nUne tablette qui perd le reseau apres l'envoi ne sait pas si l'ecriture est\npassee et la renvoie : sans upsert, chaque coupure creerait un second\nclient. Une seule instruction `INSERT ... ON CONFLICT (id) DO UPDATE`,\nrestreinte a l'hotel de l'utilisateur : un id qui appartient a un autre\netablissement ne met rien a jour et repond 404. 201 a la creation, 200\nsur un renvoi. Le code client (CLI-...) n'est attribue qu'a la creation.",
         "operationId": "create_guest_api_v1_guests_post",
         "requestBody": {
           "content": {
@@ -7123,6 +7209,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Fiche deja connue (meme id) : mise a jour"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -9621,6 +9710,7 @@
         ]
       },
       "post": {
+        "description": "Cree un dossier ; la tablette peut imposer ses ids (dossier et lignes).\n\nRejeu d'un id deja connu : 200 avec l'etat actuel, sans rien reecrire.\nLe controle passe **apres** le verrou (deux envois simultanes du meme\ndossier se suivent) et **avant** la disponibilite : sinon le rejeu d'une\nreservation qui a pris la derniere chambre recevrait un 409 \"complet\" et\nbloquerait la file d'envoi de la tablette.",
         "operationId": "create_reservation_api_v1_reservations_post",
         "requestBody": {
           "content": {
@@ -9633,6 +9723,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Reservation deja enregistree (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {
