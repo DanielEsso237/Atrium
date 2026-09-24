@@ -256,7 +256,7 @@ class _Modules extends StatelessWidget {
       (Icons.restaurant_outlined, 'Restaurant', null),
       (Icons.build_outlined, 'Maintenance', null),
       (Icons.cleaning_services_outlined, 'Housekeeping', null),
-      (Icons.people_outline, 'Clients', null),
+      (Icons.people_outline, 'Clients', '/clients'),
       (Icons.receipt_long_outlined, 'Factures', null),
     ];
 
