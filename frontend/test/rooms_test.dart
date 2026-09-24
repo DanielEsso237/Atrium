@@ -57,14 +57,14 @@ void main() {
     expect(vip.map((r) => r.number), containsAll(['203', '309']));
 
     // Revaloriser la categorie suffit : aucune chambre n'est touchee.
-    await (db.update(db.roomTypes)..where((t) => t.code.equals('VIP')))
-        .write(const RoomTypesCompanion(defaultRate: Value(75000)));
+    await (db.update(db.roomTypes)..where((t) => t.code.equals('VIP'))).write(
+      const RoomTypesCompanion(defaultRate: Value(75000)),
+    );
 
     final apres = await db.watchRoomBoard().first;
-    expect(
-      apres.where((r) => r.typeCode == 'VIP').map((r) => r.rate).toSet(),
-      {75000},
-    );
+    expect(apres.where((r) => r.typeCode == 'VIP').map((r) => r.rate).toSet(), {
+      75000,
+    });
   });
 
   test('la pastille du plan se calcule sur trois axes', () async {
@@ -89,18 +89,18 @@ void main() {
     expect(chambre.housekeeping, HousekeepingStatus.DIRTY);
 
     // Le client part : la chambre devient libre, la salete subsiste.
-    await (db.update(db.rooms)..where((r) => r.number.equals('203')))
-        .write(const RoomsCompanion(
-      occupancyStatus: Value(OccupancyStatus.VACANT),
-    ));
+    await (db.update(db.rooms)..where((r) => r.number.equals('203'))).write(
+      const RoomsCompanion(occupancyStatus: Value(OccupancyStatus.VACANT)),
+    );
 
     apres = await db.watchRoomBoard().first;
     chambre = apres.firstWhere((r) => r.number == '203');
     expect(chambre.displayStatus, RoomDisplayStatus.CLEANING);
 
     // Une panne prime sur tout le reste.
-    await (db.update(db.rooms)..where((r) => r.number.equals('203')))
-        .write(const RoomsCompanion(isOutOfOrder: Value(true)));
+    await (db.update(db.rooms)..where((r) => r.number.equals('203'))).write(
+      const RoomsCompanion(isOutOfOrder: Value(true)),
+    );
 
     apres = await db.watchRoomBoard().first;
     expect(
@@ -123,11 +123,14 @@ void main() {
     );
 
     // On occupe la 203 du 12 au 15.
-    final r203 = (await db.watchRoomBoard().first)
-        .firstWhere((r) => r.number == '203');
+    final r203 = (await db.watchRoomBoard().first).firstWhere(
+      (r) => r.number == '203',
+    );
     final now = DateTime.now().toUtc();
 
-    await db.into(db.reservations).insert(
+    await db
+        .into(db.reservations)
+        .insert(
           ReservationsCompanion.insert(
             id: '01920000-0000-7000-8000-000000009001',
             createdAt: now,
@@ -140,7 +143,9 @@ void main() {
             status: const Value(ReservationStatus.CONFIRMED),
           ),
         );
-    await db.into(db.reservationRooms).insert(
+    await db
+        .into(db.reservationRooms)
+        .insert(
           ReservationRoomsCompanion.insert(
             id: '01920000-0000-7000-8000-000000009002',
             createdAt: now,

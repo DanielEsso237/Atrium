@@ -13,6 +13,7 @@ import '../../core/formats.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'charge_labels.dart';
 
 /// Ce qui se vend le plus souvent, pre-rempli en un clic.
 ///
@@ -80,16 +81,29 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
 
-    await ref
-        .read(folioRepositoryProvider)
-        .addCharge(
-          folioId: widget.folioId,
-          category: _category,
-          label: _label.text,
-          unitPrice: _unitPrice,
-          quantity: _quantity,
-          postedBy: ref.read(sessionProvider).agent?.id,
-        );
+    // Toute erreur remet le bouton en etat et se dit. Sinon l'ecran reste
+    // fige sur un bouton grise sans rien expliquer, et l'agent croit que
+    // l'application a plante -- c'est exactement ce qui s'est produit avec la
+    // liaison de parametres de `customStatement`.
+    try {
+      await ref
+          .read(folioRepositoryProvider)
+          .addCharge(
+            folioId: widget.folioId,
+            category: _category,
+            label: _label.text,
+            unitPrice: _unitPrice,
+            quantity: _quantity,
+            postedBy: ref.read(sessionProvider).agent?.id,
+          );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Echec : $e')));
+      return;
+    }
 
     if (!mounted) return;
     Navigator.of(context).pop(true);
@@ -147,7 +161,10 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                   decoration: const InputDecoration(labelText: 'Categorie'),
                   items: [
                     for (final c in ChargeCategory.values)
-                      DropdownMenuItem(value: c, child: Text(c.name)),
+                      DropdownMenuItem(
+                        value: c,
+                        child: Text(chargeCategoryLabel(c)),
+                      ),
                   ],
                   onChanged: (v) =>
                       setState(() => _category = v ?? ChargeCategory.FNB),

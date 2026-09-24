@@ -18,6 +18,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'charge_labels.dart';
 
 final foliosProvider = StreamProvider<List<FolioSummary>>(
   (ref) => ref.watch(folioRepositoryProvider).watchFolios(),
@@ -250,7 +251,7 @@ class _FolioSheet extends ConsumerWidget {
                                 _Line(
                                   label: l.label,
                                   detail:
-                                      '${l.category.name} · ${l.businessDate}'
+                                      '${chargeCategoryLabel(l.category)} · ${l.businessDate}'
                                       '${l.quantity > 1 ? ' · x${l.quantity}' : ''}',
                                   amount: l.amount,
                                 ),
@@ -276,7 +277,7 @@ class _FolioSheet extends ConsumerWidget {
                             children: [
                               for (final p in lignes)
                                 _Line(
-                                  label: p.method.name,
+                                  label: paymentMethodLabel(p.method),
                                   detail: p.reference ?? '',
                                   amount: -p.amount,
                                 ),
@@ -486,7 +487,10 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
               decoration: const InputDecoration(labelText: 'Moyen'),
               items: [
                 for (final m in PaymentMethod.values)
-                  DropdownMenuItem(value: m, child: Text(m.name)),
+                  DropdownMenuItem(
+                    value: m,
+                    child: Text(paymentMethodLabel(m)),
+                  ),
               ],
               onChanged: (v) =>
                   setState(() => _method = v ?? PaymentMethod.CASH),

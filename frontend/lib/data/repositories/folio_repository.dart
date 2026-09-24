@@ -70,7 +70,13 @@ class FolioRepository with OutboxWriter {
        ORDER BY f.status, f.number DESC
       ''',
           variables: [Variable.withString(hotelId)],
-          readsFrom: {db.folios, db.reservationRooms, db.reservations, db.guests, db.rooms},
+          readsFrom: {
+            db.folios,
+            db.reservationRooms,
+            db.reservations,
+            db.guests,
+            db.rooms,
+          },
         )
         .watch()
         .map((rows) {
@@ -138,11 +144,17 @@ class FolioRepository with OutboxWriter {
     required int unitPrice,
     int quantity = 1,
     String? postedBy,
+    String? sourceTable,
+    String? sourceId,
+    String? businessDate,
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
     final amount = unitPrice * quantity;
-    final businessDate = formatIsoDate(DateTime.now());
+    // Une nuitee appartient a SA journee, pas a celle ou on la porte : porter
+    // deux nuits d'un coup au depart ne doit pas gonfler le chiffre d'affaires
+    // du jour de deux nuits.
+    final journee = businessDate ?? formatIsoDate(DateTime.now());
 
     await db.transaction(() async {
       await db
@@ -158,7 +170,9 @@ class FolioRepository with OutboxWriter {
               quantity: Value(quantity),
               unitPrice: Value(unitPrice),
               amount: Value(amount),
-              businessDate: businessDate,
+              businessDate: journee,
+              sourceTable: Value(sourceTable),
+              sourceId: Value(sourceId),
               postedBy: Value(postedBy),
               syncState: const Value(SyncState.pending),
             ),
@@ -178,7 +192,9 @@ class FolioRepository with OutboxWriter {
           'quantity': quantity,
           'unit_price': unitPrice,
           'amount': amount,
-          'business_date': businessDate,
+          'business_date': journee,
+          'source_table': sourceTable,
+          'source_id': sourceId,
           'posted_by': postedBy,
         },
       );
@@ -238,14 +254,80 @@ class FolioRepository with OutboxWriter {
     });
   }
 
+  /// Porte au folio les nuits du sejour qui n'y sont pas encore.
+  ///
+  /// Sans cet appel, un client repart en payant ses consommations et **zero
+  /// franc de chambre** : le check-in ouvre l'ardoise mais n'y met rien.
+  /// C'est le defaut le plus couteux possible, parce qu'il ne fait rien
+  /// planter -- il fait juste perdre l'essentiel du chiffre d'affaires en
+  /// silence.
+  ///
+  /// Une ligne par nuit, comme le prevoit le modele (`stay_nights` : *une
+  /// ligne par nuit, avec son prix*). Deux nuits font deux lignes, ce qui
+  /// permet d'en annuler une sans toucher aux autres.
+  ///
+  /// Idempotent : les nuits deja portees sont reconnues a leur `sourceId` et
+  /// ne sont pas doublees. On peut donc l'appeler autant de fois qu'on veut,
+  /// et notamment a chaque ouverture de l'ardoise.
+  Future<int> postStayNights({
+    required String folioId,
+    required String stayLineId,
+    String? postedBy,
+  }) async {
+    final line = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(stayLineId))).getSingleOrNull();
+    if (line == null) return 0;
+
+    final arrival = parseIsoDate(line.arrivalDate);
+    final departure = parseIsoDate(line.departureDate);
+    if (arrival == null || departure == null) return 0;
+
+    // Les nuits deja portees, reconnues a leur source.
+    final existing =
+        await (db.select(db.folioItems)..where(
+              (i) =>
+                  i.folioId.equals(folioId) &
+                  i.sourceTable.equals('stay_nights') &
+                  i.deletedAt.isNull(),
+            ))
+            .get();
+    final already = existing.map((i) => i.sourceId).toSet();
+
+    var posted = 0;
+    // Intervalle semi-ouvert : un sejour du 12 au 15 occupe les nuits du 12,
+    // 13 et 14. La nuit du depart n'existe pas.
+    for (
+      var d = arrival;
+      d.isBefore(departure);
+      d = d.add(const Duration(days: 1))
+    ) {
+      final nightId = '$stayLineId:${formatIsoDate(d)}';
+      if (already.contains(nightId)) continue;
+
+      await addCharge(
+        folioId: folioId,
+        category: ChargeCategory.ROOM,
+        label: 'Nuitee du ${formatShortDate(d)}',
+        unitPrice: line.nightlyRate,
+        postedBy: postedBy,
+        sourceTable: 'stay_nights',
+        sourceId: nightId,
+        businessDate: formatIsoDate(d),
+      );
+      posted++;
+    }
+    return posted;
+  }
+
   /// Clot l'ardoise.
   ///
   /// Refuse tant que le solde n'est pas nul : une ardoise close avec un
   /// impaye est une creance que plus personne ne verra.
   Future<void> close(String folioId, {String? by}) async {
-    final folio = await (db.select(db.folios)
-          ..where((f) => f.id.equals(folioId)))
-        .getSingle();
+    final folio = await (db.select(
+      db.folios,
+    )..where((f) => f.id.equals(folioId))).getSingle();
 
     if (folio.balance != 0) {
       throw StateError(
@@ -298,7 +380,11 @@ class FolioRepository with OutboxWriter {
                                     AND is_refund = 0), 0)
        WHERE id = ?1
       ''',
-      [Variable.withString(folioId)],
+      // `customStatement` attend des valeurs brutes, pas des `Variable` :
+      // c'est `customSelect` qui prend des `Variable`. Passer l'un pour
+      // l'autre leve une erreur de liaison a l'execution, et l'ecran reste
+      // fige sur son bouton grise.
+      [folioId],
     );
   }
 }

@@ -56,7 +56,9 @@ void main() {
     final hotelId = '00000000-0000-7000-8000-000000000001';
     final now = DateTime.now().toUtc();
 
-    await db.into(db.hotels).insert(
+    await db
+        .into(db.hotels)
+        .insert(
           HotelsCompanion.insert(
             id: hotelId,
             createdAt: now,
@@ -70,7 +72,9 @@ void main() {
     expect(hotel.currency, 'XOF');
 
     // Un cafe a 500 FCFA se stocke 500. Pas 50000, pas 500.000.
-    await db.into(db.roomTypes).insert(
+    await db
+        .into(db.roomTypes)
+        .insert(
           RoomTypesCompanion.insert(
             id: '00000000-0000-7000-8000-000000000002',
             createdAt: now,
