@@ -5,12 +5,16 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import HousekeepingTaskType, Priority, TaskStatus
 
 
 class HousekeepingTaskIn(BaseModel):
+    id: uuid.UUID | None = Field(
+        default=None,
+        description="UUID v7 genere par la tablette ; absent = genere par le serveur",
+    )
     room_id: uuid.UUID
     type: HousekeepingTaskType
     priority: Priority = Priority.NORMAL
