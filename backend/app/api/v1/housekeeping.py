@@ -5,11 +5,12 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
+from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import HousekeepingTask, Room, User
 from app.models.enums import HousekeepingStatus, TaskStatus
@@ -47,14 +48,41 @@ async def list_tasks(
     return list(result.scalars().all())
 
 
-@router.post("", response_model=HousekeepingTaskOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=HousekeepingTaskOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Tache deja creee (meme id) : etat actuel"}},
+)
 async def create_task(
     payload: HousekeepingTaskIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("housekeeping.manage")),
 ) -> HousekeepingTask:
+    """La tache nait au depart du client, sur la tablette de la reception.
+
+    Elle porte donc l'id de la tablette : sans lui, une reponse perdue dans un
+    couloir ferait renvoyer la meme tache et l'hotel se retrouverait avec deux
+    fois le meme menage a faire.
+    """
+    champs = payload.model_dump(exclude={"id"})
+
+    if payload.id is not None:
+        existing = await session.get(HousekeepingTask, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id or existing.deleted_at is not None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Tache introuvable.")
+            # Renvoi : on rend l'etat actuel sans rien reecrire. Le menage a
+            # peut-etre deja commence, voire fini, entre l'envoi et le renvoi.
+            response.status_code = status.HTTP_200_OK
+            return existing
+
     task = HousekeepingTask(
-        hotel_id=user.hotel_id, status=TaskStatus.PENDING, **payload.model_dump()
+        id=payload.id or uuid7(),
+        hotel_id=user.hotel_id,
+        status=TaskStatus.PENDING,
+        **champs,
     )
     session.add(task)
     await session.commit()
@@ -70,6 +98,9 @@ async def assign_task(
     user: User = Depends(require_permission("housekeeping.manage")),
 ) -> HousekeepingTask:
     task = await _get_task(session, task_id, user)
+    # Deja assignee a la meme personne : renvoi, rien a refaire.
+    if task.status == TaskStatus.ASSIGNED and task.assigned_to == payload.user_id:
+        return task
     if task.status not in (TaskStatus.PENDING, TaskStatus.ASSIGNED):
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible d'assigner (statut actuel : {task.status})."
@@ -89,6 +120,11 @@ async def start_task(
     user: User = Depends(require_permission("housekeeping.manage")),
 ) -> HousekeepingTask:
     task = await _get_task(session, task_id, user)
+    # Renvoi de la tablette : le menage est deja en cours, on rend l'etat tel
+    # quel. Un 409 ici bloquerait la file d'envoi sur une action pourtant
+    # passee, et tout ce qui attend derriere elle.
+    if task.status == TaskStatus.IN_PROGRESS:
+        return task
     if task.status not in (TaskStatus.PENDING, TaskStatus.ASSIGNED):
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible de demarrer (statut actuel : {task.status})."
@@ -115,6 +151,9 @@ async def finish_task(
     equipes (voir le commentaire du modele `HousekeepingTask`).
     """
     task = await _get_task(session, task_id, user)
+    # Deja terminee, voire deja inspectee : c'est un renvoi, pas un conflit.
+    if task.status in (TaskStatus.DONE, TaskStatus.INSPECTED):
+        return task
     if task.status != TaskStatus.IN_PROGRESS:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible de terminer (statut actuel : {task.status})."
@@ -139,6 +178,8 @@ async def inspect_task(
     user: User = Depends(require_permission("housekeeping.manage")),
 ) -> HousekeepingTask:
     task = await _get_task(session, task_id, user)
+    if task.status == TaskStatus.INSPECTED:
+        return task
     if task.status != TaskStatus.DONE:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible d'inspecter (statut actuel : {task.status})."
