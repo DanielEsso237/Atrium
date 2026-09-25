@@ -26,12 +26,26 @@ QueryExecutor ouvrirBase() {
     // navigateur et le mode de navigation, drift retombe parfois sur un
     // stockage en memoire, perdu au rechargement. Le dire plutot que de
     // laisser croire a une persistance qui n'existe pas.
+    // Le mode retenu est ce qui decide vraiment si les donnees survivent :
+    // `inMemory` les perd a chaque rechargement, les autres non. Le dire
+    // explicitement, parce que la liste des fonctions manquantes ne permet pas
+    // de le deviner -- on peut manquer `sharedArrayBuffers` et persister
+    // quand meme.
+    final persiste =
+        resultat.chosenImplementation != WasmStorageImplementation.inMemory;
+
+    debugPrint(
+      'Drift web : mode ${resultat.chosenImplementation.name}, '
+      '${persiste ? "les donnees survivent au rechargement" : "DONNEES PERDUES A CHAQUE RECHARGEMENT"}.',
+    );
+
     if (resultat.missingFeatures.isNotEmpty) {
       debugPrint(
-        'Drift web : stockage degrade, fonctions manquantes '
-        '${resultat.missingFeatures}. Les donnees peuvent ne pas survivre au '
-        'rechargement. Sans consequence : le web est un outil de mise en page, '
-        'pas une cible de production.',
+        'Drift web : fonctions manquantes ${resultat.missingFeatures}. '
+        '`sharedArrayBuffers` demande que le serveur envoie les en-tetes '
+        'Cross-Origin-Opener-Policy et Cross-Origin-Embedder-Policy, ce que '
+        '`flutter run` ne fait pas. Sans consequence en production : la '
+        'tablette Android ecrit dans un fichier.',
       );
     }
 

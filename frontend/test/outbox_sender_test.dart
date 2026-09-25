@@ -276,4 +276,31 @@ void main() {
     expect(second.arret, DrainStop.termine);
     expect(api.appels.length, 1);
   });
+
+  test('l ecran apprend que la ligne est remontee', () async {
+    // Vecu a l'usage : la fiche client gardait son icone « en attente » alors
+    // que la ligne etait passee en `synced` en base. Drift ne sait pas ce
+    // qu'une requete brute modifie ; sans le lui dire, aucun flux ne se
+    // reveille et l'ecran ment jusqu'a ce qu'autre chose le rafraichisse.
+    final id = await creerClient();
+
+    final flux = (db.select(db.guests)..where((g) => g.id.equals(id)))
+        .watchSingle();
+    final etats = <SyncState>[];
+    final abonnement = flux.listen((g) => etats.add(g.syncState));
+
+    await pumpEventQueue();
+    expect(etats.last, SyncState.pending);
+
+    await OutboxSender(db: db, api: _FauxApi()).drain();
+    await pumpEventQueue();
+
+    expect(
+      etats.last,
+      SyncState.synced,
+      reason: 'le flux doit avoir emis le nouvel etat, pas seulement la base',
+    );
+
+    await abonnement.cancel();
+  });
 }
