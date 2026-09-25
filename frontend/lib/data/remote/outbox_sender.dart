@@ -29,20 +29,28 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'api_client.dart';
 
-/// Les tables que la file sait remonter.
+/// La table Drift derriere un nom SQL, et le garde-fou du moteur.
 ///
-/// La liste sert aussi de garde-fou : le nom de table vient de la base et
-/// finit dans un `UPDATE`, donc il ne part que s'il est dans cet ensemble
-/// ecrit a la main.
-const _tablesConnues = {
-  'guests',
-  'reservations',
-  'reservation_rooms',
-  'folios',
-  'folio_items',
-  'payments',
-  'housekeeping_tasks',
-};
+/// Renvoyer `null` pour un nom inconnu est ce qui empeche une valeur venue de
+/// la base de finir telle quelle dans un `UPDATE`.
+///
+/// Sert a prevenir les ecrans qu'une ligne a change. Drift ne sait pas ce
+/// qu'une requete brute modifie : il faut le lui dire, sinon la ligne passe
+/// bien en `synced` en base et l'ecran continue d'afficher « en attente »
+/// jusqu'a ce qu'autre chose rafraichisse la liste. C'est exactement ce qui
+/// se voyait : creer un second client faisait disparaitre l'icone du premier.
+TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
+  return switch (nom) {
+    'guests' => db.guests,
+    'reservations' => db.reservations,
+    'reservation_rooms' => db.reservationRooms,
+    'folios' => db.folios,
+    'folio_items' => db.folioItems,
+    'payments' => db.payments,
+    'housekeeping_tasks' => db.housekeepingTasks,
+    _ => null,
+  };
+}
 
 /// Une requete prete a partir.
 ///
@@ -272,12 +280,18 @@ class OutboxSender {
         ),
       );
 
-      if (toucherLaLigne && _tablesConnues.contains(entree.entityTable)) {
-        // `customStatement` attend des valeurs brutes, pas des `Variable`.
-        // Le nom de table vient de `_tablesConnues`, jamais de l'entree seule.
-        await db.customStatement(
+      final table = _tablePour(db, entree.entityTable);
+      if (toucherLaLigne && table != null) {
+        // `customUpdate` et non `customStatement` : le second ecrit sans
+        // prevenir personne, et les ecrans gardent leur « en attente » a
+        // l'affichage alors que la ligne est remontee. `updates` est ce qui
+        // reveille les flux.
+        //
+        // Le nom de table vient de `_tablePour`, jamais de l'entree seule.
+        await db.customUpdate(
           "UPDATE ${entree.entityTable} SET sync_state = 'synced' WHERE id = ?",
-          [entree.entityId],
+          variables: [Variable.withString(entree.entityId)],
+          updates: {table},
         );
       }
     });
