@@ -41,6 +41,7 @@ const _tablesConnues = {
   'folios',
   'folio_items',
   'payments',
+  'housekeeping_tasks',
 };
 
 /// Une requete prete a partir.
@@ -371,6 +372,9 @@ class OutboxSender {
         if (p['status'] != 'CLOSED') return null;
         return _Envoi('/folios/${p['id']}/close', const {});
 
+      case 'housekeeping_tasks':
+        return _menage(entree, p);
+
       default:
         return null;
     }
@@ -395,6 +399,34 @@ class OutboxSender {
           'nightly_rate': l['nightly_rate'],
         }),
     ];
+  }
+
+  /// Ouverture d'un menage, ou passage d'un etat a l'autre.
+  ///
+  /// Le serveur n'expose pas un champ `status` qu'on ecraserait : il a un
+  /// endpoint par transition, qui pose lui-meme les horodatages et calcule la
+  /// duree. On lui envoie donc le **verbe**, pas l'etat -- `/start`,
+  /// `/finish`. C'est ce qui permet a sa duree de nettoyage de faire foi.
+  _Envoi? _menage(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (entree.op == SyncOp.INSERT) {
+      return _Envoi('/housekeeping-tasks', _sansNuls({
+        'id': p['id'],
+        'room_id': p['room_id'],
+        'type': p['type'],
+        'priority': p['priority'],
+        'business_date': p['business_date'],
+      }));
+    }
+
+    final verbe = switch (p['status']) {
+      'IN_PROGRESS' => 'start',
+      'DONE' => 'finish',
+      'INSPECTED' => 'inspect',
+      _ => null,
+    };
+    if (verbe == null) return null;
+
+    return _Envoi('/housekeeping-tasks/${p['id']}/$verbe', const {});
   }
 
   /// Arrivee, depart, ou attribution de chambre.

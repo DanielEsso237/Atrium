@@ -332,7 +332,7 @@ class _Modules extends ConsumerWidget {
       (
         Icons.cleaning_services_outlined,
         'Housekeeping',
-        null,
+        '/menage',
         'housekeeping.read',
       ),
       (Icons.people_outline, 'Clients', '/clients', 'guests.read'),
