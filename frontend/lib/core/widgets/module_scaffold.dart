@@ -57,6 +57,20 @@ class ModuleScaffold extends ConsumerWidget {
         title: Text(title),
         actions: [
           const PendingWritesBadge(),
+          // Un metier a ecran unique ne passe jamais par le tableau de bord,
+          // ou vit le bouton de deconnexion : sans celui-ci, la femme de
+          // chambre etait prisonniere de sa liste. Sur une tablette que dix
+          // agents se passent dans la journee, pouvoir rendre la main est la
+          // premiere des choses.
+          if (ecranUnique) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Se deconnecter',
+              iconSize: 26,
+              icon: const Icon(Icons.logout),
+              onPressed: () => ref.read(sessionProvider.notifier).deconnecter(),
+            ),
+          ],
           if (action != null) ...[
             const SizedBox(width: 12),
             action!,

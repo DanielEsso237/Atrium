@@ -3,6 +3,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../../core/business_day.dart';
 import '../../../core/formats.dart';
 import '../database.dart';
 
@@ -47,7 +48,11 @@ extension DashboardQueries on AtriumDatabase {
   /// bouge sans que personne ne rafraichisse. C'est ce qui donnera le temps
   /// reel du paragraphe 3.2 une fois la synchronisation branchee.
   Stream<DashboardSummary> watchDashboard({DateTime? jour}) {
-    final journee = formatIsoDate(jour ?? DateTime.now());
+    // La journee hoteliere, pas la date du calendrier : a minuit une minute,
+    // le service de nuit travaille encore sur la journee de la veille.
+    final journee = jour == null
+        ? businessDateNow()
+        : formatIsoDate(businessDayFor(jour));
 
     return customSelect(
       '''
