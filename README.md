@@ -84,13 +84,31 @@ jouées contre une vraie base.
 Tests :
 
 ```bash
-pytest                            # tests purs uniquement
-TEST_DATABASE_URL=postgresql+asyncpg://... pytest   # + tests marqués `db`
+pytest                            # 39 tests purs, sans base
+TEST_DATABASE_URL=postgresql+asyncpg://atrium:...@localhost:5432/atrium_test pytest
+                                  # 68 tests, base comprise
 ```
 
 Les tests marqués `@pytest.mark.db` sont ignorés tant que `TEST_DATABASE_URL`
 est absent, pour qu'un `pytest` sur une machine sans base reste vert au lieu de
 produire des erreurs de connexion qu'on apprend vite à ignorer.
+
+**Le revers : 29 tests ignorés se lisent comme un succès.** Le cloisonnement
+entre hôtels, la numérotation sans trou et les écritures rejouables sont dans
+ce lot. Prendre le quart d'heure de mise en place en vaut la peine :
+
+```bash
+psql -U postgres -c "CREATE DATABASE atrium_test OWNER atrium"
+```
+
+Le `OWNER` n'est pas décoratif. Depuis PostgreSQL 15, le schéma `public`
+n'accorde plus la création de tables à tout le monde, et `conftest.py`
+commence par créer les soixante tables. Sans lui : `droit refusé pour le
+schéma public`.
+
+**`TEST_DATABASE_URL` ne doit jamais pointer sur la base de développement.**
+Le montage fait un `drop_all` à la fin de chaque test — la pointer sur
+`atrium` effacerait tout.
 
 Migrations :
 
@@ -111,7 +129,7 @@ pas se jouer sur une base différente de celle que sert l'API.
 cd frontend
 flutter pub get
 dart run build_runner build     # génère database.g.dart
-flutter test                    # 36 tests
+flutter test                    # 54 tests
 ```
 
 Trois façons de lancer l'application, par ordre d'utilité :
