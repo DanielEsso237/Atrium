@@ -85,7 +85,14 @@ async def _folio_avec_note(client, session, hotel, auth, montant: int) -> str:
         headers=auth,
     )
     assert charge.status_code == 201, charge.text
-    assert charge.json()["balance"] == montant
+
+    # `/items` renvoie la ligne creee, pas le folio : le solde se lit sur le
+    # folio. On le verifie ici pour que les tests qui suivent partent d'un
+    # etat connu -- sans quoi un echec de solde se lirait comme un echec du
+    # garde-fou.
+    etat = await client.get(f"/api/v1/folios/{folio_id}", headers=auth)
+    assert etat.status_code == 200, etat.text
+    assert etat.json()["balance"] == montant, etat.text
     return str(folio_id)
 
 
