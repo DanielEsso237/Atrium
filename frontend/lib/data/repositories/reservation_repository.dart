@@ -8,6 +8,7 @@ import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'folio_repository.dart';
+import 'guest_repository.dart' show codeFromId;
 import 'housekeeping_repository.dart';
 import 'outbox.dart';
 
@@ -197,7 +198,7 @@ class ReservationRepository with OutboxWriter {
     final reservationId = newId();
     final lineId = newId();
     final now = DateTime.now().toUtc();
-    final reference = await _nextReference();
+    final reference = codeFromId(reservationId, 'RES');
     final nights = departure.difference(arrival).inDays;
 
     // Une chambre choisie des la reservation vaut attribution : le statut
@@ -332,7 +333,7 @@ class ReservationRepository with OutboxWriter {
     }
 
     final folioId = newId();
-    final folioNumber = await _nextFolioNumber();
+    final folioNumber = codeFromId(folioId, 'FOL');
 
     await db.transaction(() async {
       await (db.update(
@@ -495,25 +496,5 @@ class ReservationRepository with OutboxWriter {
         syncState: const Value(SyncState.pending),
       ),
     );
-  }
-
-  Future<String> _nextReference() async {
-    final row = await db
-        .customSelect(
-          'SELECT COUNT(*) AS n FROM reservations WHERE hotel_id = ?1',
-          variables: [Variable.withString(hotelId)],
-        )
-        .getSingle();
-    return 'RES-${(row.read<int>('n') + 1).toString().padLeft(6, '0')}';
-  }
-
-  Future<String> _nextFolioNumber() async {
-    final row = await db
-        .customSelect(
-          'SELECT COUNT(*) AS n FROM folios WHERE hotel_id = ?1',
-          variables: [Variable.withString(hotelId)],
-        )
-        .getSingle();
-    return 'FOL-${(row.read<int>('n') + 1).toString().padLeft(6, '0')}';
   }
 }

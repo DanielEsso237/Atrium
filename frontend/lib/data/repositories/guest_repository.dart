@@ -8,6 +8,17 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'outbox.dart';
 
+/// Derive un code lisible depuis un UUID deja genere.
+///
+/// Remplace un comptage (`COUNT(*) + 1`) : deux creations simultanees sur
+/// deux tablettes differentes ne peuvent jamais produire le meme UUID, donc
+/// jamais le meme code, sans avoir besoin d'interroger la base.
+String codeFromId(String id, String prefix) {
+  final hex = id.replaceAll('-', '');
+  final suffix = hex.substring(hex.length - 8);
+  return '$prefix-$suffix'.toUpperCase();
+}
+
 /// Un sejour passe, tel qu'affiche dans l'historique d'une fiche client.
 class GuestStay {
   const GuestStay({
@@ -66,9 +77,10 @@ class GuestRepository with OutboxWriter {
 
   /// Cree une fiche client et enfile l'ecriture.
   ///
-  /// Le code est attribue localement, faute de sequence : acceptable pour une
-  /// reference interne, mais **pas** pour un numero de facture. La vraie
-  /// sequence sans trou vit cote serveur, dans `number_sequences`.
+  /// Le code est derive localement de l'UUID deja genere pour la ligne, sans
+  /// requete de comptage : acceptable pour une reference interne, mais
+  /// **pas** pour un numero de facture. La vraie sequence sans trou vit cote
+  /// serveur, dans `number_sequences`.
   Future<GuestRow> create({
     required String firstName,
     required String lastName,
@@ -82,7 +94,7 @@ class GuestRepository with OutboxWriter {
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
-    final code = await _nextCode();
+    final code = codeFromId(id, 'CLI');
 
     return writeAndEnqueue(
       table: 'guests',
@@ -130,16 +142,6 @@ class GuestRepository with OutboxWriter {
         return (await byId(id))!;
       },
     );
-  }
-
-  Future<String> _nextCode() async {
-    final row = await db
-        .customSelect(
-          'SELECT COUNT(*) AS n FROM guests WHERE hotel_id = ?1',
-          variables: [Variable.withString(hotelId)],
-        )
-        .getSingle();
-    return 'CLI-${(row.read<int>('n') + 1).toString().padLeft(5, '0')}';
   }
 
   /// Les sejours d'un client, du plus recent au plus ancien.
