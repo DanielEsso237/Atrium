@@ -88,26 +88,46 @@ _PERMISSIONS_NEEDED = [
     "guests.read", "guests.write",
     "reservation.read", "reservation.create", "reservation.manage",
     "folio.read", "folio.write",
+    "housekeeping.read", "housekeeping.manage",
 ]
 
 
 @pytest.fixture
 async def session(database_url):
-    """Une base Postgres de test, vide au debut de chaque test, detruite
+    """Une base Postgres de test, vide au debut de chaque test.
 
-    a la fin. `TEST_DATABASE_URL` doit deja exister et etre vide au
-    depart -- ne jamais pointer cette variable sur la base de dev.
+    `TEST_DATABASE_URL` doit deja exister -- **ne jamais pointer cette
+    variable sur la base de developpement**, ce montage vide toutes les
+    tables.
+
+    Le schema est cree au premier test (`create_all` ne refait rien s'il
+    existe deja) et **laisse en place** ensuite. Chaque test repart d'une base
+    videe par des `DELETE`, pas d'un schema reconstruit.
+
+    Ce detail a coute une base de donnees. Le montage d'origine creait puis
+    detruisait les soixante tables a *chaque* test : sur trente tests avec
+    base, des dizaines de milliers de creations et suppressions de fichiers.
+    Le serveur de developpement a mis 24 minutes a synchroniser 16 801
+    fichiers sur un seul point de controle, a pris un retard dont il n'est pas
+    revenu, et le postmaster s'est arrete en cours de route.
+
+    `DELETE` plutot que `TRUNCATE` : `TRUNCATE` recree un fichier par table,
+    ce qui ramenerait le meme pilonnage disque en plus discret. Sur des tables
+    de test, qui contiennent quelques lignes, `DELETE` ne coute rien.
     """
     engine = create_async_engine(database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Ordre inverse des dependances : les tables qui referencent les
+        # autres se vident en premier, sans avoir a desactiver les cles
+        # etrangeres.
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with factory() as s:
         yield s
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
