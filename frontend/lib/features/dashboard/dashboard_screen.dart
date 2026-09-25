@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/module_scaffold.dart';
@@ -35,14 +36,14 @@ class DashboardScreen extends ConsumerWidget {
         actions: [
           const PendingWritesBadge(),
           const SizedBox(width: 12),
+          // La journee **hoteliere**, celle dont parlent les chiffres, et non
+          // la date du calendrier. Entre minuit et six heures les deux
+          // different : afficher le 25 au-dessus de compteurs qui parlent du
+          // 24 fait lire une remise a zero la ou il n'y en a pas. Quand elles
+          // different, on le dit, sinon l'ecart passerait pour une erreur.
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: Text(
-                formatLongDate(DateTime.now()),
-                style: const TextStyle(fontSize: 17),
-              ),
-            ),
+            child: Center(child: _JourneeHoteliere()),
           ),
           if (session.estConnecte) ...[
             // Dire honnetement ou en est la tablette. L'etat vient du dernier
@@ -312,6 +313,46 @@ class _Tuile extends StatelessWidget {
 ///
 /// Le filtrage ici est un confort d'interface, pas une securite : la vraie
 /// barriere est dans le routeur, qui refuse la route meme atteinte autrement.
+/// La journee d'exploitation en cours.
+class _JourneeHoteliere extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final maintenant = DateTime.now();
+    final journee = businessDayFor(maintenant);
+    final decalee = journee.day != maintenant.day;
+
+    if (!decalee) {
+      return Text(
+        formatLongDate(journee),
+        style: const TextStyle(fontSize: 17),
+      );
+    }
+
+    return Tooltip(
+      message:
+          "La journee hoteliere court jusqu'a 6 h. Les chiffres ci-dessous "
+          'sont ceux de cette journee, pas de la date du calendrier.',
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            formatLongDate(journee),
+            style: const TextStyle(fontSize: 17),
+          ),
+          Text(
+            'journee en cours — service de nuit',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Modules extends ConsumerWidget {
   const _Modules();
 
