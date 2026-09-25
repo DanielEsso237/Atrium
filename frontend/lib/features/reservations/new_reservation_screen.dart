@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
@@ -50,10 +51,17 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
   void initState() {
     super.initState();
     _guestId = widget.guestId;
-    final today = DateTime.now();
+
+    // La journee hoteliere, pas la date du calendrier. Un client qui se
+    // presente a deux heures du matin arrive dans la journee de la veille :
+    // c'est cette nuit-la qu'il occupe, et c'est sur cette journee que la
+    // reception compte ses arrivees. Proposer le lendemain par defaut faisait
+    // disparaitre la reservation du tableau de bord au moment meme ou on la
+    // creait.
+    final today = businessDayFor(DateTime.now());
     _dates = DateTimeRange(
-      start: DateTime(today.year, today.month, today.day),
-      end: DateTime(today.year, today.month, today.day + 1),
+      start: today,
+      end: today.add(const Duration(days: 1)),
     );
   }
 
@@ -78,7 +86,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
       _guestId != null && _roomType != null && _dates != null && _nights > 0;
 
   Future<void> _pickDates() async {
-    final today = DateTime.now();
+    final today = businessDayFor(DateTime.now());
     final range = await showDateRangePicker(
       context: context,
       firstDate: DateTime(today.year - 1),
