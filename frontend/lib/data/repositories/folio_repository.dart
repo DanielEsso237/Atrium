@@ -8,6 +8,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
@@ -154,7 +155,7 @@ class FolioRepository with OutboxWriter {
     // Une nuitee appartient a SA journee, pas a celle ou on la porte : porter
     // deux nuits d'un coup au depart ne doit pas gonfler le chiffre d'affaires
     // du jour de deux nuits.
-    final journee = businessDate ?? formatIsoDate(DateTime.now());
+    final journee = businessDate ?? businessDateNow();
 
     await db.transaction(() async {
       await db
@@ -225,7 +226,7 @@ class FolioRepository with OutboxWriter {
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
-    final businessDate = formatIsoDate(DateTime.now());
+    final businessDate = businessDateNow();
 
     await db.transaction(() async {
       // Lu dans la transaction : le solde ne doit pas pouvoir bouger entre la

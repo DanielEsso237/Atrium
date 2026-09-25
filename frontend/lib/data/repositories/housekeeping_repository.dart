@@ -18,7 +18,7 @@ library;
 
 import 'package:drift/drift.dart';
 
-import '../../core/formats.dart';
+import '../../core/business_day.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
@@ -98,7 +98,7 @@ class HousekeepingRepository with OutboxWriter {
   /// la voir disparaitre -- sinon elle se demande si son geste a ete pris en
   /// compte.
   Stream<List<CleaningJob>> watchJobs() {
-    final jour = formatIsoDate(DateTime.now());
+    final jour = businessDateNow();
 
     return db
         .customSelect(
@@ -182,7 +182,7 @@ class HousekeepingRepository with OutboxWriter {
     Priority priority = Priority.NORMAL,
     String? by,
   }) async {
-    final businessDate = formatIsoDate(DateTime.now());
+    final businessDate = businessDateNow();
 
     final existante =
         await (db.select(db.housekeepingTasks)..where(
