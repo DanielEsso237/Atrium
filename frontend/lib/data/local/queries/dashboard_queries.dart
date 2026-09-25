@@ -14,7 +14,9 @@ class DashboardSummary {
     required this.chambresOccupees,
     required this.reservationsActives,
     required this.arriveesDuJour,
+    required this.arriveesRestantes,
     required this.departsDuJour,
+    required this.departsRestants,
     required this.caDuJour,
     required this.chambresANettoyer,
   });
@@ -22,8 +24,17 @@ class DashboardSummary {
   final int chambresTotal;
   final int chambresOccupees;
   final int reservationsActives;
+  /// Toutes les arrivees de la journee, faites ou non.
+  ///
+  /// Le total et non le reste : un compteur qui retombe a zero a mesure qu'on
+  /// travaille se lit comme une panne, et prive la reception de la seule
+  /// chose qu'elle veut savoir en un coup d'oeil -- l'ampleur de sa journee.
+  /// Ce qui reste a faire se lit sur `arriveesRestantes`.
   final int arriveesDuJour;
+  final int arriveesRestantes;
+
   final int departsDuJour;
+  final int departsRestants;
 
   /// Chiffre d'affaires de la journee hoteliere, en francs CFA entiers.
   final int caDuJour;
@@ -75,12 +86,22 @@ extension DashboardQueries on AtriumDatabase {
         (SELECT COUNT(*) FROM reservation_rooms
           WHERE deleted_at IS NULL
             AND arrival_date = ?1
-            AND status IN ('PENDING','CONFIRMED'))               AS arrivees,
+            AND status <> 'CANCELLED')                           AS arrivees,
+
+        (SELECT COUNT(*) FROM reservation_rooms
+          WHERE deleted_at IS NULL
+            AND arrival_date = ?1
+            AND status IN ('PENDING','CONFIRMED'))               AS arrivees_restantes,
 
         (SELECT COUNT(*) FROM reservation_rooms
           WHERE deleted_at IS NULL
             AND departure_date = ?1
-            AND status = 'CHECKED_IN')                           AS departs,
+            AND status IN ('CHECKED_IN','CHECKED_OUT'))          AS departs,
+
+        (SELECT COUNT(*) FROM reservation_rooms
+          WHERE deleted_at IS NULL
+            AND departure_date = ?1
+            AND status = 'CHECKED_IN')                           AS departs_restants,
 
         (SELECT COALESCE(SUM(amount), 0) FROM folio_items
           WHERE deleted_at IS NULL
@@ -94,7 +115,9 @@ extension DashboardQueries on AtriumDatabase {
         chambresOccupees: row.read<int>('occupees'),
         reservationsActives: row.read<int>('reservations'),
         arriveesDuJour: row.read<int>('arrivees'),
+        arriveesRestantes: row.read<int>('arrivees_restantes'),
         departsDuJour: row.read<int>('departs'),
+        departsRestants: row.read<int>('departs_restants'),
         caDuJour: row.read<int>('ca'),
         chambresANettoyer: row.read<int>('a_nettoyer'),
       ),

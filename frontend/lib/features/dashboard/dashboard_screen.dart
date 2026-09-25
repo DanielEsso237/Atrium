@@ -163,14 +163,22 @@ class _Tuiles extends StatelessWidget {
           icone: Icons.login_outlined,
           titre: 'Arrivees',
           valeur: '${resume.arriveesDuJour}',
-          detail: 'attendues aujourd\'hui',
+          // Le total de la journee en chiffre, ce qui reste a faire en
+          // dessous. Un compteur qui retombe a zero a mesure qu'on travaille
+          // se lit comme une panne.
+          detail: resume.arriveesRestantes == 0
+              ? 'toutes enregistrees'
+              : '${resume.arriveesRestantes} encore attendue'
+                    '${resume.arriveesRestantes > 1 ? 's' : ''}',
           couleur: CouleursEtat.disponible,
         ),
         _Tuile(
           icone: Icons.logout_outlined,
           titre: 'Departs',
           valeur: '${resume.departsDuJour}',
-          detail: 'prevus aujourd\'hui',
+          detail: resume.departsRestants == 0
+              ? 'tous enregistres'
+              : '${resume.departsRestants} encore a faire',
           couleur: CouleursEtat.maintenance,
         ),
         _Tuile(
