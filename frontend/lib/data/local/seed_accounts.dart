@@ -28,6 +28,13 @@ const _hotel = '01920000-0000-7000-8000-000000000001';
 const utilisateurDemo = '01920000-0000-7000-8000-000000050001';
 const _receptionniste = '01920000-0000-7000-8000-000000050002';
 
+/// La femme de chambre. Meme identifiant que `DEMO_HOUSEKEEPING` cote serveur.
+///
+/// C'est le compte qui montre le paragraphe 3.4 le plus nettement : connectee,
+/// elle ne voit ni le plan, ni les clients, ni les factures -- seulement ses
+/// chambres a faire.
+const _housekeeper = '01920000-0000-7000-8000-000000050003';
+
 /// Code PIN du jeu de demonstration.
 ///
 /// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite.
@@ -47,6 +54,7 @@ const _motDePasseStocke = 'DEMO:$motDePasseDemo';
 // la vraie synchronisation ne renumerote rien.
 const _roleAdmin = '01920000-0000-7000-8000-000000004001';
 const _roleReception = '01920000-0000-7000-8000-000000004002';
+const _roleHousekeeping = '01920000-0000-7000-8000-000000004005';
 
 /// Un role, avec l'ecran sur lequel il ouvre apres connexion.
 ///
@@ -71,12 +79,7 @@ const _roles = <_RoleDemo>[
   (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
   ('01920000-0000-7000-8000-000000004004', 'RESTAURANT', 'Restauration', null),
-  (
-    '01920000-0000-7000-8000-000000004005',
-    'HOUSEKEEPING',
-    'Housekeeping',
-    null,
-  ),
+  (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
   (
     '01920000-0000-7000-8000-000000004007',
@@ -143,6 +146,8 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
+  // Un seul droit, un seul ecran. C'est tout le metier.
+  (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {
@@ -180,6 +185,24 @@ Future<void> seedAccounts(AtriumDatabase db) async {
             employeeCode: 'RECEP01',
             firstName: 'Awa',
             lastName: 'Traore',
+            pinHash: const Value(_pinStocke),
+            passwordHash: const Value(_motDePasseStocke),
+            mustChangePassword: const Value(false),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+
+    await db
+        .into(db.users)
+        .insertOnConflictUpdate(
+          UsersCompanion.insert(
+            id: _housekeeper,
+            createdAt: maintenant,
+            updatedAt: maintenant,
+            hotelId: _hotel,
+            employeeCode: 'MENAGE01',
+            firstName: 'Fatou',
+            lastName: 'Sow',
             pinHash: const Value(_pinStocke),
             passwordHash: const Value(_motDePasseStocke),
             mustChangePassword: const Value(false),
@@ -236,6 +259,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
     for (final (userId, roleId) in [
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
+      (_housekeeper, _roleHousekeeping),
     ]) {
       await db
           .into(db.userRoles)

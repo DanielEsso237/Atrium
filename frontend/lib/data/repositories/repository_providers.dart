@@ -12,6 +12,7 @@ import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
+import 'housekeeping_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
 import 'sync_repository.dart';
@@ -22,6 +23,15 @@ final guestRepositoryProvider = Provider<GuestRepository>(
 
 final folioRepositoryProvider = Provider<FolioRepository>(
   (ref) => FolioRepository(ref.watch(databaseProvider)),
+);
+
+final housekeepingRepositoryProvider = Provider<HousekeepingRepository>(
+  (ref) => HousekeepingRepository(ref.watch(databaseProvider)),
+);
+
+/// Les chambres a faire aujourd'hui, en direct.
+final cleaningJobsProvider = StreamProvider<List<CleaningJob>>(
+  (ref) => ref.watch(housekeepingRepositoryProvider).watchJobs(),
 );
 
 final reservationRepositoryProvider = Provider<ReservationRepository>(

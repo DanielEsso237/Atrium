@@ -14,6 +14,7 @@ import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/guests/guests_screen.dart';
+import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/rooms/room_board_screen.dart';
@@ -32,6 +33,7 @@ const _permissionParZone = <String, String>{
   '/reservations': 'rooms.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
+  '/menage': 'housekeeping.read',
 };
 
 /// La permission exigee par un chemin, sous-routes comprises.
@@ -92,6 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/chambres', builder: (_, _) => const RoomBoardScreen()),
       GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
       GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
+      GoRoute(path: '/menage', builder: (_, _) => const HousekeepingScreen()),
       GoRoute(
         path: '/reservations',
         builder: (_, _) => const ReservationsScreen(),

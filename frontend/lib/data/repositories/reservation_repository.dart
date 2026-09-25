@@ -8,6 +8,7 @@ import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'folio_repository.dart';
+import 'housekeeping_repository.dart';
 import 'outbox.dart';
 
 /// Une reservation telle qu'affichee dans la liste de la reception.
@@ -465,6 +466,18 @@ class ReservationRepository with OutboxWriter {
         },
       );
     });
+
+    // Le menage naît du depart, mais **hors** de la transaction ci-dessus :
+    // SQLite ne sait pas les imbriquer, et `openTask` a la sienne.
+    //
+    // Cote serveur c'est un evenement a part, pas une consequence automatique
+    // du depart -- un hotel peut vouloir enregistrer une sortie sans declencher
+    // de menage. Ici la reception n'a pas d'ecran pour creer une tache a la
+    // main, donc c'est le depart qui l'ouvre : sans ca, la chambre serait sale
+    // sur le plan et invisible pour la femme de chambre.
+    if (line.roomId != null) {
+      await HousekeepingRepository(db).openTask(roomId: line.roomId!, by: by);
+    }
   }
 
   Future<void> _markReserved(String roomId, DateTime now) async {
