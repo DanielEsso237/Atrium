@@ -155,7 +155,6 @@ class FolioRepository with OutboxWriter {
     // Une nuitee appartient a SA journee, pas a celle ou on la porte : porter
     // deux nuits d'un coup au depart ne doit pas gonfler le chiffre d'affaires
     // du jour de deux nuits.
-    final journee = businessDate ?? formatIsoDate(DateTime.now());
     final journee = businessDate ?? businessDateNow();
 
     await db.transaction(() async {
