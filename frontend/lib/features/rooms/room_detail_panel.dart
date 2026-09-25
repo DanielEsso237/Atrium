@@ -20,11 +20,11 @@ import '../billing/add_charge_dialog.dart';
 import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
-final ficheChambreProvider = StreamProvider.family<FicheChambre, String>((
+final ficheChambreProvider = StreamProvider.family<RoomDetail, String>((
   ref,
   roomId,
 ) {
-  return ref.watch(databaseProvider).watchFicheChambre(roomId);
+  return ref.watch(databaseProvider).watchRoomDetail(roomId);
 });
 
 /// Ouvre la fiche en panneau lateral.
@@ -75,10 +75,10 @@ class _Fiche extends ConsumerWidget {
                     _Sejour(sejour: f.sejour!),
                     const SizedBox(height: 16),
                     _Consommations(lignes: f.consommations),
-                  ] else if (f.attendu != null) ...[
+                  ] else if (f.expected != null) ...[
                     _Bloc(
                       titre: 'Arrivee attendue',
-                      enfant: _Sejour(sejour: f.attendu!),
+                      enfant: _Sejour(sejour: f.expected!),
                     ),
                   ] else
                     _Bloc(
@@ -182,25 +182,25 @@ class _Caracteristiques extends StatelessWidget {
 class _Sejour extends StatelessWidget {
   const _Sejour({required this.sejour});
 
-  final SejourEnCours sejour;
+  final CurrentStay sejour;
 
   @override
   Widget build(BuildContext context) {
-    final arrivee = parseIsoDate(sejour.arrivee);
-    final depart = parseIsoDate(sejour.depart);
+    final arrivee = parseIsoDate(sejour.arrival);
+    final depart = parseIsoDate(sejour.departure);
 
     return _Bloc(
       titre: 'Sejour en cours',
       enfant: Column(
         children: [
-          _Ligne(cle: 'Client', valeur: sejour.clientNom, gras: true),
+          _Ligne(cle: 'Client', valeur: sejour.guestName, gras: true),
           _Ligne(
             cle: 'Arrivee',
-            valeur: arrivee == null ? sejour.arrivee : formatShortDate(arrivee),
+            valeur: arrivee == null ? sejour.arrival : formatShortDate(arrivee),
           ),
           _Ligne(
             cle: 'Depart',
-            valeur: depart == null ? sejour.depart : formatShortDate(depart),
+            valeur: depart == null ? sejour.departure : formatShortDate(depart),
           ),
           _Ligne(
             cle: 'Personnes',
@@ -208,11 +208,11 @@ class _Sejour extends StatelessWidget {
           ),
           _Ligne(
             cle: 'Tarif de la nuit',
-            valeur: formatAmount(sejour.tarifNuit),
+            valeur: formatAmount(sejour.nightlyRate),
           ),
           _Ligne(
             cle: 'Solde de l\'ardoise',
-            valeur: formatAmount(sejour.soldeArdoise),
+            valeur: formatAmount(sejour.balance),
             gras: true,
           ),
         ],
@@ -224,7 +224,7 @@ class _Sejour extends StatelessWidget {
 class _Consommations extends StatelessWidget {
   const _Consommations({required this.lignes});
 
-  final List<Consommation> lignes;
+  final List<Charge> lignes;
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +281,7 @@ class _Consommations extends StatelessWidget {
 class _Historique extends StatelessWidget {
   const _Historique({required this.sejours});
 
-  final List<SejourPasse> sejours;
+  final List<PastStay> sejours;
 
   @override
   Widget build(BuildContext context) {
@@ -298,8 +298,8 @@ class _Historique extends StatelessWidget {
               children: [
                 for (final s in sejours)
                   _Ligne(
-                    cle: s.clientNom,
-                    valeur: '${s.arrivee} → ${s.depart}',
+                    cle: s.guestName,
+                    valeur: '${s.arrival} → ${s.departure}',
                   ),
               ],
             ),
@@ -310,13 +310,13 @@ class _Historique extends StatelessWidget {
 class _Actions extends ConsumerWidget {
   const _Actions({required this.fiche, required this.chambre});
 
-  final FicheChambre? fiche;
+  final RoomDetail? fiche;
   final RoomBoardEntry chambre;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sejour = fiche?.sejour;
-    final attendu = fiche?.attendu;
+    final attendu = fiche?.expected;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -337,8 +337,8 @@ class _Actions extends ConsumerWidget {
                       final fait = await confirmCheckIn(
                         context,
                         ref,
-                        lineId: attendu.ligneId,
-                        guestName: attendu.clientNom,
+                        lineId: attendu.lineId,
+                        guestName: attendu.guestName,
                         roomNumber: chambre.number,
                       );
                       if (fait && context.mounted) Navigator.of(context).pop();
@@ -356,8 +356,8 @@ class _Actions extends ConsumerWidget {
                       final fait = await confirmCheckOut(
                         context,
                         ref,
-                        lineId: sejour.ligneId,
-                        guestName: sejour.clientNom,
+                        lineId: sejour.lineId,
+                        guestName: sejour.guestName,
                         roomNumber: chambre.number,
                       );
                       if (fait && context.mounted) Navigator.of(context).pop();
@@ -376,7 +376,7 @@ class _Actions extends ConsumerWidget {
                   : () => showAddChargeDialog(
                       context,
                       folioId: sejour.folioId!,
-                      guestName: sejour.clientNom,
+                      guestName: sejour.guestName,
                     ),
               icon: const Icon(Icons.add_shopping_cart),
               label: const Text('Consommation'),

@@ -12,35 +12,35 @@ import '../database.dart';
 import '../enums.dart';
 
 /// Le sejour en cours dans une chambre, s'il y en a un.
-class SejourEnCours {
-  const SejourEnCours({
-    required this.ligneId,
+class CurrentStay {
+  const CurrentStay({
+    required this.lineId,
     required this.folioId,
-    required this.clientNom,
-    required this.arrivee,
-    required this.depart,
+    required this.guestName,
+    required this.arrival,
+    required this.departure,
     required this.adultes,
     required this.enfants,
-    required this.tarifNuit,
-    required this.soldeArdoise,
+    required this.nightlyRate,
+    required this.balance,
   });
 
-  final String ligneId;
+  final String lineId;
   final String? folioId;
-  final String clientNom;
-  final String arrivee;
-  final String depart;
+  final String guestName;
+  final String arrival;
+  final String departure;
   final int adultes;
   final int enfants;
-  final int tarifNuit;
+  final int nightlyRate;
 
   /// Solde de l'ardoise, en francs CFA entiers.
-  final int soldeArdoise;
+  final int balance;
 }
 
 /// Une ligne de consommation portee a l'ardoise.
-class Consommation {
-  const Consommation({
+class Charge {
+  const Charge({
     required this.libelle,
     required this.categorie,
     required this.montant,
@@ -54,40 +54,40 @@ class Consommation {
 }
 
 /// Un sejour passe dans cette chambre.
-class SejourPasse {
-  const SejourPasse({
-    required this.clientNom,
-    required this.arrivee,
-    required this.depart,
+class PastStay {
+  const PastStay({
+    required this.guestName,
+    required this.arrival,
+    required this.departure,
   });
 
-  final String clientNom;
-  final String arrivee;
-  final String depart;
+  final String guestName;
+  final String arrival;
+  final String departure;
 }
 
 /// Tout ce que la fiche affiche, en un seul objet.
-class FicheChambre {
-  const FicheChambre({
+class RoomDetail {
+  const RoomDetail({
     required this.sejour,
-    required this.attendu,
+    required this.expected,
     required this.consommations,
     required this.historique,
   });
 
-  final SejourEnCours? sejour;
+  final CurrentStay? sejour;
 
   /// Le sejour attribue a cette chambre mais pas encore pris en charge.
   ///
   /// C'est ce qui permet de faire le check-in depuis le plan : la reception
   /// clique sur la chambre du client qui se presente, sans passer par la
   /// liste des reservations.
-  final SejourEnCours? attendu;
-  final List<Consommation> consommations;
-  final List<SejourPasse> historique;
+  final CurrentStay? expected;
+  final List<Charge> consommations;
+  final List<PastStay> historique;
 
   bool get estOccupee => sejour != null;
-  bool get attendUneArrivee => sejour == null && attendu != null;
+  bool get attendUneArrivee => sejour == null && expected != null;
 }
 
 extension RoomDetailQueries on AtriumDatabase {
@@ -96,12 +96,12 @@ extension RoomDetailQueries on AtriumDatabase {
   /// Trois lectures plutot qu'une : elles n'ont pas la meme forme (un sejour,
   /// des lignes d'ardoise, des sejours passes) et les joindre produirait un
   /// produit cartesien qu'il faudrait defaire en Dart.
-  Stream<FicheChambre> watchFicheChambre(String roomId) async* {
+  Stream<RoomDetail> watchRoomDetail(String roomId) async* {
     await for (final _ in _declencheur(roomId)) {
       final sejour = await _sejourEnCours(roomId);
-      yield FicheChambre(
+      yield RoomDetail(
         sejour: sejour,
-        attendu: sejour != null ? null : await _sejourAttendu(roomId),
+        expected: sejour != null ? null : await _sejourAttendu(roomId),
         consommations: sejour?.folioId == null
             ? const []
             : await _consommations(sejour!.folioId!),
@@ -116,7 +116,7 @@ extension RoomDetailQueries on AtriumDatabase {
     readsFrom: {reservationRooms, folios, folioItems, guests},
   ).watch();
 
-  Future<SejourEnCours?> _sejourEnCours(String roomId) async {
+  Future<CurrentStay?> _sejourEnCours(String roomId) async {
     final lignes = await customSelect(
       '''
       SELECT rr.id, rr.arrival_date, rr.departure_date, rr.adults, rr.children,
@@ -141,22 +141,22 @@ extension RoomDetailQueries on AtriumDatabase {
     if (lignes.isEmpty) return null;
     final r = lignes.first;
 
-    return SejourEnCours(
-      ligneId: r.read<String>('id'),
+    return CurrentStay(
+      lineId: r.read<String>('id'),
       folioId: r.read<String?>('folio_id'),
-      clientNom:
+      guestName:
           '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
-      arrivee: r.read<String>('arrival_date'),
-      depart: r.read<String>('departure_date'),
+      arrival: r.read<String>('arrival_date'),
+      departure: r.read<String>('departure_date'),
       adultes: r.read<int>('adults'),
       enfants: r.read<int>('children'),
-      tarifNuit: r.read<int>('nightly_rate'),
-      soldeArdoise: r.read<int?>('balance') ?? 0,
+      nightlyRate: r.read<int>('nightly_rate'),
+      balance: r.read<int?>('balance') ?? 0,
     );
   }
 
   /// Le sejour attribue a cette chambre et pas encore arrive.
-  Future<SejourEnCours?> _sejourAttendu(String roomId) async {
+  Future<CurrentStay?> _sejourAttendu(String roomId) async {
     final lignes = await customSelect(
       '''
       SELECT rr.id, rr.arrival_date, rr.departure_date, rr.adults, rr.children,
@@ -178,21 +178,21 @@ extension RoomDetailQueries on AtriumDatabase {
     if (lignes.isEmpty) return null;
     final r = lignes.first;
 
-    return SejourEnCours(
-      ligneId: r.read<String>('id'),
+    return CurrentStay(
+      lineId: r.read<String>('id'),
       folioId: null,
-      clientNom:
+      guestName:
           '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
-      arrivee: r.read<String>('arrival_date'),
-      depart: r.read<String>('departure_date'),
+      arrival: r.read<String>('arrival_date'),
+      departure: r.read<String>('departure_date'),
       adultes: r.read<int>('adults'),
       enfants: r.read<int>('children'),
-      tarifNuit: r.read<int>('nightly_rate'),
-      soldeArdoise: 0,
+      nightlyRate: r.read<int>('nightly_rate'),
+      balance: 0,
     );
   }
 
-  Future<List<Consommation>> _consommations(String folioId) async {
+  Future<List<Charge>> _consommations(String folioId) async {
     final lignes = await customSelect(
       '''
       SELECT label, category, amount, business_date
@@ -207,7 +207,7 @@ extension RoomDetailQueries on AtriumDatabase {
 
     return lignes
         .map(
-          (r) => Consommation(
+          (r) => Charge(
             libelle: r.read<String>('label'),
             categorie: ChargeCategory.values.byName(r.read<String>('category')),
             montant: r.read<int>('amount'),
@@ -217,7 +217,7 @@ extension RoomDetailQueries on AtriumDatabase {
         .toList();
   }
 
-  Future<List<SejourPasse>> _historique(String roomId) async {
+  Future<List<PastStay>> _historique(String roomId) async {
     final lignes = await customSelect(
       '''
       SELECT g.first_name, g.last_name, rr.arrival_date, rr.departure_date
@@ -236,11 +236,11 @@ extension RoomDetailQueries on AtriumDatabase {
 
     return lignes
         .map(
-          (r) => SejourPasse(
-            clientNom:
+          (r) => PastStay(
+            guestName:
                 '${r.read<String>('first_name')} ${r.read<String>('last_name')}',
-            arrivee: r.read<String>('arrival_date'),
-            depart: r.read<String>('departure_date'),
+            arrival: r.read<String>('arrival_date'),
+            departure: r.read<String>('departure_date'),
           ),
         )
         .toList();
