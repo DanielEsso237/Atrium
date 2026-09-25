@@ -28,6 +28,13 @@ const _hotel = '01920000-0000-7000-8000-000000000001';
 const utilisateurDemo = '01920000-0000-7000-8000-000000050001';
 const _receptionniste = '01920000-0000-7000-8000-000000050002';
 
+/// La femme de chambre. Meme identifiant que `DEMO_HOUSEKEEPING` cote serveur.
+///
+/// C'est le compte qui montre le paragraphe 3.4 le plus nettement : connectee,
+/// elle ne voit ni le plan, ni les clients, ni les factures -- seulement ses
+/// chambres a faire.
+const _housekeeper = '01920000-0000-7000-8000-000000050003';
+
 /// Code PIN du jeu de demonstration.
 ///
 /// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite.
@@ -47,6 +54,7 @@ const _motDePasseStocke = 'DEMO:$motDePasseDemo';
 // la vraie synchronisation ne renumerote rien.
 const _roleAdmin = '01920000-0000-7000-8000-000000004001';
 const _roleReception = '01920000-0000-7000-8000-000000004002';
+const _roleHousekeeping = '01920000-0000-7000-8000-000000004005';
 
 /// Un role, avec l'ecran sur lequel il ouvre apres connexion.
 ///
@@ -60,15 +68,18 @@ typedef _RoleDemo = (String id, String code, String label, String? accueil);
 
 const _roles = <_RoleDemo>[
   (_roleAdmin, 'ADMIN', 'Administrateur', '/'),
-  (_roleReception, 'RECEPTION', 'Reception', '/chambres'),
+  // La reception ouvre sur le tableau de bord, pas sur le plan des chambres.
+  // Ouvrir directement sur un ecran fait gagner un clic a celui qui allait y
+  // aller, et en coute un a tous les autres : il faut revenir en arriere pour
+  // atteindre les clients, les reservations ou les factures. Le tableau de
+  // bord est le carrefour, c'est de la qu'on part.
+  //
+  // La colonne garde son sens pour un metier qui n'a qu'un ecran -- le
+  // housekeeping le jour ou il existera.
+  (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
   ('01920000-0000-7000-8000-000000004004', 'RESTAURANT', 'Restauration', null),
-  (
-    '01920000-0000-7000-8000-000000004005',
-    'HOUSEKEEPING',
-    'Housekeeping',
-    null,
-  ),
+  (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
   (
     '01920000-0000-7000-8000-000000004007',
@@ -135,6 +146,13 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
+  // La reception suit l'avancement du menage : c'est ce que compte deja sa
+  // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
+  (_roleReception, '01920000-0000-7000-8000-000000004126'),
+  // Un seul droit metier, un seul ecran. C'est tout le travail.
+  (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
+  // Plus la lecture des chambres : on ne nettoie pas un numero qu'on ignore.
+  (_roleHousekeeping, '01920000-0000-7000-8000-000000004104'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {
@@ -172,6 +190,24 @@ Future<void> seedAccounts(AtriumDatabase db) async {
             employeeCode: 'RECEP01',
             firstName: 'Awa',
             lastName: 'Traore',
+            pinHash: const Value(_pinStocke),
+            passwordHash: const Value(_motDePasseStocke),
+            mustChangePassword: const Value(false),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+
+    await db
+        .into(db.users)
+        .insertOnConflictUpdate(
+          UsersCompanion.insert(
+            id: _housekeeper,
+            createdAt: maintenant,
+            updatedAt: maintenant,
+            hotelId: _hotel,
+            employeeCode: 'MENAGE01',
+            firstName: 'Fatou',
+            lastName: 'Sow',
             pinHash: const Value(_pinStocke),
             passwordHash: const Value(_motDePasseStocke),
             mustChangePassword: const Value(false),
@@ -228,6 +264,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
     for (final (userId, roleId) in [
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
+      (_housekeeper, _roleHousekeeping),
     ]) {
       await db
           .into(db.userRoles)

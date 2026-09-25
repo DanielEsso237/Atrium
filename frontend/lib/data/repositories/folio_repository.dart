@@ -8,6 +8,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
@@ -155,6 +156,7 @@ class FolioRepository with OutboxWriter {
     // deux nuits d'un coup au depart ne doit pas gonfler le chiffre d'affaires
     // du jour de deux nuits.
     final journee = businessDate ?? formatIsoDate(DateTime.now());
+    final journee = businessDate ?? businessDateNow();
 
     await db.transaction(() async {
       await db
@@ -203,6 +205,19 @@ class FolioRepository with OutboxWriter {
 
   /// Enregistre un encaissement (F1.4 : especes, carte, virement, Mobile
   /// Money).
+  ///
+  /// Refuse ce qui ne peut pas etre de l'argent recu : une ardoise close, un
+  /// montant nul ou negatif, et surtout **plus que ce qui reste du**. Sans ce
+  /// dernier controle on encaissait la meme facture deux fois -- rien ne
+  /// plantait, le solde passait simplement en negatif, et l'ecart ne se
+  /// serait vu qu'a la caisse en fin de service, sans moyen de savoir quel
+  /// client avait trop paye.
+  ///
+  /// Un client qui tend 60 000 pour une note de 50 000 fait enregistrer
+  /// 50 000 : les 10 000 rendus sont de la manipulation d'especes, pas une
+  /// ligne d'ardoise.
+  ///
+  /// Leve une [StateError] dont le message est fait pour etre montre tel quel.
   Future<void> addPayment({
     required String folioId,
     required PaymentMethod method,
@@ -212,9 +227,40 @@ class FolioRepository with OutboxWriter {
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
-    final businessDate = formatIsoDate(DateTime.now());
+    final businessDate = businessDateNow();
 
     await db.transaction(() async {
+      // Lu dans la transaction : le solde ne doit pas pouvoir bouger entre la
+      // verification et l'ecriture.
+      final folio = await (db.select(
+        db.folios,
+      )..where((f) => f.id.equals(folioId))).getSingleOrNull();
+
+      if (folio == null) {
+        throw StateError('Ardoise introuvable.');
+      }
+      if (folio.status != FolioStatus.OPEN) {
+        throw StateError(
+          'L\'ardoise ${folio.number} est close : elle n\'accepte plus '
+          'd\'encaissement.',
+        );
+      }
+      if (amount <= 0) {
+        throw StateError('Le montant doit etre superieur a zero.');
+      }
+      if (folio.balance <= 0) {
+        throw StateError(
+          'L\'ardoise ${folio.number} est deja soldee — il n\'y a rien a '
+          'encaisser.',
+        );
+      }
+      if (amount > folio.balance) {
+        throw StateError(
+          'Il ne reste que ${formatAmount(folio.balance)} a encaisser sur '
+          'l\'ardoise ${folio.number}.',
+        );
+      }
+
       await db
           .into(db.payments)
           .insert(

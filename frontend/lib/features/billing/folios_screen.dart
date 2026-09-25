@@ -14,11 +14,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
-import '../../data/local/enums.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'charge_labels.dart';
+import 'payment_dialog.dart';
 
 final foliosProvider = StreamProvider<List<FolioSummary>>(
   (ref) => ref.watch(folioRepositoryProvider).watchFolios(),
@@ -395,9 +395,11 @@ class _Actions extends ConsumerWidget {
   }
 
   Future<void> _encaisser(BuildContext context, WidgetRef ref) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => _PaymentDialog(folio: folio),
+    await showPaymentDialog(
+      context,
+      folioId: folio.id,
+      guestName: folio.guestName,
+      balance: folio.balance,
     );
   }
 

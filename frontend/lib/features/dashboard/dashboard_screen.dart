@@ -9,12 +9,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
 import '../auth/session.dart';
+import '../sync/sync_status.dart';
 
 final dashboardProvider = StreamProvider<DashboardSummary>(
   (ref) => ref.watch(databaseProvider).watchDashboard(),
@@ -34,47 +36,70 @@ class DashboardScreen extends ConsumerWidget {
         actions: [
           const PendingWritesBadge(),
           const SizedBox(width: 12),
+          // La journee **hoteliere**, celle dont parlent les chiffres, et non
+          // la date du calendrier. Entre minuit et six heures les deux
+          // different : afficher le 25 au-dessus de compteurs qui parlent du
+          // 24 fait lire une remise a zero la ou il n'y en a pas. Quand elles
+          // different, on le dit, sinon l'ecart passerait pour une erreur.
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: Text(
-                formatLongDate(DateTime.now()),
-                style: const TextStyle(fontSize: 17),
-              ),
-            ),
+            child: Center(child: _JourneeHoteliere()),
           ),
           if (session.estConnecte) ...[
-            // Dire honnetement qui a authentifie l'agent. Une tablette qui
-            // travaille hors ligne doit le montrer au moment ou ca arrive,
-            // pas le laisser decouvrir en fin de service.
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: Tooltip(
-                  message: session.online
-                      ? 'Authentifie par le serveur central'
-                      : 'Serveur injoignable — authentifie par cette tablette',
-                  child: Chip(
-                    avatar: Icon(
-                      session.online ? Icons.cloud_done : Icons.cloud_off,
-                      size: 20,
+            // Dire honnetement ou en est la tablette. L'etat vient du dernier
+            // echange, pas de la connexion : sinon un agent doit se
+            // deconnecter et se reconnecter pour que l'application remarque
+            // que le serveur est revenu, ce que personne ne fera en service.
+            // Tant qu'aucun echange n'a rien appris, on retombe sur ce que
+            // disait l'authentification.
+            Builder(
+              builder: (context) {
+                final enLigne = ref.watch(syncProvider).joignable ?? session.online;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Center(
+                    child: Tooltip(
+                      message: enLigne
+                          ? 'Dernier echange avec le serveur : reussi'
+                          : 'Serveur injoignable — la tablette travaille seule '
+                                'et garde ses ecritures',
+                      child: Chip(
+                        avatar: Icon(
+                          enLigne ? Icons.cloud_done : Icons.cloud_off,
+                          size: 20,
+                        ),
+                        label: Text(enLigne ? 'En ligne' : 'Hors ligne'),
+                        backgroundColor: enLigne
+                            ? null
+                            : Theme.of(context).colorScheme.tertiaryContainer,
+                      ),
                     ),
-                    label: Text(session.online ? 'En ligne' : 'Hors ligne'),
-                    backgroundColor: session.online
-                        ? null
-                        : Theme.of(context).colorScheme.tertiaryContainer,
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
           if (session.estConnecte)
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Center(
-                child: Chip(
-                  avatar: const Icon(Icons.person_outline, size: 20),
-                  label: Text(session.nomAffiche),
+                // Le role a cote du nom : sur une tablette partagee par dix
+                // agents dans la journee, savoir sous quelle casquette on est
+                // connecte explique pourquoi l'ecran ne montre pas la meme
+                // chose qu'au collegue d'a cote.
+                child: Tooltip(
+                  message: session.acces.roles.isEmpty
+                      ? 'Compte rattache a aucun role'
+                      : session.acces.roles.join(', '),
+                  child: Chip(
+                    avatar: const Icon(Icons.person_outline, size: 20),
+                    label: Text(
+                      session.acces.roles.isEmpty
+                          ? session.nomAffiche
+                          : '${session.nomAffiche} · ${session.acces.roles.first}',
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -124,26 +149,36 @@ class _Tuiles extends StatelessWidget {
           detail: taux == null ? null : '$taux % d\'occupation',
           couleur: CouleursEtat.occupee,
         ),
+        // Indicateur seulement : on y va par le bouton du bas, comme pour les
+        // cinq autres modules. Une tuile qui compte et qui navigue melange
+        // deux roles, et laissait les reservations sans porte d'entree propre.
         _Tuile(
           icone: Icons.event_outlined,
           titre: 'Reservations',
           valeur: '${resume.reservationsActives}',
           detail: 'en cours',
           couleur: CouleursEtat.reservee,
-          route: '/reservations',
         ),
         _Tuile(
           icone: Icons.login_outlined,
           titre: 'Arrivees',
           valeur: '${resume.arriveesDuJour}',
-          detail: 'attendues aujourd\'hui',
+          // Le total de la journee en chiffre, ce qui reste a faire en
+          // dessous. Un compteur qui retombe a zero a mesure qu'on travaille
+          // se lit comme une panne.
+          detail: resume.arriveesRestantes == 0
+              ? 'toutes enregistrees'
+              : '${resume.arriveesRestantes} encore attendue'
+                    '${resume.arriveesRestantes > 1 ? 's' : ''}',
           couleur: CouleursEtat.disponible,
         ),
         _Tuile(
           icone: Icons.logout_outlined,
           titre: 'Departs',
           valeur: '${resume.departsDuJour}',
-          detail: 'prevus aujourd\'hui',
+          detail: resume.departsRestants == 0
+              ? 'tous enregistres'
+              : '${resume.departsRestants} encore a faire',
           couleur: CouleursEtat.maintenance,
         ),
         _Tuile(
@@ -204,7 +239,6 @@ class _Tuile extends StatelessWidget {
     required this.valeur,
     required this.couleur,
     this.detail,
-    this.route,
   });
 
   final IconData icone;
@@ -212,10 +246,6 @@ class _Tuile extends StatelessWidget {
   final String valeur;
   final String? detail;
   final Color couleur;
-
-  /// Une tuile qui mene quelque part devient cliquable. Les autres restent
-  /// purement informatives — pas de faux bouton.
-  final String? route;
 
   @override
   Widget build(BuildContext context) {
@@ -272,38 +302,117 @@ class _Tuile extends StatelessWidget {
               ],
             ),
           ),
-          if (route != null)
-            Icon(Icons.chevron_right, color: schema.outline, size: 26),
         ],
       ),
     );
 
-    if (route == null) return Card(child: contenu);
+    // Purement informative : les tuiles comptent, les boutons du bas mènent
+    // quelque part. Melanger les deux faisait de la tuile « Reservations » la
+    // seule porte d'entree vers un module, ce que rien n'annoncait.
+    return Card(child: contenu);
+  }
+}
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: () => context.go(route!), child: contenu),
+/// Les six modules du paragraphe 5.1, filtres par les droits de l'agent (3.4).
+///
+/// Un housekeeper n'a que faire des factures, et les lui montrer grises ne
+/// l'aide pas : ca encombre un ecran de tablette et lui fait essayer une porte
+/// fermee. Le module qu'on ne peut pas ouvrir ne s'affiche pas.
+///
+/// Le filtrage ici est un confort d'interface, pas une securite : la vraie
+/// barriere est dans le routeur, qui refuse la route meme atteinte autrement.
+/// La journee d'exploitation en cours.
+class _JourneeHoteliere extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final maintenant = DateTime.now();
+    final journee = businessDayFor(maintenant);
+    final decalee = journee.day != maintenant.day;
+
+    if (!decalee) {
+      return Text(
+        formatLongDate(journee),
+        style: const TextStyle(fontSize: 17),
+      );
+    }
+
+    return Tooltip(
+      message:
+          "La journee hoteliere court jusqu'a 6 h. Les chiffres ci-dessous "
+          'sont ceux de cette journee, pas de la date du calendrier.',
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            formatLongDate(journee),
+            style: const TextStyle(fontSize: 17),
+          ),
+          Text(
+            'journee en cours — service de nuit',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Modules extends StatelessWidget {
+class _Modules extends ConsumerWidget {
   const _Modules();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const modules = [
-      (Icons.room_service_outlined, 'Reception', '/chambres'),
-      (Icons.restaurant_outlined, 'Restaurant', null),
-      (Icons.build_outlined, 'Maintenance', null),
-      (Icons.cleaning_services_outlined, 'Housekeeping', null),
-      (Icons.people_outline, 'Clients', '/clients'),
-      (Icons.receipt_long_outlined, 'Factures', '/factures'),
+      // Nomme d'apres l'ecran qu'il ouvre, pas d'apres le metier : dire
+      // « Reception » a un receptionniste ne lui apprend rien, alors que
+      // « Plan des chambres » lui dit ou il va.
+      (Icons.grid_view_outlined, 'Plan des chambres', '/chambres', 'rooms.read'),
+      // Les reservations ont leur bouton : elles se gerent, elles ne se
+      // consultent pas seulement. Leur tuile plus haut reste un indicateur,
+      // et un indicateur ne devrait pas etre la seule porte d'entree vers le
+      // travail qu'il mesure.
+      (Icons.event_outlined, 'Reservations', '/reservations', 'rooms.read'),
+      (Icons.restaurant_outlined, 'Restaurant', null, 'order.read'),
+      (Icons.build_outlined, 'Maintenance', null, 'maintenance.read'),
+      (
+        Icons.cleaning_services_outlined,
+        'Housekeeping',
+        '/menage',
+        'housekeeping.read',
+      ),
+      (Icons.people_outline, 'Clients', '/clients', 'guests.read'),
+      (Icons.receipt_long_outlined, 'Factures', '/factures', 'folio.read'),
     ];
+
+    final acces = ref.watch(sessionProvider).acces;
+    final visibles = modules.where((m) => acces.peut(m.$4)).toList();
+
+    // Un agent sans aucun rattachement : le dire, plutot que de laisser une
+    // page blanche qui se lit comme une panne.
+    if (visibles.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Aucun module ne vous est ouvert. '
+            'Votre compte n\'est rattache a aucun role — '
+            'demandez a l\'administrateur de le faire.',
+            style: TextStyle(
+              fontSize: 17,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ),
+      );
+    }
 
     return _Grille(
       enfants: [
-        for (final (icone, label, route) in modules)
+        for (final (icone, label, route, _) in visibles)
           _BoutonModule(icone: icone, label: label, route: route),
       ],
     );

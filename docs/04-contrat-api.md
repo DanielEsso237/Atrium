@@ -83,6 +83,27 @@ Une exception : **les numéros de facture** viennent du serveur, de la table
 client hors ligne. Les références internes (`CLI-`, `RES-`, `FOL-`) sont
 attribuées localement et n'ont pas cette contrainte.
 
+### Envoyer son `id`, et renvoyer sans crainte
+
+Les écritures métier acceptent un champ `id` facultatif : `POST /guests`,
+`POST /reservations` (dossier **et** chaque ligne de `rooms`),
+`POST /folios/{id}/items`, `POST /folios/{id}/payments`, et `folio_id` au
+check-in. Sans `id`, le serveur en génère un, comme avant.
+
+Une tablette qui a perdu la réponse **renvoie la même requête, même `id`** :
+
+| Cas | Réponse |
+|---|---|
+| Premier envoi | `201`, ligne créée avec l'`id` de la tablette |
+| Renvoi d'un client | `200`, fiche mise à jour, même code `CLI-` |
+| Renvoi d'une réservation, charge ou paiement | `200`, état actuel, **rien n'est réécrit** ni compté deux fois |
+| Check-in, check-out, annulation déjà faits | `200`, état actuel |
+| `id` appartenant à un autre hôtel | `404` |
+
+Un renvoi ne reçoit **jamais de 409**, même si l'hôtel est devenu complet ou
+le folio clos entre-temps : un 409 bloquerait la file d'envoi de la tablette
+et toutes les écritures suivantes derrière lui.
+
 ## L'authentification
 
 `POST /api/v1/auth/login` prend du **JSON**, pas un formulaire — le

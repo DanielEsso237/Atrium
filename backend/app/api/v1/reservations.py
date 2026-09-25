@@ -9,11 +9,13 @@ import datetime as dt
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
+from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import Folio, Guest, Reservation, ReservationRoom, Room, RoomType, StayNight, User
 from app.models.enums import (
@@ -203,6 +205,21 @@ async def _get_reservation(
     return reservation
 
 
+async def _replayed(session: AsyncSession, model, obj_id: uuid.UUID, user: User):
+    """Objet deja cree avec cet id (rejeu), ou None s'il est nouveau.
+
+    Jamais d'id accepte les yeux fermes : s'il existe dans un autre hotel,
+    404 -- une tablette ne doit ni lire ni ecraser la ligne d'un autre
+    etablissement en devinant son identifiant.
+    """
+    obj = await session.get(model, obj_id)
+    if obj is None:
+        return None
+    if obj.hotel_id != user.hotel_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Identifiant inconnu.")
+    return obj
+
+
 def build_calendar(
     rooms: Sequence[Mapping],
     lines: Sequence[Mapping],
@@ -373,16 +390,36 @@ async def reservation_calendar(
     return CalendarOut(date_from=date_from, date_to=date_to, rows=rows, unassigned=unassigned)
 
 
-@router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ReservationOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Reservation deja enregistree (meme id) : etat actuel"}},
+)
 async def create_reservation(
     payload: ReservationIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("reservation.create")),
 ) -> Reservation:
+    """Cree un dossier ; la tablette peut imposer ses ids (dossier et lignes).
+
+    Rejeu d'un id deja connu : 200 avec l'etat actuel, sans rien reecrire.
+    Le controle passe **apres** le verrou (deux envois simultanes du meme
+    dossier se suivent) et **avant** la disponibilite : sinon le rejeu d'une
+    reservation qui a pris la derniere chambre recevrait un 409 "complet" et
+    bloquerait la file d'envoi de la tablette.
+    """
+    await _lock_room_types(session, (line.room_type_id for line in payload.rooms))
+    if payload.id is not None:
+        existing = await _replayed(session, Reservation, payload.id, user)
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return existing
+
     room_types = await _room_types_by_id(
         session, user.hotel_id, (line.room_type_id for line in payload.rooms)
     )
-    await _lock_room_types(session, room_types)
 
     # On verifie la disponibilite de chaque ligne AVANT d'ecrire quoi que ce
     # soit : un dossier a moitie cree parce que la 2e chambre sur 3 etait
@@ -398,6 +435,7 @@ async def create_reservation(
         )
 
     reservation = Reservation(
+        id=payload.id or uuid7(),
         hotel_id=user.hotel_id,
         reference=await next_number(session, user.hotel_id, Scope.RESERVATION),
         guest_id=payload.guest_id,
@@ -421,6 +459,7 @@ async def create_reservation(
             else room_types[line.room_type_id].default_rate
         )
         res_room = ReservationRoom(
+            id=line.id or uuid7(),
             reservation_id=reservation.id,
             room_type_id=line.room_type_id,
             arrival_date=line.arrival_date,
@@ -431,7 +470,15 @@ async def create_reservation(
             status=ReservationStatus.CONFIRMED,
         )
         session.add(res_room)
-        await session.flush()
+        try:
+            await session.flush()
+        except IntegrityError as exc:
+            # Id de ligne deja porte par un autre dossier : pas un rejeu (le
+            # dossier, lui, est nouveau), mais une collision a signaler.
+            await session.rollback()
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "Identifiant de ligne deja utilise."
+            ) from exc
         total_amount += _sync_stay_nights(session, res_room, (), rate)
 
     reservation.estimated_total = total_amount
@@ -580,11 +627,16 @@ async def check_in(
     )
     if line is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligne de reservation introuvable.")
+    if line.status == ReservationStatus.CHECKED_IN and payload.room_id in (None, line.room_id):
+        # Rejeu (reponse perdue sur le reseau) : l'arrivee est deja faite.
+        return reservation
     if line.status not in EDITABLE_LINE_STATUSES:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             f"Impossible d'enregistrer l'arrivee (statut actuel : {line.status}).",
         )
+    if payload.folio_id is not None and await session.get(Folio, payload.folio_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Identifiant de folio deja utilise.")
 
     room_id = payload.room_id or line.room_id
     if room_id is None:
@@ -637,6 +689,7 @@ async def check_in(
     if existing_folio is None:
         session.add(
             Folio(
+                id=payload.folio_id or uuid7(),
                 hotel_id=user.hotel_id,
                 number=await next_number(session, user.hotel_id, Scope.FOLIO),
                 type=FolioType.GUEST,
@@ -677,6 +730,8 @@ async def check_out(
     )
     if line is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligne de reservation introuvable.")
+    if line.status == ReservationStatus.CHECKED_OUT:
+        return reservation  # rejeu : le depart est deja enregistre
     if line.status != ReservationStatus.CHECKED_IN:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -709,6 +764,8 @@ async def cancel_reservation(
     user: User = Depends(require_permission("reservation.manage")),
 ) -> Reservation:
     reservation = await _get_reservation(session, reservation_id, user)
+    if reservation.status == ReservationStatus.CANCELLED:
+        return reservation  # rejeu : deja annulee, motif et date d'origine conserves
     if any(r.status == ReservationStatus.CHECKED_IN for r in reservation.rooms):
         raise HTTPException(
             status.HTTP_409_CONFLICT,

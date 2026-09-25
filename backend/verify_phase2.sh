@@ -98,10 +98,10 @@ print(r['occupancy_status'])
 echo "  occupancy_status de la chambre apres check-in: $ROOM_STATUS (attendu OCCUPIED)"
 [ "$ROOM_STATUS" = "OCCUPIED" ] && echo "  OK   effet reel sur la chambre" || { echo "  FAIL effet reel sur la chambre"; FAIL=$((FAIL+1)); }
 
-echo "== check-in en double refuse (409) =="
+echo "== check-in rejoue : 200, etat courant (une tablette qui a perdu la reponse renvoie) =="
 CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API/reservations/$RES_ID/rooms/$LINE_ID/check-in" \
   -H "$AUTH" -H "Content-Type: application/json" -d "{}")
-check "double check-in" 409 "$CODE"
+check "double check-in (rejeu)" 200 "$CODE"
 
 echo "== annulation refusee apres arrivee (409) =="
 CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API/reservations/$RES_ID/cancel" -H "$AUTH" -H "Content-Type: application/json" -d '{}')
