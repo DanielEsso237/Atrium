@@ -166,7 +166,49 @@ void main() {
     expect(jobs.single.type, HousekeepingTaskType.DEPARTURE);
     expect(await etatChambre(roomId), HousekeepingStatus.DIRTY);
   });
+
+  test('une chambre sale sans tache apparait quand meme', () async {
+    // Vecu au premier essai : les chambres salies avant l'existence de ce
+    // module etaient invisibles pour toujours, et personne ne les nettoyait.
+    // C'est l'etat de la chambre qui dit qu'il y a du travail, pas la tache.
+    final roomId = await premiereChambre();
+    await db.customStatement(
+      "UPDATE rooms SET housekeeping_status = 'DIRTY' WHERE id = ?",
+      [roomId],
+    );
+
+    final jobs = await menage.watchJobs().first;
+    expect(jobs, hasLength(1));
+    expect(jobs.single.roomId, roomId);
+    expect(jobs.single.taskId, isNull);
+    expect(jobs.single.faite, isFalse);
+  });
+
+  test('commencer sur une chambre sans tache en ouvre une', () async {
+    final roomId = await premiereChambre();
+    await db.customStatement(
+      "UPDATE rooms SET housekeeping_status = 'DIRTY' WHERE id = ?",
+      [roomId],
+    );
+
+    final taskId = await menage.startRoom(roomId);
+
+    expect(await etatChambre(roomId), HousekeepingStatus.IN_PROGRESS);
+    final jobs = await menage.watchJobs().first;
+    expect(jobs.single.taskId, taskId);
+    expect(jobs.single.enCours, isTrue);
+
+    // Creation puis demarrage : le serveur doit recevoir les deux, dans cet
+    // ordre, sinon il demarrerait une tache qu'il ne connait pas.
+    expect(await enFile('housekeeping_tasks'), 2);
+
+    await menage.finish(taskId);
+    expect(await etatChambre(roomId), HousekeepingStatus.CLEAN);
+    expect((await menage.watchJobs().first).single.faite, isTrue);
+  });
 }
+
+
 
 Future<String> _client(AtriumDatabase db) async {
   final repo = GuestRepositoryStub(db);

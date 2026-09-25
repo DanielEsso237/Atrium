@@ -147,6 +147,17 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # charge, qui demande un second regard. La separation reception / caisse
     # se joue la, pas sur le fait de facturer une nuit.
     (RECEPTION_ROLE, FOLIO_WRITE),
+    # Le depart ouvre une tache de menage : la reception produit donc du
+    # travail pour le housekeeping, et doit pouvoir le declarer. Sans ce
+    # droit, elle enregistrait un depart puis se faisait refuser la tache --
+    # 403, et la file d'envoi bloquee derriere. Meme defaut que `folio.write`,
+    # meme cause : une action en declenche une autre, et le droit ne suivait
+    # pas.
+    # Lire en plus d'ecrire : la reception suit l'avancement du menage pour
+    # savoir quelles chambres elle peut revendre. C'est d'ailleurs ce que
+    # compte deja sa tuile « a nettoyer ».
+    (RECEPTION_ROLE, HOUSEKEEPING_READ),
+    (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
     (RECEPTION_ROLE, PRINT_REPRINT),
     (MANAGER_ROLE, USERS_READ),
     (RESTAURANT_ROLE, RESTAURANT_READ),
@@ -159,6 +170,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (CAISSE_ROLE, FOLIO_DISCOUNT),
     (CAISSE_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, CASH_SESSION),
+    # On ne nettoie pas une chambre dont on ignore le numero : la liste des
+    # chambres a faire joint les chambres, donc il faut pouvoir les lire.
+    (HOUSEKEEPING_ROLE, ROOMS_READ),
     (HOUSEKEEPING_ROLE, HOUSEKEEPING_READ),
     (HOUSEKEEPING_ROLE, HOUSEKEEPING_MANAGE),
     (MAINTENANCE_ROLE, MAINTENANCE_READ),

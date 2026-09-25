@@ -40,9 +40,17 @@ void main() {
     expect(acces.peut('guests.read'), isTrue);
     expect(acces.peut('folio.read'), isTrue);
 
-    // Le coeur du 3.4 : un receptionniste n'est pas un cuisinier.
+    // Le menage a rejoint son perimetre, et ce n'est pas un relachement : le
+    // depart d'un client *ouvre* une tache de menage. La reception produit
+    // donc ce travail, et doit pouvoir le declarer puis suivre ou il en est
+    // pour savoir quelles chambres elle peut revendre. Sans ce droit elle
+    // enregistrait un depart puis se faisait refuser la tache -- 403, file
+    // d'envoi bloquee derriere.
+    expect(acces.peut('housekeeping.read'), isTrue);
+
+    // Le coeur du 3.4 tient toujours : un receptionniste n'est pas un
+    // cuisinier, et ne repare pas la plomberie.
     expect(acces.peut('order.read'), isFalse);
-    expect(acces.peut('housekeeping.read'), isFalse);
     expect(acces.peut('maintenance.read'), isFalse);
   });
 

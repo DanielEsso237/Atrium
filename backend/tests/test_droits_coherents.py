@@ -33,8 +33,16 @@ def droits(role_id) -> set[str]:
 IMPLICATIONS = [
     # Le check-in ouvre l'ardoise et y porte la nuitee (postStayNights).
     ("reservation.manage", "folio.write"),
+    # Le check-out ouvre une tache de menage sur la chambre liberee.
+    #
+    # Cette ligne manquait, et le defaut est passe une deuxieme fois : la
+    # reception enregistrait un depart puis se faisait refuser la tache. Le
+    # test existait pourtant deja -- il ne couvrait simplement pas ce couple.
+    ("reservation.manage", "housekeeping.manage"),
     # Creer une reservation suppose de pouvoir designer un client.
     ("reservation.create", "guests.read"),
+    # On ne nettoie pas une chambre dont on ignore le numero.
+    ("housekeeping.read", "rooms.read"),
 ]
 
 

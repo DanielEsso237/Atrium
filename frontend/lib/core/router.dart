@@ -81,8 +81,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return autorise ? (accueil ?? '/') : '/';
       }
 
-      // Le tableau de bord reste ouvert a tous : c'est le point de repli de
-      // cette regle, il ne peut pas etre lui-meme refuse.
+      // Un metier qui a son propre ecran d'accueil n'a rien a faire sur le
+      // tableau de bord : il n'y verrait qu'un seul bouton, celui d'ou il
+      // vient. La femme de chambre y arrivait par la fleche retour, ce qui
+      // lui donnait un detour vers un carrefour a une seule sortie.
+      final accueil = session.acces.homeRoute;
+      if (accueil != null && accueil != '/' && etat.matchedLocation == '/') {
+        return accueil;
+      }
+
+      // Le tableau de bord reste ouvert aux autres : c'est le point de repli
+      // de cette regle, il ne peut pas etre lui-meme refuse.
       final requise = permissionPour(etat.matchedLocation);
       if (requise != null && !session.acces.peut(requise)) return '/';
 
