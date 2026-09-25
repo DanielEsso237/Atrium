@@ -119,9 +119,13 @@ class _CarteState extends ConsumerState<_Carte> {
 
     try {
       if (job.enCours) {
-        await depot.finish(job.taskId, by: agent);
+        // Une chambre en cours a forcement une tache : c'est elle qui l'a
+        // mise dans cet etat.
+        await depot.finish(job.taskId!, by: agent);
       } else {
-        await depot.start(job.taskId, by: agent);
+        // Sur la chambre et non sur la tache : elle peut ne pas en avoir, et
+        // refuser de la nettoyer pour cette raison serait absurde.
+        await depot.startRoom(job.roomId, by: agent);
       }
     } on StateError catch (e) {
       if (!mounted) return;
@@ -148,13 +152,16 @@ class _CarteState extends ConsumerState<_Carte> {
     final job = widget.job;
     final schema = Theme.of(context).colorScheme;
 
-    final (Color couleur, String etat) = switch (job.status) {
-      TaskStatus.IN_PROGRESS => (CouleursEtat.nettoyage, 'Nettoyage en cours'),
-      TaskStatus.DONE || TaskStatus.INSPECTED => (
+    final (Color couleur, String etat) = switch (job.roomStatus) {
+      HousekeepingStatus.IN_PROGRESS => (
+        CouleursEtat.nettoyage,
+        'Nettoyage en cours',
+      ),
+      HousekeepingStatus.CLEAN || HousekeepingStatus.INSPECTED => (
         CouleursEtat.disponible,
         'Fait',
       ),
-      _ => (CouleursEtat.maintenance, 'A faire'),
+      HousekeepingStatus.DIRTY => (CouleursEtat.maintenance, 'A faire'),
     };
 
     return Card(
@@ -220,8 +227,12 @@ class _CarteState extends ConsumerState<_Carte> {
                     job.enCours ? Icons.check : Icons.play_arrow,
                     size: 26,
                   ),
+                  // « Marquer terminee » et non « Termine » : le second se
+                  // lit comme un etat deja atteint, et on croit avoir fini
+                  // alors qu'on vient seulement de commencer. Un bouton
+                  // nomme par son action, pas par son resultat.
                   label: Text(
-                    job.enCours ? 'Termine' : 'Commencer',
+                    job.enCours ? 'Marquer terminee' : 'Commencer',
                     style: const TextStyle(fontSize: 17),
                   ),
                   style: job.enCours
@@ -251,7 +262,8 @@ class _CarteState extends ConsumerState<_Carte> {
     return job.floorLabel.isEmpty ? _typeLabel(job.type) : job.floorLabel;
   }
 
-  String _typeLabel(HousekeepingTaskType t) => switch (t) {
+  String _typeLabel(HousekeepingTaskType? t) => switch (t) {
+    null => 'A nettoyer',
     HousekeepingTaskType.DEPARTURE => 'Apres depart',
     HousekeepingTaskType.STAYOVER => 'Client en place',
     HousekeepingTaskType.REFRESH => 'Rafraichissement',

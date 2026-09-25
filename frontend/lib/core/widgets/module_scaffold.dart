@@ -18,9 +18,10 @@ import 'package:go_router/go_router.dart';
 import '../../data/repositories/repository_providers.dart';
 // L'ossature commune porte l'etat des echanges : c'est le seul endroit vu de
 // tous les modules, donc le seul ou l'indicateur soit reellement permanent.
+import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
 
-class ModuleScaffold extends StatelessWidget {
+class ModuleScaffold extends ConsumerWidget {
   const ModuleScaffold({
     super.key,
     required this.title,
@@ -36,15 +37,23 @@ class ModuleScaffold extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Un metier a ecran unique n'a nulle part ou revenir : lui montrer une
+    // fleche retour, c'est lui promettre un ailleurs qui n'existe pas. Le
+    // routeur le renverrait ici aussitot.
+    final accueil = ref.watch(sessionProvider).acces.homeRoute;
+    final ecranUnique = accueil != null && accueil != '/';
+
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          iconSize: 28,
-          tooltip: 'Tableau de bord',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/'),
-        ),
+        leading: ecranUnique
+            ? null
+            : IconButton(
+                iconSize: 28,
+                tooltip: 'Tableau de bord',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.go('/'),
+              ),
         title: Text(title),
         actions: [
           const PendingWritesBadge(),

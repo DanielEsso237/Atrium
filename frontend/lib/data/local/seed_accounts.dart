@@ -146,8 +146,13 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
-  // Un seul droit, un seul ecran. C'est tout le metier.
+  // La reception suit l'avancement du menage : c'est ce que compte deja sa
+  // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
+  (_roleReception, '01920000-0000-7000-8000-000000004126'),
+  // Un seul droit metier, un seul ecran. C'est tout le travail.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
+  // Plus la lecture des chambres : on ne nettoie pas un numero qu'on ignore.
+  (_roleHousekeeping, '01920000-0000-7000-8000-000000004104'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {

@@ -27,29 +27,48 @@ import 'outbox.dart';
 /// Une chambre a faire, telle que la femme de chambre la voit.
 class CleaningJob {
   const CleaningJob({
-    required this.taskId,
     required this.roomId,
+    this.taskId,
     required this.roomNumber,
     required this.floorLabel,
-    required this.status,
-    required this.type,
+    required this.roomStatus,
+    this.status,
+    this.type,
     required this.priority,
     this.startedAt,
     this.durationMinutes,
   });
 
-  final String taskId;
+  /// La tache, si elle existe deja.
+  ///
+  /// Nulle pour une chambre sale sans tache ouverte -- une chambre salie avant
+  /// que ce module n'existe, ou marquee sale a la main. Elle doit quand meme
+  /// apparaitre dans la liste : c'est l'etat de la chambre qui dit qu'il y a
+  /// du travail, la tache n'en est que la trace.
+  final String? taskId;
   final String roomId;
   final String roomNumber;
   final String floorLabel;
-  final TaskStatus status;
-  final HousekeepingTaskType type;
+
+  /// L'etat de la chambre : c'est lui qui fait foi pour l'affichage.
+  ///
+  /// La tache peut manquer ; la chambre, jamais. Lire l'avancement sur elle
+  /// evite d'avoir deux verites qui se contredisent a l'ecran.
+  final HousekeepingStatus roomStatus;
+
+  /// L'avancement de la tache, ou `null` quand aucune n'a encore ete ouverte.
+  final TaskStatus? status;
+  final HousekeepingTaskType? type;
   final Priority priority;
   final DateTime? startedAt;
   final int? durationMinutes;
 
-  bool get enCours => status == TaskStatus.IN_PROGRESS;
-  bool get faite => status == TaskStatus.DONE || status == TaskStatus.INSPECTED;
+  bool get enCours => roomStatus == HousekeepingStatus.IN_PROGRESS;
+
+  /// La chambre est propre : le travail de la journee est fait.
+  bool get faite =>
+      roomStatus == HousekeepingStatus.CLEAN ||
+      roomStatus == HousekeepingStatus.INSPECTED;
 
   /// Depuis combien de minutes le menage a commence.
   int? get minutesEcoulees {
@@ -68,63 +87,83 @@ class HousekeepingRepository with OutboxWriter {
 
   /// Les chambres a faire aujourd'hui, les urgentes d'abord.
   ///
+  /// **Pilotee par l'etat des chambres, pas par les taches.** Une chambre
+  /// sale sans tache ouverte doit apparaitre : sinon une chambre salie avant
+  /// que ce module n'existe, ou marquee sale a la main, reste invisible pour
+  /// toujours et personne ne la nettoie. L'etat de la chambre dit qu'il y a du
+  /// travail ; la tache n'en est que la trace.
+  ///
   /// Les taches terminees restent affichees jusqu'au changement de journee :
   /// une femme de chambre qui vient de finir la 201 doit la voir barree, pas
   /// la voir disparaitre -- sinon elle se demande si son geste a ete pris en
   /// compte.
   Stream<List<CleaningJob>> watchJobs() {
+    final jour = formatIsoDate(DateTime.now());
+
     return db
         .customSelect(
-          '''
-          SELECT t.id            AS task_id,
-                 t.room_id       AS room_id,
-                 t.status        AS status,
-                 t.type          AS type,
-                 t.priority      AS priority,
-                 t.started_at    AS started_at,
-                 t.duration_minutes AS duration_minutes,
-                 r.number        AS room_number,
-                 COALESCE(f.label, '') AS floor_label
-            FROM housekeeping_tasks t
-            JOIN rooms r  ON r.id = t.room_id
+          """
+          SELECT r.id                AS room_id,
+                 r.number            AS room_number,
+                 r.housekeeping_status AS room_status,
+                 COALESCE(f.label, '') AS floor_label,
+                 t.id                AS task_id,
+                 t.status            AS task_status,
+                 t.type              AS type,
+                 t.priority          AS priority,
+                 t.started_at        AS started_at,
+                 t.duration_minutes  AS duration_minutes
+            FROM rooms r
        LEFT JOIN floors f ON f.id = r.floor_id
-           WHERE t.deleted_at IS NULL
-             AND t.status <> 'CANCELLED'
-        ORDER BY CASE t.status
-                   WHEN 'IN_PROGRESS' THEN 0
-                   WHEN 'PENDING'     THEN 1
-                   WHEN 'ASSIGNED'    THEN 1
+       LEFT JOIN housekeeping_tasks t
+                 ON t.room_id = r.id
+                AND t.business_date = ?
+                AND t.deleted_at IS NULL
+                AND t.status <> 'CANCELLED'
+           WHERE r.deleted_at IS NULL
+             AND (r.housekeeping_status IN ('DIRTY', 'IN_PROGRESS')
+                  OR t.id IS NOT NULL)
+        ORDER BY CASE
+                   WHEN r.housekeeping_status = 'IN_PROGRESS' THEN 0
+                   WHEN r.housekeeping_status = 'DIRTY'       THEN 1
                    ELSE 2
                  END,
-                 CASE t.priority
+                 CASE COALESCE(t.priority, 'NORMAL')
                    WHEN 'URGENT' THEN 0
                    WHEN 'HIGH'   THEN 1
                    WHEN 'NORMAL' THEN 2
                    ELSE 3
                  END,
                  r.number
-          ''',
+          """,
+          variables: [Variable.withString(jour)],
           readsFrom: {db.housekeepingTasks, db.rooms, db.floors},
         )
         .watch()
         .map(
-          (lignes) => lignes
-              .map(
-                (l) => CleaningJob(
-                  taskId: l.read<String>('task_id'),
-                  roomId: l.read<String>('room_id'),
-                  roomNumber: l.read<String>('room_number'),
-                  floorLabel: l.read<String>('floor_label'),
-                  status: TaskStatus.values.byName(l.read<String>('status')),
-                  type: HousekeepingTaskType.values.byName(
-                    l.read<String>('type'),
-                  ),
-                  priority: Priority.values.byName(l.read<String>('priority')),
-                  startedAt: l.read<DateTime?>('started_at'),
-                  durationMinutes: l.read<int?>('duration_minutes'),
-                ),
-              )
-              .toList(),
+          (lignes) => lignes.map((l) {
+            final statut = l.read<String?>('task_status');
+            final type = l.read<String?>('type');
+            final priorite = l.read<String?>('priority');
+            return CleaningJob(
+              roomId: l.read<String>('room_id'),
+              taskId: l.read<String?>('task_id'),
+              roomNumber: l.read<String>('room_number'),
+              floorLabel: l.read<String>('floor_label'),
+              roomStatus: HousekeepingStatus.values.byName(
+                l.read<String>('room_status'),
+              ),
+              status: statut == null ? null : TaskStatus.values.byName(statut),
+              type: type == null
+                  ? null
+                  : HousekeepingTaskType.values.byName(type),
+              priority: priorite == null
+                  ? Priority.NORMAL
+                  : Priority.values.byName(priorite),
+              startedAt: l.read<DateTime?>('started_at'),
+              durationMinutes: l.read<int?>('duration_minutes'),
+            );
+          }).toList(),
         );
   }
 
@@ -174,7 +213,28 @@ class HousekeepingRepository with OutboxWriter {
         'priority': priority.name,
         'business_date': businessDate,
       },
-      action: () => db
+      action: () async {
+        // Ouvrir une tache, c'est declarer qu'il y a du travail : la chambre
+        // doit le dire aussi. Sans ca, une tache ouverte sur une chambre
+        // marquee propre donnerait deux verites contradictoires a l'ecran,
+        // qui lit l'avancement sur la chambre.
+        await (db.update(db.rooms)..where(
+              (r) =>
+                  r.id.equals(roomId) &
+                  r.housekeepingStatus.isInValues([
+                    HousekeepingStatus.CLEAN,
+                    HousekeepingStatus.INSPECTED,
+                  ]),
+            ))
+            .write(
+              RoomsCompanion(
+                housekeepingStatus: const Value(HousekeepingStatus.DIRTY),
+                updatedAt: Value(now),
+                syncState: const Value(SyncState.pending),
+              ),
+            );
+
+        await db
           .into(db.housekeepingTasks)
           .insert(
             HousekeepingTasksCompanion.insert(
@@ -190,7 +250,8 @@ class HousekeepingRepository with OutboxWriter {
               createdBy: Value(by),
               syncState: const Value(SyncState.pending),
             ),
-          ),
+          );
+      },
     );
 
     return id;
@@ -201,12 +262,23 @@ class HousekeepingRepository with OutboxWriter {
   /// La reception le voit aussitot sur son plan -- c'est tout l'interet
   /// d'avoir trois etats plutot que deux. Une chambre en cours de nettoyage
   /// n'est ni sale ni attribuable.
-  Future<void> start(String taskId, {String? by}) =>
-      _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
+  ///
+  /// Prend la **chambre** et non la tache : une chambre sale peut ne pas en
+  /// avoir, et refuser de la nettoyer pour cette raison serait absurde. La
+  /// tache est ouverte au besoin, puis demarree.
+  Future<String> startRoom(String roomId, {String? by}) async {
+    final taskId = await openTask(roomId: roomId, by: by);
+    await _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
+    return taskId;
+  }
 
   /// La femme de chambre a fini : la chambre redevient disponible.
   Future<void> finish(String taskId, {String? by}) =>
       _transition(taskId, TaskStatus.DONE, by: by);
+
+  /// Demarre une tache deja ouverte. Utilise par les tests et le rejeu.
+  Future<void> start(String taskId, {String? by}) =>
+      _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
 
   Future<void> _transition(
     String taskId,
