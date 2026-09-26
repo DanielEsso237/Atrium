@@ -27,6 +27,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../repositories/invoice_repository.dart';
 import 'api_client.dart';
 
 /// La table Drift derriere un nom SQL, et le garde-fou du moteur.
@@ -48,6 +49,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'folio_items' => db.folioItems,
     'payments' => db.payments,
     'housekeeping_tasks' => db.housekeepingTasks,
+    'invoices' => db.invoices,
     _ => null,
   };
 }
@@ -170,12 +172,17 @@ class OutboxSender {
         continue;
       }
 
+      final Map<String, dynamic> reponse;
       try {
-        await api.post(envoi.chemin, body: envoi.corps);
+        reponse = await api.post(envoi.chemin, body: envoi.corps);
       } on ApiException catch (e) {
         return _apresEchec(entree, e, envoyees);
       }
 
+      // Certaines reponses portent une information que la tablette ne
+      // pouvait pas connaitre seule et qu'il serait absurde d'attendre d'une
+      // descente ulterieure -- le numero legal d'une facture, par exemple.
+      await _appliquerReponse(entree, reponse);
       await _marquerAcquittee(entree);
       envoyees++;
     }
@@ -185,6 +192,22 @@ class OutboxSender {
       restantes: await _restantes(),
       arret: DrainStop.termine,
     );
+  }
+
+  /// Recopie ce que seule la reponse du serveur pouvait apprendre.
+  ///
+  /// Aujourd'hui un seul cas : le **numero legal** d'une facture. La tablette
+  /// hors ligne pose un numero provisoire -- elle ne peut pas connaitre la
+  /// suite legale, qui n'a qu'une seule autorite. Sans cette recopie, la
+  /// facture garderait son numero provisoire jusqu'a une descente qui
+  /// n'existe pas encore, et la reception remettrait au client un document
+  /// sans valeur comptable.
+  Future<void> _appliquerReponse(
+    OutboxEntryRow entree,
+    Map<String, dynamic> reponse,
+  ) async {
+    if (entree.entityTable != 'invoices') return;
+    await InvoiceRepository(db).applyServerNumber(entree.entityId, reponse);
   }
 
   /// Traduit l'echec en decision : reessayer plus tard, ou bloquer.
@@ -388,6 +411,13 @@ class OutboxSender {
 
       case 'housekeeping_tasks':
         return _menage(entree, p);
+
+      case 'invoices':
+        // Pas de corps : le serveur gele le folio lui-meme, a partir de ses
+        // propres lignes. Lui envoyer les notres les ferait diverger de ce
+        // qu'il calcule, et c'est son calcul qui fait foi sur un document
+        // comptable.
+        return _Envoi('/folios/${p['folio_id']}/invoice', const {});
 
       default:
         return null;
