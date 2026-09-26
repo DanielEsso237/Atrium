@@ -43,6 +43,10 @@ IMPLICATIONS = [
     ("reservation.create", "guests.read"),
     # On ne nettoie pas une chambre dont on ignore le numero.
     ("housekeeping.read", "rooms.read"),
+    # Encaisser suppose une caisse : le paiement est rattache a la session
+    # ouverte de celui qui encaisse. Sans elle, l'argent existe et n'est
+    # rattache a personne, donc le rapport de shift ne tombe jamais juste.
+    ("folio.write", "cash.session"),
 ]
 
 
