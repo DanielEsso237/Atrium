@@ -8,15 +8,7 @@ import 'package:atrium/data/repositories/sync_repository.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Remplace le vrai `CatalogApi` : renvoie une liste choisie, sans reseau.
-class _FakeCatalogApi implements CatalogApi {
-  const _FakeCatalogApi(this.rooms);
-
-  final List<RemoteRoom> rooms;
-
-  @override
-  Future<List<RemoteRoom>> fetchRooms() async => rooms;
-}
+import 'helpers/fake_catalog_api.dart';
 
 RemoteRoom _room({required String occupancyStatus}) => RemoteRoom(
   id: '01920000-0000-7000-8000-00000000c001',
@@ -40,7 +32,7 @@ void main() {
   tearDown(() async => db.close());
 
   test('un pull normal met a jour une chambre non modifiee localement', () async {
-    final repo = SyncRepository(db, _FakeCatalogApi([_room(occupancyStatus: 'VACANT')]));
+    final repo = SyncRepository(db, FakeCatalogApi(rooms: [_room(occupancyStatus: 'VACANT')]));
 
     await repo.pullRooms();
 
@@ -58,7 +50,7 @@ void main() {
       // vrai premier rafraichissement.
       final repo = SyncRepository(
         db,
-        _FakeCatalogApi([_room(occupancyStatus: 'VACANT')]),
+        FakeCatalogApi(rooms: [_room(occupancyStatus: 'VACANT')]),
       );
       await repo.pullRooms();
 
@@ -75,7 +67,7 @@ void main() {
       // connaissance du check-in : il redit toujours VACANT.
       final repoEnRetard = SyncRepository(
         db,
-        _FakeCatalogApi([_room(occupancyStatus: 'VACANT')]),
+        FakeCatalogApi(rooms: [_room(occupancyStatus: 'VACANT')]),
       );
       await repoEnRetard.pullRooms();
 
