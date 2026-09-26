@@ -156,6 +156,12 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # Lire en plus d'ecrire : la reception suit l'avancement du menage pour
     # savoir quelles chambres elle peut revendre. C'est d'ailleurs ce que
     # compte deja sa tuile « a nettoyer ».
+    # Encaisser suppose une caisse. Les paiements sont rattaches a la session
+    # ouverte de celui qui encaisse : sans ce droit, ceux de la reception
+    # partaient avec un `cash_session_id` nul et sa caisse ne pouvait jamais
+    # etre rapprochee en fin de service. Troisieme occurrence du meme defaut
+    # apres `folio.write` et `housekeeping.manage`.
+    (RECEPTION_ROLE, CASH_SESSION),
     (RECEPTION_ROLE, HOUSEKEEPING_READ),
     (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
     (RECEPTION_ROLE, PRINT_REPRINT),

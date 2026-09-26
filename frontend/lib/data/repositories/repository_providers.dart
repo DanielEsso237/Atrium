@@ -10,9 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../local/database_provider.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
+import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
+import 'invoice_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
 import 'sync_repository.dart';
@@ -32,6 +34,26 @@ final housekeepingRepositoryProvider = Provider<HousekeepingRepository>(
 /// Les chambres a faire aujourd'hui, en direct.
 final cleaningJobsProvider = StreamProvider<List<CleaningJob>>(
   (ref) => ref.watch(housekeepingRepositoryProvider).watchJobs(),
+);
+
+final cashRepositoryProvider = Provider<CashRepository>(
+  (ref) => CashRepository(ref.watch(databaseProvider)),
+);
+
+/// La caisse ouverte de l'agent connecte, avec son attendu en direct.
+final currentCashProvider = StreamProvider.family<CashView?, String>(
+  (ref, userId) => ref.watch(cashRepositoryProvider).watchCurrent(userId),
+);
+
+final invoiceRepositoryProvider = Provider<InvoiceRepository>(
+  (ref) => InvoiceRepository(ref.watch(databaseProvider)),
+);
+
+/// La facture d'une ardoise, en direct : elle change quand le serveur
+/// attribue le numero legal.
+final invoiceForFolioProvider = StreamProvider.family<InvoiceView?, String>(
+  (ref, folioId) =>
+      ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
 );
 
 final reservationRepositoryProvider = Provider<ReservationRepository>(

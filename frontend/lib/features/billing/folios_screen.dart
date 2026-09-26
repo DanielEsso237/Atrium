@@ -17,7 +17,9 @@ import '../../data/local/database.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'cash_dialog.dart';
 import 'charge_labels.dart';
+import 'invoice_dialog.dart';
 import 'payment_dialog.dart';
 
 final foliosProvider = StreamProvider<List<FolioSummary>>(
@@ -42,6 +44,9 @@ class FoliosScreen extends ConsumerWidget {
 
     return ModuleScaffold(
       title: 'Factures',
+      // La caisse vit ici : c'est le module ou l'argent passe, et la prise de
+      // poste comme la fin de service s'y font naturellement.
+      action: const CashButton(),
       body: folios.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lecture impossible : $e')),
@@ -377,6 +382,22 @@ class _Actions extends ConsumerWidget {
                   : () => _encaisser(context, ref),
               icon: const Icon(Icons.payments_outlined),
               label: const Text('Encaisser'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              // Editer avant d'encaisser est legitime : le client veut voir
+              // ce qu'il doit avant de payer. La seule condition est qu'il y
+              // ait quelque chose a facturer.
+              onPressed: () => showInvoiceDialog(
+                context,
+                ref,
+                folioId: folio.id,
+                guestName: folio.guestName,
+              ),
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: const Text('Facture'),
             ),
           ),
           const SizedBox(width: 12),

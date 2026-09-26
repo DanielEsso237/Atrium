@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,14 +55,31 @@ async def _expected_cash(session: AsyncSession, cash_session: CashSession) -> in
     return cash_session.opening_float + int(cash_in or 0)
 
 
-@router.post("", response_model=CashSessionOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=CashSessionOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Session deja ouverte pour cet agent : celle-la"}},
+)
 async def open_cash_session(
     payload: CashSessionOpenIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("cash.session")),
 ) -> CashSession:
-    if await open_session_id(session, user) is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Une session de caisse est deja ouverte.")
+    # Un agent n'a qu'une session ouverte : c'est la cle naturelle, et elle
+    # suffit a rendre cette route rejouable. Une tablette qui perd la reponse
+    # renvoie la demande ; un 409 bloquerait sa file d'envoi et tout ce qui
+    # attend derriere -- y compris les encaissements de la journee.
+    #
+    # Rendre la session existante est aussi la bonne reponse a une vraie
+    # double ouverture : c'est bien celle-la que l'agent doit utiliser. Le
+    # fond de caisse renvoye est celui de l'ouverture initiale, pas celui de
+    # la demande -- le premier comptage fait foi.
+    deja = await open_session_id(session, user)
+    if deja is not None:
+        response.status_code = status.HTTP_200_OK
+        return await session.get(CashSession, deja)
     if payload.device_id is not None:
         device = await session.get(Device, payload.device_id)
         if device is None or device.hotel_id != user.hotel_id or device.deleted_at is not None:
@@ -83,10 +100,17 @@ async def open_cash_session(
         await session.commit()
     except IntegrityError as exc:
         # Deux ouvertures simultanees : l'index unique partiel a tranche.
+        # Deux ouvertures simultanees : l'index unique a tranche, on rend
+        # celle qui a gagne plutot qu'une erreur que l'appelant ne saurait
+        # pas traiter autrement qu'en la redemandant.
         await session.rollback()
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Une session de caisse est deja ouverte."
-        ) from exc
+        gagnante = await open_session_id(session, user)
+        if gagnante is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "Une session de caisse est deja ouverte."
+            ) from exc
+        response.status_code = status.HTTP_200_OK
+        return await session.get(CashSession, gagnante)
     await session.refresh(cash_session)
     return cash_session
 
@@ -128,8 +152,13 @@ async def close_cash_session(
     )
     if cash_session is None or cash_session.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session de caisse introuvable.")
+    # Deja fermee : c'est un renvoi de la tablette, pas un conflit. Un 409
+    # bloquerait sa file d'envoi sur une fermeture pourtant passee -- et le
+    # comptage, l'attendu et l'ecart sont deja figes, donc il n'y a rien a
+    # refaire. Refermer ne doit surtout pas recalculer : l'ecart constate au
+    # moment du comptage est celui qui compte.
     if cash_session.status != CashSessionStatus.OPEN:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Cette session est deja fermee.")
+        return cash_session
 
     expected = await _expected_cash(session, cash_session)
     cash_session.status = CashSessionStatus.CLOSED

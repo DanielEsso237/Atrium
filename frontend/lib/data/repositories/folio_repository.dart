@@ -13,6 +13,7 @@ import '../../core/formats.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import 'cash_repository.dart';
 import 'outbox.dart';
 
 /// Une ardoise, telle qu'affichee dans la liste des factures.
@@ -273,6 +274,16 @@ class FolioRepository with OutboxWriter {
               amount: amount,
               reference: Value(reference),
               receivedBy: Value(receivedBy),
+              // Rattache a la caisse ouverte de celui qui encaisse. Sans ce
+              // lien, l'argent existe et n'appartient a personne : l'attendu
+              // de fin de service ne peut pas se calculer, et l'ecart ne veut
+              // plus rien dire. Le serveur fait le meme rattachement de son
+              // cote, a partir de l'utilisateur du jeton.
+              cashSessionId: Value(
+                receivedBy == null
+                    ? null
+                    : await CashRepository(db).openSessionId(receivedBy),
+              ),
               receivedAt: Value(now),
               businessDate: Value(businessDate),
               syncState: const Value(SyncState.pending),

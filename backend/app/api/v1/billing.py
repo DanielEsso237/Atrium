@@ -307,10 +307,14 @@ async def close_folio(
 
 
 @router.post(
-    "/folios/{folio_id}/invoice", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED
+    "/folios/{folio_id}/invoice",
+    response_model=InvoiceOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Facture deja emise pour ce folio : celle-la"}},
 )
 async def issue_invoice(
     folio_id: uuid.UUID,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.write")),
 ) -> Invoice:
@@ -323,6 +327,24 @@ async def issue_invoice(
     app/services/numbering.py).
     """
     folio = await _get_folio(session, folio_id, user, for_update=True)
+
+    # Une ardoise n'a qu'une facture : c'est sa cle naturelle, et elle suffit
+    # a rendre cette route rejouable sans que la tablette ait a inventer un
+    # identifiant. Une tablette qui perd la reponse renvoie la demande ; sans
+    # ce court-circuit elle emettrait une seconde facture, avec un second
+    # numero legal, pour les memes prestations.
+    #
+    # Une facture annulee ne compte pas : apres un avoir, on refacture.
+    deja = await session.scalar(
+        select(Invoice).where(
+            Invoice.folio_id == folio.id,
+            Invoice.status != InvoiceStatus.CANCELLED,
+            Invoice.deleted_at.is_(None),
+        )
+    )
+    if deja is not None:
+        response.status_code = status.HTTP_200_OK
+        return deja
 
     result = await session.execute(
         select(FolioItem).where(FolioItem.folio_id == folio.id, FolioItem.is_void.is_(False))
