@@ -50,6 +50,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'payments' => db.payments,
     'housekeeping_tasks' => db.housekeepingTasks,
     'invoices' => db.invoices,
+    'cash_sessions' => db.cashSessions,
     _ => null,
   };
 }
@@ -411,6 +412,20 @@ class OutboxSender {
 
       case 'housekeeping_tasks':
         return _menage(entree, p);
+
+      case 'cash_sessions':
+        // Ouverture et fermeture sont deux routes distinctes, comme pour le
+        // menage : le serveur pose lui-meme les horodatages et recalcule
+        // l'attendu a partir de ses propres paiements. C'est son calcul qui
+        // fait foi sur un ecart de caisse.
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi('/cash-sessions', {
+            'opening_float': p['opening_float'],
+          });
+        }
+        return _Envoi('/cash-sessions/${p['id']}/close', {
+          'counted_amount': p['counted_amount'],
+        });
 
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses

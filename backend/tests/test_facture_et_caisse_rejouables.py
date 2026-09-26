@@ -212,3 +212,33 @@ async def test_apres_fermeture_on_peut_rouvrir(client, session, hotel_a, auth_a)
     )
     assert seconde.status_code == 201, seconde.text
     assert seconde.json()["id"] != premiere["id"]
+
+
+async def test_refermer_ne_recalcule_pas(client, session, hotel_a, auth_a):
+    """Un renvoi de fermeture rend l'etat fige, sans rien recalculer.
+
+    L'ecart constate au moment du comptage est celui qui compte : le
+    recalculer sur un renvoi ferait bouger un chiffre que le caissier a deja
+    signe.
+    """
+    ouverte = (
+        await client.post(
+            "/api/v1/cash-sessions", json={"opening_float": 20_000}, headers=auth_a
+        )
+    ).json()
+
+    premiere = await client.post(
+        f"/api/v1/cash-sessions/{ouverte['id']}/close",
+        json={"counted_amount": 18_000},
+        headers=auth_a,
+    )
+    rejeu = await client.post(
+        f"/api/v1/cash-sessions/{ouverte['id']}/close",
+        json={"counted_amount": 99_000},
+        headers=auth_a,
+    )
+
+    assert premiere.status_code == 200, premiere.text
+    assert rejeu.status_code == 200, rejeu.text
+    assert rejeu.json()["counted_amount"] == 18_000
+    assert rejeu.json()["variance"] == -2_000

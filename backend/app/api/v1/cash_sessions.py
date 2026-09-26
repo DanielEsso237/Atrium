@@ -152,8 +152,13 @@ async def close_cash_session(
     )
     if cash_session is None or cash_session.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session de caisse introuvable.")
+    # Deja fermee : c'est un renvoi de la tablette, pas un conflit. Un 409
+    # bloquerait sa file d'envoi sur une fermeture pourtant passee -- et le
+    # comptage, l'attendu et l'ecart sont deja figes, donc il n'y a rien a
+    # refaire. Refermer ne doit surtout pas recalculer : l'ecart constate au
+    # moment du comptage est celui qui compte.
     if cash_session.status != CashSessionStatus.OPEN:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Cette session est deja fermee.")
+        return cash_session
 
     expected = await _expected_cash(session, cash_session)
     cash_session.status = CashSessionStatus.CLOSED
