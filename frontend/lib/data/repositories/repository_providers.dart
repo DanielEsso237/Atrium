@@ -11,6 +11,7 @@ import '../local/database_provider.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'cash_repository.dart';
+import 'descente.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
@@ -70,6 +71,18 @@ final syncRepositoryProvider = Provider<SyncRepository>(
   (ref) => SyncRepository(
     ref.watch(databaseProvider),
     ref.watch(catalogApiProvider),
+  ),
+);
+
+/// Descente des donnees metier : clients, reservations, ardoises.
+///
+/// Distincte de `syncRepositoryProvider`, qui ne rapatrie que le referentiel
+/// des chambres. Les deux sont appelees ensemble par le moteur.
+final descenteProvider = Provider<Descente>(
+  (ref) => Descente(
+    ref.watch(databaseProvider),
+    ref.watch(catalogApiProvider),
+    ref.watch(syncRepositoryProvider),
   ),
 );
 

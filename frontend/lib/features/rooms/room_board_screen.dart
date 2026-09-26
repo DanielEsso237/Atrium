@@ -351,6 +351,22 @@ String _resume(SyncUiState etat) {
     return 'Echec : ${pull.error}';
   }
 
-  final descendu = '${pull.rooms} chambres rapatriees';
-  return remonte == null ? '$descendu.' : '$remonte, $descendu.';
+  // Les chambres et les donnees metier descendent ensemble ; on annonce le
+  // total, parce que c'est « la tablette a-t-elle rattrape le serveur » que
+  // la reception veut savoir, pas le detail par table.
+  final metier = etat.pull?.total ?? 0;
+  final descendu = metier == 0
+      ? '${pull.rooms} chambres rapatriees'
+      : '${pull.rooms + metier} lignes rapatriees';
+
+  final ecartees = etat.pull?.skipped ?? 0;
+  final reserve = ecartees == 0
+      ? ''
+      : ' — $ecartees ligne${ecartees > 1 ? 's' : ''} epargnee'
+            '${ecartees > 1 ? 's' : ''}, non encore remontee'
+            '${ecartees > 1 ? 's' : ''}';
+
+  return remonte == null
+      ? '$descendu$reserve.'
+      : '$remonte, $descendu$reserve.';
 }

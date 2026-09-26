@@ -16,6 +16,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/remote/outbox_sender.dart';
+import '../../data/repositories/descente.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/sync_repository.dart';
 
@@ -25,6 +26,7 @@ class SyncUiState {
     this.last,
     this.at,
     this.push,
+    this.pull,
     this.joignable,
   });
 
@@ -39,6 +41,9 @@ class SyncUiState {
 
   /// Ce qu'a donne la derniere remontee des ecritures locales.
   final DrainReport? push;
+
+  /// Ce qu'a donne la derniere descente des donnees metier.
+  final PullReport? pull;
 
   /// Le serveur repondait-il au dernier echange ?
   ///
@@ -63,6 +68,7 @@ class SyncUiState {
     SyncOutcome? last,
     DateTime? at,
     DrainReport? push,
+    PullReport? pull,
     bool? joignable,
   }) {
     return SyncUiState(
@@ -70,6 +76,7 @@ class SyncUiState {
       last: last ?? this.last,
       at: at ?? this.at,
       push: push ?? this.push,
+      pull: pull ?? this.pull,
       joignable: joignable ?? this.joignable,
     );
   }
@@ -122,13 +129,21 @@ class SyncNotifier extends Notifier<SyncUiState> {
     if (state.running) return const SyncOutcome.offline();
     state = state.copyWith(running: true);
 
+    // L'ordre n'est pas negociable : la descente ecrase, la montee non.
+    // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
+    // tablette sait avant qu'il ne lui reponde.
     final rapport = await ref.read(outboxSenderProvider).drain();
+
+    // Le referentiel d'abord : les reservations s'accrochent aux categories
+    // de chambres, et une categorie absente ferait ecarter la ligne.
     final outcome = await ref.read(syncRepositoryProvider).pullRooms();
+    final descendu = await ref.read(descenteProvider).pull();
 
     state = SyncUiState(
       last: outcome,
       at: DateTime.now(),
       push: rapport,
+      pull: descendu,
       // La descente est toujours tentee : c'est elle qui tranche, quand la
       // montee n'avait rien a envoyer et n'a donc rien appris.
       joignable: !outcome.offline,
