@@ -158,24 +158,70 @@ class SyncRepository {
   /// - la file d'attente : un check-in modifie la LIGNE DE SEJOUR, pas
   ///   directement la chambre, mais il change son occupation. Sans regarder
   ///   la file, on ecraserait quand meme.
-  Future<Set<String>> _roomsWithPendingWrites() async {
+  /// Les lignes d'une table qu'une descente ne doit pas ecraser.
+  ///
+  /// **C'est la barriere qui protege le travail d'un agent.** Tant qu'une
+  /// modification n'est pas remontee, la version locale fait foi : c'est le
+  /// serveur qui est en retard, pas la tablette. L'ecraser ferait disparaitre
+  /// un check-in ou une reservation que quelqu'un vient de saisir, sans trace
+  /// et sans avertissement.
+  ///
+  /// Deux sources, et il faut les deux :
+  ///
+  /// - la ligne elle-meme marquee `pending` ;
+  /// - la ligne **nommee par une entree de la file** encore non acquittee.
+  ///   Une entree `FAILED` compte autant qu'une `PENDING` : elle sera
+  ///   rejouee, donc son intention tient toujours.
+  ///
+  /// Publique parce qu'elle se teste : une barriere de securite qu'on ne peut
+  /// pas verifier n'en est pas une. Le nom de table vient de Drift, jamais
+  /// d'une donnee.
+  Future<Set<String>> lignesEnAttente(TableInfo table) async {
+    final nom = table.actualTableName;
+
     final lignes = await db
         .customSelect(
           """
-      SELECT id FROM rooms WHERE sync_state = 'pending'
+      SELECT id AS id FROM $nom WHERE sync_state = 'pending'
       UNION
-      SELECT rr.room_id
+      SELECT entity_id AS id FROM outbox_entries
+       WHERE entity_table = ?1
+         AND status IN ('PENDING','FAILED')
+      """,
+          variables: [Variable.withString(nom)],
+          readsFrom: {table, db.outboxEntries},
+        )
+        .get();
+
+    return lignes.map((l) => l.read<String>('id')).toSet();
+  }
+
+  /// Les chambres a epargner.
+  ///
+  /// La regle generale, plus une regle propre aux chambres : une chambre est
+  /// aussi protegee par une ecriture en attente sur une **autre** table. Un
+  /// check-in pas encore remonte vit dans `reservation_rooms`, et c'est
+  /// pourtant l'occupation de la chambre qu'il change. Sans cette jointure,
+  /// la descente rendait libre une chambre ou quelqu'un venait d'entrer --
+  /// c'est le bug de la chambre 202.
+  Future<Set<String>> _roomsWithPendingWrites() async {
+    final directes = await lignesEnAttente(db.rooms);
+
+    final indirectes = await db
+        .customSelect(
+          """
+      SELECT rr.room_id AS id
         FROM outbox_entries o
         JOIN reservation_rooms rr ON rr.id = o.entity_id
        WHERE o.entity_table = 'reservation_rooms'
          AND o.status IN ('PENDING','FAILED')
          AND rr.room_id IS NOT NULL
       """,
-          readsFrom: {db.rooms, db.outboxEntries, db.reservationRooms},
+          readsFrom: {db.outboxEntries, db.reservationRooms},
         )
         .get();
 
-    return lignes.map((l) => l.read<String>('id')).toSet();
+    return {...directes, ...indirectes.map((l) => l.read<String>('id'))};
   }
 
   /// Traduit un statut du serveur, en gardant la valeur par defaut la plus
