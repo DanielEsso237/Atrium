@@ -90,6 +90,7 @@ _PERMISSIONS_NEEDED = [
     "folio.read", "folio.write",
     "housekeeping.read", "housekeeping.manage",
     "cash.session",
+    "folio.override_limit",
 ]
 
 

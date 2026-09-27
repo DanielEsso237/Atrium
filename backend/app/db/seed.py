@@ -105,6 +105,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004129"), "maintenance.manage", "Creer, assigner, resoudre un ticket de maintenance", "maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004130"), "stock.movement", "Enregistrer un mouvement de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004131"), "cash.session", "Ouvrir et fermer sa session de caisse", "cash"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004132"), "folio.override_limit", "Autoriser une consommation au-dela du seuil du client", "folio"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -128,6 +129,7 @@ MAINTENANCE_READ = PERMISSIONS[27][0]
 MAINTENANCE_MANAGE = PERMISSIONS[28][0]
 STOCK_MOVEMENT = PERMISSIONS[29][0]
 CASH_SESSION = PERMISSIONS[30][0]
+FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -166,6 +168,11 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
     (RECEPTION_ROLE, PRINT_REPRINT),
     (MANAGER_ROLE, USERS_READ),
+    # Laisser une ardoise depasser le seuil du client est une decision
+    # d'encadrement : le manager l'autorise, la reception et la caisse non.
+    # Il doit voir le solde qu'il accepte de laisser filer, d'ou la lecture.
+    (MANAGER_ROLE, FOLIO_READ),
+    (MANAGER_ROLE, FOLIO_OVERRIDE_LIMIT),
     (RESTAURANT_ROLE, RESTAURANT_READ),
     (RESTAURANT_ROLE, ORDER_READ),
     (RESTAURANT_ROLE, ORDER_CREATE),

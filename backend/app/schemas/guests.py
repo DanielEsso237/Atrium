@@ -43,6 +43,10 @@ class GuestIn(BaseModel):
     notes: str | None = None
     is_vip: bool = False
     marketing_consent: bool = False
+    # Seuil de consommation en FCFA ; 0 = pas de limite. Absent = inchange :
+    # la tablette n'envoie pas ce champ avec la fiche, et un renvoi de la fiche
+    # ne doit pas remettre a zero un seuil regle par la direction.
+    credit_limit: int | None = Field(default=None, ge=0)
 
 
 class GuestOut(BaseModel):
@@ -66,4 +70,5 @@ class GuestOut(BaseModel):
     company_id: uuid.UUID | None
     is_vip: bool
     is_blacklisted: bool
+    credit_limit: int
     notes: str | None
