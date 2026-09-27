@@ -7,6 +7,7 @@
 /// les pas du suivant.
 library;
 
+import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
 
 class FakeCatalogApi implements CatalogApi {
@@ -15,12 +16,14 @@ class FakeCatalogApi implements CatalogApi {
     this.guests = const [],
     this.reservations = const [],
     this.folios = const [],
+    this.outlets = const [],
   });
 
   final List<RemoteRoom> rooms;
   final List<RemoteGuest> guests;
   final List<RemoteReservation> reservations;
   final List<RemoteFolio> folios;
+  final List<RemoteOutlet> outlets;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
@@ -38,4 +41,38 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<RemoteFolio>> fetchOpenFolios() async => folios;
+
+  @override
+  Future<List<RemoteOutlet>> fetchOutlets() async => outlets;
+}
+
+/// Un serveur injoignable : tout appel echoue comme dans un couloir.
+///
+/// Dans le meme fichier que `FakeCatalogApi`, et pour la meme raison :
+/// ajouter une methode au vrai client cassait les deux, chacun dans son coin.
+class CatalogApiHorsLigne implements CatalogApi {
+  const CatalogApiHorsLigne();
+
+  Never _couloir() =>
+      throw const ApiException(ApiFailure.offline, 'injoignable');
+
+  @override
+  Future<List<RemoteRoom>> fetchRooms() async => _couloir();
+
+  @override
+  Future<List<RemoteGuest>> fetchGuests() async => _couloir();
+
+  @override
+  Future<List<RemoteReservation>> fetchReservations({
+    DateTime? from,
+    DateTime? to,
+    int joursAvant = 7,
+    int joursApres = 30,
+  }) async => _couloir();
+
+  @override
+  Future<List<RemoteFolio>> fetchOpenFolios() async => _couloir();
+
+  @override
+  Future<List<RemoteOutlet>> fetchOutlets() async => _couloir();
 }

@@ -84,6 +84,50 @@ class RemoteRoom {
   }
 }
 
+/// Un point de vente (`OutletOut`) : restaurant, bar, piscine, boite de nuit.
+///
+/// C'est cette table qui engendre les onglets de l'ecran Commande. Les ecrire
+/// en dur ferait d'un ajout de point de vente une livraison de l'application,
+/// alors que c'est un geste d'administration.
+class RemoteOutlet {
+  const RemoteOutlet({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.allowsRoomCharge,
+    required this.sortOrder,
+    this.opensAt,
+    this.closesAt,
+  });
+
+  final String id;
+  final String code;
+  final String label;
+
+  /// Ce point de vente peut-il porter une consommation sur la chambre.
+  ///
+  /// Une boutique qui encaisse comptant ne le peut pas : sa vente n'a rien a
+  /// faire sur l'ardoise d'un sejour.
+  final bool allowsRoomCharge;
+
+  final int sortOrder;
+  final String? opensAt;
+  final String? closesAt;
+
+  static RemoteOutlet? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['code'] == null) return null;
+    return RemoteOutlet(
+      id: '${raw['id']}',
+      code: '${raw['code']}',
+      label: '${raw['label'] ?? raw['code']}',
+      allowsRoomCharge: raw['allows_room_charge'] != false,
+      sortOrder: _entier(raw['sort_order']),
+      opensAt: _texte(raw['opens_at']),
+      closesAt: _texte(raw['closes_at']),
+    );
+  }
+}
+
 /// Un client (`GuestOut`).
 class RemoteGuest {
   const RemoteGuest({
@@ -328,6 +372,15 @@ class CatalogApi {
 
   /// Le parc de chambres, avec categories et etages.
   Future<List<RemoteRoom>> fetchRooms() => _lire('/rooms', RemoteRoom.fromJson);
+
+  /// Les points de vente, dans leur ordre d'affichage.
+  ///
+  /// Le serveur ne renvoie pas `is_active` : tout ce qui descend est donc
+  /// considere actif. Le jour ou l'administration permettra d'en desactiver
+  /// un, il faudra que le schema l'expose — sans quoi l'onglet resterait
+  /// visible sur les tablettes.
+  Future<List<RemoteOutlet>> fetchOutlets() =>
+      _lire('/outlets', RemoteOutlet.fromJson);
 
   /// Les clients de l'hotel.
   ///

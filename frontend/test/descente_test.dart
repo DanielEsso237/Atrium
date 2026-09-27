@@ -14,7 +14,6 @@ library;
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/seed.dart';
-import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
 import 'package:atrium/data/repositories/descente.dart';
 import 'package:atrium/data/repositories/sync_repository.dart';
@@ -102,11 +101,13 @@ void main() {
     List<RemoteGuest> guests = const [],
     List<RemoteReservation> reservations = const [],
     List<RemoteFolio> folios = const [],
+    List<RemoteOutlet> outlets = const [],
   }) {
     final api = FakeCatalogApi(
       guests: guests,
       reservations: reservations,
       folios: folios,
+      outlets: outlets,
     );
     return Descente(db, api, SyncRepository(db, api));
   }
@@ -241,8 +242,8 @@ void main() {
   test('hors ligne, rien n est ecrit et ce n est pas une erreur', () async {
     final rapport = await Descente(
       db,
-      const _ApiHorsLigne(),
-      SyncRepository(db, const _ApiHorsLigne()),
+      const CatalogApiHorsLigne(),
+      SyncRepository(db, const CatalogApiHorsLigne()),
     ).pull();
 
     expect(rapport.offline, isTrue);
@@ -265,29 +266,56 @@ void main() {
     expect(f.reservationRoomId, _ligne);
     expect(await compter('folio_items'), 1);
   });
-}
 
-/// Un serveur injoignable.
-class _ApiHorsLigne implements CatalogApi {
-  const _ApiHorsLigne();
+  test('les points de vente descendent avec leur ordre', () async {
+    final rapport = await descente(
+      outlets: const [
+        RemoteOutlet(
+          id: '01920000-0000-7000-8000-00000000e001',
+          code: 'BAR',
+          label: 'Bar',
+          allowsRoomCharge: true,
+          sortOrder: 2,
+        ),
+        RemoteOutlet(
+          id: '01920000-0000-7000-8000-00000000e002',
+          code: 'RESTAURANT',
+          label: 'Restaurant',
+          allowsRoomCharge: true,
+          sortOrder: 1,
+        ),
+      ],
+    ).pull();
 
-  Never _couloir() =>
-      throw const ApiException(ApiFailure.offline, 'injoignable');
+    expect(rapport.outlets, 2);
 
-  @override
-  Future<List<RemoteRoom>> fetchRooms() async => _couloir();
+    // L'ordre doit tenir : c'est lui qui rangera les onglets de l'ecran
+    // Commande, et un ordre qui change d'une descente a l'autre deplacerait
+    // les onglets sous les doigts de l'agent.
+    final rangs = await db
+        .customSelect('SELECT code FROM outlets ORDER BY sort_order')
+        .get();
+    expect(rangs.map((l) => l.read<String>('code')), ['RESTAURANT', 'BAR']);
+  });
 
-  @override
-  Future<List<RemoteGuest>> fetchGuests() async => _couloir();
+  test('un point de vente qui refuse la chambre le dit', () async {
+    // Une boutique qui encaisse comptant : sa vente n'a rien a faire sur
+    // l'ardoise d'un sejour.
+    await descente(
+      outlets: const [
+        RemoteOutlet(
+          id: '01920000-0000-7000-8000-00000000e003',
+          code: 'BOUTIQUE',
+          label: 'Boutique',
+          allowsRoomCharge: false,
+          sortOrder: 9,
+        ),
+      ],
+    ).pull();
 
-  @override
-  Future<List<RemoteReservation>> fetchReservations({
-    DateTime? from,
-    DateTime? to,
-    int joursAvant = 7,
-    int joursApres = 30,
-  }) async => _couloir();
-
-  @override
-  Future<List<RemoteFolio>> fetchOpenFolios() async => _couloir();
+    final o = await db
+        .customSelect("SELECT allows_room_charge AS a FROM outlets")
+        .getSingle();
+    expect(o.read<bool>('a'), isFalse);
+  });
 }
