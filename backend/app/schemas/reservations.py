@@ -36,6 +36,11 @@ class ReservationIn(BaseModel):
     children: int = Field(default=0, ge=0)
     special_requests: str | None = None
     internal_notes: str | None = None
+    deposit_amount: int | None = Field(
+        default=None,
+        ge=0,
+        description="Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+    )
     rooms: list[ReservationRoomIn] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -78,6 +83,8 @@ class ReservationOut(BaseModel):
     adults: int
     children: int
     estimated_total: int
+    deposit_amount: int
+    deposit_paid_at: dt.datetime | None
     special_requests: str | None
     internal_notes: str | None
     cancelled_at: dt.datetime | None

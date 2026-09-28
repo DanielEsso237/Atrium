@@ -17,6 +17,10 @@ class FolioItemIn(BaseModel):
     quantity: int = Field(default=1, ge=1)
     unit_price: int = Field(ge=0, description="FCFA, TTC")
     tax_rate: int = Field(default=0, ge=0, le=100)
+    override_by: uuid.UUID | None = Field(
+        default=None,
+        description="Responsable (folio.override_limit) qui autorise le depassement du seuil",
+    )
 
 
 class FolioItemOut(BaseModel):
@@ -33,6 +37,7 @@ class FolioItemOut(BaseModel):
     business_date: dt.date
     is_void: bool
     void_reason: str | None
+    override_by: uuid.UUID | None = None
 
 
 class FolioOut(BaseModel):

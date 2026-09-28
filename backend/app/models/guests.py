@@ -104,6 +104,12 @@ class Guest(SyncBase, HotelScoped):
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     is_vip: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blacklisted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Seuil de consommation en FCFA, controle a chaque charge portee sur
+    # l'ardoise (le barman qui met une tournee sur la chambre). 0 = pas de
+    # limite. Distinct de `companies.credit_limit`, qui borne le credit en
+    # compte d'une societe facturee en fin de mois : ce n'est pas la meme
+    # decision, ni le meme interlocuteur.
+    credit_limit: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     blacklist_reason: Mapped[str | None] = mapped_column(String(255), default=None)
 
     # RGPD : consentement explicite et horodate, separe de l'adresse courriel.

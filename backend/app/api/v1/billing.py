@@ -16,6 +16,7 @@ from app.models import (
     CashSession,
     Folio,
     FolioItem,
+    Guest,
     Invoice,
     InvoiceLine,
     Payment,
@@ -45,6 +46,71 @@ async def _get_folio(
     return await folio_service.get_folio(
         session, folio_id, user.hotel_id, for_update=for_update
     )
+
+
+def _fcfa(amount: int) -> str:
+    """`45000` -> `45 000 F` : lisible d'un coup d'oeil sur un telephone."""
+    return f"{amount:,}".replace(",", "\u202f") + " F"
+
+
+async def _check_credit_limit(
+    session: AsyncSession,
+    folio: Folio,
+    amount: int,
+    override_by: uuid.UUID | None,
+    user: User,
+) -> uuid.UUID | None:
+    """Seuil de consommation du client (`guests.credit_limit`).
+
+    Le seuil n'est pas un blocage mais une **autorisation** : au-dela, la
+    charge passe si un responsable (`folio.override_limit`) l'autorise, et son
+    identifiant reste sur la ligne. Renvoie cet identifiant quand le seuil a
+    joue, None sinon.
+
+    - un seuil a 0 veut dire « pas de limite », pas « tout refuser » ;
+    - on compare le solde **apres** la charge : atteindre exactement le seuil
+      est permis, le depasser d'un franc ne l'est pas ;
+    - seules les charges qui augmentent le solde sont controlees (une remise
+      ou des arrhes le font baisser) ;
+    - le folio est deja verrouille par l'appelant : deux charges simultanees
+      ne peuvent pas passer chacune sous le seuil et le crever ensemble.
+
+    L'autorisation elle-meme se donne sur la tablette (le responsable saisit
+    son PIN, verifie localement, y compris hors ligne) : le serveur verifie
+    que la personne designee existe dans cet hotel, est active et a le droit.
+    """
+    if amount <= 0 or folio.guest_id is None:
+        return None
+    limit = await session.scalar(select(Guest.credit_limit).where(Guest.id == folio.guest_id))
+    if not limit:
+        return None
+    after = folio.balance + amount
+    if after <= limit:
+        return None
+
+    if override_by is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Seuil depasse : solde {_fcfa(folio.balance)} + {_fcfa(amount)} = {_fcfa(after)}, "
+            f"seuil {_fcfa(limit)}, depassement {_fcfa(after - limit)}. "
+            "Un responsable doit autoriser.",
+        )
+    # populate_existing : recharge roles et permissions meme si cet agent est
+    # deja dans la session (c'est l'utilisateur courant quand il s'autorise).
+    authorizer = await session.get(User, override_by, populate_existing=True)
+    if (
+        authorizer is None
+        or authorizer.hotel_id != user.hotel_id
+        or authorizer.deleted_at is not None
+        or not authorizer.is_active
+        or "folio.override_limit" not in permission_codes(authorizer)
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Cette personne ne peut pas autoriser un depassement de seuil "
+            "(permission folio.override_limit).",
+        )
+    return authorizer.id
 
 
 @router.get("/folios", response_model=list[FolioOut])
@@ -119,6 +185,7 @@ async def add_folio_item(
         # le reduire (bug reel trouve en testant ce fichier).
         amount = -amount
     tax_amount = amount * payload.tax_rate // 100
+    override_by = await _check_credit_limit(session, folio, amount, payload.override_by, user)
     business_date = await current_business_date(session, user.hotel_id)
     item = FolioItem(
         id=payload.id or uuid7(),
@@ -133,6 +200,7 @@ async def add_folio_item(
         business_date=business_date,
         posted_by=user.id,
         posted_at=dt.datetime.now(dt.timezone.utc),
+        override_by=override_by,
     )
     session.add(item)
     await session.flush()

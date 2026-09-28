@@ -140,6 +140,12 @@ class FolioItem(SyncBase):
     posted_at: Mapped[dt.datetime | None] = mapped_column(default=None)
     is_void: Mapped[bool] = mapped_column(Boolean, default=False)
     void_reason: Mapped[str | None] = mapped_column(String(255), default=None)
+    # Responsable qui a autorise cette charge au-dela du seuil de consommation
+    # du client (`guests.credit_limit`). Nul quand le seuil n'a pas joue : la
+    # colonne dit qui a pris la decision de laisser filer l'ardoise.
+    override_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
     voided_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )

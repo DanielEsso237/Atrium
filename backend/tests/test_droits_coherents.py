@@ -47,6 +47,9 @@ IMPLICATIONS = [
     # ouverte de celui qui encaisse. Sans elle, l'argent existe et n'est
     # rattache a personne, donc le rapport de shift ne tombe jamais juste.
     ("folio.write", "cash.session"),
+    # Autoriser un depassement de seuil, c'est accepter un solde : il faut
+    # pouvoir le lire avant de le laisser filer.
+    ("folio.override_limit", "folio.read"),
 ]
 
 
@@ -60,6 +63,15 @@ def test_qui_peut_agir_peut_en_assumer_la_consequence(action, consequence):
             f"{LIBELLE_PAR_ID[role_id]} a '{action}' mais pas '{consequence}' : "
             f"l'action produira une ecriture que le serveur lui refusera."
         )
+
+
+def test_seul_l_encadrement_autorise_un_depassement_de_seuil():
+    """Le seuil ne sert a rien si ceux qu'il arrete peuvent le lever seuls."""
+    for role_id, libelle in LIBELLE_PAR_ID.items():
+        if libelle in ("Reception", "Caisse", "Restauration"):
+            assert "folio.override_limit" not in droits(role_id), libelle
+    manager = next(r for r, lab in LIBELLE_PAR_ID.items() if lab.startswith("Manager"))
+    assert "folio.override_limit" in droits(manager)
 
 
 def test_la_reception_facture_mais_ne_remise_pas():

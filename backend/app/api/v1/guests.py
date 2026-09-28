@@ -19,6 +19,18 @@ from app.services.numbering import Scope, next_number
 router = APIRouter(prefix="/guests", tags=["clients"])
 
 
+def _guest_fields(payload: GuestIn) -> dict:
+    """Champs a ecrire. `credit_limit` absent ne touche pas au seuil en place.
+
+    La tablette n'envoie pas le seuil avec la fiche : le traiter comme un zero
+    ferait sauter, au premier renvoi, une limite reglee par la direction.
+    """
+    fields = payload.model_dump(exclude={"id"})
+    if fields["credit_limit"] is None:
+        del fields["credit_limit"]
+    return fields
+
+
 @router.get("", response_model=list[GuestOut])
 async def list_guests(
     q: str | None = Query(None, description="Recherche nom, telephone ou email"),
@@ -63,7 +75,7 @@ async def create_guest(
     sur un renvoi. Le code client (CLI-...) n'est attribue qu'a la creation.
     """
     guest_id = payload.id or uuid7()
-    fields = payload.model_dump(exclude={"id"})
+    fields = _guest_fields(payload)
 
     existing = (
         await session.execute(
@@ -119,7 +131,7 @@ async def update_guest(
     guest = await session.get(Guest, guest_id)
     if guest is None or guest.hotel_id != user.hotel_id or guest.deleted_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client introuvable.")
-    for field, value in payload.model_dump(exclude={"id"}).items():
+    for field, value in _guest_fields(payload).items():
         setattr(guest, field, value)
     await session.commit()
     await session.refresh(guest)

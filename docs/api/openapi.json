@@ -746,6 +746,19 @@
             "title": "Label",
             "type": "string"
           },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Responsable (folio.override_limit) qui autorise le depassement du seuil",
+            "title": "Override By"
+          },
           "quantity": {
             "default": 1,
             "minimum": 1.0,
@@ -800,6 +813,18 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override By"
           },
           "quantity": {
             "title": "Quantity",
@@ -1036,6 +1061,18 @@
               }
             ],
             "title": "Country"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
           },
           "email": {
             "anyOf": [
@@ -1275,6 +1312,10 @@
             ],
             "title": "Country"
           },
+          "credit_limit": {
+            "title": "Credit Limit",
+            "type": "integer"
+          },
           "email": {
             "anyOf": [
               {
@@ -1396,6 +1437,7 @@
           "company_id",
           "is_vip",
           "is_blacklisted",
+          "credit_limit",
           "notes"
         ],
         "title": "GuestOut",
@@ -1709,6 +1751,19 @@
             "format": "date",
             "title": "Business Date",
             "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "notes": {
             "anyOf": [
@@ -4166,6 +4221,19 @@
             "title": "Children",
             "type": "integer"
           },
+          "deposit_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+            "title": "Deposit Amount"
+          },
           "guest_id": {
             "format": "uuid",
             "title": "Guest Id",
@@ -4269,6 +4337,22 @@
             "title": "Departure Date",
             "type": "string"
           },
+          "deposit_amount": {
+            "title": "Deposit Amount",
+            "type": "integer"
+          },
+          "deposit_paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deposit Paid At"
+          },
           "estimated_total": {
             "title": "Estimated Total",
             "type": "integer"
@@ -4334,6 +4418,8 @@
           "adults",
           "children",
           "estimated_total",
+          "deposit_amount",
+          "deposit_paid_at",
           "special_requests",
           "internal_notes",
           "cancelled_at",
@@ -6450,6 +6536,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Session deja ouverte pour cet agent : celle-la"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -6931,6 +7020,9 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Facture deja emise pour ce folio : celle-la"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -7511,6 +7603,7 @@
         ]
       },
       "post": {
+        "description": "La tache nait au depart du client, sur la tablette de la reception.\n\nElle porte donc l'id de la tablette : sans lui, une reponse perdue dans un\ncouloir ferait renvoyer la meme tache et l'hotel se retrouverait avec deux\nfois le meme menage a faire.",
         "operationId": "create_task_api_v1_housekeeping_tasks_post",
         "requestBody": {
           "content": {
@@ -7523,6 +7616,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Tache deja creee (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -9992,6 +10088,7 @@
     },
     "/api/v1/reservations/{reservation_id}/cancel": {
       "post": {
+        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
         "operationId": "cancel_reservation_api_v1_reservations__reservation_id__cancel_post",
         "parameters": [
           {
