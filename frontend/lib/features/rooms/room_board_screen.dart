@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/theme.dart';
+import '../../core/tokens.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
@@ -37,11 +38,11 @@ final roomBoardProvider = StreamProvider<List<RoomBoardEntry>>(
         couleur: CouleursEtat.disponible,
       ),
       RoomDisplayStatus.OCCUPIED => (
-        label: 'Occupee',
+        label: 'Occupée',
         couleur: CouleursEtat.occupee,
       ),
       RoomDisplayStatus.RESERVED => (
-        label: 'Reservee',
+        label: 'Réservée',
         couleur: CouleursEtat.reservee,
       ),
       RoomDisplayStatus.CLEANING => (
@@ -68,7 +69,7 @@ class RoomBoardScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/'),
         ),
-        title: const Text('Plan des chambres'),
+        title: const Text('Chambres'),
         actions: [
           const PendingWritesBadge(),
           const SizedBox(width: 8),
@@ -85,76 +86,156 @@ class RoomBoardScreen extends ConsumerWidget {
   }
 }
 
-class _Plan extends StatelessWidget {
+class _Plan extends StatefulWidget {
   const _Plan({required this.chambres});
 
   final List<RoomBoardEntry> chambres;
 
   @override
+  State<_Plan> createState() => _PlanState();
+}
+
+class _PlanState extends State<_Plan> {
+  /// Etat filtre, ou tous. Toucher un compteur de la legende n'affiche que
+  /// ces chambres : « ou puis-je mettre ce client ? » en un geste.
+  RoomDisplayStatus? _filtre;
+
+  @override
   Widget build(BuildContext context) {
+    final chambres = widget.chambres;
     if (chambres.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Aucune chambre parametree.',
-          style: TextStyle(fontSize: 18),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
       );
+    }
+
+    final compte = <RoomDisplayStatus, int>{};
+    for (final c in chambres) {
+      compte.update(c.displayStatus, (n) => n + 1, ifAbsent: () => 1);
     }
 
     // `watchRoomBoard()` trie deja par etage puis par numero : il suffit de
     // regrouper en conservant l'ordre d'arrivee.
     final parEtage = <String, List<RoomBoardEntry>>{};
     for (final c in chambres) {
+      if (_filtre != null && c.displayStatus != _filtre) continue;
       parEtage.putIfAbsent(c.floorLabel ?? 'Sans etage', () => []).add(c);
     }
 
-    return Column(
-      children: [
-        const _Legende(),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              for (final entree in parEtage.entries) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12, top: 4),
-                  child: Text(
-                    entree.key,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-                _GrilleChambres(chambres: entree.value),
-                const SizedBox(height: 28),
-              ],
-            ],
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _Legende(
+            compte: compte,
+            total: chambres.length,
+            filtre: _filtre,
+            onFiltre: (etat) => setState(
+              () => _filtre = _filtre == etat ? null : etat,
+            ),
           ),
+        ),
+        if (parEtage.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Text(
+                'Aucune chambre dans cet etat.',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+        for (final entree in parEtage.entries) ...[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+            sliver: SliverToBoxAdapter(
+              child: _TitreEtage(
+                libelle: entree.key,
+                chambres: entree.value,
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 210,
+                mainAxisExtent: 136,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _Apparition(
+                  rang: i,
+                  child: _CarteChambre(chambre: entree.value[i]),
+                ),
+                childCount: entree.value.length,
+              ),
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
+    );
+  }
+}
+
+/// Le nom de l'etage, et ce qu'il reste de libre : ce que la reception
+/// cherche d'abord en ouvrant le plan.
+class _TitreEtage extends StatelessWidget {
+  const _TitreEtage({required this.libelle, required this.chambres});
+
+  final String libelle;
+  final List<RoomBoardEntry> chambres;
+
+  @override
+  Widget build(BuildContext context) {
+    final libres = chambres
+        .where((c) => c.displayStatus == RoomDisplayStatus.AVAILABLE)
+        .length;
+    final texte = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Expanded(child: Text(libelle, style: texte.titleLarge)),
+        Text(
+          libres == 0
+              ? 'complet'
+              : '$libres libre${libres > 1 ? 's' : ''} sur ${chambres.length}',
+          style: texte.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
   }
 }
 
-class _GrilleChambres extends StatelessWidget {
-  const _GrilleChambres({required this.chambres});
+/// Une apparition courte et decalee des tuiles, au premier affichage.
+/// Nulle quand le systeme demande de reduire les animations.
+class _Apparition extends StatelessWidget {
+  const _Apparition({required this.rang, required this.child});
 
-  final List<RoomBoardEntry> chambres;
+  final int rang;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, contraintes) {
-        final colonnes = (contraintes.maxWidth / 200).floor().clamp(2, 8);
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: colonnes,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.7,
-          children: [for (final c in chambres) _CarteChambre(chambre: c)],
-        );
-      },
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    final delai = (rang * 35).clamp(0, 350);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 380 + delai),
+      curve: Interval(delai / (380 + delai), 1, curve: Curves.easeOutExpo),
+      builder: (context, t, enfant) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 14 * (1 - t)),
+          child: enfant,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -167,67 +248,65 @@ class _CarteChambre extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vue = apparence(chambre.displayStatus);
+    final texte = Theme.of(context).textTheme;
+    final sombre = Theme.of(context).brightness == Brightness.dark;
+    final rayon = BorderRadius.circular(AtriumRadii.lg);
+
+    // La couleur d'etat teinte toute la tuile : lisible de loin et en biais,
+    // quand la tablette est posee a plat sur le comptoir.
+    final fond = Color.alphaBlend(
+      vue.couleur.withValues(alpha: sombre ? 0.16 : 0.10),
+      AtriumColors.white,
+    );
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      color: fond,
+      borderRadius: rayon,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: rayon,
         onTap: () => afficherFicheChambre(context, chambre),
-        child: Container(
-          padding: const EdgeInsets.all(14),
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: vue.couleur.withValues(alpha: 0.45)),
-            // Bande de couleur a gauche : lisible en biais, quand la tablette
-            // est posee sur le comptoir et qu'on la regarde de trois quarts.
-            gradient: LinearGradient(
-              colors: [vue.couleur.withValues(alpha: 0.14), Colors.white],
-              stops: const [0, 0.22],
+            borderRadius: rayon,
+            border: Border.all(
+              color: vue.couleur.withValues(alpha: sombre ? 0.45 : 0.35),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: vue.couleur,
-                    ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  chambre.number,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: texte.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: tabularFigures,
+                    height: 1.05,
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    chambre.number,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                    ),
+                ),
+                const SizedBox(height: 6),
+                _PastilleEtat(label: vue.label, couleur: vue.couleur),
+                const Spacer(),
+                Text(
+                  chambre.typeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: texte.titleSmall,
+                ),
+                Text(
+                  formatAmount(chambre.rate),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: texte.bodySmall?.copyWith(
+                    fontFeatures: tabularFigures,
                   ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                vue.label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: vue.couleur,
                 ),
-              ),
-              Text(
-                '${chambre.typeLabel} · ${formatAmount(chambre.rate)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -235,39 +314,149 @@ class _CarteChambre extends StatelessWidget {
   }
 }
 
-class _Legende extends StatelessWidget {
-  const _Legende();
+/// L'etat en toutes lettres : la couleur seule ne suffit pas a un lecteur
+/// daltonien, ni en plein soleil.
+class _PastilleEtat extends StatelessWidget {
+  const _PastilleEtat({required this.label, required this.couleur});
+
+  final String label;
+  final Color couleur;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: couleur,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: atriumFontFamily,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AtriumColors.purpleNight,
+        ),
+      ),
+    );
+  }
+}
+
+/// La legende est aussi un filtre : chaque etat avec son nombre de chambres.
+class _Legende extends StatelessWidget {
+  const _Legende({
+    required this.compte,
+    required this.total,
+    required this.filtre,
+    required this.onFiltre,
+  });
+
+  final Map<RoomDisplayStatus, int> compte;
+  final int total;
+  final RoomDisplayStatus? filtre;
+  final ValueChanged<RoomDisplayStatus> onFiltre;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: Wrap(
-        spacing: 24,
-        runSpacing: 10,
+        spacing: 8,
+        runSpacing: 8,
         children: [
           for (final etat in RoomDisplayStatus.values)
-            Row(
+            _FiltreEtat(
+              label: apparence(etat).label,
+              couleur: apparence(etat).couleur,
+              nombre: compte[etat] ?? 0,
+              actif: filtre == etat,
+              estompe: filtre != null && filtre != etat,
+              onTap: () => onFiltre(etat),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FiltreEtat extends StatelessWidget {
+  const _FiltreEtat({
+    required this.label,
+    required this.couleur,
+    required this.nombre,
+    required this.actif,
+    required this.estompe,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color couleur;
+  final int nombre;
+  final bool actif;
+  final bool estompe;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final duree = AtriumMotion.of(context, AtriumMotion.base);
+    final rayon = BorderRadius.circular(99);
+    return AnimatedOpacity(
+      duration: duree,
+      opacity: estompe ? 0.45 : 1,
+      child: Material(
+        color: actif
+            ? couleur.withValues(alpha: 0.18)
+            : AtriumColors.white,
+        borderRadius: rayon,
+        child: InkWell(
+          borderRadius: rayon,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: duree,
+            curve: AtriumMotion.standard,
+            constraints: const BoxConstraints(minHeight: cibleTactile - 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: rayon,
+              border: Border.all(
+                color: actif ? couleur : AtriumColors.border,
+                width: actif ? 2 : 1,
+              ),
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 14,
-                  height: 14,
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: apparence(etat).couleur,
+                    color: couleur,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  apparence(etat).label,
-                  style: const TextStyle(fontSize: 16),
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$nombre',
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AtriumColors.textSecondary,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
               ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
