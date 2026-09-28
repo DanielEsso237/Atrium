@@ -393,6 +393,7 @@ class OutboxSender {
           'label': p['label'],
           'quantity': p['quantity'],
           'unit_price': p['unit_price'],
+          'override_by': p['override_by'],
         }));
 
       case 'payments':

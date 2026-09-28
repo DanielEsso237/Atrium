@@ -13590,6 +13590,18 @@ class $GuestsTable extends Guests with TableInfo<$GuestsTable, GuestRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _creditLimitMeta = const VerificationMeta(
+    'creditLimit',
+  );
+  @override
+  late final GeneratedColumn<int> creditLimit = GeneratedColumn<int>(
+    'credit_limit',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -13902,6 +13914,7 @@ class $GuestsTable extends Guests with TableInfo<$GuestsTable, GuestRow> {
     syncState,
     hotelId,
     code,
+    creditLimit,
     title,
     firstName,
     lastName,
@@ -14010,6 +14023,15 @@ class $GuestsTable extends Guests with TableInfo<$GuestsTable, GuestRow> {
       );
     } else if (isInserting) {
       context.missing(_codeMeta);
+    }
+    if (data.containsKey('credit_limit')) {
+      context.handle(
+        _creditLimitMeta,
+        creditLimit.isAcceptableOrUnknown(
+          data['credit_limit']!,
+          _creditLimitMeta,
+        ),
+      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -14244,6 +14266,10 @@ class $GuestsTable extends Guests with TableInfo<$GuestsTable, GuestRow> {
         DriftSqlType.string,
         data['${effectivePrefix}code'],
       )!,
+      creditLimit: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}credit_limit'],
+      )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -14382,6 +14408,16 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
   final SyncState syncState;
   final String hotelId;
   final String code;
+
+  /// Plafond de consommation a credit, en francs CFA.
+  ///
+  /// `0` veut dire **pas de limite**, pas « tout refuser » : c'est la valeur
+  /// par defaut, et l'immense majorite des clients n'a pas de plafond. Au
+  /// dela, une consommation ne passe qu'avec l'accord d'un responsable.
+  ///
+  /// A ne pas confondre avec `Companies.creditLimit`, qui borne l'encours
+  /// d'une societe en compte -- deux notions voisines sur deux tables.
+  final int creditLimit;
   final String? title;
   final String firstName;
   final String lastName;
@@ -14427,6 +14463,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
     required this.syncState,
     required this.hotelId,
     required this.code,
+    required this.creditLimit,
     this.title,
     required this.firstName,
     required this.lastName,
@@ -14482,6 +14519,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
     }
     map['hotel_id'] = Variable<String>(hotelId);
     map['code'] = Variable<String>(code);
+    map['credit_limit'] = Variable<int>(creditLimit);
     if (!nullToAbsent || title != null) {
       map['title'] = Variable<String>(title);
     }
@@ -14578,6 +14616,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
       syncState: Value(syncState),
       hotelId: Value(hotelId),
       code: Value(code),
+      creditLimit: Value(creditLimit),
       title: title == null && nullToAbsent
           ? const Value.absent()
           : Value(title),
@@ -14666,6 +14705,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
       ),
       hotelId: serializer.fromJson<String>(json['hotelId']),
       code: serializer.fromJson<String>(json['code']),
+      creditLimit: serializer.fromJson<int>(json['creditLimit']),
       title: serializer.fromJson<String?>(json['title']),
       firstName: serializer.fromJson<String>(json['firstName']),
       lastName: serializer.fromJson<String>(json['lastName']),
@@ -14713,6 +14753,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
       ),
       'hotelId': serializer.toJson<String>(hotelId),
       'code': serializer.toJson<String>(code),
+      'creditLimit': serializer.toJson<int>(creditLimit),
       'title': serializer.toJson<String?>(title),
       'firstName': serializer.toJson<String>(firstName),
       'lastName': serializer.toJson<String>(lastName),
@@ -14756,6 +14797,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
     SyncState? syncState,
     String? hotelId,
     String? code,
+    int? creditLimit,
     Value<String?> title = const Value.absent(),
     String? firstName,
     String? lastName,
@@ -14796,6 +14838,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
     syncState: syncState ?? this.syncState,
     hotelId: hotelId ?? this.hotelId,
     code: code ?? this.code,
+    creditLimit: creditLimit ?? this.creditLimit,
     title: title.present ? title.value : this.title,
     firstName: firstName ?? this.firstName,
     lastName: lastName ?? this.lastName,
@@ -14846,6 +14889,9 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
       hotelId: data.hotelId.present ? data.hotelId.value : this.hotelId,
       code: data.code.present ? data.code.value : this.code,
+      creditLimit: data.creditLimit.present
+          ? data.creditLimit.value
+          : this.creditLimit,
       title: data.title.present ? data.title.value : this.title,
       firstName: data.firstName.present ? data.firstName.value : this.firstName,
       lastName: data.lastName.present ? data.lastName.value : this.lastName,
@@ -14911,6 +14957,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
           ..write('syncState: $syncState, ')
           ..write('hotelId: $hotelId, ')
           ..write('code: $code, ')
+          ..write('creditLimit: $creditLimit, ')
           ..write('title: $title, ')
           ..write('firstName: $firstName, ')
           ..write('lastName: $lastName, ')
@@ -14954,6 +15001,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
     syncState,
     hotelId,
     code,
+    creditLimit,
     title,
     firstName,
     lastName,
@@ -14996,6 +15044,7 @@ class GuestRow extends DataClass implements Insertable<GuestRow> {
           other.syncState == this.syncState &&
           other.hotelId == this.hotelId &&
           other.code == this.code &&
+          other.creditLimit == this.creditLimit &&
           other.title == this.title &&
           other.firstName == this.firstName &&
           other.lastName == this.lastName &&
@@ -15036,6 +15085,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
   final Value<SyncState> syncState;
   final Value<String> hotelId;
   final Value<String> code;
+  final Value<int> creditLimit;
   final Value<String?> title;
   final Value<String> firstName;
   final Value<String> lastName;
@@ -15075,6 +15125,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
     this.syncState = const Value.absent(),
     this.hotelId = const Value.absent(),
     this.code = const Value.absent(),
+    this.creditLimit = const Value.absent(),
     this.title = const Value.absent(),
     this.firstName = const Value.absent(),
     this.lastName = const Value.absent(),
@@ -15115,6 +15166,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
     this.syncState = const Value.absent(),
     required String hotelId,
     required String code,
+    this.creditLimit = const Value.absent(),
     this.title = const Value.absent(),
     required String firstName,
     required String lastName,
@@ -15161,6 +15213,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
     Expression<String>? syncState,
     Expression<String>? hotelId,
     Expression<String>? code,
+    Expression<int>? creditLimit,
     Expression<String>? title,
     Expression<String>? firstName,
     Expression<String>? lastName,
@@ -15201,6 +15254,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
       if (syncState != null) 'sync_state': syncState,
       if (hotelId != null) 'hotel_id': hotelId,
       if (code != null) 'code': code,
+      if (creditLimit != null) 'credit_limit': creditLimit,
       if (title != null) 'title': title,
       if (firstName != null) 'first_name': firstName,
       if (lastName != null) 'last_name': lastName,
@@ -15243,6 +15297,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
     Value<SyncState>? syncState,
     Value<String>? hotelId,
     Value<String>? code,
+    Value<int>? creditLimit,
     Value<String?>? title,
     Value<String>? firstName,
     Value<String>? lastName,
@@ -15283,6 +15338,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
       syncState: syncState ?? this.syncState,
       hotelId: hotelId ?? this.hotelId,
       code: code ?? this.code,
+      creditLimit: creditLimit ?? this.creditLimit,
       title: title ?? this.title,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
@@ -15350,6 +15406,9 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
     }
     if (code.present) {
       map['code'] = Variable<String>(code.value);
+    }
+    if (creditLimit.present) {
+      map['credit_limit'] = Variable<int>(creditLimit.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -15451,6 +15510,7 @@ class GuestsCompanion extends UpdateCompanion<GuestRow> {
           ..write('syncState: $syncState, ')
           ..write('hotelId: $hotelId, ')
           ..write('code: $code, ')
+          ..write('creditLimit: $creditLimit, ')
           ..write('title: $title, ')
           ..write('firstName: $firstName, ')
           ..write('lastName: $lastName, ')
@@ -23770,6 +23830,17 @@ class $FolioItemsTable extends FolioItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _overrideByMeta = const VerificationMeta(
+    'overrideBy',
+  );
+  @override
+  late final GeneratedColumn<String> overrideBy = GeneratedColumn<String>(
+    'override_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -23797,6 +23868,7 @@ class $FolioItemsTable extends FolioItems
     isVoid,
     voidReason,
     voidedBy,
+    overrideBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -23966,6 +24038,12 @@ class $FolioItemsTable extends FolioItems
         voidedBy.isAcceptableOrUnknown(data['voided_by']!, _voidedByMeta),
       );
     }
+    if (data.containsKey('override_by')) {
+      context.handle(
+        _overrideByMeta,
+        overrideBy.isAcceptableOrUnknown(data['override_by']!, _overrideByMeta),
+      );
+    }
     return context;
   }
 
@@ -24079,6 +24157,10 @@ class $FolioItemsTable extends FolioItems
         DriftSqlType.string,
         data['${effectivePrefix}voided_by'],
       ),
+      overrideBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}override_by'],
+      ),
     );
   }
 
@@ -24125,6 +24207,14 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
   final bool isVoid;
   final String? voidReason;
   final String? voidedBy;
+
+  /// Le responsable qui a autorise un depassement de seuil.
+  ///
+  /// Nul dans le cas normal. Renseigne quand la charge faisait passer le
+  /// solde au-dela de `guests.credit_limit` et qu'un responsable l'a laissee
+  /// passer : le seuil n'est pas un blocage mais une autorisation, et une
+  /// autorisation sans nom ne vaut rien.
+  final String? overrideBy;
   const FolioItemRow({
     required this.id,
     required this.createdAt,
@@ -24151,6 +24241,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
     required this.isVoid,
     this.voidReason,
     this.voidedBy,
+    this.overrideBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -24210,6 +24301,9 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
     if (!nullToAbsent || voidedBy != null) {
       map['voided_by'] = Variable<String>(voidedBy);
     }
+    if (!nullToAbsent || overrideBy != null) {
+      map['override_by'] = Variable<String>(overrideBy);
+    }
     return map;
   }
 
@@ -24262,6 +24356,9 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
       voidedBy: voidedBy == null && nullToAbsent
           ? const Value.absent()
           : Value(voidedBy),
+      overrideBy: overrideBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(overrideBy),
     );
   }
 
@@ -24300,6 +24397,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
       isVoid: serializer.fromJson<bool>(json['isVoid']),
       voidReason: serializer.fromJson<String?>(json['voidReason']),
       voidedBy: serializer.fromJson<String?>(json['voidedBy']),
+      overrideBy: serializer.fromJson<String?>(json['overrideBy']),
     );
   }
   @override
@@ -24335,6 +24433,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
       'isVoid': serializer.toJson<bool>(isVoid),
       'voidReason': serializer.toJson<String?>(voidReason),
       'voidedBy': serializer.toJson<String?>(voidedBy),
+      'overrideBy': serializer.toJson<String?>(overrideBy),
     };
   }
 
@@ -24364,6 +24463,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
     bool? isVoid,
     Value<String?> voidReason = const Value.absent(),
     Value<String?> voidedBy = const Value.absent(),
+    Value<String?> overrideBy = const Value.absent(),
   }) => FolioItemRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -24392,6 +24492,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
     isVoid: isVoid ?? this.isVoid,
     voidReason: voidReason.present ? voidReason.value : this.voidReason,
     voidedBy: voidedBy.present ? voidedBy.value : this.voidedBy,
+    overrideBy: overrideBy.present ? overrideBy.value : this.overrideBy,
   );
   FolioItemRow copyWithCompanion(FolioItemsCompanion data) {
     return FolioItemRow(
@@ -24428,6 +24529,9 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
           ? data.voidReason.value
           : this.voidReason,
       voidedBy: data.voidedBy.present ? data.voidedBy.value : this.voidedBy,
+      overrideBy: data.overrideBy.present
+          ? data.overrideBy.value
+          : this.overrideBy,
     );
   }
 
@@ -24458,7 +24562,8 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
           ..write('postedAt: $postedAt, ')
           ..write('isVoid: $isVoid, ')
           ..write('voidReason: $voidReason, ')
-          ..write('voidedBy: $voidedBy')
+          ..write('voidedBy: $voidedBy, ')
+          ..write('overrideBy: $overrideBy')
           ..write(')'))
         .toString();
   }
@@ -24490,6 +24595,7 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
     isVoid,
     voidReason,
     voidedBy,
+    overrideBy,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -24519,7 +24625,8 @@ class FolioItemRow extends DataClass implements Insertable<FolioItemRow> {
           other.postedAt == this.postedAt &&
           other.isVoid == this.isVoid &&
           other.voidReason == this.voidReason &&
-          other.voidedBy == this.voidedBy);
+          other.voidedBy == this.voidedBy &&
+          other.overrideBy == this.overrideBy);
 }
 
 class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
@@ -24548,6 +24655,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
   final Value<bool> isVoid;
   final Value<String?> voidReason;
   final Value<String?> voidedBy;
+  final Value<String?> overrideBy;
   final Value<int> rowid;
   const FolioItemsCompanion({
     this.id = const Value.absent(),
@@ -24575,6 +24683,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
     this.isVoid = const Value.absent(),
     this.voidReason = const Value.absent(),
     this.voidedBy = const Value.absent(),
+    this.overrideBy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FolioItemsCompanion.insert({
@@ -24603,6 +24712,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
     this.isVoid = const Value.absent(),
     this.voidReason = const Value.absent(),
     this.voidedBy = const Value.absent(),
+    this.overrideBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -24637,6 +24747,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
     Expression<bool>? isVoid,
     Expression<String>? voidReason,
     Expression<String>? voidedBy,
+    Expression<String>? overrideBy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -24665,6 +24776,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
       if (isVoid != null) 'is_void': isVoid,
       if (voidReason != null) 'void_reason': voidReason,
       if (voidedBy != null) 'voided_by': voidedBy,
+      if (overrideBy != null) 'override_by': overrideBy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -24695,6 +24807,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
     Value<bool>? isVoid,
     Value<String?>? voidReason,
     Value<String?>? voidedBy,
+    Value<String?>? overrideBy,
     Value<int>? rowid,
   }) {
     return FolioItemsCompanion(
@@ -24723,6 +24836,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
       isVoid: isVoid ?? this.isVoid,
       voidReason: voidReason ?? this.voidReason,
       voidedBy: voidedBy ?? this.voidedBy,
+      overrideBy: overrideBy ?? this.overrideBy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -24809,6 +24923,9 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
     if (voidedBy.present) {
       map['voided_by'] = Variable<String>(voidedBy.value);
     }
+    if (overrideBy.present) {
+      map['override_by'] = Variable<String>(overrideBy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -24843,6 +24960,7 @@ class FolioItemsCompanion extends UpdateCompanion<FolioItemRow> {
           ..write('isVoid: $isVoid, ')
           ..write('voidReason: $voidReason, ')
           ..write('voidedBy: $voidedBy, ')
+          ..write('overrideBy: $overrideBy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -73819,6 +73937,7 @@ typedef $$GuestsTableCreateCompanionBuilder =
       Value<SyncState> syncState,
       required String hotelId,
       required String code,
+      Value<int> creditLimit,
       Value<String?> title,
       required String firstName,
       required String lastName,
@@ -73860,6 +73979,7 @@ typedef $$GuestsTableUpdateCompanionBuilder =
       Value<SyncState> syncState,
       Value<String> hotelId,
       Value<String> code,
+      Value<int> creditLimit,
       Value<String?> title,
       Value<String> firstName,
       Value<String> lastName,
@@ -73975,6 +74095,11 @@ class $$GuestsTableFilterComposer
 
   ColumnFilters<String> get code => $composableBuilder(
     column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get creditLimit => $composableBuilder(
+    column: $table.creditLimit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -74199,6 +74324,11 @@ class $$GuestsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get creditLimit => $composableBuilder(
+    column: $table.creditLimit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -74374,6 +74504,11 @@ class $$GuestsTableAnnotationComposer
   GeneratedColumn<String> get code =>
       $composableBuilder(column: $table.code, builder: (column) => column);
 
+  GeneratedColumn<int> get creditLimit => $composableBuilder(
+    column: $table.creditLimit,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
 
@@ -74540,6 +74675,7 @@ class $$GuestsTableTableManager
                 Value<SyncState> syncState = const Value.absent(),
                 Value<String> hotelId = const Value.absent(),
                 Value<String> code = const Value.absent(),
+                Value<int> creditLimit = const Value.absent(),
                 Value<String?> title = const Value.absent(),
                 Value<String> firstName = const Value.absent(),
                 Value<String> lastName = const Value.absent(),
@@ -74579,6 +74715,7 @@ class $$GuestsTableTableManager
                 syncState: syncState,
                 hotelId: hotelId,
                 code: code,
+                creditLimit: creditLimit,
                 title: title,
                 firstName: firstName,
                 lastName: lastName,
@@ -74620,6 +74757,7 @@ class $$GuestsTableTableManager
                 Value<SyncState> syncState = const Value.absent(),
                 required String hotelId,
                 required String code,
+                Value<int> creditLimit = const Value.absent(),
                 Value<String?> title = const Value.absent(),
                 required String firstName,
                 required String lastName,
@@ -74659,6 +74797,7 @@ class $$GuestsTableTableManager
                 syncState: syncState,
                 hotelId: hotelId,
                 code: code,
+                creditLimit: creditLimit,
                 title: title,
                 firstName: firstName,
                 lastName: lastName,
@@ -79144,6 +79283,7 @@ typedef $$FolioItemsTableCreateCompanionBuilder =
       Value<bool> isVoid,
       Value<String?> voidReason,
       Value<String?> voidedBy,
+      Value<String?> overrideBy,
       Value<int> rowid,
     });
 typedef $$FolioItemsTableUpdateCompanionBuilder =
@@ -79173,6 +79313,7 @@ typedef $$FolioItemsTableUpdateCompanionBuilder =
       Value<bool> isVoid,
       Value<String?> voidReason,
       Value<String?> voidedBy,
+      Value<String?> overrideBy,
       Value<int> rowid,
     });
 
@@ -79329,6 +79470,11 @@ class $$FolioItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$FoliosTableFilterComposer get folioId {
     final $$FoliosTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -79482,6 +79628,11 @@ class $$FolioItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$FoliosTableOrderingComposer get folioId {
     final $$FoliosTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -79595,6 +79746,11 @@ class $$FolioItemsTableAnnotationComposer
   GeneratedColumn<String> get voidedBy =>
       $composableBuilder(column: $table.voidedBy, builder: (column) => column);
 
+  GeneratedColumn<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => column,
+  );
+
   $$FoliosTableAnnotationComposer get folioId {
     final $$FoliosTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -79672,6 +79828,7 @@ class $$FolioItemsTableTableManager
                 Value<bool> isVoid = const Value.absent(),
                 Value<String?> voidReason = const Value.absent(),
                 Value<String?> voidedBy = const Value.absent(),
+                Value<String?> overrideBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FolioItemsCompanion(
                 id: id,
@@ -79699,6 +79856,7 @@ class $$FolioItemsTableTableManager
                 isVoid: isVoid,
                 voidReason: voidReason,
                 voidedBy: voidedBy,
+                overrideBy: overrideBy,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -79728,6 +79886,7 @@ class $$FolioItemsTableTableManager
                 Value<bool> isVoid = const Value.absent(),
                 Value<String?> voidReason = const Value.absent(),
                 Value<String?> voidedBy = const Value.absent(),
+                Value<String?> overrideBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FolioItemsCompanion.insert(
                 id: id,
@@ -79755,6 +79914,7 @@ class $$FolioItemsTableTableManager
                 isVoid: isVoid,
                 voidReason: voidReason,
                 voidedBy: voidedBy,
+                overrideBy: overrideBy,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

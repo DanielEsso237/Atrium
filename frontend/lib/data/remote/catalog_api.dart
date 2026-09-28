@@ -141,6 +141,7 @@ class RemoteGuest {
     this.documentType,
     this.documentNumber,
     this.isVip = false,
+    this.creditLimit = 0,
   });
 
   final String id;
@@ -153,6 +154,13 @@ class RemoteGuest {
   final String? documentType;
   final String? documentNumber;
   final bool isVip;
+
+  /// Plafond de consommation a credit. `0` veut dire pas de limite.
+  ///
+  /// Doit descendre : sans lui la tablette ignorerait les seuils fixes
+  /// ailleurs, et laisserait passer des consommations que le serveur
+  /// refuserait ensuite -- ce qui bloquerait sa file d'envoi.
+  final int creditLimit;
 
   static RemoteGuest? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['code'] == null) return null;
@@ -167,6 +175,7 @@ class RemoteGuest {
       documentType: _texte(raw['id_document_type']),
       documentNumber: _texte(raw['id_document_number']),
       isVip: raw['is_vip'] == true,
+      creditLimit: _entier(raw['credit_limit']),
     );
   }
 }

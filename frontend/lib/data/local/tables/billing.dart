@@ -82,6 +82,14 @@ class FolioItems extends Table with SyncedTableColumns {
   BoolColumn get isVoid => boolean().withDefault(const Constant(false))();
   TextColumn get voidReason => text().withLength(max: 255).nullable()();
   TextColumn get voidedBy => text().nullable()();
+
+  /// Le responsable qui a autorise un depassement de seuil.
+  ///
+  /// Nul dans le cas normal. Renseigne quand la charge faisait passer le
+  /// solde au-dela de `guests.credit_limit` et qu'un responsable l'a laissee
+  /// passer : le seuil n'est pas un blocage mais une autorisation, et une
+  /// autorisation sans nom ne vaut rien.
+  TextColumn get overrideBy => text().nullable()();
 }
 
 /// Facture : gel du folio a un instant donne (F1.4).

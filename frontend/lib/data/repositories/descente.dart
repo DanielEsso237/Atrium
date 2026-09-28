@@ -205,6 +205,7 @@ class Descente {
                 idDocumentType: Value(_document(c.documentType)),
                 idDocumentNumber: Value(c.documentNumber),
                 isVip: Value(c.isVip),
+                creditLimit: Value(c.creditLimit),
                 // Vient du serveur : rien a remonter.
                 syncState: const Value(SyncState.synced),
               ),

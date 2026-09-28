@@ -149,10 +149,13 @@ class FolioRepository with OutboxWriter {
     String? sourceTable,
     String? sourceId,
     String? businessDate,
+    String? overrideBy,
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
     final amount = unitPrice * quantity;
+
+    await _verifierSeuil(folioId, amount, overrideBy);
     // Une nuitee appartient a SA journee, pas a celle ou on la porte : porter
     // deux nuits d'un coup au depart ne doit pas gonfler le chiffre d'affaires
     // du jour de deux nuits.
@@ -173,6 +176,7 @@ class FolioRepository with OutboxWriter {
               unitPrice: Value(unitPrice),
               amount: Value(amount),
               businessDate: journee,
+              overrideBy: Value(overrideBy),
               sourceTable: Value(sourceTable),
               sourceId: Value(sourceId),
               postedBy: Value(postedBy),
@@ -198,9 +202,68 @@ class FolioRepository with OutboxWriter {
           'source_table': sourceTable,
           'source_id': sourceId,
           'posted_by': postedBy,
+          // Sans lui, le serveur refuserait une charge que la tablette a
+          // acceptee : elle a vu l'autorisation, lui non.
+          'override_by': overrideBy,
         },
       );
     });
+  }
+
+  /// Le seuil de consommation du client (`guests.credit_limit`).
+  ///
+  /// **Verifie ici, avant d'ecrire.** Le serveur le controle aussi et repond
+  /// 409 -- mais un refus qui arrive par la file d'envoi la **bloque**, avec
+  /// tout ce qui attend derriere : check-ins, encaissements, menage. Le
+  /// comptoir se retrouverait avec une tablette paralysee sans comprendre
+  /// pourquoi. Refuser tot, poliment, garde le serveur comme simple filet.
+  ///
+  /// Les regles sont celles du serveur, a la lettre :
+  ///
+  /// - un seuil a `0` veut dire **pas de limite**, pas « tout refuser » ;
+  /// - on compare le solde **apres** la charge : atteindre exactement le
+  ///   seuil est permis, le depasser d'un franc ne l'est pas ;
+  /// - seules les charges qui augmentent le solde sont controlees, donc ni
+  ///   une remise ni des arrhes ;
+  /// - un responsable peut autoriser le depassement, et son nom reste sur la
+  ///   ligne. Le seuil n'est pas un blocage, c'est une autorisation.
+  ///
+  /// Leve une [StateError] dont le message est fait pour etre lu au
+  /// telephone : c'est ce que l'agent va repeter a son responsable.
+  Future<void> _verifierSeuil(
+    String folioId,
+    int amount,
+    String? overrideBy,
+  ) async {
+    if (amount <= 0 || overrideBy != null) return;
+
+    final ligne = await db
+        .customSelect(
+          """
+      SELECT f.balance AS balance, COALESCE(g.credit_limit, 0) AS seuil
+        FROM folios f
+        LEFT JOIN guests g ON g.id = f.guest_id
+       WHERE f.id = ?1
+      """,
+          variables: [Variable.withString(folioId)],
+          readsFrom: {db.folios, db.guests},
+        )
+        .getSingleOrNull();
+    if (ligne == null) return;
+
+    final seuil = ligne.read<int>('seuil');
+    if (seuil <= 0) return;
+
+    final solde = ligne.read<int>('balance');
+    final apres = solde + amount;
+    if (apres <= seuil) return;
+
+    throw StateError(
+      'Seuil depasse : solde ${formatAmount(solde)} + ${formatAmount(amount)} '
+      '= ${formatAmount(apres)}, seuil ${formatAmount(seuil)}, '
+      'depassement ${formatAmount(apres - seuil)}. '
+      'Un responsable doit autoriser.',
+    );
   }
 
   /// Enregistre un encaissement (F1.4 : especes, carte, virement, Mobile

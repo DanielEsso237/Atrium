@@ -108,8 +108,15 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// Utilise par les tests : base en memoire, jetee a la fin.
   AtriumDatabase.memory() : super(ouvrirBaseMemoire());
 
+  /// Version du schema local.
+  ///
+  /// A incrementer **a chaque** changement de table, avec la migration qui
+  /// va avec dans `onUpgrade`. Oublier l'un des deux casse les tablettes
+  /// deja deployees : celles-ci gardent leur ancien schema et echouent sur
+  /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
+  /// fonctionne — le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -125,6 +132,20 @@ class AtriumDatabase extends _$AtriumDatabase {
     onCreate: (m) async {
       await m.createAll();
       await _createIndexes();
+    },
+    onUpgrade: (m, depuis, vers) async {
+      // 1 -> 2 : le responsable qui autorise un depassement de seuil de
+      // consommation. Ajoute quand le serveur a commence a controler
+      // `guests.credit_limit` : sans cette colonne la tablette ne pouvait
+      // pas transmettre l'autorisation, donc pas la demander.
+      if (depuis < 2) {
+        // Le plafond du client, que le serveur a commence a controler.
+        await m.addColumn(guests, guests.creditLimit);
+        // Et le responsable qui autorise a le depasser : sans cette colonne
+        // la tablette ne pouvait pas transmettre l'autorisation, donc pas la
+        // demander.
+        await m.addColumn(folioItems, folioItems.overrideBy);
+      }
     },
     beforeOpen: (details) async {
       // Integrite referentielle : desactivee par defaut dans SQLite, il
