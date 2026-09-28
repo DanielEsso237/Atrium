@@ -74,6 +74,8 @@ class PaymentOut(BaseModel):
     reference: str | None
     received_at: dt.datetime | None
     is_refund: bool
+    folio_id: uuid.UUID | None
+    reservation_id: uuid.UUID | None
 
 
 class InvoiceLineOut(BaseModel):

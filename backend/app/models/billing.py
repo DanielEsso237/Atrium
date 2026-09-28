@@ -6,6 +6,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import (
+    CheckConstraint,
     BigInteger,
     Boolean,
     Date,
@@ -278,12 +279,34 @@ class CashSession(SyncBase, HotelScoped):
 
 
 class Payment(SyncBase, HotelScoped):
-    """Encaissement ou remboursement (F1.4)."""
+    """Encaissement ou remboursement (F1.4).
+
+    Un paiement est rattache a **une seule** chose : une ardoise (`folio_id`),
+    une facture (`invoice_id`) ou une reservation (`reservation_id`, des arrhes
+    versees avant que l'ardoise n'existe). Deux rattachements a la fois
+    compteraient le meme argent deux fois ; la contrainte `single_target`
+    l'interdit en base.
+
+    Les arrhes naissent sur la reservation, passent par la caisse de celui qui
+    les encaisse, puis sont transferees sur l'ardoise a l'arrivee.
+    """
 
     __tablename__ = "payments"
     __table_args__ = (
         Index("ix_payments_received_at", "received_at"),
         Index("ix_payments_method", "method"),
+        CheckConstraint(
+            "num_nonnulls(folio_id, invoice_id, reservation_id) <= 1",
+            name="single_target",
+        ),
+        # Un seul paiement d'arrhes en attente par reservation : un renvoi ou
+        # deux envois simultanes ne peuvent pas encaisser deux fois.
+        Index(
+            "uq_payments_reservation_pending",
+            "reservation_id",
+            unique=True,
+            postgresql_where=text("reservation_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
     )
 
     folio_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -291,6 +314,9 @@ class Payment(SyncBase, HotelScoped):
     )
     invoice_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("invoices.id", ondelete="SET NULL"), default=None, index=True
+    )
+    reservation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reservations.id", ondelete="RESTRICT"), default=None, index=True
     )
     cash_session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("cash_sessions.id", ondelete="SET NULL"), default=None, index=True
