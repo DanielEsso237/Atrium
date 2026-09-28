@@ -115,9 +115,15 @@ class CashRepository with OutboxWriter {
   /// Idempotent : si une caisse est deja ouverte, on la rend. Rappuyer ne doit
   /// pas couper la journee de l'agent en deux comptages qui ne tomberont
   /// jamais justes.
+  ///
+  /// [by] : l'agent qui execute l'ouverture, potentiellement different de
+  /// [userId] (le titulaire de la caisse) -- par exemple un superviseur qui
+  /// ouvre la caisse pour un agent. Ecrit dans `createdBy` (colonne fournie
+  /// par `SyncedTableColumns`) et transmis au serveur en `created_by`.
   Future<String> open({
     required String userId,
     required int openingFloat,
+    String? by,
   }) async {
     if (openingFloat < 0) {
       throw StateError('Le fond de caisse ne peut pas etre negatif.');
@@ -133,7 +139,11 @@ class CashRepository with OutboxWriter {
       table: 'cash_sessions',
       id: id,
       operation: SyncOp.INSERT,
-      payload: {'id': id, 'opening_float': openingFloat},
+      payload: {
+        'id': id,
+        'opening_float': openingFloat,
+        'created_by': by,
+      },
       action: () => db
           .into(db.cashSessions)
           .insert(
@@ -146,6 +156,7 @@ class CashRepository with OutboxWriter {
               status: const Value(CashSessionStatus.OPEN),
               openedAt: Value(now),
               openingFloat: Value(openingFloat),
+              createdBy: Value(by),
               syncState: const Value(SyncState.pending),
             ),
           ),
@@ -159,9 +170,14 @@ class CashRepository with OutboxWriter {
   /// L'attendu est fige a cet instant, et l'ecart avec lui. Refermer plus tard
   /// ne recalcule rien -- le chiffre constate au comptage est celui que
   /// l'agent a vu, et c'est celui-la qui doit rester.
+  ///
+  /// [by] : l'agent qui execute la fermeture. Ecrit dans `updatedBy` et
+  /// transmis au serveur en `updated_by` : la fermeture est la seule mise a
+  /// jour d'une caisse, donc `updatedBy` designe bien qui l'a fermee.
   Future<int> close({
     required String sessionId,
     required int countedAmount,
+    String? by,
   }) async {
     if (countedAmount < 0) {
       throw StateError('Un comptage ne peut pas etre negatif.');
@@ -189,6 +205,7 @@ class CashRepository with OutboxWriter {
           countedAmount: Value(countedAmount),
           expectedAmount: Value(attendu),
           variance: Value(ecart),
+          updatedBy: Value(by),
           updatedAt: Value(now),
           syncState: const Value(SyncState.pending),
         ),
@@ -198,7 +215,11 @@ class CashRepository with OutboxWriter {
         table: 'cash_sessions',
         id: sessionId,
         operation: SyncOp.UPDATE,
-        payload: {'id': sessionId, 'counted_amount': countedAmount},
+        payload: {
+          'id': sessionId,
+          'counted_amount': countedAmount,
+          'updated_by': by,
+        },
       );
     });
 

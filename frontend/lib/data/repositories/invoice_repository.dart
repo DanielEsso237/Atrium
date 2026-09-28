@@ -163,6 +163,10 @@ class InvoiceRepository with OutboxWriter {
             );
       }
 
+      // CORRIGE (traçabilité, exigence 6.2) : 'created_by' ajoute au
+      // payload. La colonne locale createdBy etait deja remplie
+      // (ci-dessus), mais l'envoi au serveur l'omettait.
+      //
       // Seule l'en-tete part dans la file : le serveur recopie les lignes
       // depuis le folio lui-meme, il n'a pas besoin des notres. Les envoyer
       // risquerait de les faire diverger de ce qu'il calcule.
@@ -170,7 +174,7 @@ class InvoiceRepository with OutboxWriter {
         table: 'invoices',
         id: id,
         operation: SyncOp.INSERT,
-        payload: {'id': id, 'folio_id': folioId},
+        payload: {'id': id, 'folio_id': folioId, 'created_by': by},
       );
     });
 
