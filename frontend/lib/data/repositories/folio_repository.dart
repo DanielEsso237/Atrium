@@ -417,7 +417,7 @@ class FolioRepository with OutboxWriter {
   /// En SQL et non en Dart : c'est SQLite qui fait la somme, donc le resultat
   /// ne depend pas de ce que l'application avait en memoire.
   Future<void> _recomputeTotals(String folioId) async {
-    await db.customStatement(
+    await db.customUpdate(
       '''
       UPDATE folios
          SET charges_total = COALESCE((SELECT SUM(amount) FROM folio_items
@@ -436,11 +436,12 @@ class FolioRepository with OutboxWriter {
                                     AND is_refund = 0), 0)
        WHERE id = ?1
       ''',
-      // `customStatement` attend des valeurs brutes, pas des `Variable` :
-      // c'est `customSelect` qui prend des `Variable`. Passer l'un pour
-      // l'autre leve une erreur de liaison a l'execution, et l'ecran reste
-      // fige sur son bouton grise.
-      [folioId],
+      // `customUpdate` et non `customStatement` : le second ecrit sans
+      // prevenir personne. Le solde changeait en base et tout ecran qui le
+      // lisait gardait sa valeur d'avant, jusqu'a ce qu'autre chose reveille
+      // le flux. `updates` est ce qui fait repeindre.
+      variables: [Variable.withString(folioId)],
+      updates: {db.folios},
     );
   }
 }

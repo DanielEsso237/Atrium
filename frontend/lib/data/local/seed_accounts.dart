@@ -35,6 +35,12 @@ const _receptionniste = '01920000-0000-7000-8000-000000050002';
 /// chambres a faire.
 const _housekeeper = '01920000-0000-7000-8000-000000050003';
 
+/// Le restaurant. Meme identifiant que `DEMO_RESTAURANT` cote serveur.
+///
+/// Quatrieme metier, quatrieme interface : il prend les commandes au bar, au
+/// restaurant ou a la boite de nuit, et les porte sur l'ardoise de la chambre.
+const _restaurateur = '01920000-0000-7000-8000-000000050004';
+
 /// Code PIN du jeu de demonstration.
 ///
 /// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite.
@@ -55,6 +61,7 @@ const _motDePasseStocke = 'DEMO:$motDePasseDemo';
 const _roleAdmin = '01920000-0000-7000-8000-000000004001';
 const _roleReception = '01920000-0000-7000-8000-000000004002';
 const _roleHousekeeping = '01920000-0000-7000-8000-000000004005';
+const _roleRestaurant = '01920000-0000-7000-8000-000000004004';
 
 /// Un role, avec l'ecran sur lequel il ouvre apres connexion.
 ///
@@ -78,7 +85,7 @@ const _roles = <_RoleDemo>[
   // housekeeping le jour ou il existera.
   (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
-  ('01920000-0000-7000-8000-000000004004', 'RESTAURANT', 'Restauration', null),
+  (_roleRestaurant, 'RESTAURANT', 'Restauration', '/commandes'),
   (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
   (
@@ -153,6 +160,9 @@ const _droits = <(String role, String permission)>[
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
   // Plus la lecture des chambres : on ne nettoie pas un numero qu'on ignore.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004104'),
+  // Le restaurant ne voit que ses commandes. Pas le plan, pas les clients,
+  // pas les factures -- il porte a l'ardoise sans avoir a la consulter.
+  (_roleRestaurant, '01920000-0000-7000-8000-000000004123'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {
@@ -215,6 +225,24 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           ),
         );
 
+    await db
+        .into(db.users)
+        .insertOnConflictUpdate(
+          UsersCompanion.insert(
+            id: _restaurateur,
+            createdAt: maintenant,
+            updatedAt: maintenant,
+            hotelId: _hotel,
+            employeeCode: 'RESTAU01',
+            firstName: 'Kofi',
+            lastName: 'Mensah',
+            pinHash: const Value(_pinStocke),
+            passwordHash: const Value(_motDePasseStocke),
+            mustChangePassword: const Value(false),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+
     // --- Roles, permissions, rattachements -------------------------------
     for (final (id, code, label, accueil) in _roles) {
       await db
@@ -265,6 +293,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
       (_housekeeper, _roleHousekeeping),
+      (_restaurateur, _roleRestaurant),
     ]) {
       await db
           .into(db.userRoles)
