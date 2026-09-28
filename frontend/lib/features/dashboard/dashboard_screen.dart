@@ -376,7 +376,7 @@ class _Modules extends ConsumerWidget {
       // et un indicateur ne devrait pas etre la seule porte d'entree vers le
       // travail qu'il mesure.
       (Icons.event_outlined, 'Reservations', '/reservations', 'rooms.read'),
-      (Icons.restaurant_outlined, 'Restaurant', null, 'order.read'),
+      (Icons.restaurant_outlined, 'Commandes', '/commandes', 'order.read'),
       (Icons.build_outlined, 'Maintenance', null, 'maintenance.read'),
       (
         Icons.cleaning_services_outlined,

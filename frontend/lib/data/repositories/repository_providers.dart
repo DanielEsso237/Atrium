@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../local/database.dart';
 import '../local/database_provider.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
@@ -16,6 +17,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
 import 'invoice_repository.dart';
+import 'order_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
 import 'sync_repository.dart';
@@ -55,6 +57,20 @@ final invoiceRepositoryProvider = Provider<InvoiceRepository>(
 final invoiceForFolioProvider = StreamProvider.family<InvoiceView?, String>(
   (ref, folioId) =>
       ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
+);
+
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => OrderRepository(ref.watch(databaseProvider)),
+);
+
+/// Les points de vente actifs, dans l'ordre de leurs onglets.
+final outletsProvider = StreamProvider<List<OutletRow>>(
+  (ref) => ref.watch(orderRepositoryProvider).watchOutlets(),
+);
+
+/// Les chambres a qui l'on peut porter une consommation.
+final chargeableRoomsProvider = StreamProvider<List<ChargeableRoom>>(
+  (ref) => ref.watch(orderRepositoryProvider).watchChargeableRooms(),
 );
 
 final reservationRepositoryProvider = Provider<ReservationRepository>(

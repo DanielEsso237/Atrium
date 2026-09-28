@@ -33,6 +33,7 @@ import 'sync_repository.dart';
 /// Ce qu'une descente a rapatrie.
 class PullReport {
   const PullReport({
+    this.outlets = 0,
     this.guests = 0,
     this.reservations = 0,
     this.stayLines = 0,
@@ -46,6 +47,7 @@ class PullReport {
   const PullReport.offline() : this(offline: true);
   const PullReport.failed(String message) : this(error: message);
 
+  final int outlets;
   final int guests;
   final int reservations;
   final int stayLines;
@@ -61,7 +63,8 @@ class PullReport {
 
   bool get succeeded => error == null && !offline;
 
-  int get total => guests + reservations + stayLines + folios + items;
+  int get total =>
+      outlets + guests + reservations + stayLines + folios + items;
 
   @override
   String toString() =>
@@ -86,6 +89,10 @@ class Descente {
   /// la tablette a rattrape le serveur, pas le detail de chaque ressource.
   Future<PullReport> pull() async {
     try {
+      // Les points de vente d'abord : une commande s'y accroche, et un
+      // point de vente absent ferait ecarter la ligne pour une raison qui
+      // n'a rien a voir avec elle.
+      final pointsDeVente = await _catalog.fetchOutlets();
       final clients = await _catalog.fetchGuests();
       final dossiers = await _catalog.fetchReservations();
       final ardoises = await _catalog.fetchOpenFolios();
@@ -93,6 +100,7 @@ class Descente {
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
 
+      final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
       final nClients = await _ecrireClients(clients, maintenant, (n) {
         ecartees += n;
       });
@@ -108,6 +116,7 @@ class Descente {
       ecartees += ecartArdoises;
 
       return PullReport(
+        outlets: nPoints,
         guests: nClients,
         reservations: nDossiers,
         stayLines: nLignes,
@@ -122,6 +131,44 @@ class Descente {
           ? const PullReport.offline()
           : PullReport.failed(e.message);
     }
+  }
+
+  // --- Les points de vente ---------------------------------------------------
+
+  /// Ecrit les points de vente.
+  ///
+  /// Pas de barriere d'ecritures en attente ici : c'est du referentiel, que
+  /// seule l'administration modifie, et jamais depuis la tablette. Le
+  /// serveur fait toujours foi.
+  Future<int> _ecrirePointsDeVente(
+    List<RemoteOutlet> points,
+    DateTime maintenant,
+  ) async {
+    if (points.isEmpty) return 0;
+
+    await db.transaction(() async {
+      for (final o in points) {
+        await db
+            .into(db.outlets)
+            .insertOnConflictUpdate(
+              OutletsCompanion.insert(
+                id: o.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                code: o.code,
+                label: o.label,
+                opensAt: Value(o.opensAt),
+                closesAt: Value(o.closesAt),
+                allowsRoomCharge: Value(o.allowsRoomCharge),
+                sortOrder: Value(o.sortOrder),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+
+    return points.length;
   }
 
   // --- Les clients -----------------------------------------------------------
