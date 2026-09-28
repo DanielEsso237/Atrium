@@ -21,7 +21,7 @@ Aucune base de données n'est nécessaire : FastAPI construit le schéma à part
 des définitions de routes, sans une requête SQL. Le versionner permet à
 quelqu'un de développer l'application Flutter sans serveur qui tourne.
 
-État au 24 septembre 2026 : **77 endpoints, 116 schémas.**
+État au 28 septembre 2026 : **77 endpoints, 116 schémas.**
 
 ---
 
@@ -148,6 +148,41 @@ formes.
 | 404 | introuvable, ou appartient à un autre hôtel | message |
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
+
+## Le seuil de consommation et les arrhes
+
+**Seuil.** `guests.credit_limit` (FCFA, `0` = pas de limite) borne le solde
+de l'ardoise. `POST /folios/{id}/items` accepte une charge tant que
+`solde + montant <= seuil` : atteindre exactement le seuil est permis. Au-delà,
+**409** avec un `detail` lisible tel quel :
+
+```
+Seuil depasse : solde 45 000 F + 10 000 F = 55 000 F, seuil 50 000 F,
+depassement 5 000 F. Un responsable doit autoriser.
+```
+
+Pour passer outre, renvoyer la même charge avec `override_by` : l'`id` du
+responsable qui autorise, après avoir vérifié son PIN sur la tablette. Le
+serveur exige qu'il soit actif, de cet hôtel, et qu'il ait
+`folio.override_limit` (manager, pas la réception ni la caisse) — sinon 403.
+Son `id` reste sur la ligne (`folio_items.override_by`). Seules les charges
+qui augmentent le solde sont contrôlées. `GuestIn.credit_limit` est
+facultatif : absent, le seuil en place ne change pas.
+
+**Arrhes.** `POST /reservations` accepte `deposit_amount`, le montant
+encaissé. Absent, le serveur applique la règle de l'hôtel, ligne `settings`
+`reservation.deposit_rule` :
+
+```json
+{ "mode": "FIXED", "amount": 20000 }      // somme fixe
+{ "mode": "PERCENT", "rate_bp": 3000 }    // 30 % du séjour
+```
+
+Pas de règle : pas d'arrhes. Des arrhes supérieures au prix du séjour : 422.
+À l'annulation, elles restent acquises (rien n'est remboursé). À l'arrivée,
+elles se portent sur l'ardoise en ligne `DEPOSIT` négative — le client ne
+paie que le reste — une seule fois par dossier, même en groupe ou sur un
+check-in renvoyé.
 
 ## La pagination
 
