@@ -84,13 +84,26 @@ class AtriumApp extends ConsumerWidget {
       routerConfig: ref.watch(routerProvider),
       builder: (context, child) {
         // Les ecrans lisent leurs couleurs dans `AtriumPalette.current` : on
-        // la cale sur le theme retenu, et on reconstruit tout l'arbre quand
-        // la luminosite change (rare : une bascule jour/nuit de l'appareil).
-        final brightness = MediaQuery.platformBrightnessOf(context);
-        AtriumPalette.current = brightness == Brightness.dark
+        // la cale sur la luminosite de l'appareil.
+        final palette =
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark
             ? AtriumPalette.dark
             : AtriumPalette.light;
-        return KeyedSubtree(key: ValueKey(brightness), child: child!);
+        if (!identical(palette, AtriumPalette.current)) {
+          AtriumPalette.current = palette;
+          // Les widgets `const` qui lisent un jeton sans dependre du theme ne
+          // seraient pas redessines : on marque tout l'arbre, une fois, apres
+          // l'image en cours. L'etat et l'ecran ouvert sont conserves.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            void redessiner(Element element) {
+              element.markNeedsBuild();
+              element.visitChildren(redessiner);
+            }
+
+            WidgetsBinding.instance.rootElement?.visitChildren(redessiner);
+          });
+        }
+        return child!;
       },
     );
   }

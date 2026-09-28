@@ -969,7 +969,7 @@ class _Cloche extends ConsumerWidget {
           Icon(
             Icons.notifications_none_rounded,
             size: 28,
-            color: AtriumColors.white,
+            color: AtriumDashColors.title,
           ),
           if (nonLues > 0)
             Positioned(
@@ -981,7 +981,7 @@ class _Cloche extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AtriumColors.mintStrong,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AtriumColors.white, width: 1.5),
+                  border: Border.all(color: AtriumColors.onNight, width: 1.5),
                 ),
               ),
             ),

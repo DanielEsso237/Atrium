@@ -500,8 +500,10 @@ class Avatar extends StatelessWidget {
     return Container(
       width: taille,
       height: taille,
+      // Un disque mangue, initiales de nuit : lisible sur la barre laterale
+      // comme sur le bandeau, en clair comme en sombre.
       decoration: BoxDecoration(
-        color: AtriumColors.onNight,
+        color: AtriumColors.mintStrong,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -509,8 +511,8 @@ class Avatar extends StatelessWidget {
         _initiales,
         style: TextStyle(
           fontSize: taille * 0.36,
-          fontWeight: FontWeight.w700,
-          color: AtriumDashColors.title,
+          fontWeight: FontWeight.w800,
+          color: AtriumColors.purpleNight,
         ),
       ),
     );
