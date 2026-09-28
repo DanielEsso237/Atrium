@@ -234,7 +234,7 @@ class _Logo extends StatelessWidget {
         children: [
           tuile,
           const SizedBox(width: AtriumSpacing.md + 2),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -244,7 +244,7 @@ class _Logo extends StatelessWidget {
                     fontSize: 28,
                     height: 1.1,
                     fontWeight: FontWeight.w700,
-                    color: AtriumColors.white,
+                    color: AtriumColors.onNight,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -298,7 +298,7 @@ class _LigneNavState extends State<_LigneNav> {
       padding: EdgeInsets.symmetric(horizontal: widget.compacte ? 0 : 16),
       decoration: BoxDecoration(
         gradient: widget.active
-            ? const LinearGradient(
+            ? LinearGradient(
                 colors: [
                   AtriumDashColors.activeStart,
                   AtriumDashColors.activeEnd,
@@ -308,7 +308,7 @@ class _LigneNavState extends State<_LigneNav> {
         color: widget.active
             ? null
             : (_survol && !aVenir
-                  ? AtriumColors.white.withValues(alpha: 0.06)
+                  ? AtriumColors.onNight.withValues(alpha: 0.06)
                   : Colors.transparent),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
@@ -345,7 +345,7 @@ class _LigneNavState extends State<_LigneNav> {
               ),
             ),
             if (aVenir)
-              const Text(
+              Text(
                 'à venir',
                 style: TextStyle(
                   fontSize: 12,
@@ -355,7 +355,7 @@ class _LigneNavState extends State<_LigneNav> {
             else if (widget.valeur != null)
               Text(
                 widget.valeur!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AtriumColors.mint,
@@ -446,17 +446,17 @@ class _Profil extends ConsumerWidget {
                       session.nomAffiche,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AtriumColors.white,
+                        color: AtriumColors.onNight,
                       ),
                     ),
                     Text(
                       role,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AtriumDashColors.sidebarMuted,
                       ),
@@ -464,9 +464,9 @@ class _Profil extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: AtriumColors.white,
+                color: AtriumColors.onNight,
                 size: 24,
               ),
             ],
@@ -500,8 +500,8 @@ class Avatar extends StatelessWidget {
     return Container(
       width: taille,
       height: taille,
-      decoration: const BoxDecoration(
-        color: AtriumColors.white,
+      decoration: BoxDecoration(
+        color: AtriumColors.onNight,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -551,7 +551,7 @@ class MenuCompte extends ConsumerWidget {
             children: [
               Text(
                 session.nomAffiche,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AtriumDashColors.title,
@@ -561,7 +561,7 @@ class MenuCompte extends ConsumerWidget {
                 session.acces.roles.isEmpty
                     ? 'Compte rattaché à aucun rôle'
                     : session.acces.roles.join(', '),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   color: AtriumColors.textSecondary,
                 ),
@@ -570,7 +570,7 @@ class MenuCompte extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'sortir',
           child: Row(
             children: [

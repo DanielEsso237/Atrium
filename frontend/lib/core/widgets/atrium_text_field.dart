@@ -109,7 +109,7 @@ class _AtriumTextFieldState extends State<AtriumTextField> {
           cursorColor: AtriumColors.purple,
           style:
               widget.valueStyle ??
-              const TextStyle(
+              TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -221,15 +221,15 @@ class _Pastille extends StatelessWidget {
     final Color bord;
     final Color encre;
     if (erreur) {
-      fond = const [AtriumColors.errorTint, AtriumColors.errorTint];
+      fond = [AtriumColors.errorTint, AtriumColors.errorTint];
       bord = AtriumColors.error.withValues(alpha: 0.45);
       encre = AtriumColors.error;
     } else if (active) {
-      fond = const [AtriumColors.mint, AtriumColors.mintStrong];
+      fond = [AtriumColors.mint, AtriumColors.mintStrong];
       bord = AtriumColors.mintStrong;
       encre = AtriumColors.purple;
     } else {
-      fond = const [AtriumColors.mintTint, AtriumColors.mintSoft];
+      fond = [AtriumColors.mintTint, AtriumColors.mintSoft];
       bord = AtriumColors.mintBorder;
       encre = AtriumColors.ink;
     }
@@ -279,7 +279,7 @@ class FieldMessage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 1),
             child: Icon(
               Icons.error_outline_rounded,
@@ -291,7 +291,7 @@ class FieldMessage extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.4,
                 fontWeight: FontWeight.w600,

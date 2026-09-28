@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/tokens.dart';
 import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
 import 'data/local/seed.dart';
@@ -73,8 +74,21 @@ class AtriumApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Atrium',
       debugShowCheckedModeBanner: false,
-      theme: themeAtrium(),
+      // Clair le jour, sombre le soir : l'appareil decide.
+      theme: atriumTheme(AtriumPalette.light),
+      darkTheme: atriumTheme(AtriumPalette.dark),
+      themeMode: ThemeMode.system,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) {
+        // Les ecrans lisent leurs couleurs dans `AtriumPalette.current` : on
+        // la cale sur le theme retenu, et on reconstruit tout l'arbre quand
+        // la luminosite change (rare : une bascule jour/nuit de l'appareil).
+        final brightness = Theme.of(context).brightness;
+        AtriumPalette.current = brightness == Brightness.dark
+            ? AtriumPalette.dark
+            : AtriumPalette.light;
+        return KeyedSubtree(key: ValueKey(brightness), child: child!);
+      },
     );
   }
 }

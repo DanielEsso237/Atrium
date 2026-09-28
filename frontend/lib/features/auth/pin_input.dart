@@ -144,8 +144,8 @@ class _Case extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: error
-              ? const [AtriumColors.errorTint, AtriumColors.errorTint]
-              : const [AtriumColors.white, AtriumColors.surface],
+              ? [AtriumColors.errorTint, AtriumColors.errorTint]
+              : [AtriumColors.white, AtriumColors.surface],
         ),
         borderRadius: BorderRadius.circular(largeur * 0.22),
         border: Border.all(color: bordure, width: epaisseur),
@@ -214,7 +214,7 @@ class _CurseurState extends State<_Curseur> {
     return AnimatedOpacity(
       opacity: _visible ? 1 : 0.35,
       duration: const Duration(milliseconds: 220),
-      child: const _Point(taille: 10, couleur: AtriumColors.ink),
+      child: _Point(taille: 10, couleur: AtriumColors.ink),
     );
   }
 }
@@ -325,16 +325,16 @@ class _ToucheState extends State<_Touche> {
     final Color encre;
     if (widget.effacement) {
       fond = _pressee
-          ? const [AtriumColors.mintBorder, AtriumColors.mintBorder]
-          : const [AtriumColors.mintSoft, AtriumColors.mintSoft];
+          ? [AtriumColors.mintBorder, AtriumColors.mintBorder]
+          : [AtriumColors.mintSoft, AtriumColors.mintSoft];
       bordure = _focus ? AtriumColors.mintStrong : Colors.transparent;
       encre = actif ? AtriumColors.ink : AtriumColors.textDisabled;
     } else if (_pressee) {
-      fond = const [AtriumColors.mintTint, AtriumColors.mintTint];
+      fond = [AtriumColors.mintTint, AtriumColors.mintTint];
       bordure = AtriumColors.mintStrong;
       encre = AtriumColors.purple;
     } else {
-      fond = const [AtriumColors.white, AtriumColors.surface];
+      fond = [AtriumColors.white, AtriumColors.surface];
       bordure = _focus ? AtriumColors.mintStrong : AtriumColors.border;
       encre = actif ? AtriumColors.ink : AtriumColors.textDisabled;
     }

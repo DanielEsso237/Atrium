@@ -38,7 +38,7 @@ enum _Voie { pin, motDePasse }
 
 /// Construit une fois : `ThemeData` n'est pas gratuit, et l'ecran se
 /// reconstruit a chaque chiffre tape.
-final _theme = atriumBrandTheme();
+ThemeData get _theme => atriumBrandTheme();
 
 const _photoChambre = 'assets/images/chambre.jpg';
 
@@ -243,7 +243,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         g.paddingCarteVertical,
       ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [AtriumColors.surface, AtriumColors.background],
@@ -268,7 +268,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               icon: Icons.badge_outlined,
               textCapitalization: TextCapitalization.characters,
               errorText: echecAgent,
-              valueStyle: const TextStyle(
+              valueStyle: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -333,11 +333,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (refuse) {
       statut = _Statut.erreur(echecSecret);
     } else if (session.enCours) {
-      statut = const _Statut.attente('Vérification…');
+      statut = _Statut.attente('Vérification…');
     } else {
       // Il n'y a pas de bouton en mode PIN : sans cette ligne, rien ne dit a
       // un nouvel agent que la saisie part toute seule.
-      statut = const _Statut.aide('Vérifié dès le quatrième chiffre.');
+      statut = _Statut.aide('Vérifié dès le quatrième chiffre.');
     }
 
     return Column(
@@ -416,7 +416,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             // Le liseré menthe reprend celui du mode selectionne : l'action
             // principale et le choix en cours parlent la meme langue.
             style: FilledButton.styleFrom(
-              side: const BorderSide(
+              side: BorderSide(
                 color: AtriumColors.mintStrong,
                 width: 1.5,
               ),
@@ -428,7 +428,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             child: AnimatedSwitcher(
               duration: AtriumMotion.of(context, AtriumMotion.base),
               child: session.enCours
-                  ? const Row(
+                  ? Row(
                       key: ValueKey('attente'),
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -734,7 +734,7 @@ class _Bandeau extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -903,7 +903,7 @@ class _Rubans extends CustomPainter {
     canvas.drawPath(
       violet,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AtriumColors.purple, AtriumColors.purpleDeep],
@@ -1023,7 +1023,7 @@ class _Vagues extends CustomPainter {
 
     canvas.drawPath(
       gauche,
-      peinture(gauche, const [AtriumColors.purple, AtriumColors.purpleBright]),
+      peinture(gauche, [AtriumColors.purple, AtriumColors.purpleBright]),
     );
     canvas.drawPath(
       menthe,
@@ -1034,7 +1034,7 @@ class _Vagues extends CustomPainter {
     );
     canvas.drawPath(
       coin,
-      peinture(coin, const [AtriumColors.purple, AtriumColors.purpleNight]),
+      peinture(coin, [AtriumColors.purple, AtriumColors.purpleNight]),
     );
   }
 
@@ -1087,7 +1087,7 @@ class _Marque extends StatelessWidget {
                           height: 1.25,
                           fontWeight: FontWeight.w400,
                           letterSpacing: 1.2,
-                          color: AtriumColors.white,
+                          color: AtriumColors.onNight,
                         ),
                       ),
                     ],
@@ -1098,7 +1098,7 @@ class _Marque extends StatelessWidget {
             SizedBox(height: g.niveau == 0 ? 12 : 16),
             FadeTransition(
               opacity: phases.devise,
-              child: const Text(
+              child: Text(
                 'Votre séjour, notre priorité',
                 style: TextStyle(
                   fontSize: 11.5,
@@ -1135,7 +1135,7 @@ class _Nom extends StatelessWidget {
       fontSize: taille,
       height: 1.1,
       fontWeight: FontWeight.w600,
-      color: AtriumColors.white,
+      color: AtriumColors.onNight,
     );
     final diametre = taille * 0.27;
 
@@ -1168,7 +1168,7 @@ class _Nom extends StatelessWidget {
                       child: Container(
                         width: diametre,
                         height: diametre,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AtriumColors.mintStrong,
                         ),
@@ -1201,7 +1201,7 @@ class _Embleme extends StatelessWidget {
       width: taille,
       height: taille,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AtriumColors.purpleBright, AtriumColors.purple],
@@ -1287,13 +1287,13 @@ class _Monte extends StatelessWidget {
 class _Statut extends StatelessWidget {
   const _Statut._(this.texte, this.couleur, this.icone, {this.attente = false});
 
-  const _Statut.aide(String texte)
+  _Statut.aide(String texte)
     : this._(texte, AtriumColors.textSecondary, null);
 
-  const _Statut.attente(String texte)
+  _Statut.attente(String texte)
     : this._(texte, AtriumColors.purple, null, attente: true);
 
-  const _Statut.erreur(String texte)
+  _Statut.erreur(String texte)
     : this._(texte, AtriumColors.error, Icons.error_outline_rounded);
 
   final String texte;
@@ -1309,7 +1309,7 @@ class _Statut extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (attente)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: AtriumSpacing.xs),
               child: SizedBox(
                 width: 14,
