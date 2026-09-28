@@ -71,6 +71,76 @@ abstract final class AtriumColors {
   static const warning = Color(0xFFB45309);
 }
 
+/// Les couleurs propres au tableau de bord : la barre laterale de nuit, les
+/// tuiles d'icone, les titres.
+abstract final class AtriumDashColors {
+  static const sidebar = Color(0xFF151934);
+  static const sidebarRaised = Color(0xFF1D2242);
+  static const sidebarText = Color(0xFFF1F6FF);
+  static const sidebarMuted = Color(0xFFA7ADCF);
+  static const sidebarDivider = Color(0x1FFFFFFF);
+
+  /// La pastille de l'entree active : un degrade sarcelle, cercle de menthe.
+  static const activeStart = Color(0xFF2A8C85);
+  static const activeEnd = Color(0xFF256A78);
+  static const activeBorder = Color(0xFF4CC9B8);
+
+  static const title = Color(0xFF14223C);
+  static const page = Color(0xFFF3F5FB);
+
+  /// Le haut gauche du bandeau d'accueil, un cran plus clair que la page.
+  static const headerLight = Color(0xFFF8F8FD);
+  static const card = Color(0xFFFFFFFF);
+  static const cardBorder = Color(0xFFEBEEF5);
+
+  /// Fond des petites pastilles grises (fleche, menu, periode).
+  static const control = Color(0xFFF1F3F9);
+
+  /// Tuiles d'icone : fond pale, pictogramme soutenu de la meme famille.
+  static const tileMint = Color(0xFFC9F4EA);
+  static const tileMintInk = Color(0xFF16806F);
+  static const tileLavender = Color(0xFFE3E0FC);
+  static const tileLavenderInk = Color(0xFF3B2FB0);
+  static const tileBlue = Color(0xFFDDE8FD);
+  static const tileBlueInk = Color(0xFF2F63D0);
+
+  /// La pastille « hors ligne » du bandeau.
+  static const chipMint = Color(0xFFC9F5EC);
+  static const chipMintInk = Color(0xFF1F5A55);
+
+  static const grid = Color(0xFFEDF0F6);
+
+  /// La main qui salue, a cote du bonjour.
+  static const wave = Color(0xFFF5B83D);
+}
+
+/// Les couleurs des graphiques.
+///
+/// Passees au validateur dataviz (clarte, separation pour les daltonismes
+/// protan, deutan et tritan, contraste) avant d'etre posees ici : a l'oeil,
+/// le bleu et le lavande de la maquette se confondaient pour un lecteur
+/// daltonien, et presque pour tout le monde.
+abstract final class AtriumChartColors {
+  /// La periode en cours, et toutes les series « menthe ».
+  static const current = Color(0xFF1FB39B);
+
+  /// La periode precedente, et toutes les series « lavande ».
+  static const previous = Color(0xFF8B80E8);
+
+  static const arrivals = Color(0xFF2EC4B6);
+  static const departures = Color(0xFF6C65F1);
+
+  /// Les types de chambre, dans l'ordre du parametrage. Jamais recycles : un
+  /// cinquieme type rejoint « Autres », en gris.
+  static const types = [
+    Color(0xFF159488),
+    Color(0xFF4B42D6),
+    Color(0xFF52A9F5),
+    Color(0xFF8E6FEF),
+  ];
+  static const other = Color(0xFFAAB1C2);
+}
+
 /// Les rayons, du plus petit au plus grand.
 ///
 /// Un element contenu a un rayon plus petit que son contenant : c'est ce qui
@@ -125,6 +195,18 @@ abstract final class AtriumShadows {
       color: Color(0x6612082E),
       blurRadius: 24,
       spreadRadius: -4,
+      offset: Offset(0, 10),
+    ),
+  ];
+
+  /// Carte du tableau de bord : un voile a peine perceptible, la bordure
+  /// fait le travail.
+  static const soft = [
+    BoxShadow(color: Color(0x0814223C), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(
+      color: Color(0x0D14223C),
+      blurRadius: 24,
+      spreadRadius: -6,
       offset: Offset(0, 10),
     ),
   ];

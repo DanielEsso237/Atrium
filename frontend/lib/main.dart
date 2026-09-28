@@ -7,6 +7,7 @@
 /// que ces ecrans changent.
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,7 +17,17 @@ import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
 import 'data/local/seed.dart';
 import 'data/local/seed_accounts.dart';
+import 'data/repositories/demo_activite.dart';
 import 'features/sync/sync_status.dart';
+
+/// Activite de demonstration (sejours, arrivees, departs) autour de la
+/// journee en cours : active par defaut en developpement, absente d'une
+/// version installee a l'hotel. `--dart-define=ATRIUM_DEMO=false` la coupe en
+/// developpement, `=true` la force pour une presentation.
+const _activiteDemo = bool.fromEnvironment(
+  'ATRIUM_DEMO',
+  defaultValue: kDebugMode,
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +38,15 @@ Future<void> main() async {
   // chaque demarrage rafraichit le parametrage sans rien dupliquer.
   await seedDemoData(db);
   await seedAccounts(db);
+  if (_activiteDemo) {
+    // Un jeu de demonstration qui echoue ne doit jamais empecher
+    // l'application de s'ouvrir.
+    try {
+      await seedDemoActivity(db);
+    } catch (e, pile) {
+      debugPrint('Activite de demonstration non installee : $e\n$pile');
+    }
+  }
 
   runApp(
     ProviderScope(
