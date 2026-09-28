@@ -70,6 +70,24 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Police de la charte, embarquee plutot que telechargee : une tablette hors
+  # ligne n'irait pas la chercher, et retomberait sur la police du systeme.
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/montserrat/Montserrat-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/montserrat/Montserrat-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/montserrat/Montserrat-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/montserrat/Montserrat-Bold.ttf
+          weight: 700
+
+  # La chambre du bandeau de connexion.
+  assets:
+    - assets/images/chambre.jpg
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
