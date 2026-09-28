@@ -202,6 +202,9 @@ class HousekeepingRepository with OutboxWriter {
     final id = newId();
     final now = DateTime.now().toUtc();
 
+    // CORRIGE (traçabilité, exigence 6.2) : 'created_by' ajoute au payload.
+    // La colonne locale createdBy etait deja remplie (dans l'action
+    // ci-dessous), mais l'envoi au serveur l'omettait.
     await writeAndEnqueue(
       table: 'housekeeping_tasks',
       id: id,
@@ -212,6 +215,7 @@ class HousekeepingRepository with OutboxWriter {
         'type': type.name,
         'priority': priority.name,
         'business_date': businessDate,
+        'created_by': by,
       },
       action: () async {
         // Ouvrir une tache, c'est declarer qu'il y a du travail : la chambre
@@ -335,11 +339,18 @@ class HousekeepingRepository with OutboxWriter {
 
       // Le verbe part dans la file, pas l'etat : le serveur a un endpoint par
       // transition (`/start`, `/finish`) et calcule lui-meme les horodatages.
+      //
+      // CORRIGE (traçabilité, exigence 6.2) : 'assigned_to' ajoute au
+      // payload, par symetrie avec la colonne locale `assignedTo`.
+      // HYPOTHESE A CONFIRMER : ce nom suppose que le serveur attend bien
+      // 'assigned_to' et non un autre champ (started_by / finished_by...) —
+      // a verifier avec l'equipe backend avant le merge (voir tableau
+      // d'inventaire de l'etape 2).
       await enqueue(
         table: 'housekeeping_tasks',
         id: taskId,
         operation: SyncOp.UPDATE,
-        payload: {'id': taskId, 'status': vers.name},
+        payload: {'id': taskId, 'status': vers.name, 'assigned_to': by},
       );
     });
   }

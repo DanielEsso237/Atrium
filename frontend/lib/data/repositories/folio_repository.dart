@@ -403,11 +403,14 @@ class FolioRepository with OutboxWriter {
           syncState: const Value(SyncState.pending),
         ),
       );
+      // CORRIGE (traçabilité, exigence 6.2) : 'updated_by' ajoute au
+      // payload. La colonne locale updatedBy etait deja remplie
+      // (ci-dessus), mais l'envoi au serveur l'omettait.
       await enqueue(
         table: 'folios',
         id: folioId,
         operation: SyncOp.UPDATE,
-        payload: {'id': folioId, 'status': 'CLOSED'},
+        payload: {'id': folioId, 'status': 'CLOSED', 'updated_by': by},
       );
     });
   }

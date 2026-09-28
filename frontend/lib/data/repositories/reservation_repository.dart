@@ -254,6 +254,11 @@ class ReservationRepository with OutboxWriter {
 
       if (roomId != null) await _markReserved(roomId, now);
 
+      // CORRIGE (traçabilité, exigence 6.2) : 'created_by' est desormais
+      // transmis dans le payload, a la fois pour la reservation et pour la
+      // ligne de sejour. Auparavant la valeur etait bien ecrite en local
+      // (createdBy: Value(createdBy) ci-dessus) mais jamais envoyee au
+      // serveur : la ligne y arrivait sans agent associe.
       await enqueue(
         table: 'reservations',
         id: reservationId,
@@ -268,12 +273,14 @@ class ReservationRepository with OutboxWriter {
           'departure_date': formatIsoDate(departure),
           'adults': adults,
           'children': children,
+          'created_by': createdBy,
           'rooms': [
             {
               'id': lineId,
               'room_type_id': roomTypeId,
               'room_id': roomId,
               'nightly_rate': nightlyRate,
+              'created_by': createdBy,
             },
           ],
         },
@@ -304,11 +311,18 @@ class ReservationRepository with OutboxWriter {
         ),
       );
       await _markReserved(roomId, now);
+      // CORRIGE : 'updated_by' ajoute au payload — la colonne locale
+      // updatedBy etait deja remplie, seul l'envoi au serveur manquait.
       await enqueue(
         table: 'reservation_rooms',
         id: lineId,
         operation: SyncOp.UPDATE,
-        payload: {'id': lineId, 'room_id': roomId, 'status': 'CONFIRMED'},
+        payload: {
+          'id': lineId,
+          'room_id': roomId,
+          'status': 'CONFIRMED',
+          'updated_by': by,
+        },
       );
     });
   }
@@ -384,6 +398,8 @@ class ReservationRepository with OutboxWriter {
             ),
           );
 
+      // CORRIGE : 'checked_in_by' ajoute au payload — checkedInBy etait deja
+      // ecrit en local (ci-dessus) mais absent de l'envoi au serveur.
       await enqueue(
         table: 'reservation_rooms',
         id: lineId,
@@ -393,6 +409,7 @@ class ReservationRepository with OutboxWriter {
           'status': 'CHECKED_IN',
           'checked_in_at': now.toIso8601String(),
           'folio_id': folioId,
+          'checked_in_by': by,
         },
       );
     });
@@ -456,6 +473,8 @@ class ReservationRepository with OutboxWriter {
         );
       }
 
+      // CORRIGE : 'checked_out_by' ajoute au payload — checkedOutBy etait
+      // deja ecrit en local (ci-dessus) mais absent de l'envoi au serveur.
       await enqueue(
         table: 'reservation_rooms',
         id: lineId,
@@ -464,6 +483,7 @@ class ReservationRepository with OutboxWriter {
           'id': lineId,
           'status': 'CHECKED_OUT',
           'checked_out_at': now.toIso8601String(),
+          'checked_out_by': by,
         },
       );
     });
