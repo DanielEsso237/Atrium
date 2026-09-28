@@ -7,7 +7,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.enums import ReservationSource, ReservationStatus
+from app.models.enums import PaymentMethod, ReservationSource, ReservationStatus
 
 
 class ReservationRoomIn(BaseModel):
@@ -39,7 +39,17 @@ class ReservationIn(BaseModel):
     deposit_amount: int | None = Field(
         default=None,
         ge=0,
-        description="Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+        description=(
+            "Arrhes encaissees maintenant, FCFA (exige deposit_method) ; "
+            "absent = montant du par la regle `reservation.deposit_rule`, rien d'encaisse"
+        ),
+    )
+    deposit_method: PaymentMethod | None = Field(
+        default=None,
+        description="Moyen de paiement des arrhes : seules les especes entrent dans le tiroir",
+    )
+    deposit_reference: str | None = Field(
+        default=None, max_length=80, description="Reference Mobile Money, virement, carte"
     )
     rooms: list[ReservationRoomIn] = Field(min_length=1)
 
@@ -50,6 +60,10 @@ class ReservationIn(BaseModel):
             ids.append(self.id)
         if len(ids) != len(set(ids)):
             raise ValueError("Identifiants en double dans la reservation.")
+        # Des arrhes encaissees sans moyen de paiement ne peuvent pas etre
+        # rapprochees : un virement ne passe pas par le tiroir, des especes si.
+        if self.deposit_amount and self.deposit_method is None:
+            raise ValueError("deposit_method est obligatoire quand des arrhes sont encaissees.")
         return self
 
 

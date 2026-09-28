@@ -169,9 +169,16 @@ Son `id` reste sur la ligne (`folio_items.override_by`). Seules les charges
 qui augmentent le solde sont contrôlées. `GuestIn.credit_limit` est
 facultatif : absent, le seuil en place ne change pas.
 
-**Arrhes.** `POST /reservations` accepte `deposit_amount`, le montant
-encaissé. Absent, le serveur applique la règle de l'hôtel, ligne `settings`
-`reservation.deposit_rule` :
+**Arrhes.** Envoyer `deposit_amount` dans `POST /reservations`, c'est
+déclarer des arrhes **encaissées maintenant** : `deposit_method` devient
+obligatoire (422 sinon), `deposit_reference` facultatif. Le serveur crée un
+paiement rattaché à la réservation et à la session de caisse ouverte de celui
+qui encaisse. Seules les espèces (`CASH`) font monter l'attendu du tiroir ; un
+Mobile Money ou un virement n'y entre pas.
+
+Sans `deposit_amount`, le serveur calcule ce qui est **dû** avec la règle de
+l'hôtel, ligne `settings` `reservation.deposit_rule`, sans rien encaisser
+(`deposit_paid_at` reste `null`) :
 
 ```json
 { "mode": "FIXED", "amount": 20000 }      // somme fixe
@@ -179,10 +186,13 @@ encaissé. Absent, le serveur applique la règle de l'hôtel, ligne `settings`
 ```
 
 Pas de règle : pas d'arrhes. Des arrhes supérieures au prix du séjour : 422.
-À l'annulation, elles restent acquises (rien n'est remboursé). À l'arrivée,
-elles se portent sur l'ardoise en ligne `DEPOSIT` négative — le client ne
-paie que le reste — une seule fois par dossier, même en groupe ou sur un
-check-in renvoyé.
+À l'annulation, l'argent reste encaissé (rien n'est remboursé). À
+l'arrivée, le paiement passe de la réservation à l'ardoise : le client ne
+doit que le reste, et la facture montre le séjour entier. Une seule fois par
+dossier, même en groupe ou sur un check-in renvoyé.
+
+Un paiement a **un seul** rattachement : ardoise (`folio_id`), facture
+(`invoice_id`) ou réservation (`reservation_id`) — garanti en base.
 
 ## La pagination
 

@@ -26,15 +26,22 @@ from app.services.printing import enqueue_print_job
 router = APIRouter(prefix="/cash-sessions", tags=["caisse"])
 
 
-async def open_session_id(session: AsyncSession, user: User) -> uuid.UUID | None:
-    """Session ouverte de l'utilisateur, s'il en a une (une seule possible)."""
-    return await session.scalar(
-        select(CashSession.id).where(
-            CashSession.user_id == user.id,
-            CashSession.status == CashSessionStatus.OPEN,
-            CashSession.deleted_at.is_(None),
-        )
+async def open_session_id(
+    session: AsyncSession, user: User, *, for_update: bool = False
+) -> uuid.UUID | None:
+    """Session ouverte de l'utilisateur, s'il en a une (une seule possible).
+
+    `for_update` verrouille la session : un encaissement ne doit pas s'y
+    rattacher pendant qu'une fermeture calcule l'attendu.
+    """
+    stmt = select(CashSession.id).where(
+        CashSession.user_id == user.id,
+        CashSession.status == CashSessionStatus.OPEN,
+        CashSession.deleted_at.is_(None),
     )
+    if for_update:
+        stmt = stmt.with_for_update()
+    return await session.scalar(stmt)
 
 
 async def _expected_cash(session: AsyncSession, cash_session: CashSession) -> int:

@@ -4231,8 +4231,32 @@
                 "type": "null"
               }
             ],
-            "description": "Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+            "description": "Arrhes encaissees maintenant, FCFA (exige deposit_method) ; absent = montant du par la regle `reservation.deposit_rule`, rien d'encaisse",
             "title": "Deposit Amount"
+          },
+          "deposit_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Moyen de paiement des arrhes : seules les especes entrent dans le tiroir"
+          },
+          "deposit_reference": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reference Mobile Money, virement, carte",
+            "title": "Deposit Reference"
           },
           "guest_id": {
             "format": "uuid",
@@ -10088,7 +10112,7 @@
     },
     "/api/v1/reservations/{reservation_id}/cancel": {
       "post": {
-        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
+        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste rattache a la reservation et dans la caisse\nqui l'a recu, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
         "operationId": "cancel_reservation_api_v1_reservations__reservation_id__cancel_post",
         "parameters": [
           {
