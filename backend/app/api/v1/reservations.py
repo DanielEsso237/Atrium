@@ -17,8 +17,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
-from app.models import Folio, Guest, Reservation, ReservationRoom, Room, RoomType, StayNight, User
+from app.models import (
+    Folio,
+    FolioItem,
+    Guest,
+    Reservation,
+    ReservationRoom,
+    Room,
+    RoomType,
+    StayNight,
+    User,
+)
 from app.models.enums import (
+    ChargeCategory,
     FolioStatus,
     FolioType,
     HousekeepingStatus,
@@ -36,6 +47,9 @@ from app.schemas.reservations import (
     ReservationOut,
     ReservationUpdate,
 )
+from app.services.business_day import current_business_date
+from app.services.deposit import deposit_from_rule, deposit_rule
+from app.services.folios import recompute_totals
 from app.services.numbering import Scope, next_number
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
@@ -203,6 +217,51 @@ async def _get_reservation(
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Reservation introuvable.")
     return reservation
+
+
+async def _post_deposit(
+    session: AsyncSession, reservation: Reservation, folio_id: uuid.UUID, user: User
+) -> None:
+    """A l'arrivee, les arrhes deja encaissees se deduisent de l'ardoise.
+
+    Une ligne DEPOSIT negative : le client ne paie plus que le reste, et la
+    facture montre ce qui a ete verse a la reservation. Une seule fois par
+    dossier, quel que soit le nombre de chambres : la cle naturelle
+    (`source_table`, `source_id`) retrouve une ligne deja portee, par un
+    premier check-in, un rejeu ou l'arrivee d'une autre chambre du groupe.
+    """
+    if not reservation.deposit_amount:
+        return
+    already = await session.scalar(
+        select(FolioItem.id).where(
+            FolioItem.source_table == "reservations",
+            FolioItem.source_id == reservation.id,
+            FolioItem.category == ChargeCategory.DEPOSIT,
+            FolioItem.is_void.is_(False),
+            FolioItem.deleted_at.is_(None),
+        )
+    )
+    if already is not None:
+        return
+    folio = await session.get(Folio, folio_id, with_for_update=True)
+    paid_on = reservation.deposit_paid_at or reservation.created_at
+    session.add(
+        FolioItem(
+            folio_id=folio.id,
+            category=ChargeCategory.DEPOSIT,
+            label=f"Arrhes versees le {paid_on:%d/%m/%Y} ({reservation.reference})",
+            quantity=1,
+            unit_price=-reservation.deposit_amount,
+            amount=-reservation.deposit_amount,
+            business_date=await current_business_date(session, user.hotel_id),
+            source_table="reservations",
+            source_id=reservation.id,
+            posted_by=user.id,
+            posted_at=dt.datetime.now(dt.timezone.utc),
+        )
+    )
+    await session.flush()
+    await recompute_totals(session, folio)
 
 
 async def _replayed(session: AsyncSession, model, obj_id: uuid.UUID, user: User):
@@ -482,6 +541,21 @@ async def create_reservation(
         total_amount += _sync_stay_nights(session, res_room, (), rate)
 
     reservation.estimated_total = total_amount
+    # Arrhes : le montant encaisse que la tablette envoie, sinon la regle de
+    # l'hotel. Controle en fin de transaction, une fois le prix du sejour
+    # connu : un refus annule tout, numero de dossier compris.
+    deposit = (
+        payload.deposit_amount
+        if payload.deposit_amount is not None
+        else deposit_from_rule(await deposit_rule(session, user.hotel_id), total_amount)
+    )
+    if deposit > total_amount:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Arrhes ({deposit} F) superieures au prix du sejour ({total_amount} F).",
+        )
+    reservation.deposit_amount = deposit
+    reservation.deposit_paid_at = dt.datetime.now(dt.timezone.utc) if deposit else None
     await session.commit()
     await session.refresh(reservation, attribute_names=["rooms"])
     return reservation
@@ -687,9 +761,10 @@ async def check_in(
         select(Folio.id).where(Folio.reservation_room_id == line.id, Folio.deleted_at.is_(None))
     )
     if existing_folio is None:
+        existing_folio = payload.folio_id or uuid7()
         session.add(
             Folio(
-                id=payload.folio_id or uuid7(),
+                id=existing_folio,
                 hotel_id=user.hotel_id,
                 number=await next_number(session, user.hotel_id, Scope.FOLIO),
                 type=FolioType.GUEST,
@@ -699,7 +774,9 @@ async def check_in(
                 opened_at=now,
             )
         )
+        await session.flush()
 
+    await _post_deposit(session, reservation, existing_folio, user)
     await session.commit()
     await session.refresh(reservation, attribute_names=["rooms"])
     return reservation
@@ -763,6 +840,12 @@ async def cancel_reservation(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("reservation.manage")),
 ) -> Reservation:
+    """Annule tout le dossier.
+
+    Les arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne
+    bougent pas, aucun remboursement n'est emis. C'est leur raison d'etre --
+    une annulation tardive ne coute pas la chambre a l'hotel.
+    """
     reservation = await _get_reservation(session, reservation_id, user)
     if reservation.status == ReservationStatus.CANCELLED:
         return reservation  # rejeu : deja annulee, motif et date d'origine conserves

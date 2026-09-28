@@ -22,7 +22,9 @@ from sqlalchemy import select
 
 from app.core.ids import uuid7
 from app.core.security import hash_secret
-from app.models import FolioItem, Room, RoomType, User
+from app.models import FolioItem, Payment, Room, RoomType, Setting, User
+from app.models.enums import ChargeCategory
+from app.services.deposit import RULE_KEY
 
 pytestmark = pytest.mark.db
 
@@ -198,3 +200,147 @@ async def test_charge_rejouee_apres_depassement_repond_200(client, session, hote
     assert folio["balance"] == 60_000
     rows = (await session.execute(select(FolioItem).where(FolioItem.folio_id == uuid.UUID(folio_id)))).scalars().all()
     assert len(rows) == 2
+
+
+# --- Arrhes ----------------------------------------------------------------------
+
+
+async def _reservation(client, auth, guest_id, room_type_id, rooms=1, **extra):
+    lines = [
+        {
+            "id": str(uuid7()),
+            "room_type_id": str(room_type_id),
+            "arrival_date": str(ARRIVAL),
+            "departure_date": str(DEPARTURE),
+        }
+        for _ in range(rooms)
+    ]
+    body = {"id": str(uuid7()), "guest_id": guest_id, "rooms": lines, **extra}
+    resp = await client.post("/api/v1/reservations", json=body, headers=auth)
+    return body, resp
+
+
+async def _guest(client, auth) -> str:
+    resp = await client.post(
+        "/api/v1/guests", json={"first_name": "Paul", "last_name": "Mbarga"}, headers=auth
+    )
+    return resp.json()["id"]
+
+
+async def _deux_chambres(session, hotel) -> tuple[RoomType, list[Room]]:
+    room_type, room = await _room_type(session, hotel)
+    other = Room(hotel_id=hotel.id, number=f"2{hotel.code}", room_type_id=room_type.id)
+    session.add(other)
+    await session.commit()
+    return room_type, [room, other]
+
+
+async def _deposit_items(session, reservation_id: str) -> list[FolioItem]:
+    return (
+        await session.execute(
+            select(FolioItem).where(
+                FolioItem.source_table == "reservations",
+                FolioItem.source_id == uuid.UUID(reservation_id),
+            )
+        )
+    ).scalars().all()
+
+
+async def test_arrhes_saisies_enregistrees(client, session, hotel_a, auth_a):
+    room_type, _ = await _room_type(session, hotel_a[0])
+    _, resp = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id, deposit_amount=20_000)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["deposit_amount"] == 20_000
+    assert resp.json()["deposit_paid_at"] is not None
+
+
+async def test_arrhes_calculees_par_la_regle_de_l_hotel(client, session, hotel_a, auth_a):
+    hotel, _ = hotel_a
+    session.add(
+        Setting(hotel_id=hotel.id, key=RULE_KEY, value={"mode": "PERCENT", "rate_bp": 3000})
+    )
+    await session.commit()
+    room_type, _ = await _room_type(session, hotel)
+    _, resp = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["estimated_total"] == 50_000
+    assert resp.json()["deposit_amount"] == 15_000
+
+
+async def test_sans_regle_ni_saisie_pas_d_arrhes(client, session, hotel_a, auth_a):
+    room_type, _ = await _room_type(session, hotel_a[0])
+    _, resp = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id)
+    assert resp.json()["deposit_amount"] == 0
+    assert resp.json()["deposit_paid_at"] is None
+
+
+async def test_arrhes_superieures_au_sejour_refusees(client, session, hotel_a, auth_a):
+    room_type, _ = await _room_type(session, hotel_a[0])
+    _, resp = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id, deposit_amount=60_000)
+    assert resp.status_code == 422, resp.text
+
+
+async def test_annulation_apres_arrhes_les_arrhes_restent_acquises(
+    client, session, hotel_a, auth_a
+):
+    room_type, _ = await _room_type(session, hotel_a[0])
+    body, resp = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id, deposit_amount=20_000)
+    url = f"/api/v1/reservations/{body['id']}/cancel"
+
+    cancelled = await client.post(url, json={"reason": "Vol annule"}, headers=auth_a)
+    again = await client.post(url, json={"reason": "rejeu"}, headers=auth_a)
+
+    assert cancelled.status_code == again.status_code == 200
+    assert again.json()["status"] == "CANCELLED"
+    assert again.json()["deposit_amount"] == 20_000
+    assert again.json()["deposit_paid_at"] == resp.json()["deposit_paid_at"]
+    payments = (await session.execute(select(Payment))).scalars().all()
+    assert payments == []  # aucun remboursement emis
+
+
+async def test_arrivee_apres_arrhes_le_client_ne_paie_que_le_reste(
+    client, session, hotel_a, auth_a
+):
+    room_type, room = await _room_type(session, hotel_a[0])
+    body, _ = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id, deposit_amount=20_000)
+    folio_id = uuid7()
+    url = f"/api/v1/reservations/{body['id']}/rooms/{body['rooms'][0]['id']}/check-in"
+    check_in = {"room_id": str(room.id), "folio_id": str(folio_id)}
+
+    assert (await client.post(url, json=check_in, headers=auth_a)).status_code == 200
+    again = await client.post(url, json=check_in, headers=auth_a)  # rejeu
+    assert again.status_code == 200, again.text
+
+    items = await _deposit_items(session, body["id"])
+    assert len(items) == 1
+    assert items[0].category == ChargeCategory.DEPOSIT and items[0].amount == -20_000
+    await client.post(f"/api/v1/folios/{folio_id}/post-stay-nights", headers=auth_a)
+    folio = (await client.get(f"/api/v1/folios/{folio_id}", headers=auth_a)).json()
+    assert folio["charges_total"] == 50_000 - 20_000
+    assert folio["balance"] == 30_000  # reste du
+
+
+async def test_groupe_les_arrhes_ne_se_deduisent_qu_une_fois(client, session, hotel_a, auth_a):
+    room_type, rooms = await _deux_chambres(session, hotel_a[0])
+    body, resp = await _reservation(
+        client, auth_a, await _guest(client, auth_a), room_type.id, rooms=2, deposit_amount=40_000
+    )
+    assert resp.status_code == 201, resp.text
+    for line, room in zip(body["rooms"], rooms):
+        resp = await client.post(
+            f"/api/v1/reservations/{body['id']}/rooms/{line['id']}/check-in",
+            json={"room_id": str(room.id)},
+            headers=auth_a,
+        )
+        assert resp.status_code == 200, resp.text
+    assert len(await _deposit_items(session, body["id"])) == 1
+
+
+async def test_reservation_avec_arrhes_rejouee_repond_200(client, session, hotel_a, auth_a):
+    """Le renvoi arrive quand l'hotel est complet : 200, et rien de recompte."""
+    room_type, _ = await _room_type(session, hotel_a[0])
+    body, first = await _reservation(client, auth_a, await _guest(client, auth_a), room_type.id, deposit_amount=20_000)
+    again = await client.post("/api/v1/reservations", json=body, headers=auth_a)
+    assert (first.status_code, again.status_code) == (201, 200), again.text
+    assert again.json()["deposit_amount"] == 20_000
+    assert again.json()["reference"] == first.json()["reference"]
