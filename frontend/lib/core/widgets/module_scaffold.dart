@@ -44,6 +44,10 @@ class ModuleScaffold extends ConsumerWidget {
     final accueil = ref.watch(sessionProvider).acces.homeRoute;
     final ecranUnique = accueil != null && accueil != '/';
 
+    // Sur telephone, l'action principale descend en bas, pleine largeur,
+    // sous le pouce : dans la barre du haut elle ecrasait le titre.
+    final etroit = MediaQuery.sizeOf(context).width < 600;
+
     return Scaffold(
       appBar: AppBar(
         leading: ecranUnique
@@ -51,7 +55,7 @@ class ModuleScaffold extends ConsumerWidget {
             : IconButton(
                 iconSize: 28,
                 tooltip: 'Tableau de bord',
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () => context.go('/'),
               ),
         title: Text(title),
@@ -67,11 +71,11 @@ class ModuleScaffold extends ConsumerWidget {
             IconButton(
               tooltip: 'Se deconnecter',
               iconSize: 26,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout_rounded),
               onPressed: () => ref.read(sessionProvider.notifier).deconnecter(),
             ),
           ],
-          if (action != null) ...[
+          if (action != null && !etroit) ...[
             const SizedBox(width: 12),
             action!,
           ],
@@ -79,6 +83,12 @@ class ModuleScaffold extends ConsumerWidget {
         ],
       ),
       body: body,
+      bottomNavigationBar: action != null && etroit
+          ? SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: SizedBox(width: double.infinity, child: action),
+            )
+          : null,
     );
   }
 }

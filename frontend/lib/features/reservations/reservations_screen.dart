@@ -11,6 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/tokens.dart';
+
+import '../../core/theme.dart';
+
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
@@ -98,16 +102,16 @@ class ReservationsScreen extends ConsumerWidget {
     final schema = Theme.of(context).colorScheme;
 
     return ModuleScaffold(
-      title: 'Reservations',
+      title: 'Réservations',
       action: FilledButton.icon(
         onPressed: () => context.go('/reservations/nouvelle'),
         icon: const Icon(Icons.add),
-        label: const Text('Nouvelle reservation'),
+        label: const Text('Nouvelle réservation'),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: TextField(
               onChanged: (v) =>
                   ref.read(reservationSearchProvider.notifier).update(v),
@@ -118,8 +122,9 @@ class ReservationsScreen extends ConsumerWidget {
               style: const TextStyle(fontSize: 18),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 for (final f in ReservationFilter.values)
@@ -156,7 +161,7 @@ class ReservationsScreen extends ConsumerWidget {
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       itemCount: list.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, i) =>
@@ -170,31 +175,35 @@ class ReservationsScreen extends ConsumerWidget {
   }
 }
 
-/// Libelle et couleur d'un statut de sejour.
+/// Libelle et couleur d'un statut de sejour, pris dans les couleurs d'etat
+/// de la charte : le plan des chambres et la liste disent la meme chose.
 ({String label, Color color}) statusAppearance(
   ReservationStatus status,
   ColorScheme schema,
 ) => switch (status) {
   ReservationStatus.PENDING => (
     label: 'En attente',
-    color: const Color(0xFFF9A825),
+    color: CouleursEtat.reservee,
   ),
   ReservationStatus.CONFIRMED => (
-    label: 'Confirmee',
-    color: const Color(0xFF1565C0),
+    label: 'Confirmée',
+    color: CouleursEtat.nettoyage,
   ),
   ReservationStatus.CHECKED_IN => (
     label: 'En cours',
-    color: const Color(0xFF2E7D32),
+    color: CouleursEtat.disponible,
   ),
-  ReservationStatus.CHECKED_OUT => (label: 'Terminee', color: schema.outline),
+  ReservationStatus.CHECKED_OUT => (
+    label: 'Terminée',
+    color: CouleursEtat.maintenance,
+  ),
   ReservationStatus.CANCELLED => (
-    label: 'Annulee',
-    color: const Color(0xFFC62828),
+    label: 'Annulée',
+    color: CouleursEtat.occupee,
   ),
   ReservationStatus.NO_SHOW => (
-    label: 'Non presente',
-    color: const Color(0xFFC62828),
+    label: 'Non présente',
+    color: CouleursEtat.occupee,
   ),
 };
 
@@ -214,67 +223,94 @@ class _ReservationCard extends ConsumerWidget {
         ? departure.difference(arrival).inDays
         : 0;
 
+    final texte = Theme.of(context).textTheme;
+    final dates =
+        '${arrival == null ? reservation.arrival : formatShortDate(arrival)}'
+        '  →  '
+        '${departure == null ? reservation.departure : formatShortDate(departure)}'
+        // Espaces insecables : « 3 nuits » ne se coupe jamais en fin de ligne.
+        '${nights > 0 ? '  ·  $nights\u00a0nuit${nights > 1 ? 's' : ''}' : ''}';
+
+    final identite = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(reservation.guestName, style: texte.titleLarge),
+            _Statut(label: look.label, couleur: look.color),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          dates,
+          style: texte.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${reservation.reference}  ·  ${reservation.roomTypeLabel}  ·  '
+          '${formatAmount(reservation.nightlyRate)} / nuit',
+          style: texte.bodySmall,
+        ),
+      ],
+    );
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 6,
-              height: 68,
-              decoration: BoxDecoration(
-                color: look.color,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        reservation.guestName,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Chip(
-                        label: Text(look.label),
-                        backgroundColor: look.color.withValues(alpha: 0.12),
-                        side: BorderSide(
-                          color: look.color.withValues(alpha: 0.4),
-                        ),
-                        labelStyle: TextStyle(color: look.color, fontSize: 14),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${reservation.reference} · '
-                    '${arrival == null ? reservation.arrival : formatShortDate(arrival)}'
-                    ' → '
-                    '${departure == null ? reservation.departure : formatShortDate(departure)}'
-                    '${nights > 0 ? ' · $nights nuit${nights > 1 ? 's' : ''}' : ''}',
-                    style: TextStyle(fontSize: 16, color: schema.outline),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${reservation.roomTypeLabel} · '
-                    '${formatAmount(reservation.nightlyRate)} / nuit',
-                    style: TextStyle(fontSize: 15, color: schema.outline),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            _RoomAndAction(reservation: reservation),
-          ],
+        padding: const EdgeInsets.all(18),
+        child: LayoutBuilder(
+          builder: (context, contraintes) => contraintes.maxWidth < 520
+              // Telephone : l'identite en haut, la chambre et l'etape
+              // suivante en bas, sur toute la largeur.
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    identite,
+                    const SizedBox(height: 14),
+                    _RoomAndAction(reservation: reservation, etroit: true),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: identite),
+                    const SizedBox(width: 16),
+                    _RoomAndAction(reservation: reservation, etroit: false),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Le statut en toutes lettres, sur sa couleur d'etat.
+class _Statut extends StatelessWidget {
+  const _Statut({required this.label, required this.couleur});
+
+  final String label;
+  final Color couleur;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: couleur.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: atriumFontFamily,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -282,78 +318,83 @@ class _ReservationCard extends ConsumerWidget {
 }
 
 class _RoomAndAction extends ConsumerWidget {
-  const _RoomAndAction({required this.reservation});
+  const _RoomAndAction({required this.reservation, required this.etroit});
 
   final ReservationSummary reservation;
+  final bool etroit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final schema = Theme.of(context).colorScheme;
+    final texte = Theme.of(context).textTheme;
 
+    Widget? bouton;
     if (!reservation.hasRoom) {
       // Une ligne sans chambre est le seul cas qui demande une action
       // immediate de la reception : tant qu'elle n'est pas attribuee, le
       // client ne peut pas arriver.
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            'Chambre a attribuer',
-            style: TextStyle(fontSize: 15, color: schema.error),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.tonalIcon(
-            onPressed: () => showAssignRoomDialog(context, reservation),
-            icon: const Icon(Icons.meeting_room_outlined),
-            label: const Text('Attribuer'),
-          ),
-        ],
+      bouton = FilledButton.icon(
+        onPressed: () => showAssignRoomDialog(context, reservation),
+        icon: const Icon(Icons.meeting_room_outlined),
+        label: const Text('Attribuer'),
+      );
+    } else if (reservation.canCheckIn) {
+      // Un seul bouton a la fois : l'etape suivante du sejour, jamais les
+      // deux. Un sejour termine n'en propose aucun.
+      bouton = FilledButton.icon(
+        onPressed: () => confirmCheckIn(
+          context,
+          ref,
+          lineId: reservation.lineId,
+          guestName: reservation.guestName,
+          roomNumber: reservation.roomNumber!,
+        ),
+        icon: const Icon(Icons.login_rounded),
+        label: const Text('Check-in'),
+      );
+    } else if (reservation.canCheckOut) {
+      bouton = OutlinedButton.icon(
+        onPressed: () => confirmCheckOut(
+          context,
+          ref,
+          lineId: reservation.lineId,
+          guestName: reservation.guestName,
+          roomNumber: reservation.roomNumber!,
+        ),
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Check-out'),
       );
     }
 
+    final chambre = reservation.hasRoom
+        ? Column(
+            crossAxisAlignment: etroit
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Chambre', style: texte.labelSmall),
+              Text(
+                reservation.roomNumber!,
+                style: texte.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: tabularFigures,
+                ),
+              ),
+            ],
+          )
+        : Text(
+            'Sans chambre',
+            style: texte.titleSmall?.copyWith(color: schema.error),
+          );
+
     return Row(
+      mainAxisSize: etroit ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              'Chambre',
-              style: TextStyle(fontSize: 14, color: schema.outline),
-            ),
-            Text(
-              reservation.roomNumber!,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        // Un seul bouton a la fois : l'etape suivante du sejour, jamais les
-        // deux. Un sejour termine n'en propose aucun.
-        if (reservation.canCheckIn) ...[
-          const SizedBox(width: 20),
-          FilledButton.icon(
-            onPressed: () => confirmCheckIn(
-              context,
-              ref,
-              lineId: reservation.lineId,
-              guestName: reservation.guestName,
-              roomNumber: reservation.roomNumber!,
-            ),
-            icon: const Icon(Icons.login),
-            label: const Text('Check-in'),
-          ),
-        ] else if (reservation.canCheckOut) ...[
-          const SizedBox(width: 20),
-          OutlinedButton.icon(
-            onPressed: () => confirmCheckOut(
-              context,
-              ref,
-              lineId: reservation.lineId,
-              guestName: reservation.guestName,
-              roomNumber: reservation.roomNumber!,
-            ),
-            icon: const Icon(Icons.logout),
-            label: const Text('Check-out'),
-          ),
+        chambre,
+        if (bouton != null) ...[
+          const SizedBox(width: 16),
+          if (etroit) Expanded(child: bouton) else bouton,
         ],
       ],
     );
