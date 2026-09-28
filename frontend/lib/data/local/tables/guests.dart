@@ -44,6 +44,16 @@ class Companies extends Table
 @DataClassName('GuestRow')
 class Guests extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get code => text().withLength(max: 32)();
+
+  /// Plafond de consommation a credit, en francs CFA.
+  ///
+  /// `0` veut dire **pas de limite**, pas « tout refuser » : c'est la valeur
+  /// par defaut, et l'immense majorite des clients n'a pas de plafond. Au
+  /// dela, une consommation ne passe qu'avec l'accord d'un responsable.
+  ///
+  /// A ne pas confondre avec `Companies.creditLimit`, qui borne l'encours
+  /// d'une societe en compte -- deux notions voisines sur deux tables.
+  IntColumn get creditLimit => integer().withDefault(const Constant(0))();
   TextColumn get title => text().withLength(max: 16).nullable()();
   TextColumn get firstName => text().withLength(max: 80)();
   TextColumn get lastName => text().withLength(max: 80)();
