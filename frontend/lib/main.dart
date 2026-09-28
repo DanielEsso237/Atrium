@@ -78,12 +78,15 @@ class AtriumApp extends ConsumerWidget {
       theme: atriumTheme(AtriumPalette.light),
       darkTheme: atriumTheme(AtriumPalette.dark),
       themeMode: ThemeMode.system,
+      // Bascule franche : un fondu de couleurs sur toute l'application
+      // melangerait un instant la palette des ecrans et celle du theme.
+      themeAnimationDuration: Duration.zero,
       routerConfig: ref.watch(routerProvider),
       builder: (context, child) {
         // Les ecrans lisent leurs couleurs dans `AtriumPalette.current` : on
         // la cale sur le theme retenu, et on reconstruit tout l'arbre quand
         // la luminosite change (rare : une bascule jour/nuit de l'appareil).
-        final brightness = Theme.of(context).brightness;
+        final brightness = MediaQuery.platformBrightnessOf(context);
         AtriumPalette.current = brightness == Brightness.dark
             ? AtriumPalette.dark
             : AtriumPalette.light;
