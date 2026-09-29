@@ -16,6 +16,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/guest_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'guest_rules.dart';
 
 /// Texte saisi dans la barre de recherche.
 ///
@@ -303,6 +304,16 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    // Filet sous les validateurs du formulaire : la regle vit dans
+    // `guest_rules.dart`, et c'est elle qui decide.
+    final manquants = missingForCreation(
+      firstName: _firstName.text,
+      lastName: _lastName.text,
+      phone: _phone.text,
+      documentType: _documentType,
+      documentNumber: _documentNumber.text,
+    );
+    if (manquants.isNotEmpty) return;
     setState(() => _busy = true);
 
     final guest = await ref
@@ -346,8 +357,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                         controller: _firstName,
                         textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(labelText: 'Prenom'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        validator: requiredText,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -356,8 +366,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                         controller: _lastName,
                         textCapitalization: TextCapitalization.characters,
                         decoration: const InputDecoration(labelText: 'Nom'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        validator: requiredText,
                       ),
                     ),
                   ],
@@ -367,6 +376,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: 'Telephone'),
+                  validator: requiredText,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -380,9 +390,9 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                   decoration: const InputDecoration(labelText: 'Nationalite'),
                 ),
                 const SizedBox(height: 12),
-                // La piece d'identite est exigee a l'arrivee, pas a la
-                // creation : une reservation par telephone se prend sans
-                // piece sous les yeux.
+                // La piece est exigee ici, dans la fiche complete. La creation
+                // rapide a la reservation, elle, s'en passe : au telephone,
+                // on n'a pas la piece sous les yeux.
                 Row(
                   children: [
                     Expanded(
@@ -396,6 +406,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                             DropdownMenuItem(value: t, child: Text(t.name)),
                         ],
                         onChanged: (v) => setState(() => _documentType = v),
+                        validator: (v) => v == null ? champRequis : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -403,6 +414,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                       child: TextFormField(
                         controller: _documentNumber,
                         decoration: const InputDecoration(labelText: 'Numero'),
+                        validator: requiredText,
                       ),
                     ),
                   ],
