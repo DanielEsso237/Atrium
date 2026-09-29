@@ -104,7 +104,10 @@ class _Corps extends StatelessWidget {
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
-          Text(guestName, style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant)),
+          Text(
+            guestName,
+            style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
+          ),
 
           if (vue.provisional) ...[
             const SizedBox(height: 14),

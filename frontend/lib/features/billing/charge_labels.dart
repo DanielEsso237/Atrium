@@ -11,12 +11,12 @@ library;
 import '../../data/local/enums.dart';
 
 String chargeCategoryLabel(ChargeCategory c) => switch (c) {
-  ChargeCategory.ROOM => 'Hebergement',
+  ChargeCategory.ROOM => 'Hébergement',
   ChargeCategory.FNB => 'Restaurant / bar',
   ChargeCategory.MINIBAR => 'Minibar',
-  ChargeCategory.SPA => 'Spa et bien-etre',
+  ChargeCategory.SPA => 'Spa et bien-être',
   ChargeCategory.LAUNDRY => 'Blanchisserie',
-  ChargeCategory.TELEPHONE => 'Telephone',
+  ChargeCategory.TELEPHONE => 'Téléphone',
   ChargeCategory.TAX => 'Taxes',
   ChargeCategory.DISCOUNT => 'Remise',
   ChargeCategory.DEPOSIT => 'Acompte',
@@ -25,10 +25,10 @@ String chargeCategoryLabel(ChargeCategory c) => switch (c) {
 
 /// Les moyens de paiement, de meme (paragraphe 4.1).
 String paymentMethodLabel(PaymentMethod m) => switch (m) {
-  PaymentMethod.CASH => 'Especes',
+  PaymentMethod.CASH => 'Espèces',
   PaymentMethod.CARD => 'Carte bancaire',
   PaymentMethod.TRANSFER => 'Virement',
   PaymentMethod.MOBILE_MONEY => 'Mobile Money',
-  PaymentMethod.CITY_LEDGER => 'Facture societe',
+  PaymentMethod.CITY_LEDGER => 'Facture société',
   PaymentMethod.VOUCHER => 'Bon / voucher',
 };

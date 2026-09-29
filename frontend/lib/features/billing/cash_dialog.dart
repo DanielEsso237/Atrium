@@ -61,7 +61,7 @@ class CashButton extends ConsumerWidget {
     if (montant == null || !context.mounted) return;
 
     try {
-            await ref
+      await ref
           .read(cashRepositoryProvider)
           .open(userId: agent, openingFloat: montant, by: agent);
     } on StateError catch (e) {
@@ -96,7 +96,7 @@ class CashButton extends ConsumerWidget {
 
     final int ecart;
     try {
-            ecart = await ref
+      ecart = await ref
           .read(cashRepositoryProvider)
           .close(
             sessionId: vue.session.id,
@@ -114,7 +114,8 @@ class CashButton extends ConsumerWidget {
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (_) => _Resultat(attendu: vue.expected, compte: compte, ecart: ecart),
+      builder: (_) =>
+          _Resultat(attendu: vue.expected, compte: compte, ecart: ecart),
     );
   }
 }

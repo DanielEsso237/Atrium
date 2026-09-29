@@ -14,14 +14,16 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/formats.dart';
 import '../../core/theme.dart';
 import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/remote/outbox_sender.dart';
+import '../dashboard/dashboard_sidebar.dart' show montantCompact;
 import '../sync/sync_status.dart';
 import 'room_detail_panel.dart';
 
@@ -60,22 +62,25 @@ class RoomBoardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chambres = ref.watch(roomBoardProvider);
+    final liste = chambres.value ?? const <RoomBoardEntry>[];
+    final libres = liste
+        .where((c) => c.displayStatus == RoomDisplayStatus.AVAILABLE)
+        .length;
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        titleSpacing: 24,
-        title: const Text('Chambres'),
-        actions: [
-          const PendingWritesBadge(),
-          const SizedBox(width: 8),
-          _BoutonRafraichir(),
-          const SizedBox(width: 16),
-        ],
-      ),
+    return ModuleScaffold(
+      title: 'Plan des chambres',
+      subtitle: liste.isEmpty
+          ? null
+          : '${liste.length} chambres  ·  $libres libre${libres > 1 ? 's' : ''} '
+                'en ce moment',
+      action: const _BoutonRafraichir(),
       body: chambres.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Lecture impossible : $e')),
+        error: (e, _) => EmptyState(
+          icon: PhosphorIconsLight.warningCircle,
+          title: 'Lecture impossible',
+          message: '$e',
+        ),
         data: (liste) => _Plan(chambres: liste),
       ),
     );
@@ -100,11 +105,11 @@ class _PlanState extends State<_Plan> {
   Widget build(BuildContext context) {
     final chambres = widget.chambres;
     if (chambres.isEmpty) {
-      return Center(
-        child: Text(
-          'Aucune chambre parametree.',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+      return const EmptyState(
+        icon: PhosphorIconsLight.bed,
+        title: 'Aucune chambre paramétrée',
+        message:
+            'Les chambres descendent du serveur : lancez une synchronisation.',
       );
     }
 
@@ -117,93 +122,185 @@ class _PlanState extends State<_Plan> {
     // regrouper en conservant l'ordre d'arrivee.
     final parEtage = <String, List<RoomBoardEntry>>{};
     for (final c in chambres) {
-      if (_filtre != null && c.displayStatus != _filtre) continue;
-      parEtage.putIfAbsent(c.floorLabel ?? 'Sans etage', () => []).add(c);
+      parEtage.putIfAbsent(c.floorLabel ?? 'Sans étage', () => []).add(c);
     }
+
+    final etroit = MediaQuery.sizeOf(context).width < 600;
+    final marge = etroit ? 18.0 : 32.0;
+    final etages = parEtage.entries.toList();
 
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: _Legende(
-            compte: compte,
-            total: chambres.length,
-            filtre: _filtre,
-            onFiltre: (etat) => setState(
-              () => _filtre = _filtre == etat ? null : etat,
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(marge, 0, marge, 8),
+          sliver: SliverToBoxAdapter(
+            child: FilterPills<RoomDisplayStatus?>(
+              selected: _filtre,
+              onChanged: (etat) =>
+                  setState(() => _filtre = (_filtre == etat) ? null : etat),
+              options: [
+                FilterOption(null, 'Toutes', count: chambres.length),
+                for (final etat in RoomDisplayStatus.values)
+                  FilterOption(
+                    etat,
+                    apparence(etat).label,
+                    count: compte[etat] ?? 0,
+                    color: apparence(etat).couleur,
+                  ),
+              ],
             ),
           ),
         ),
-        if (parEtage.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Text(
-                'Aucune chambre dans cet etat.',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-          ),
-        for (final entree in parEtage.entries) ...[
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-            sliver: SliverToBoxAdapter(
-              child: _TitreEtage(
-                libelle: entree.key,
-                chambres: entree.value,
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 210,
-                mainAxisExtent: 136,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => _Apparition(
-                  rang: i,
-                  child: _CarteChambre(chambre: entree.value[i]),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(marge, 12, marge, 36),
+          sliver: SliverList.builder(
+            itemCount: etages.length,
+            itemBuilder: (context, i) => FadeUp(
+              index: i.clamp(0, 6),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _Etage(
+                  libelle: etages[i].key,
+                  chambres: etages[i].value,
+                  filtre: _filtre,
+                  etroit: etroit,
                 ),
-                childCount: entree.value.length,
               ),
             ),
           ),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        ),
       ],
     );
   }
 }
 
-/// Le nom de l'etage, et ce qu'il reste de libre : ce que la reception
-/// cherche d'abord en ouvrant le plan.
-class _TitreEtage extends StatelessWidget {
-  const _TitreEtage({required this.libelle, required this.chambres});
+/// Un etage : son nom et ce qu'il reste de libre a gauche, comme la coupe
+/// d'un immeuble, ses chambres a droite. Les chambres hors filtre restent a
+/// leur place, estompees : l'etage garde sa forme, on ne perd pas le fil.
+class _Etage extends StatelessWidget {
+  const _Etage({
+    required this.libelle,
+    required this.chambres,
+    required this.filtre,
+    required this.etroit,
+  });
 
   final String libelle;
+  final List<RoomBoardEntry> chambres;
+  final RoomDisplayStatus? filtre;
+  final bool etroit;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final libres = chambres
+        .where((c) => c.displayStatus == RoomDisplayStatus.AVAILABLE)
+        .length;
+
+    final tete = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          libelle,
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+            height: 1.15,
+            color: p.text,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _Jauge(chambres: chambres),
+        const SizedBox(height: 8),
+        Text(
+          libres == 0
+              ? 'Complet'
+              : '$libres libre${libres > 1 ? 's' : ''} sur ${chambres.length}',
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: libres == 0 ? p.accent : p.textSecondary,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+      ],
+    );
+
+    final tuiles = Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (var i = 0; i < chambres.length; i++)
+          _Apparition(
+            rang: i,
+            child: _CarteChambre(
+              chambre: chambres[i],
+              estompee: filtre != null && chambres[i].displayStatus != filtre,
+            ),
+          ),
+      ],
+    );
+
+    return Bezel(
+      radius: 26,
+      padding: const EdgeInsets.all(16),
+      child: etroit
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [tete, const SizedBox(height: 14), tuiles],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 150,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: tete,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: tuiles),
+              ],
+            ),
+    );
+  }
+}
+
+/// La composition d'un etage en une barre : un segment par chambre, dans la
+/// couleur de son etat.
+class _Jauge extends StatelessWidget {
+  const _Jauge({required this.chambres});
+
   final List<RoomBoardEntry> chambres;
 
   @override
   Widget build(BuildContext context) {
-    final libres = chambres
-        .where((c) => c.displayStatus == RoomDisplayStatus.AVAILABLE)
-        .length;
-    final texte = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Expanded(child: Text(libelle, style: texte.titleLarge)),
-        Text(
-          libres == 0
-              ? 'complet'
-              : '$libres libre${libres > 1 ? 's' : ''} sur ${chambres.length}',
-          style: texte.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
+    final tries = [...chambres]
+      ..sort((a, b) => a.displayStatus.index.compareTo(b.displayStatus.index));
+    return SizedBox(
+      width: 120,
+      height: 6,
+      child: Row(
+        children: [
+          for (var i = 0; i < tries.length; i++) ...[
+            if (i > 0) const SizedBox(width: 2),
+            Expanded(
+              child: Container(
+                height: 6,
+                decoration: BoxDecoration(
+                  color: apparence(tries[i].displayStatus).couleur,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -219,237 +316,181 @@ class _Apparition extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
-    final delai = (rang * 35).clamp(0, 350);
+    final delai = (rang * 40).clamp(0, 400);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 380 + delai),
-      curve: Interval(delai / (380 + delai), 1, curve: Curves.easeOutExpo),
+      duration: Duration(milliseconds: 560 + delai),
+      curve: Interval(delai / (560 + delai), 1, curve: atriumSpring),
       builder: (context, t, enfant) => Opacity(
         opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 14 * (1 - t)),
-          child: enfant,
-        ),
+        child: Transform.scale(scale: 0.94 + 0.06 * t, child: enfant),
       ),
       child: child,
     );
   }
 }
 
-class _CarteChambre extends StatelessWidget {
-  const _CarteChambre({required this.chambre});
+class _CarteChambre extends StatefulWidget {
+  const _CarteChambre({required this.chambre, required this.estompee});
 
   final RoomBoardEntry chambre;
+  final bool estompee;
+
+  @override
+  State<_CarteChambre> createState() => _CarteChambreState();
+}
+
+class _CarteChambreState extends State<_CarteChambre> {
+  bool _survol = false;
+  bool _presse = false;
 
   @override
   Widget build(BuildContext context) {
+    final chambre = widget.chambre;
+    final p = AtriumPalette.current;
     final vue = apparence(chambre.displayStatus);
-    final texte = Theme.of(context).textTheme;
-    final sombre = Theme.of(context).brightness == Brightness.dark;
-    final rayon = BorderRadius.circular(AtriumRadii.lg);
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
 
     // La couleur d'etat teinte toute la tuile : lisible de loin et en biais,
     // quand la tablette est posee a plat sur le comptoir.
     final fond = Color.alphaBlend(
-      vue.couleur.withValues(alpha: sombre ? 0.16 : 0.10),
-      AtriumColors.white,
+      vue.couleur.withValues(alpha: p.isDark ? 0.13 : 0.09),
+      p.paper,
     );
 
-    return Material(
-      color: fond,
-      borderRadius: rayon,
-      child: InkWell(
-        borderRadius: rayon,
-        onTap: () => afficherFicheChambre(context, chambre),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: rayon,
-            border: Border.all(
-              color: vue.couleur.withValues(alpha: sombre ? 0.45 : 0.35),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  chambre.number,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: texte.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: tabularFigures,
-                    height: 1.05,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _PastilleEtat(label: vue.label, couleur: vue.couleur),
-                const Spacer(),
-                Text(
-                  chambre.typeLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: texte.titleSmall,
-                ),
-                Text(
-                  formatAmount(chambre.rate),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: texte.bodySmall?.copyWith(
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    // Le second axe, en petit : une chambre libre mais pas encore
+    // inspectee, ou occupee et sale, se lit sans ouvrir la fiche.
+    final (IconData icone, String detail) = switch (chambre.housekeeping) {
+      _ when chambre.isOutOfOrder => (
+        PhosphorIconsLight.wrench,
+        'Hors service',
       ),
-    );
-  }
-}
-
-/// L'etat en toutes lettres : la couleur seule ne suffit pas a un lecteur
-/// daltonien, ni en plein soleil.
-class _PastilleEtat extends StatelessWidget {
-  const _PastilleEtat({required this.label, required this.couleur});
-
-  final String label;
-  final Color couleur;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: couleur,
-        borderRadius: BorderRadius.circular(99),
+      HousekeepingStatus.DIRTY => (PhosphorIconsLight.broom, 'Sale'),
+      HousekeepingStatus.IN_PROGRESS => (PhosphorIconsLight.broom, 'En cours'),
+      HousekeepingStatus.INSPECTED => (
+        PhosphorIconsLight.sealCheck,
+        'Inspectée',
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: atriumFontFamily,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AtriumColors.purpleNight,
-        ),
-      ),
-    );
-  }
-}
+      HousekeepingStatus.CLEAN => (PhosphorIconsLight.sparkle, 'Propre'),
+    };
 
-/// La legende est aussi un filtre : chaque etat avec son nombre de chambres.
-class _Legende extends StatelessWidget {
-  const _Legende({
-    required this.compte,
-    required this.total,
-    required this.filtre,
-    required this.onFiltre,
-  });
-
-  final Map<RoomDisplayStatus, int> compte;
-  final int total;
-  final RoomDisplayStatus? filtre;
-  final ValueChanged<RoomDisplayStatus> onFiltre;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final etat in RoomDisplayStatus.values)
-            _FiltreEtat(
-              label: apparence(etat).label,
-              couleur: apparence(etat).couleur,
-              nombre: compte[etat] ?? 0,
-              actif: filtre == etat,
-              estompe: filtre != null && filtre != etat,
-              onTap: () => onFiltre(etat),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FiltreEtat extends StatelessWidget {
-  const _FiltreEtat({
-    required this.label,
-    required this.couleur,
-    required this.nombre,
-    required this.actif,
-    required this.estompe,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color couleur;
-  final int nombre;
-  final bool actif;
-  final bool estompe;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final duree = AtriumMotion.of(context, AtriumMotion.base);
-    final rayon = BorderRadius.circular(99);
     return AnimatedOpacity(
       duration: duree,
-      opacity: estompe ? 0.45 : 1,
-      child: Material(
-        color: actif
-            ? couleur.withValues(alpha: 0.18)
-            : AtriumColors.white,
-        borderRadius: rayon,
-        child: InkWell(
-          borderRadius: rayon,
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: duree,
-            curve: AtriumMotion.standard,
-            constraints: const BoxConstraints(minHeight: cibleTactile - 4),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              borderRadius: rayon,
-              border: Border.all(
-                color: actif ? couleur : AtriumColors.border,
-                width: actif ? 2 : 1,
+      curve: atriumSpring,
+      opacity: widget.estompee ? 0.28 : 1,
+      child: Semantics(
+        button: true,
+        label: 'Chambre ${chambre.number}, ${vue.label}',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _survol = true),
+          onExit: (_) => setState(() => _survol = false),
+          child: GestureDetector(
+            onTapDown: (_) => setState(() => _presse = true),
+            onTapCancel: () => setState(() => _presse = false),
+            onTapUp: (_) => setState(() => _presse = false),
+            onTap: () => afficherFicheChambre(context, chambre),
+            child: AnimatedScale(
+              duration: duree,
+              curve: atriumSpring,
+              scale: _presse ? 0.96 : (_survol ? 1.02 : 1),
+              child: AnimatedContainer(
+                duration: duree,
+                curve: atriumSpring,
+                width: 142,
+                height: 116,
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                decoration: BoxDecoration(
+                  color: fond,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: vue.couleur.withValues(
+                      alpha: _survol ? 0.8 : (p.isDark ? 0.35 : 0.3),
+                    ),
+                    width: _survol ? 1.6 : 1,
+                  ),
+                  boxShadow: _survol
+                      ? [
+                          BoxShadow(
+                            color: vue.couleur.withValues(alpha: 0.25),
+                            blurRadius: 22,
+                            spreadRadius: -8,
+                            offset: const Offset(0, 10),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: vue.couleur,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: vue.couleur.withValues(alpha: 0.6),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            vue.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: atriumFontFamily,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: p.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Tooltip(
+                          message: detail,
+                          child: Icon(icone, size: 15, color: p.textSecondary),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      chambre.number,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                        height: 1,
+                        color: p.text,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${chambre.typeLabel} · ${montantCompact(chambre.rate)} F',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: p.textSecondary,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: couleur,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$nombre',
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AtriumColors.textSecondary,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-              ],
             ),
           ),
         ),
@@ -463,44 +504,37 @@ class _FiltreEtat extends StatelessWidget {
 /// Un bouton et non un rafraichissement automatique : la reception doit
 /// pouvoir decider quand elle echange, et surtout voir si ca a marche.
 class _BoutonRafraichir extends ConsumerWidget {
+  const _BoutonRafraichir();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sync = ref.watch(syncProvider);
 
-    if (sync.running) {
-      return const Padding(
-        padding: EdgeInsets.all(14),
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
-      );
-    }
+    return PillButton(
+      label: sync.running ? 'Synchronisation…' : 'Synchroniser',
+      icon: PhosphorIconsLight.arrowsClockwise,
+      tone: PillTone.quiet,
+      onPressed: sync.running
+          ? null
+          : () async {
+              await ref.read(syncProvider.notifier).refresh();
+              if (!context.mounted) return;
 
-    return IconButton(
-      iconSize: 28,
-      tooltip: 'Echanger avec le serveur',
-      icon: const Icon(Icons.sync),
-      onPressed: () async {
-        await ref.read(syncProvider.notifier).refresh();
-        if (!context.mounted) return;
-
-        final etat = ref.read(syncProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_resume(etat)),
-            // Une file bloquee ne se resout pas toute seule : elle reste
-            // affichee le temps d'etre lue, en rouge, contrairement au reste.
-            duration: etat.isBlocked
-                ? const Duration(seconds: 10)
-                : const Duration(seconds: 4),
-            backgroundColor: etat.isBlocked
-                ? Theme.of(context).colorScheme.error
-                : null,
-          ),
-        );
-      },
+              final etat = ref.read(syncProvider);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_resume(etat)),
+                  // Une file bloquee ne se resout pas toute seule : elle reste
+                  // affichee le temps d'etre lue, en rouge, contrairement au reste.
+                  duration: etat.isBlocked
+                      ? const Duration(seconds: 10)
+                      : const Duration(seconds: 4),
+                  backgroundColor: etat.isBlocked
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                ),
+              );
+            },
     );
   }
 }

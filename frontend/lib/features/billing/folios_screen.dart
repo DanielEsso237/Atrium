@@ -58,7 +58,10 @@ class FoliosScreen extends ConsumerWidget {
             ? Center(
                 child: Text(
                   'Aucune ardoise. Elles s\'ouvrent a l\'arrivee d\'un client.',
-                  style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: schema.onSurfaceVariant,
+                  ),
                 ),
               )
             : ListView.separated(
@@ -239,7 +242,10 @@ class _FolioSheet extends ConsumerWidget {
                       ),
                       Text(
                         current.number,
-                        style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: schema.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -517,7 +523,10 @@ class _Line extends StatelessWidget {
                 if (detail != null && detail!.isNotEmpty)
                   Text(
                     detail!,
-                    style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: schema.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
