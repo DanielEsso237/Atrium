@@ -337,16 +337,18 @@ class _Ile extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Color.alphaBlend(
-              const Color(0xFF263178).withValues(alpha: 0.55),
-              AtriumColors.purpleNight,
+              _Nav.teinteHaut,
+              _Nav.fond,
             ),
-            AtriumColors.purpleNight,
+            _Nav.fond,
           ],
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: _Nav.voile(0.07)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF05081A).withValues(alpha: 0.28),
+            color: const Color(0xFF05081A).withValues(
+              alpha: _Nav.sombre ? 0.28 : 0.08,
+            ),
             blurRadius: 40,
             spreadRadius: -10,
             offset: const Offset(0, 20),
@@ -393,7 +395,7 @@ class _Barre extends StatelessWidget {
                 fontFamily: atriumFontFamily,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: AtriumColors.onPurpleSoft.withValues(alpha: 0.7),
+                color: _Nav.doux.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -417,9 +419,13 @@ class _Barre extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 8),
-            child: AtriumLockup(markSize: 40, hotelName: 'Hôtel Atrium'),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: AtriumLockup(
+              markSize: 40,
+              hotelName: 'Hôtel Atrium',
+              onNight: _Nav.sombre,
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -460,8 +466,8 @@ class _LigneNavState extends State<_LigneNav> {
     final bientot = d.route == null;
     final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
     final encre = actif
-        ? AtriumColors.onNight
-        : AtriumColors.onPurpleSoft.withValues(alpha: bientot ? 0.45 : 1);
+        ? _Nav.encre
+        : _Nav.doux.withValues(alpha: bientot ? 0.45 : 1);
 
     return MouseRegion(
       cursor: bientot ? SystemMouseCursors.basic : SystemMouseCursors.click,
@@ -479,13 +485,13 @@ class _LigneNavState extends State<_LigneNav> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             color: actif
-                ? Colors.white.withValues(alpha: 0.09)
+                ? _Nav.voile(0.09)
                 : (_survol && !bientot
-                      ? Colors.white.withValues(alpha: 0.045)
+                      ? _Nav.voile(0.045)
                       : Colors.transparent),
             border: Border.all(
               color: actif
-                  ? Colors.white.withValues(alpha: 0.08)
+                  ? _Nav.voile(0.08)
                   : Colors.transparent,
             ),
           ),
@@ -528,7 +534,7 @@ class _LigneNavState extends State<_LigneNav> {
                     fontFamily: atriumFontFamily,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: AtriumColors.onPurpleSoft.withValues(alpha: 0.5),
+                    color: _Nav.doux.withValues(alpha: 0.5),
                   ),
                 )
               else if (widget.indicateur != null)
@@ -547,7 +553,9 @@ class _LigneNavState extends State<_LigneNav> {
                       fontFamily: atriumFontFamily,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFFFFC65A),
+                      color: _Nav.sombre
+                          ? const Color(0xFFFFC65A)
+                          : AtriumPalette.current.tileMangoInk,
                       fontFeatures: tabularFigures,
                     ),
                   ),
@@ -647,7 +655,7 @@ class _EntreeRail extends StatelessWidget {
                     size: 21,
                     color: actif
                         ? AtriumColors.mintStrong
-                        : AtriumColors.onPurpleSoft,
+                        : _Nav.doux,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -663,8 +671,8 @@ class _EntreeRail extends StatelessWidget {
                     fontSize: 10.5,
                     fontWeight: actif ? FontWeight.w800 : FontWeight.w600,
                     color: actif
-                        ? AtriumColors.onNight
-                        : AtriumColors.onPurpleSoft,
+                        ? _Nav.encre
+                        : _Nav.doux,
                   ),
                 ),
               ],
@@ -714,9 +722,9 @@ class _CadreTelephone extends StatelessWidget {
         child: Container(
           height: 66,
           decoration: BoxDecoration(
-            color: AtriumColors.purpleNight,
+            color: _Nav.fond,
             borderRadius: BorderRadius.circular(33),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+            border: Border.all(color: _Nav.voile(0.07)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF05081A).withValues(alpha: 0.35),
@@ -855,7 +863,7 @@ class _OngletTelephone extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 color: actif
-                    ? Colors.white.withValues(alpha: 0.10)
+                    ? _Nav.voile(0.10)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
               ),
@@ -864,7 +872,7 @@ class _OngletTelephone extends StatelessWidget {
                 size: 21,
                 color: actif
                     ? AtriumColors.mintStrong
-                    : AtriumColors.onPurpleSoft,
+                    : _Nav.doux,
               ),
             ),
             const SizedBox(height: 3),
@@ -876,7 +884,7 @@ class _OngletTelephone extends StatelessWidget {
                 fontFamily: atriumFontFamily,
                 fontSize: 11,
                 fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-                color: actif ? AtriumColors.onNight : AtriumColors.onPurpleSoft,
+                color: actif ? _Nav.encre : _Nav.doux,
               ),
             ),
           ],
@@ -901,7 +909,7 @@ class _Compte extends StatelessWidget {
       // Le badge prend ses couleurs dans le theme : celles de la nuit ici.
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
-          onSurfaceVariant: AtriumColors.onPurpleSoft,
+          onSurfaceVariant: _Nav.doux,
           tertiary: AtriumColors.mintStrong,
         ),
       ),
@@ -924,9 +932,9 @@ class _Compte extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: _Nav.voile(0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: _Nav.voile(0.06)),
       ),
       child: Row(
         children: [
@@ -949,7 +957,7 @@ class _Compte extends StatelessWidget {
                             fontFamily: atriumFontFamily,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: AtriumColors.onNight,
+                            color: _Nav.encre,
                           ),
                         ),
                         Text(
@@ -959,7 +967,7 @@ class _Compte extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: atriumFontFamily,
                             fontSize: 12,
-                            color: AtriumColors.onPurpleSoft,
+                            color: _Nav.doux,
                           ),
                         ),
                       ],
@@ -1008,9 +1016,28 @@ class BoutonTheme extends ConsumerWidget {
           sombre ? PhosphorIconsLight.sun : PhosphorIconsLight.moon,
           key: ValueKey(sombre),
           size: 22,
-          color: couleur ?? AtriumColors.onPurpleSoft,
+          color: couleur ?? _Nav.doux,
         ),
       ),
     );
   }
+}
+
+/// Les couleurs de la navigation. La nuit, une ile bleu-nuit ; le jour, une
+/// ile de papier : un bloc violet sature sur une page claire ecrasait le
+/// contenu et faisait deux applications en une.
+abstract final class _Nav {
+  static bool get sombre => AtriumPalette.current.isDark;
+  static Color get fond =>
+      sombre ? AtriumColors.purpleNight : AtriumPalette.current.paper;
+  static Color get teinteHaut => sombre
+      ? const Color(0xFF263178).withValues(alpha: 0.55)
+      : AtriumPalette.current.accent.withValues(alpha: 0.05);
+  static Color get encre =>
+      sombre ? AtriumColors.onNight : AtriumPalette.current.text;
+  static Color get doux =>
+      sombre ? AtriumColors.onPurpleSoft : AtriumPalette.current.textSecondary;
+  static Color voile(double a) => sombre
+      ? Colors.white.withValues(alpha: a)
+      : AtriumPalette.current.night.withValues(alpha: a * 0.8);
 }
