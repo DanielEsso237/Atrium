@@ -76,11 +76,9 @@ Future<bool> confirmChangeRoom(
     title: 'Changer de chambre',
     message:
         '$guestName quitte la chambre $roomNumber pour la ${nouvelle.number}.'
-        '
-
-'
+        '\n\n'
         'La $roomNumber redevient libre, sans passer par le menage : personne '
-        'n'y a dormi. L'ardoise suit le client.',
+        'n\'y a dormi. L\'ardoise suit le client.',
     action: 'Changer de chambre',
   );
   if (!ok) return false;

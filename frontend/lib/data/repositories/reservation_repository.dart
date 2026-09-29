@@ -595,7 +595,7 @@ class ReservationRepository with OutboxWriter {
     if (line.roomId == roomId) return;
     if (room.roomTypeId != line.roomTypeId) {
       throw StateError(
-        'Cette chambre n'appartient pas a la categorie reservee.',
+        'Cette chambre n\'appartient pas a la categorie reservee.',
       );
     }
     if (room.isOutOfOrder || !room.isActive) {
