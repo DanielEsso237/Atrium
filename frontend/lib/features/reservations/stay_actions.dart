@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formats.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../billing/payment_dialog.dart';
+import 'change_room_dialog.dart';
 import '../auth/session.dart';
 
 /// Enregistre l'arrivee apres confirmation.
@@ -50,6 +51,28 @@ Future<bool> confirmCheckIn(
     );
   }
   return true;
+}
+
+/// Installe un client deja arrive dans une autre chambre.
+///
+/// Renvoie `true` si le changement a eu lieu.
+Future<bool> confirmChangeRoom(
+  BuildContext context,
+  WidgetRef ref, {
+  required String lineId,
+  required String guestName,
+  required String roomNumber,
+}) async {
+  final nouvelle = await pickRoomForChange(
+    context,
+    lineId: lineId,
+    guestName: guestName,
+    currentRoomNumber: roomNumber,
+  );
+  if (nouvelle == null || !context.mounted) return false;
+
+  // Le geste arrive a l'etape suivante du ticket.
+  return false;
 }
 
 /// Ce que l'agent decide devant une ardoise non soldee.

@@ -178,6 +178,59 @@ class ReservationRepository with OutboxWriter {
         .toList();
   }
 
+  /// Les chambres ou installer un client deja arrive qui veut changer.
+  ///
+  /// Plus strict que l'attribution : le client est au comptoir, il entre dans
+  /// la chambre dans la minute. Elle doit donc etre **propre** maintenant, pas
+  /// seulement libre sur la periode -- lui tendre la cle d'une chambre sale,
+  /// c'est le renvoyer au comptoir une deuxieme fois.
+  ///
+  /// Meme categorie que la chambre vendue : le surclassement depend d'une
+  /// politique que l'hotel n'a pas encore donnee, et le serveur refuse de toute
+  /// facon une chambre d'une autre categorie.
+  ///
+  /// La ligne elle-meme est exclue du test de chevauchement : sans ca, sa
+  /// propre occupation la ferait paraitre en conflit avec toutes les chambres.
+  Future<List<AvailableRoom>> roomsForChange(String lineId) async {
+    final rows = await db
+        .customSelect(
+          '''
+      SELECT r.id, r.number
+        FROM reservation_rooms l
+        JOIN rooms r ON r.room_type_id = l.room_type_id
+       WHERE l.id = ?1
+         AND r.id <> COALESCE(l.room_id, '')
+         AND r.deleted_at IS NULL
+         AND r.is_active = 1
+         AND r.is_out_of_order = 0
+         AND r.occupancy_status <> 'OCCUPIED'
+         AND r.housekeeping_status IN ('CLEAN','INSPECTED')
+         AND NOT EXISTS (
+               SELECT 1 FROM reservation_rooms rr
+                WHERE rr.room_id = r.id
+                  AND rr.id <> l.id
+                  AND rr.deleted_at IS NULL
+                  AND rr.status IN ('PENDING','CONFIRMED','CHECKED_IN')
+                  AND rr.arrival_date   < l.departure_date
+                  AND rr.departure_date > l.arrival_date
+             )
+       ORDER BY r.number
+      ''',
+          variables: [Variable.withString(lineId)],
+          readsFrom: {db.rooms, db.reservationRooms},
+        )
+        .get();
+
+    return rows
+        .map(
+          (r) => AvailableRoom(
+            id: r.read<String>('id'),
+            number: r.read<String>('number'),
+          ),
+        )
+        .toList();
+  }
+
   /// Cree une reservation et sa ligne de sejour.
   ///
   /// Une reservation sans ligne n'aurait pas de sens : c'est la ligne qui
