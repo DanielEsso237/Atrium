@@ -267,7 +267,11 @@ class _Chambre extends ConsumerWidget {
                   color: p.accent,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(PhosphorIconsLight.plus, size: 18, color: p.night),
+                child: Icon(
+                  PhosphorIconsLight.plus,
+                  size: 18,
+                  color: p.onAccent,
+                ),
               ),
             ],
           ),
@@ -421,7 +425,7 @@ class _SaisieState extends State<_Saisie> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: p.isDark ? p.nightRaised : p.night,
+                color: p.hero,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -433,7 +437,7 @@ class _SaisieState extends State<_Saisie> {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
-                          color: p.onNightSoft,
+                          color: p.onHeroSoft,
                         ),
                       ),
                       const Spacer(),
@@ -444,7 +448,7 @@ class _SaisieState extends State<_Saisie> {
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.8,
-                          color: p.accent,
+                          color: p.heroAccent,
                           fontFeatures: tabularFigures,
                         ),
                       ),
@@ -460,7 +464,7 @@ class _SaisieState extends State<_Saisie> {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 14,
-                          color: p.onNightSoft,
+                          color: p.onHeroSoft,
                         ),
                       ),
                       const Spacer(),
@@ -470,7 +474,7 @@ class _SaisieState extends State<_Saisie> {
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: p.onNight,
+                          color: p.onHero,
                           fontFeatures: tabularFigures,
                         ),
                       ),

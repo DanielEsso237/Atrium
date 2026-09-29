@@ -203,7 +203,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: p.isDark ? p.nightRaised : p.night,
+                    color: p.hero,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -214,7 +214,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: p.onNightSoft,
+                          color: p.onHeroSoft,
                         ),
                       ),
                       const Spacer(),
@@ -225,7 +225,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.8,
-                          color: p.accent,
+                          color: p.heroAccent,
                           fontFeatures: tabularFigures,
                         ),
                       ),

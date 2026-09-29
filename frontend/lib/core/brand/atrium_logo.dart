@@ -22,12 +22,20 @@ class AtriumMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _ArchePainter()),
+      child: CustomPaint(
+        painter: _ArchePainter(sombre: AtriumPalette.current.isDark),
+      ),
     );
   }
 }
 
 class _ArchePainter extends CustomPainter {
+  _ArchePainter({required this.sombre});
+
+  /// La nuit, une tuile bleu-nuit et une arche mangue ; le jour, une tuile
+  /// mangue et une arche d'encre brune : pas de bleu-nuit sur une page claire.
+  final bool sombre;
+
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
@@ -40,10 +48,12 @@ class _ArchePainter extends CustomPainter {
     canvas.drawRRect(
       tuile,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF263178), Color(0xFF0A0F2E)],
+          colors: sombre
+              ? const [Color(0xFF263178), Color(0xFF0A0F2E)]
+              : const [Color(0xFFFFCB5C), Color(0xFFFFA91A)],
         ).createShader(Offset.zero & size),
     );
 
@@ -67,7 +77,7 @@ class _ArchePainter extends CustomPainter {
     canvas.drawPath(
       arche,
       Paint()
-        ..color = const Color(0xFFFFB020)
+        ..color = sombre ? const Color(0xFFFFB020) : const Color(0xFF2B1B04)
         ..style = PaintingStyle.stroke
         ..strokeWidth = epaisseur
         ..strokeCap = StrokeCap.round
@@ -78,7 +88,8 @@ class _ArchePainter extends CustomPainter {
     canvas.drawCircle(
       Offset(s / 2, centreArc.dy + rayon * 0.05),
       s * 0.075,
-      Paint()..color = const Color(0xFFFBF6EC),
+      Paint()
+        ..color = sombre ? const Color(0xFFFBF6EC) : const Color(0xFFFFF8EA),
     );
 
     // Le seuil : une ligne claire sous l'arche.
@@ -86,14 +97,15 @@ class _ArchePainter extends CustomPainter {
       Offset(s * 0.2, bas + epaisseur * 0.95),
       Offset(s * 0.8, bas + epaisseur * 0.95),
       Paint()
-        ..color = const Color(0xFFFBF6EC).withValues(alpha: 0.55)
+        ..color = (sombre ? const Color(0xFFFBF6EC) : const Color(0xFF2B1B04))
+            .withValues(alpha: 0.55)
         ..strokeWidth = s * 0.035
         ..strokeCap = StrokeCap.round,
     );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ArchePainter old) => old.sombre != sombre;
 }
 
 /// Le logo et le nom, pour la barre laterale et la connexion.

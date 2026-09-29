@@ -221,7 +221,7 @@ class _Bandeau extends StatelessWidget {
               fontFamily: atriumFontFamily,
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: p.onNightSoft,
+              color: p.onHeroSoft,
             ),
           ),
           const SizedBox(height: 4),
@@ -245,19 +245,19 @@ class _Bandeau extends StatelessWidget {
     );
     return FadeUp(
       child: Bezel(
-        core: p.isDark ? p.nightRaised : p.night,
+        core: p.hero,
         radius: 24,
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         child: Row(
           children: [
-            chiffre('Reste à encaisser', du, p.accent),
+            chiffre('Reste à encaisser', du, p.heroAccent),
             Container(
               width: 1,
               height: 40,
               margin: const EdgeInsets.symmetric(horizontal: 14),
-              color: Colors.white.withValues(alpha: 0.1),
+              color: p.onHero.withValues(alpha: 0.14),
             ),
-            chiffre('Déjà encaissé', encaisse, p.onNight),
+            chiffre('Déjà encaissé', encaisse, p.onHero),
           ],
         ),
       ),
@@ -522,7 +522,7 @@ class _FolioDetail extends ConsumerWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [p.nightBright, p.night],
+                    colors: [p.heroTop, p.hero],
                   ),
                 ),
                 child: Column(
@@ -541,7 +541,7 @@ class _FolioDetail extends ConsumerWidget {
                               fontFamily: atriumFontFamily,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
-                              color: p.onNightSoft,
+                              color: p.onHeroSoft,
                               fontFeatures: tabularFigures,
                             ),
                           ),
@@ -554,7 +554,7 @@ class _FolioDetail extends ConsumerWidget {
                                 alpha: 0.08,
                               ),
                             ),
-                            icon: Icon(PhosphorIconsLight.x, color: p.onNight),
+                            icon: Icon(PhosphorIconsLight.x, color: p.onHero),
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                       ],
@@ -567,7 +567,7 @@ class _FolioDetail extends ConsumerWidget {
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.6,
-                        color: p.onNight,
+                        color: p.onHero,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -576,7 +576,7 @@ class _FolioDetail extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 13,
-                        color: p.onNightSoft,
+                        color: p.onHeroSoft,
                       ),
                     ),
                     TweenAnimationBuilder<double>(
@@ -594,7 +594,7 @@ class _FolioDetail extends ConsumerWidget {
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.6,
                           height: 1.1,
-                          color: current.balance > 0 ? p.accent : p.onNight,
+                          color: current.balance > 0 ? p.heroAccent : p.onHero,
                           fontFeatures: tabularFigures,
                         ),
                       ),
@@ -607,7 +607,7 @@ class _FolioDetail extends ConsumerWidget {
                         fontFamily: atriumFontFamily,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
-                        color: p.onNightSoft,
+                        color: p.onHeroSoft,
                         fontFeatures: tabularFigures,
                       ),
                     ),

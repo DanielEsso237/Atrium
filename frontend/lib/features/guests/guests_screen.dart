@@ -427,7 +427,7 @@ class _FicheClient extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [p.nightBright, p.night],
+              colors: [p.heroTop, p.hero],
             ),
           ),
           child: Column(
@@ -442,9 +442,9 @@ class _FicheClient extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Fermer',
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        backgroundColor: p.onHero.withValues(alpha: 0.1),
                       ),
-                      icon: Icon(PhosphorIconsLight.x, color: p.onNight),
+                      icon: Icon(PhosphorIconsLight.x, color: p.onHero),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                 ],
@@ -457,7 +457,7 @@ class _FicheClient extends ConsumerWidget {
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.8,
-                  color: p.onNight,
+                  color: p.onHero,
                 ),
               ),
               const SizedBox(height: 4),
@@ -467,7 +467,7 @@ class _FicheClient extends ConsumerWidget {
                   fontFamily: atriumFontFamily,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: p.onNightSoft,
+                  color: p.onHeroSoft,
                   fontFeatures: tabularFigures,
                 ),
               ),

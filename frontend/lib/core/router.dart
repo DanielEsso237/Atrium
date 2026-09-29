@@ -17,6 +17,7 @@ import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
+import '../features/billing/cash_screen.dart';
 import '../features/stats/stats_screen.dart';
 import '../features/today/today_screen.dart';
 import 'shell/app_shell.dart';
@@ -36,6 +37,7 @@ const _permissionParZone = <String, String>{
   '/reservations': 'rooms.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
+  '/caisse': 'folio.read',
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
 };
@@ -120,6 +122,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
           GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
+          GoRoute(path: '/caisse', builder: (_, _) => const CashScreen()),
           GoRoute(
             path: '/menage',
             builder: (_, _) => const HousekeepingScreen(),

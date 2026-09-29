@@ -394,7 +394,7 @@ class _Etape extends StatelessWidget {
                           PhosphorIconsFill.check,
                           key: const ValueKey('ok'),
                           size: 17,
-                          color: p.night,
+                          color: p.onAccent,
                         )
                       : Text(
                           '$numero',
@@ -657,7 +657,7 @@ class _Ticket extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
-    final doux = p.onNightSoft;
+    final doux = p.onHeroSoft;
     Widget ligne(IconData icone, String libelle, String? valeur) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -683,7 +683,7 @@ class _Ticket extends ConsumerWidget {
                 fontFamily: atriumFontFamily,
                 fontSize: 14.5,
                 fontWeight: FontWeight.w700,
-                color: valeur == null ? doux : p.onNight,
+                color: valeur == null ? doux : p.onHero,
                 fontFeatures: tabularFigures,
               ),
             ),
@@ -693,7 +693,7 @@ class _Ticket extends ConsumerWidget {
     );
 
     return Bezel(
-      core: p.isDark ? p.nightRaised : p.night,
+      core: p.hero,
       padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -751,7 +751,7 @@ class _Ticket extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Container(
               height: 1,
-              color: Colors.white.withValues(alpha: 0.1),
+              color: p.onHero.withValues(alpha: 0.14),
             ),
           ),
           Text(
@@ -777,7 +777,7 @@ class _Ticket extends ConsumerWidget {
                 fontSize: 34,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -1.2,
-                color: p.accent,
+                color: p.heroAccent,
                 fontFeatures: tabularFigures,
               ),
             ),

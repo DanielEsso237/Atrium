@@ -162,7 +162,7 @@ class _Progression extends StatelessWidget {
     final part = total == 0 ? 0.0 : faites / total;
     return FadeUp(
       child: Bezel(
-        core: p.isDark ? p.nightRaised : p.night,
+        core: p.hero,
         radius: 24,
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
         child: Row(
@@ -174,7 +174,7 @@ class _Progression extends StatelessWidget {
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -1,
-                color: p.accent,
+                color: p.heroAccent,
                 fontFeatures: tabularFigures,
               ),
             ),
@@ -193,7 +193,7 @@ class _Progression extends StatelessWidget {
                       fontFamily: atriumFontFamily,
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
-                      color: p.onNight,
+                      color: p.onHero,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -217,7 +217,7 @@ class _Progression extends StatelessWidget {
                             Expanded(
                               flex: total - faites - enCours,
                               child: Container(
-                                color: Colors.white.withValues(alpha: 0.12),
+                                color: p.onHero.withValues(alpha: 0.14),
                               ),
                             ),
                         ],

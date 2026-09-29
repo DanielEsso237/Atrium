@@ -45,6 +45,41 @@ class CashView {
       session.countedAmount == null ? null : session.countedAmount! - expected;
 }
 
+/// Un encaissement de la journee, tel que la caisse le liste.
+class DayPayment {
+  const DayPayment({
+    required this.id,
+    required this.amount,
+    required this.method,
+    required this.receivedAt,
+    required this.guestName,
+    required this.roomNumber,
+    required this.folioNumber,
+    required this.agentName,
+    required this.reference,
+  });
+
+  final String id;
+
+  /// Signe : un remboursement est negatif.
+  final int amount;
+  final PaymentMethod method;
+  final DateTime? receivedAt;
+  final String? guestName;
+  final String? roomNumber;
+  final String? folioNumber;
+  final String? agentName;
+  final String? reference;
+}
+
+/// Une caisse, ouverte ou fermee, pour l'historique.
+class CashSessionSummary {
+  const CashSessionSummary({required this.session, required this.agentName});
+
+  final CashSessionRow session;
+  final String agentName;
+}
+
 class CashRepository with OutboxWriter {
   CashRepository(this.db);
 
@@ -94,6 +129,100 @@ class CashRepository with OutboxWriter {
         )
         .getSingle();
     return r.read<int>('n');
+  }
+
+  /// Les encaissements d'une journee hoteliere, du plus recent au plus
+  /// ancien, avec le client et l'agent : ce que la caisse du jour liste.
+  Stream<List<DayPayment>> watchDayPayments(String businessDate) {
+    return db
+        .customSelect(
+          '''
+          SELECT p.id, p.amount, p.is_refund, p.method, p.received_at,
+                 p.reference,
+                 f.number AS folio_number,
+                 g.first_name, g.last_name,
+                 ch.number AS room_number,
+                 u.first_name AS agent_first, u.last_name AS agent_last
+            FROM payments p
+            LEFT JOIN folios f             ON f.id = p.folio_id
+            LEFT JOIN reservation_rooms rr ON rr.id = f.reservation_room_id
+            LEFT JOIN reservations res     ON res.id = rr.reservation_id
+            LEFT JOIN guests g             ON g.id = COALESCE(f.guest_id, res.guest_id)
+            LEFT JOIN rooms ch             ON ch.id = rr.room_id
+            LEFT JOIN users u              ON u.id = p.received_by
+           WHERE p.deleted_at IS NULL
+             AND p.business_date = ?1
+           ORDER BY p.received_at DESC
+          ''',
+          variables: [Variable.withString(businessDate)],
+          readsFrom: {
+            db.payments,
+            db.folios,
+            db.reservationRooms,
+            db.reservations,
+            db.guests,
+            db.rooms,
+            db.users,
+          },
+        )
+        .watch()
+        .map(
+          (rows) => [
+            for (final r in rows)
+              DayPayment(
+                id: r.read<String>('id'),
+                amount: r.read<bool>('is_refund')
+                    ? -r.read<int>('amount')
+                    : r.read<int>('amount'),
+                method: PaymentMethod.values.byName(r.read<String>('method')),
+                receivedAt: r.readNullable<DateTime>('received_at'),
+                reference: r.readNullable<String>('reference'),
+                folioNumber: r.readNullable<String>('folio_number'),
+                roomNumber: r.readNullable<String>('room_number'),
+                guestName: _nom(
+                  r.readNullable<String>('first_name'),
+                  r.readNullable<String>('last_name'),
+                ),
+                agentName: _nom(
+                  r.readNullable<String>('agent_first'),
+                  r.readNullable<String>('agent_last'),
+                ),
+              ),
+          ],
+        );
+  }
+
+  /// Les dernieres caisses de l'hotel, la plus recente d'abord.
+  Stream<List<CashSessionSummary>> watchSessions({int limit = 20}) {
+    final requete =
+        db.select(db.cashSessions).join([
+            leftOuterJoin(
+              db.users,
+              db.users.id.equalsExp(db.cashSessions.userId),
+            ),
+          ])
+          ..where(db.cashSessions.deletedAt.isNull())
+          ..orderBy([OrderingTerm.desc(db.cashSessions.openedAt)])
+          ..limit(limit);
+    return requete.watch().map(
+      (rows) => [
+        for (final r in rows)
+          CashSessionSummary(
+            session: r.readTable(db.cashSessions),
+            agentName:
+                _nom(
+                  r.readTableOrNull(db.users)?.firstName,
+                  r.readTableOrNull(db.users)?.lastName,
+                ) ??
+                'Agent',
+          ),
+      ],
+    );
+  }
+
+  static String? _nom(String? prenom, String? nom) {
+    final t = [prenom, nom].whereType<String>().join(' ').trim();
+    return t.isEmpty ? null : t;
   }
 
   /// La session ouverte de l'agent, sans son attendu. Sert au rattachement

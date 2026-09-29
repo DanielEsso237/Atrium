@@ -27,7 +27,6 @@ import '../../features/dashboard/dashboard_sidebar.dart'
     show Avatar, MenuCompte, montantCompact;
 import '../../features/reservations/reservations_screen.dart'
     show ReservationFilter, reservationFilterProvider;
-import '../../features/billing/cash_dialog.dart' show showCaisseDuJour;
 import '../brand/atrium_logo.dart';
 import '../theme_mode.dart';
 import '../tokens.dart';
@@ -55,7 +54,6 @@ class Destination {
     this.filtre,
     this.raccourci = false,
     this.indicateur,
-    this.caisse = false,
   });
 
   /// Le nom sous l'icone du rail, ou la place manque.
@@ -66,9 +64,6 @@ class Destination {
     'Réservations' => 'Résas',
     _ => label,
   };
-
-  /// « Caisse du jour » : ouvre la fenetre de caisse au lieu d'une page.
-  final bool caisse;
 
   final String label;
   final IconData icon;
@@ -182,11 +177,9 @@ final destinations = <Destination>[
     'Caisse du jour',
     PhosphorIconsLight.coins,
     PhosphorIconsFill.coins,
-    '/factures',
+    '/caisse',
     'folio.read',
     Groupe.gestion,
-    raccourci: true,
-    caisse: true,
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
   const Destination(
@@ -248,10 +241,6 @@ class AppShell extends ConsumerWidget {
     void aller(int i) {
       final d = liste[i];
       if (d.route == null) return;
-      if (d.caisse) {
-        showCaisseDuJour(context, caDuJour: resume?.caDuJour ?? 0);
-        return;
-      }
       if (d.filtre != null) {
         ref.read(reservationFilterProvider.notifier).select(d.filtre!);
       } else if (d.route == '/reservations') {
@@ -335,20 +324,14 @@ class _Ile extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color.alphaBlend(
-              _Nav.teinteHaut,
-              _Nav.fond,
-            ),
-            _Nav.fond,
-          ],
+          colors: [Color.alphaBlend(_Nav.teinteHaut, _Nav.fond), _Nav.fond],
         ),
         border: Border.all(color: _Nav.voile(0.07)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF05081A).withValues(
-              alpha: _Nav.sombre ? 0.28 : 0.08,
-            ),
+            color: const Color(
+              0xFF05081A,
+            ).withValues(alpha: _Nav.sombre ? 0.28 : 0.08),
             blurRadius: 40,
             spreadRadius: -10,
             offset: const Offset(0, 20),
@@ -490,9 +473,7 @@ class _LigneNavState extends State<_LigneNav> {
                       ? _Nav.voile(0.045)
                       : Colors.transparent),
             border: Border.all(
-              color: actif
-                  ? _Nav.voile(0.08)
-                  : Colors.transparent,
+              color: actif ? _Nav.voile(0.08) : Colors.transparent,
             ),
           ),
           child: Row(
@@ -653,9 +634,7 @@ class _EntreeRail extends StatelessWidget {
                   child: Icon(
                     actif ? destination.iconActive : destination.icon,
                     size: 21,
-                    color: actif
-                        ? AtriumColors.mintStrong
-                        : _Nav.doux,
+                    color: actif ? AtriumColors.mintStrong : _Nav.doux,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -670,9 +649,7 @@ class _EntreeRail extends StatelessWidget {
                     fontFamily: atriumFontFamily,
                     fontSize: 10.5,
                     fontWeight: actif ? FontWeight.w800 : FontWeight.w600,
-                    color: actif
-                        ? _Nav.encre
-                        : _Nav.doux,
+                    color: actif ? _Nav.encre : _Nav.doux,
                   ),
                 ),
               ],
@@ -862,17 +839,13 @@ class _OngletTelephone extends StatelessWidget {
               width: actif ? 50 : 38,
               height: 30,
               decoration: BoxDecoration(
-                color: actif
-                    ? _Nav.voile(0.10)
-                    : Colors.transparent,
+                color: actif ? _Nav.voile(0.10) : Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
                 icon,
                 size: 21,
-                color: actif
-                    ? AtriumColors.mintStrong
-                    : _Nav.doux,
+                color: actif ? AtriumColors.mintStrong : _Nav.doux,
               ),
             ),
             const SizedBox(height: 3),

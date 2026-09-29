@@ -486,9 +486,7 @@ class _Periode extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: j == valeur
-                        ? (p.isDark ? p.nightBright : p.night)
-                        : Colors.transparent,
+                    color: j == valeur ? p.selected : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -497,7 +495,7 @@ class _Periode extends StatelessWidget {
                       fontFamily: atriumFontFamily,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: j == valeur ? p.onNight : p.textSecondary,
+                      color: j == valeur ? p.onSelected : p.textSecondary,
                     ),
                   ),
                 ),
@@ -772,7 +770,7 @@ class NotificationBell extends ConsumerWidget {
                         fontFamily: atriumFontFamily,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: p.night,
+                        color: p.onAccent,
                       ),
                     ),
                   ),

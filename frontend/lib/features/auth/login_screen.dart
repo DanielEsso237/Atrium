@@ -478,7 +478,7 @@ class _Bascule extends StatelessWidget {
                 Icon(
                   icone,
                   size: 18,
-                  color: actif ? p.onNight : p.textSecondary,
+                  color: actif ? p.onSelected : p.textSecondary,
                 ),
                 const SizedBox(width: 8),
                 AnimatedDefaultTextStyle(
@@ -488,7 +488,7 @@ class _Bascule extends StatelessWidget {
                     fontFamily: atriumFontFamily,
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
-                    color: actif ? p.onNight : p.textSecondary,
+                    color: actif ? p.onSelected : p.textSecondary,
                   ),
                   child: Text(libelle),
                 ),
@@ -519,11 +519,11 @@ class _Bascule extends StatelessWidget {
               heightFactor: 1,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: p.night,
+                  color: p.selected,
                   borderRadius: BorderRadius.circular(21),
                   boxShadow: [
                     BoxShadow(
-                      color: p.night.withValues(alpha: 0.3),
+                      color: p.selected.withValues(alpha: 0.3),
                       blurRadius: 12,
                       spreadRadius: -4,
                       offset: const Offset(0, 6),
@@ -765,17 +765,25 @@ class _PanneauMarque extends StatelessWidget {
           const _PhotoLente(),
           // Le voile : nuit en bas et a gauche, ou se pose le texte ; la
           // chambre reste visible en haut a droite.
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
-                colors: [
-                  Color(0x330A0F2E),
-                  Color(0xE60A0F2E),
-                  Color(0xFA05081A),
-                ],
-                stops: [0, 0.55, 1],
+                // La nuit, un voile bleu-nuit ; le jour, un voile d'encre
+                // brune et chaude, qui laisse la mangue seule couleur forte.
+                colors: AtriumPalette.current.isDark
+                    ? const [
+                        Color(0x330A0F2E),
+                        Color(0xE60A0F2E),
+                        Color(0xFA05081A),
+                      ]
+                    : const [
+                        Color(0x222B1B04),
+                        Color(0xD92B1B04),
+                        Color(0xF21A1003),
+                      ],
+                stops: const [0, 0.55, 1],
               ),
             ),
           ),

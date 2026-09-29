@@ -104,12 +104,39 @@ class AtriumPalette {
 
   bool get isDark => brightness == Brightness.dark;
 
+  // --- Blocs forts ---------------------------------------------------------
+  //
+  // Les cartes qui portent le chiffre de l'ecran (occupation, total, ticket,
+  // en-tete de fiche). La nuit, un bleu-nuit plus clair que le fond ; le
+  // jour, la mangue : pas de bloc bleu-nuit sur une page claire.
+
+  /// L'encre posee sur la mangue : un brun tres sombre, chaud, jamais bleu.
+  static const _encreMangue = Color(0xFF2B1B04);
+
+  Color get hero => isDark ? nightRaised : const Color(0xFFFFB020);
+  Color get heroTop => isDark ? nightBright : const Color(0xFFFFCB5C);
+  Color get onHero => isDark ? onNight : _encreMangue;
+  Color get onHeroSoft =>
+      isDark ? onNightSoft : _encreMangue.withValues(alpha: 0.72);
+
+  /// Le chiffre mis en avant sur un bloc fort : mangue la nuit, encre le
+  /// jour (de la mangue sur de la mangue ne se lirait pas).
+  Color get heroAccent => isDark ? accent : _encreMangue;
+
+  /// Le texte et les icones poses sur un aplat mangue.
+  Color get onAccent => isDark ? night : _encreMangue;
+
+  /// L'aplat d'un choix retenu (filtre, bascule, periode).
+  Color get selected => isDark ? nightBright : const Color(0xFFFFB020);
+  Color get onSelected => isDark ? onNight : _encreMangue;
+
   /// Le jour : papier froid legerement bleute, structure bleu-nuit, mangue
   /// assombrie d'un cran pour garder 3:1 sur blanc.
   static const light = AtriumPalette(
     brightness: Brightness.light,
-    primary: Color(0xFF141B47),
-    primaryPressed: Color(0xFF0A0F2E),
+    // Le jour, l'action est mangue, comme la nuit : pas de bleu-nuit en aplat.
+    primary: Color(0xFFFFB020),
+    primaryPressed: Color(0xFFF08A00),
     paper: Color(0xFFFFFFFF),
     onNight: Color(0xFFFBF6EC),
     onNightSoft: Color(0xFFC9CEE6),

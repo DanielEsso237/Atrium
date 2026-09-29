@@ -49,7 +49,7 @@ ThemeData themeAtrium() => atriumTheme(AtriumPalette.current);
 ThemeData atriumBrandTheme() => atriumTheme(AtriumPalette.current);
 
 ThemeData atriumTheme(AtriumPalette p) {
-  final onPrimary = p.paper;
+  final onPrimary = p.isDark ? p.paper : p.onAccent;
   final schema = ColorScheme(
     brightness: p.brightness,
     primary: p.primary,
@@ -215,9 +215,7 @@ ThemeData atriumTheme(AtriumPalette p) {
           Size(cibleTactile, cibleTactile),
         ),
         textStyle: WidgetStatePropertyAll(ts(16, FontWeight.w700)),
-        foregroundColor: WidgetStatePropertyAll(
-          p.isDark ? p.accent : p.primary,
-        ),
+        foregroundColor: WidgetStatePropertyAll(p.accent),
         shape: const WidgetStatePropertyAll(StadiumBorder()),
         overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.12)),
       ),
@@ -225,10 +223,10 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: p.accent,
-      foregroundColor: p.night,
+      foregroundColor: p.onAccent,
       elevation: 2,
       highlightElevation: 4,
-      extendedTextStyle: ts(17, FontWeight.w700, color: p.night),
+      extendedTextStyle: ts(17, FontWeight.w700, color: p.onAccent),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
 
@@ -237,11 +235,7 @@ ThemeData atriumTheme(AtriumPalette p) {
       fillColor: p.paper,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       labelStyle: ts(16, FontWeight.w500, color: p.textSecondary),
-      floatingLabelStyle: ts(
-        15,
-        FontWeight.w700,
-        color: p.isDark ? p.accent : p.primary,
-      ),
+      floatingLabelStyle: ts(15, FontWeight.w700, color: p.accent),
       hintStyle: ts(16, FontWeight.w400, color: p.placeholder),
       prefixIconColor: p.textSecondary,
       suffixIconColor: p.textSecondary,
@@ -297,7 +291,7 @@ ThemeData atriumTheme(AtriumPalette p) {
       side: BorderSide(color: p.border),
       labelStyle: ts(15, FontWeight.w600),
       secondaryLabelStyle: ts(15, FontWeight.w700),
-      checkmarkColor: p.isDark ? p.accent : p.primary,
+      checkmarkColor: p.accent,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
     ),
@@ -401,19 +395,19 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: p.isDark ? p.onNight : p.night,
+        color: p.isDark ? p.onNight : p.onAccent,
         borderRadius: BorderRadius.circular(AtriumRadii.sm),
       ),
-      textStyle: ts(13, FontWeight.w600, color: p.isDark ? p.night : p.onNight),
+      textStyle: ts(13, FontWeight.w600, color: p.isDark ? p.night : p.paper),
     ),
 
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: p.isDark ? p.onNight : p.night,
+      backgroundColor: p.isDark ? p.onNight : p.onAccent,
       contentTextStyle: ts(
         16,
         FontWeight.w500,
-        color: p.isDark ? p.night : p.onNight,
+        color: p.isDark ? p.night : p.paper,
       ),
       actionTextColor: p.accent,
       shape: RoundedRectangleBorder(borderRadius: radius12),
@@ -427,7 +421,7 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-        (etats) => etats.contains(WidgetState.selected) ? p.night : p.paper,
+        (etats) => etats.contains(WidgetState.selected) ? p.onAccent : p.paper,
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (etats) =>
@@ -440,7 +434,7 @@ ThemeData atriumTheme(AtriumPalette p) {
       fillColor: WidgetStateProperty.resolveWith(
         (etats) => etats.contains(WidgetState.selected) ? p.accent : null,
       ),
-      checkColor: WidgetStatePropertyAll(p.night),
+      checkColor: WidgetStatePropertyAll(p.onAccent),
       side: BorderSide(color: p.textSecondary, width: 1.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
     ),
@@ -455,8 +449,8 @@ ThemeData atriumTheme(AtriumPalette p) {
     datePickerTheme: DatePickerThemeData(
       backgroundColor: p.paper,
       surfaceTintColor: Colors.transparent,
-      headerBackgroundColor: p.night,
-      headerForegroundColor: p.onNight,
+      headerBackgroundColor: p.hero,
+      headerForegroundColor: p.onHero,
       todayBorder: BorderSide(color: p.accent, width: 1.5),
       rangeSelectionBackgroundColor: p.accentSoft,
       shape: RoundedRectangleBorder(

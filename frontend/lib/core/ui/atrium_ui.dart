@@ -214,14 +214,13 @@ class _PillButtonState extends State<PillButton> {
     final p = AtriumPalette.current;
     final actif = widget.onPressed != null;
     final (Color fond, Color encre, Color pastille) = switch (widget.tone) {
-      PillTone.primary => (
-        p.isDark ? p.accent : p.night,
-        p.isDark ? p.night : p.onNight,
-        p.isDark
-            ? p.night.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.12),
+      // Le jour, l'aplat prend la mangue franche des blocs forts ; l'accent
+      // plus sombre reste pour le texte et les icones sur fond clair.
+      PillTone.primary || PillTone.accent => (
+        p.isDark ? p.accent : p.hero,
+        p.onAccent,
+        p.onAccent.withValues(alpha: 0.12),
       ),
-      PillTone.accent => (p.accent, p.night, p.night.withValues(alpha: 0.12)),
       PillTone.quiet => (
         p.isDark
             ? Colors.white.withValues(alpha: 0.06)
@@ -636,7 +635,7 @@ class _FilterPillState extends State<_FilterPill> {
     final duree = _animationsCoupees(context)
         ? Duration.zero
         : const Duration(milliseconds: 380);
-    final encre = actif ? p.onNight : p.text;
+    final encre = actif ? p.onSelected : p.text;
     return Semantics(
       button: true,
       selected: actif,
@@ -660,7 +659,7 @@ class _FilterPillState extends State<_FilterPill> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: actif
-                    ? (p.isDark ? p.nightBright : p.night)
+                    ? p.selected
                     : (_survol
                           ? p.surfaceMuted
                           : p.surface.withValues(alpha: 0.6)),
@@ -671,7 +670,7 @@ class _FilterPillState extends State<_FilterPill> {
                 boxShadow: actif
                     ? [
                         BoxShadow(
-                          color: p.night.withValues(alpha: 0.35),
+                          color: p.selected.withValues(alpha: 0.35),
                           blurRadius: 18,
                           spreadRadius: -6,
                           offset: const Offset(0, 8),
@@ -711,7 +710,7 @@ class _FilterPillState extends State<_FilterPill> {
                       ),
                       decoration: BoxDecoration(
                         color: actif
-                            ? p.accent.withValues(alpha: 0.22)
+                            ? p.onSelected.withValues(alpha: 0.16)
                             : p.surfaceMuted,
                         borderRadius: BorderRadius.circular(7),
                       ),
@@ -721,7 +720,7 @@ class _FilterPillState extends State<_FilterPill> {
                           fontFamily: atriumFontFamily,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w800,
-                          color: actif ? p.accent : p.textSecondary,
+                          color: actif ? p.onSelected : p.textSecondary,
                           fontFeatures: tabularFigures,
                         ),
                       ),
@@ -1090,7 +1089,7 @@ class RoomChoiceTile extends StatelessWidget {
                 fontFamily: atriumFontFamily,
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
-                color: choisie ? p.night : p.text,
+                color: choisie ? p.onAccent : p.text,
                 fontFeatures: tabularFigures,
               ),
             ),
