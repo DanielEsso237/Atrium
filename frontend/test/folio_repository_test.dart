@@ -158,6 +158,25 @@ void main() {
       expect(await solde(), 0);
     });
 
+    test('un encaissement sans reference passe', () async {
+      // Le champ a quitte l'ecran : plus personne ne la remplit, meme pour un
+      // Mobile Money ou on l'aurait attendue. L'encaissement doit passer et
+      // remonter tel quel -- le serveur la tient pour facultative.
+      await repo.addPayment(
+        folioId: folioId,
+        method: PaymentMethod.MOBILE_MONEY,
+        amount: 50000,
+      );
+
+      expect(await solde(), 0);
+      final paiement = await db.select(db.payments).getSingle();
+      expect(paiement.reference, isNull);
+      final file = await (db.select(
+        db.outboxEntries,
+      )..where((e) => e.entityTable.equals('payments'))).get();
+      expect(file, hasLength(1), reason: 'l encaissement doit remonter');
+    });
+
     test('on ne peut pas encaisser deux fois la meme facture', () async {
       // Constate a l usage. Rien ne plantait : le solde passait simplement en
       // negatif, et l ecart ne se voyait qu a la caisse en fin de service,
