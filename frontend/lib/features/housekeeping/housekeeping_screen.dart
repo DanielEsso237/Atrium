@@ -55,7 +55,7 @@ class HousekeepingScreen extends ConsumerWidget {
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
-                    color: Theme.of(context).colorScheme.outline,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -81,16 +81,16 @@ class _RienAFaire extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline, size: 72, color: schema.outline),
+            Icon(Icons.check_circle_outline, size: 72, color: schema.onSurfaceVariant),
             const SizedBox(height: 20),
             Text(
               'Aucune chambre à faire.',
-              style: TextStyle(fontSize: 20, color: schema.outline),
+              style: TextStyle(fontSize: 20, color: schema.onSurfaceVariant),
             ),
             const SizedBox(height: 8),
             Text(
               'Les départs de la journée apparaîtront ici.',
-              style: TextStyle(fontSize: 16, color: schema.outline),
+              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
             ),
           ],
         ),

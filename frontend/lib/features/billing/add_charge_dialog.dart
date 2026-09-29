@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
@@ -251,7 +252,7 @@ class _Quantity extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: schema.outline),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AtriumColors.white,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -11,6 +11,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/tokens.dart';
+
+import '../../core/theme.dart';
+
 import '../../core/formats.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
@@ -54,7 +58,7 @@ class FoliosScreen extends ConsumerWidget {
             ? Center(
                 child: Text(
                   'Aucune ardoise. Elles s\'ouvrent a l\'arrivee d\'un client.',
-                  style: TextStyle(fontSize: 18, color: schema.outline),
+                  style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
                 ),
               )
             : ListView.separated(
@@ -80,7 +84,7 @@ class _FolioCard extends StatelessWidget {
     // d'attirer l'oeil.
     final couleur = folio.balance > 0
         ? schema.error
-        : (folio.isOpen ? const Color(0xFF2E7D32) : schema.outline);
+        : (folio.isOpen ? CouleursEtat.disponible : schema.onSurfaceVariant);
 
     return Card(
       child: InkWell(
@@ -95,77 +99,94 @@ class _FolioCard extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: couleur,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          folio.guestName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (folio.roomNumber != null) ...[
-                          const SizedBox(width: 10),
-                          Chip(
-                            label: Text('Ch. ${folio.roomNumber}'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                        if (!folio.isOpen) ...[
-                          const SizedBox(width: 10),
-                          Chip(
-                            label: const Text('Close'),
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: schema.surfaceContainerHighest,
-                          ),
-                        ],
-                      ],
+          padding: const EdgeInsets.all(18),
+          child: LayoutBuilder(
+            builder: (context, contraintes) {
+              final texte = Theme.of(context).textTheme;
+              final identite = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(folio.guestName, style: texte.titleLarge),
+                      if (folio.roomNumber != null)
+                        _Etiquette('Ch. ${folio.roomNumber}'),
+                      if (!folio.isOpen) const _Etiquette('Close'),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${formatAmount(folio.chargesTotal)} porté'
+                    '  ·  ${formatAmount(folio.paymentsTotal)} encaissé',
+                    style: texte.bodyMedium?.copyWith(
+                      fontFeatures: tabularFigures,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${folio.number} · ${formatAmount(folio.chargesTotal)} '
-                      'porte · ${formatAmount(folio.paymentsTotal)} encaisse',
-                      style: TextStyle(fontSize: 15, color: schema.outline),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                  ),
+                  Text(folio.number, style: texte.bodySmall),
+                ],
+              );
+              final solde = Column(
+                crossAxisAlignment: contraintes.maxWidth < 520
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    folio.balance > 0 ? 'Reste du' : 'Solde',
-                    style: TextStyle(fontSize: 14, color: schema.outline),
+                    folio.balance > 0 ? 'Reste dû' : 'Solde',
+                    style: texte.labelSmall,
                   ),
                   Text(
                     formatAmount(folio.balance),
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                    style: texte.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                       color: couleur,
+                      fontFeatures: tabularFigures,
                     ),
                   ),
                 ],
-              ),
-            ],
+              );
+              // Telephone : le reste du passe sous le nom, en grand. Il se
+              // voit de loin ; une ardoise soldee n'attire pas l'oeil.
+              return contraintes.maxWidth < 520
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [identite, const SizedBox(height: 12), solde],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: identite),
+                        const SizedBox(width: 16),
+                        solde,
+                      ],
+                    );
+            },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Etiquette extends StatelessWidget {
+  const _Etiquette(this.texte);
+
+  final String texte;
+
+  @override
+  Widget build(BuildContext context) {
+    final schema = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: schema.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        texte,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 13),
       ),
     );
   }
@@ -191,16 +212,16 @@ class _FolioSheet extends ConsumerWidget {
     final schema = Theme.of(context).colorScheme;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F6F8),
+      decoration: BoxDecoration(
+        color: AtriumColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: AtriumColors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Row(
@@ -218,7 +239,7 @@ class _FolioSheet extends ConsumerWidget {
                       ),
                       Text(
                         current.number,
-                        style: TextStyle(fontSize: 16, color: schema.outline),
+                        style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -247,7 +268,7 @@ class _FolioSheet extends ConsumerWidget {
                             'Rien de porte a cette ardoise.',
                             style: TextStyle(
                               fontSize: 17,
-                              color: schema.outline,
+                              color: schema.onSurfaceVariant,
                             ),
                           )
                         : Column(
@@ -275,7 +296,7 @@ class _FolioSheet extends ConsumerWidget {
                             'Aucun encaissement.',
                             style: TextStyle(
                               fontSize: 17,
-                              color: schema.outline,
+                              color: schema.onSurfaceVariant,
                             ),
                           )
                         : Column(
@@ -355,13 +376,13 @@ class _Actions extends ConsumerWidget {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        color: Colors.white,
+        color: AtriumColors.white,
         child: Text(
           'Ardoise close. Plus rien ne peut y etre porte.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,
-            color: Theme.of(context).colorScheme.outline,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       );
@@ -369,9 +390,9 @@ class _Actions extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0))),
+      decoration: BoxDecoration(
+        color: AtriumColors.white,
+        border: Border(top: BorderSide(color: AtriumColors.border)),
       ),
       child: Row(
         children: [
@@ -462,7 +483,7 @@ class _Block extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -496,7 +517,7 @@ class _Line extends StatelessWidget {
                 if (detail != null && detail!.isNotEmpty)
                   Text(
                     detail!,
-                    style: TextStyle(fontSize: 14, color: schema.outline),
+                    style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
                   ),
               ],
             ),

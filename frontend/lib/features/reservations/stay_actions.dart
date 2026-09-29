@@ -191,7 +191,7 @@ Future<_Depart> _confirmerDepartNonSolde(
             const SizedBox(height: 18),
             Text(
               'La chambre repassera libre mais SALE.',
-              style: TextStyle(fontSize: 15, color: schema.outline),
+              style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
             ),
           ],
         ),

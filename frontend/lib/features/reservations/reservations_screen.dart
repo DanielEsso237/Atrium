@@ -157,7 +157,7 @@ class ReservationsScreen extends ConsumerWidget {
                             ? 'Aucune reservation dans ce filtre.'
                             : 'Aucune reservation ne correspond a cette '
                                   'recherche.',
-                        style: TextStyle(fontSize: 18, color: schema.outline),
+                        style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
                       ),
                     )
                   : ListView.separated(

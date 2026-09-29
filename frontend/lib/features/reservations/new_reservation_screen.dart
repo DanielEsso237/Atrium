@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -372,7 +373,7 @@ class _AvailableRooms extends ConsumerWidget {
                 '${rooms.length} chambre${rooms.length > 1 ? 's' : ''} '
                 'libre${rooms.length > 1 ? 's' : ''} sur la periode. '
                 'Laisser vide pour attribuer plus tard.',
-                style: TextStyle(fontSize: 15, color: schema.outline),
+                style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -424,7 +425,7 @@ class _Counter extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: schema.outline),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AtriumColors.white,
       ),
       child: Row(
         children: [
@@ -473,7 +474,7 @@ class _Section extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 14),

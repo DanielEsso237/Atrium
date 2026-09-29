@@ -10,6 +10,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
@@ -55,8 +56,8 @@ class _Fiche extends ConsumerWidget {
     final schema = Theme.of(context).colorScheme;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F6F8),
+      decoration: BoxDecoration(
+        color: AtriumColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -85,7 +86,7 @@ class _Fiche extends ConsumerWidget {
                       titre: 'Sejour en cours',
                       enfant: Text(
                         'Aucun client dans cette chambre.',
-                        style: TextStyle(fontSize: 17, color: schema.outline),
+                        style: TextStyle(fontSize: 17, color: schema.onSurfaceVariant),
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -112,7 +113,7 @@ class _Entete extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AtriumColors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(bottom: BorderSide(color: vue.couleur, width: 3)),
       ),
@@ -235,7 +236,7 @@ class _Consommations extends StatelessWidget {
       enfant: lignes.isEmpty
           ? Text(
               'Aucune consommation portee a l\'ardoise.',
-              style: TextStyle(fontSize: 17, color: schema.outline),
+              style: TextStyle(fontSize: 17, color: schema.onSurfaceVariant),
             )
           : Column(
               children: [
@@ -256,7 +257,7 @@ class _Consommations extends StatelessWidget {
                                 '${l.categorie.name} · ${l.journee}',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: schema.outline,
+                                  color: schema.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -292,7 +293,7 @@ class _Historique extends StatelessWidget {
       enfant: sejours.isEmpty
           ? Text(
               'Aucun sejour termine dans cette chambre.',
-              style: TextStyle(fontSize: 17, color: schema.outline),
+              style: TextStyle(fontSize: 17, color: schema.onSurfaceVariant),
             )
           : Column(
               children: [
@@ -320,9 +321,9 @@ class _Actions extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0))),
+      decoration: BoxDecoration(
+        color: AtriumColors.white,
+        border: Border(top: BorderSide(color: AtriumColors.border)),
       ),
       child: Row(
         children: [
@@ -408,7 +409,7 @@ class _Bloc extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
-                color: Theme.of(context).colorScheme.outline,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),
@@ -440,7 +441,7 @@ class _Ligne extends StatelessWidget {
               cle,
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.outline,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),

@@ -119,12 +119,12 @@ class PendingWritesBadge extends ConsumerWidget {
     )) {
       (0, _, true) => (
         Icons.cloud_off_outlined,
-        schema.outline,
+        schema.onSurfaceVariant,
         'Serveur injoignable, mais rien n\'attend de remonter',
       ),
       (0, _, _) => (
         Icons.cloud_done_outlined,
-        schema.outline,
+        schema.onSurfaceVariant,
         'Tout est remonte au serveur',
       ),
       (_, true, _) => (

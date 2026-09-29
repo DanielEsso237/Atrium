@@ -85,7 +85,7 @@ class _AssignRoomDialogState extends ConsumerState<_AssignRoomDialog> {
           children: [
             Text(
               '${r.roomTypeLabel} · ${r.arrival} → ${r.departure}',
-              style: TextStyle(fontSize: 16, color: schema.outline),
+              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<AvailableRoom>>(

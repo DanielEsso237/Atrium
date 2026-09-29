@@ -16,6 +16,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database.dart';
@@ -124,7 +125,7 @@ class _GuestPickerState extends ConsumerState<GuestPicker> {
             child: Text(
               'Un habitue ? Tapez son nom. Un nouveau ? Tapez-le aussi, '
               'vous pourrez creer sa fiche sans quitter cet ecran.',
-              style: TextStyle(fontSize: 15, color: schema.outline),
+              style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
             ),
           ),
       ],
@@ -160,7 +161,7 @@ class _Results extends ConsumerWidget {
               decoration: BoxDecoration(
                 border: Border.all(color: schema.outlineVariant),
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
+                color: AtriumColors.white,
               ),
               child: ListView.builder(
                 shrinkWrap: true,
@@ -174,7 +175,7 @@ class _Results extends ConsumerWidget {
                     ),
                     subtitle: Text(
                       [g.code, if (g.phone != null) g.phone!].join(' · '),
-                      style: TextStyle(fontSize: 14, color: schema.outline),
+                      style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
                     ),
                     onTap: () => onChoose(g),
                   );
@@ -247,7 +248,7 @@ class _SelectedGuest extends StatelessWidget {
                     guest.code,
                     if (guest.phone != null) guest.phone!,
                   ].join(' · '),
-                  style: TextStyle(fontSize: 15, color: schema.outline),
+                  style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
                 ),
               ],
             ),
@@ -368,7 +369,7 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
               Text(
                 'Piece d\'identite, nationalite et adresse se saisissent '
                 'a l\'arrivee, depuis le module Clients.',
-                style: TextStyle(fontSize: 14, color: schema.outline),
+                style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
               ),
             ],
           ),

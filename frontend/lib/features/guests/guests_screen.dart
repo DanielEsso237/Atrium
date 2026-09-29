@@ -8,6 +8,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/module_scaffold.dart';
@@ -76,7 +77,7 @@ class GuestsScreen extends ConsumerWidget {
                   ? Center(
                       child: Text(
                         'Aucun client ne correspond.',
-                        style: TextStyle(fontSize: 18, color: schema.outline),
+                        style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
                       ),
                     )
                   : ListView.separated(
@@ -133,7 +134,7 @@ class _GuestCard extends StatelessWidget {
             if (guest.phone != null) guest.phone!,
             if (guest.email != null) guest.email!,
           ].join(' · '),
-          style: TextStyle(fontSize: 15, color: schema.outline),
+          style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
         ),
         // Une fiche creee hors ligne se signale : la reception doit savoir ce
         // qui est deja connu du serveur et ce qui ne l'est pas encore.
@@ -143,7 +144,7 @@ class _GuestCard extends StatelessWidget {
                 child: Icon(
                   Icons.cloud_upload_outlined,
                   size: 24,
-                  color: schema.outline,
+                  color: schema.onSurfaceVariant,
                 ),
               )
             : const Icon(Icons.chevron_right, size: 28),
@@ -172,16 +173,16 @@ class _GuestSheet extends ConsumerWidget {
     final schema = Theme.of(context).colorScheme;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F6F8),
+      decoration: BoxDecoration(
+        color: AtriumColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: AtriumColors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Row(
@@ -240,7 +241,7 @@ class _GuestSheet extends ConsumerWidget {
                               'Aucun sejour enregistre.',
                               style: TextStyle(
                                 fontSize: 17,
-                                color: schema.outline,
+                                color: schema.onSurfaceVariant,
                               ),
                             )
                           : Column(
@@ -445,7 +446,7 @@ class _Block extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -474,7 +475,7 @@ class _Row extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 16,
-              color: Theme.of(context).colorScheme.outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),

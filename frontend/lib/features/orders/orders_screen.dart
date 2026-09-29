@@ -88,11 +88,11 @@ class _AucunPointDeVente extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.storefront_outlined, size: 72, color: schema.outline),
+              Icon(Icons.storefront_outlined, size: 72, color: schema.onSurfaceVariant),
               const SizedBox(height: 20),
               Text(
                 'Aucun point de vente.',
-                style: TextStyle(fontSize: 20, color: schema.outline),
+                style: TextStyle(fontSize: 20, color: schema.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
               Text(
@@ -100,7 +100,7 @@ class _AucunPointDeVente extends StatelessWidget {
                 'synchronisation, ou demandez a l\'administration d\'en '
                 'creer un.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: schema.outline),
+                style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
               ),
             ],
           ),
@@ -128,7 +128,7 @@ class _Onglet extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.money_off, size: 64, color: schema.outline),
+              Icon(Icons.money_off, size: 64, color: schema.onSurfaceVariant),
               const SizedBox(height: 16),
               Text(
                 '${outlet.label} encaisse sur place.',
@@ -137,7 +137,7 @@ class _Onglet extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 'Ses ventes ne se portent pas sur l\'ardoise d\'un sejour.',
-                style: TextStyle(fontSize: 16, color: schema.outline),
+                style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
               ),
             ],
           ),
@@ -158,7 +158,7 @@ class _Onglet extends ConsumerWidget {
                 'Une consommation ne peut se porter que sur un sejour en '
                 'cours.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, color: schema.outline),
+                style: TextStyle(fontSize: 17, color: schema.onSurfaceVariant),
               ),
             ),
           );
@@ -216,7 +216,7 @@ class _Chambre extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Ardoise : ${formatAmount(chambre.balance)}',
-                      style: TextStyle(fontSize: 15, color: schema.outline),
+                      style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -308,7 +308,7 @@ class _SaisieState extends State<_Saisie> {
           children: [
             Text(
               widget.chambre.guestName,
-              style: TextStyle(fontSize: 16, color: schema.outline),
+              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
 
@@ -372,14 +372,14 @@ class _SaisieState extends State<_Saisie> {
                     children: [
                       Text(
                         'Ardoise apres',
-                        style: TextStyle(fontSize: 15, color: schema.outline),
+                        style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
                       ),
                       const Spacer(),
                       Text(
                         formatAmount(widget.chambre.balance + _total),
                         style: TextStyle(
                           fontSize: 16,
-                          color: schema.outline,
+                          color: schema.onSurfaceVariant,
                         ),
                       ),
                     ],
