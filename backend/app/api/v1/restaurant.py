@@ -23,6 +23,7 @@ from app.schemas.restaurant import (
     RestaurantTableIn,
     RestaurantTableOut,
 )
+from app.services.outlets import allowed_outlet_ids
 
 router = APIRouter(tags=["restauration"])
 
@@ -45,14 +46,15 @@ async def list_outlets(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("restaurant.read")),
 ) -> list[Outlet]:
-    result = await session.execute(
-        select(Outlet)
-        .where(
-            Outlet.hotel_id == user.hotel_id,
-            Outlet.deleted_at.is_(None),
-        )
-        .order_by(Outlet.sort_order, Outlet.label)
+    """Les points de vente de l'agent, tous s'il n'est rattache a aucun."""
+    stmt = select(Outlet).where(
+        Outlet.hotel_id == user.hotel_id,
+        Outlet.deleted_at.is_(None),
     )
+    allowed = await allowed_outlet_ids(session, user)
+    if allowed is not None:
+        stmt = stmt.where(Outlet.id.in_(allowed))
+    result = await session.execute(stmt.order_by(Outlet.sort_order, Outlet.label))
     return list(result.scalars().all())
 
 

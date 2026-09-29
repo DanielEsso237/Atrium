@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -25,6 +26,9 @@ from app.db.base import (
     SyncBase,
     UUIDPrimaryKey,
 )
+
+if TYPE_CHECKING:
+    from app.models.restaurant import Outlet
 
 
 class Hotel(RootBase):
@@ -138,6 +142,15 @@ class User(SyncBase, HotelScoped):
     roles: Mapped[list[Role]] = relationship(
         secondary="user_roles", lazy="selectin", viewonly=True
     )
+    # Points de vente ou l'agent travaille. Vide : tous -- sinon creer un
+    # agent le rendrait aveugle avant qu'on ait pense a le rattacher.
+    outlets: Mapped[list[Outlet]] = relationship(
+        secondary="user_outlets", lazy="selectin", viewonly=True
+    )
+
+    @property
+    def outlet_ids(self) -> list[uuid.UUID]:
+        return sorted(o.id for o in self.outlets)
 
     @property
     def full_name(self) -> str:
@@ -152,6 +165,19 @@ class UserRole(Base):
     )
     role_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class UserOutlet(Base):
+    """Rattachement d'un agent a un point de vente, comme `user_roles`."""
+
+    __tablename__ = "user_outlets"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    outlet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("outlets.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
 
