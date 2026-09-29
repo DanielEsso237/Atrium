@@ -114,7 +114,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/statistiques',
             builder: (_, _) => const DashboardScreen(),
           ),
-          GoRoute(path: '/chambres', builder: (_, _) => const RoomBoardScreen()),
+          GoRoute(
+            path: '/chambres',
+            builder: (_, _) => const RoomBoardScreen(),
+          ),
           GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
           GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
           GoRoute(

@@ -19,6 +19,9 @@ import '../../data/repositories/repository_providers.dart';
 // tous les modules, donc le seul ou l'indicateur soit reellement permanent.
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
+import '../tokens.dart';
+import '../ui/atrium_ui.dart';
+import '../ui/icons.dart';
 
 class ModuleScaffold extends ConsumerWidget {
   const ModuleScaffold({
@@ -26,10 +29,15 @@ class ModuleScaffold extends ConsumerWidget {
     required this.title,
     required this.body,
     this.action,
+    this.subtitle,
   });
 
   final String title;
   final Widget body;
+
+  /// Une ligne sous le titre : ce que l'ecran compte ou resume (« 12 en
+  /// cours, 3 attendues »). Le titre dit ou l'on est, elle dit ou l'on en est.
+  final String? subtitle;
 
   /// Action principale du module, a droite du titre : « Nouveau client »,
   /// « Nouvelle reservation »…
@@ -44,17 +52,54 @@ class ModuleScaffold extends ConsumerWidget {
     final ecranUnique = accueil != null && accueil != '/';
 
     // Sur telephone, l'action principale descend en bas, pleine largeur,
-    // sous le pouce : dans la barre du haut elle ecrasait le titre.
-    final etroit = MediaQuery.sizeOf(context).width < 600;
+    // sous le pouce : dans l'en-tete elle ecrasait le titre.
+    final largeur = MediaQuery.sizeOf(context).width;
+    final etroit = largeur < 600;
+    final marge = etroit ? 18.0 : 32.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        // Plus de fleche retour : la navigation vit dans la coque, visible
-        // sur chaque ecran.
-        automaticallyImplyLeading: false,
-        titleSpacing: 24,
-        title: Text(title),
-        actions: [
+    final entete = Padding(
+      padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 30, marge, 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: FadeUp(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: etroit ? 30 : 40,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: etroit ? -1 : -1.6,
+                      height: 1.05,
+                      color: AtriumColors.textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AtriumColors.textSecondary,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
           const PendingWritesBadge(),
           // Un metier a ecran unique ne passe jamais par le tableau de bord,
           // ou vit le bouton de deconnexion : sans celui-ci, la femme de
@@ -64,20 +109,33 @@ class ModuleScaffold extends ConsumerWidget {
           if (ecranUnique) ...[
             const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Se deconnecter',
-              iconSize: 26,
-              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Se déconnecter',
+              iconSize: 24,
+              icon: const Icon(PhosphorIconsLight.signOut),
               onPressed: () => ref.read(sessionProvider.notifier).deconnecter(),
             ),
           ],
           if (action != null && !etroit) ...[
-            const SizedBox(width: 12),
-            action!,
+            const SizedBox(width: 14),
+            FadeUp(index: 1, child: action!),
           ],
-          const SizedBox(width: 16),
         ],
       ),
-      body: body,
+    );
+
+    return Scaffold(
+      // Le fond ambiant de la coque doit transparaitre.
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            entete,
+            Expanded(child: body),
+          ],
+        ),
+      ),
       bottomNavigationBar: action != null && etroit
           ? SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -113,29 +171,29 @@ class PendingWritesBadge extends ConsumerWidget {
       sync.isOffline,
     )) {
       (0, _, true) => (
-        Icons.cloud_off_outlined,
+        PhosphorIconsLight.cloudSlash,
         schema.onSurfaceVariant,
         'Serveur injoignable, mais rien n\'attend de remonter',
       ),
       (0, _, _) => (
-        Icons.cloud_done_outlined,
+        PhosphorIconsLight.cloudCheck,
         schema.onSurfaceVariant,
         'Tout est remonte au serveur',
       ),
       (_, true, _) => (
-        Icons.error_outline,
+        PhosphorIconsLight.warningCircle,
         schema.error,
         'Une ecriture est refusee et bloque les $pending suivantes. '
             'Appuyer pour reessayer.',
       ),
       (_, _, true) => (
-        Icons.cloud_off_outlined,
+        PhosphorIconsLight.cloudSlash,
         schema.tertiary,
         '$pending ecriture(s) en attente — serveur injoignable. '
             'Elles repartiront toutes seules.',
       ),
       _ => (
-        Icons.cloud_upload_outlined,
+        PhosphorIconsLight.cloudArrowUp,
         schema.tertiary,
         '$pending ecriture(s) en cours de remontee',
       ),

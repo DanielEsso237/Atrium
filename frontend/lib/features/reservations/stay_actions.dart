@@ -174,7 +174,10 @@ Future<_Depart> _confirmerDepartNonSolde(
                 children: [
                   Text(
                     'Reste a encaisser',
-                    style: TextStyle(fontSize: 15, color: schema.onErrorContainer),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: schema.onErrorContainer,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(

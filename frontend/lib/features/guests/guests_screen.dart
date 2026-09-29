@@ -77,7 +77,10 @@ class GuestsScreen extends ConsumerWidget {
                   ? Center(
                       child: Text(
                         'Aucun client ne correspond.',
-                        style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: schema.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : ListView.separated(

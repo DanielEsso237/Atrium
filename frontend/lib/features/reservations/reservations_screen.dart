@@ -11,11 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/tokens.dart';
-
-import '../../core/theme.dart';
-
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
+import '../../core/theme.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -31,7 +32,7 @@ enum ReservationFilter {
     ReservationStatus.CONFIRMED,
   }),
   inHouse('En cours', {ReservationStatus.CHECKED_IN}),
-  done('Terminees', {
+  done('Terminées', {
     ReservationStatus.CHECKED_OUT,
     ReservationStatus.CANCELLED,
     ReservationStatus.NO_SHOW,
@@ -92,6 +93,12 @@ final reservationsProvider = StreamProvider<List<ReservationSummary>>((ref) {
       });
 });
 
+/// Toutes les reservations, sans filtre : de quoi chiffrer chaque pilule de
+/// filtre avant qu'on appuie dessus.
+final _toutesReservationsProvider = StreamProvider<List<ReservationSummary>>(
+  (ref) => ref.watch(reservationRepositoryProvider).watchReservations(),
+);
+
 class ReservationsScreen extends ConsumerWidget {
   const ReservationsScreen({super.key});
 
@@ -99,78 +106,458 @@ class ReservationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final reservations = ref.watch(reservationsProvider);
     final filter = ref.watch(reservationFilterProvider);
-    final schema = Theme.of(context).colorScheme;
+    final toutes = ref.watch(_toutesReservationsProvider).value ?? const [];
+    final recherche = ref.watch(reservationSearchProvider).trim();
+
+    int compte(ReservationFilter f) => f.statuses == null
+        ? toutes.length
+        : toutes.where((r) => f.statuses!.contains(r.status)).length;
+
+    final jour = formatIsoDate(businessDayFor(DateTime.now()));
+    final arriventAujourdhui = toutes
+        .where(
+          (r) =>
+              r.arrival.startsWith(jour) &&
+              ReservationFilter.expected.statuses!.contains(r.status),
+        )
+        .length;
+    final enCours = compte(ReservationFilter.inHouse);
+
+    final etroit = MediaQuery.sizeOf(context).width < 600;
+    final marge = etroit ? 18.0 : 32.0;
+
+    final filtres = FilterPills<ReservationFilter>(
+      selected: filter,
+      onChanged: (f) => ref.read(reservationFilterProvider.notifier).select(f),
+      options: [
+        for (final f in ReservationFilter.values)
+          FilterOption(f, f.label, count: compte(f)),
+      ],
+    );
+    final champ = SearchPill(
+      hint: 'Nom, référence, chambre…',
+      onChanged: (v) => ref.read(reservationSearchProvider.notifier).update(v),
+    );
 
     return ModuleScaffold(
       title: 'Réservations',
-      action: FilledButton.icon(
+      subtitle:
+          '$enCours séjour${enCours > 1 ? 's' : ''} en cours  ·  '
+          '$arriventAujourdhui arrivée${arriventAujourdhui > 1 ? 's' : ''} '
+          "attendue${arriventAujourdhui > 1 ? 's' : ''} aujourd'hui",
+      action: PillButton(
+        label: 'Nouvelle réservation',
+        icon: PhosphorIconsLight.plus,
+        tone: PillTone.accent,
         onPressed: () => context.go('/reservations/nouvelle'),
-        icon: const Icon(Icons.add),
-        label: const Text('Nouvelle réservation'),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              onChanged: (v) =>
-                  ref.read(reservationSearchProvider.notifier).update(v),
-              decoration: const InputDecoration(
-                hintText: 'Rechercher un nom, une reference, une chambre…',
-                prefixIcon: Icon(Icons.search),
-              ),
-              style: const TextStyle(fontSize: 18),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                for (final f in ReservationFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ChoiceChip(
-                      label: Text(f.label),
-                      selected: filter == f,
-                      onSelected: (_) => ref
-                          .read(reservationFilterProvider.notifier)
-                          .select(f),
-                      labelStyle: const TextStyle(fontSize: 16),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                    ),
+            padding: EdgeInsets.fromLTRB(marge, 0, marge, 14),
+            child: etroit
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [champ, const SizedBox(height: 10), filtres],
+                  )
+                : Row(
+                    children: [
+                      Flexible(child: filtres),
+                      const SizedBox(width: 16),
+                      SizedBox(width: 300, child: champ),
+                    ],
                   ),
-              ],
-            ),
           ),
           Expanded(
             child: reservations.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Lecture impossible : $e')),
+              error: (e, _) => EmptyState(
+                icon: PhosphorIconsLight.warningCircle,
+                title: 'Lecture impossible',
+                message: '$e',
+              ),
               data: (list) => list.isEmpty
-                  ? Center(
-                      child: Text(
-                        ref.watch(reservationSearchProvider).trim().isEmpty
-                            ? 'Aucune reservation dans ce filtre.'
-                            : 'Aucune reservation ne correspond a cette '
-                                  'recherche.',
-                        style: TextStyle(fontSize: 18, color: schema.onSurfaceVariant),
-                      ),
+                  ? EmptyState(
+                      icon: recherche.isEmpty
+                          ? PhosphorIconsLight.calendarBlank
+                          : PhosphorIconsLight.magnifyingGlass,
+                      title: recherche.isEmpty
+                          ? 'Rien dans ce filtre'
+                          : 'Aucun résultat',
+                      message: recherche.isEmpty
+                          ? 'Aucune réservation « ${filter.label.toLowerCase()} » '
+                                'pour le moment.'
+                          : 'Aucune réservation ne correspond à « $recherche ».',
+                      action: recherche.isEmpty
+                          ? PillButton(
+                              label: 'Nouvelle réservation',
+                              icon: PhosphorIconsLight.plus,
+                              tone: PillTone.quiet,
+                              onPressed: () =>
+                                  context.go('/reservations/nouvelle'),
+                            )
+                          : null,
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _ReservationCard(reservation: list[i]),
-                    ),
+                  : _Registre(reservations: list, jour: jour, marge: marge),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Les reservations, rangees par jour d'arrivee : c'est ainsi qu'une
+/// reception lit son planning.
+class _Registre extends StatelessWidget {
+  const _Registre({
+    required this.reservations,
+    required this.jour,
+    required this.marge,
+  });
+
+  final List<ReservationSummary> reservations;
+  final String jour;
+  final double marge;
+
+  @override
+  Widget build(BuildContext context) {
+    // Grouper en gardant l'ordre de la requete.
+    final groupes = <String, List<ReservationSummary>>{};
+    for (final r in reservations) {
+      groupes.putIfAbsent(r.arrival.substring(0, 10), () => []).add(r);
+    }
+    // Aujourd'hui d'abord, puis les jours a venir dans l'ordre, puis le
+    // passe du plus recent au plus ancien : l'ordre dans lequel une
+    // reception s'en occupe.
+    final cles = groupes.keys.toList()
+      ..sort((a, b) {
+        final ra = a.compareTo(jour), rb = b.compareTo(jour);
+        final ca = ra == 0 ? 0 : (ra > 0 ? 1 : 2);
+        final cb = rb == 0 ? 0 : (rb > 0 ? 1 : 2);
+        if (ca != cb) return ca - cb;
+        return ca == 2 ? b.compareTo(a) : a.compareTo(b);
+      });
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final large = c.maxWidth >= 820;
+        return ListView.builder(
+          padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+          itemCount: cles.length,
+          itemBuilder: (context, i) {
+            final cle = cles[i];
+            final lignes = groupes[cle]!;
+            return FadeUp(
+              index: i.clamp(0, 6),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 10),
+                      child: Eyebrow(
+                        _libelleJour(cle, jour),
+                        trailing: Text(
+                          '${lignes.length}',
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: AtriumColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Bezel(
+                      radius: 26,
+                      padding: const EdgeInsets.all(6),
+                      child: Column(
+                        children: [
+                          for (var k = 0; k < lignes.length; k++) ...[
+                            if (k > 0)
+                              Divider(
+                                height: 1,
+                                indent: 18,
+                                endIndent: 18,
+                                color: AtriumColors.border,
+                              ),
+                            large
+                                ? _LigneLarge(reservation: lignes[k])
+                                : _LigneEtroite(reservation: lignes[k]),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+String _libelleJour(String iso, String aujourdhui) {
+  final d = parseIsoDate(iso);
+  final a = parseIsoDate(aujourdhui);
+  if (d == null || a == null) return iso;
+  final ecart = d.difference(a).inDays;
+  final date = '${formatWeekdayShort(d)} ${formatDayMonth(d)}';
+  return switch (ecart) {
+    0 => "Arrivée aujourd'hui · $date",
+    1 => 'Arrivée demain · $date',
+    -1 => 'Arrivée hier · $date',
+    _ => 'Arrivée $date',
+  };
+}
+
+int _nuits(ReservationSummary r) {
+  final a = parseIsoDate(r.arrival);
+  final d = parseIsoDate(r.departure);
+  return (a != null && d != null) ? d.difference(a).inDays : 0;
+}
+
+String _sejour(ReservationSummary r) {
+  final a = parseIsoDate(r.arrival);
+  final d = parseIsoDate(r.departure);
+  return '${a == null ? r.arrival : formatDayMonth(a)}  →  '
+      '${d == null ? r.departure : formatDayMonth(d)}';
+}
+
+/// Tablette et PC : une ligne de registre, lue de gauche a droite comme la
+/// fiche d'un client au comptoir.
+class _LigneLarge extends ConsumerWidget {
+  const _LigneLarge({required this.reservation});
+
+  final ReservationSummary reservation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = reservation;
+    final look = statusAppearance(r.status, Theme.of(context).colorScheme);
+    final nuits = _nuits(r);
+    return HoverRow(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Monogram(r.guestName, size: 44),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 30,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.guestName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _styleNom,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  r.reference,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _styleDiscret,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 30,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_sejour(r), style: _styleDates),
+                const SizedBox(height: 6),
+                _Nuits(nuits: nuits, couleur: look.color),
+              ],
+            ),
+          ),
+          Expanded(flex: 22, child: _Chambre(reservation: r)),
+          SizedBox(
+            width: 124,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _Statut(label: look.label, couleur: look.color),
+            ),
+          ),
+          SizedBox(
+            width: 150,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _Action(reservation: r),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Telephone : l'identite en haut, le sejour, puis l'etape suivante sur
+/// toute la largeur, sous le pouce.
+class _LigneEtroite extends ConsumerWidget {
+  const _LigneEtroite({required this.reservation});
+
+  final ReservationSummary reservation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = reservation;
+    final look = statusAppearance(r.status, Theme.of(context).colorScheme);
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Monogram(r.guestName, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.guestName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _styleNom,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(r.reference, style: _styleDiscret),
+                  ],
+                ),
+              ),
+              _Statut(label: look.label, couleur: look.color),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_sejour(r), style: _styleDates),
+                    const SizedBox(height: 6),
+                    _Nuits(nuits: _nuits(r), couleur: look.color),
+                  ],
+                ),
+              ),
+              _Chambre(reservation: r, aDroite: true),
+            ],
+          ),
+          if (_aUneAction(r)) ...[
+            const SizedBox(height: 12),
+            _Action(reservation: r, expand: true),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+TextStyle get _styleNom => TextStyle(
+  fontFamily: atriumFontFamily,
+  fontSize: 16.5,
+  fontWeight: FontWeight.w700,
+  letterSpacing: -0.2,
+  color: AtriumColors.textPrimary,
+);
+
+TextStyle get _styleDiscret => TextStyle(
+  fontFamily: atriumFontFamily,
+  fontSize: 13,
+  fontWeight: FontWeight.w500,
+  color: AtriumColors.textSecondary,
+  fontFeatures: tabularFigures,
+);
+
+TextStyle get _styleDates => TextStyle(
+  fontFamily: atriumFontFamily,
+  fontSize: 14.5,
+  fontWeight: FontWeight.w600,
+  color: AtriumColors.textPrimary,
+  fontFeatures: tabularFigures,
+);
+
+/// Les nuits du sejour, une pastille par nuit : la duree se voit d'un coup
+/// d'oeil, sans lire.
+class _Nuits extends StatelessWidget {
+  const _Nuits({required this.nuits, required this.couleur});
+
+  final int nuits;
+  final Color couleur;
+
+  @override
+  Widget build(BuildContext context) {
+    final affichees = nuits.clamp(0, 10);
+    return Row(
+      children: [
+        for (var i = 0; i < affichees; i++)
+          Container(
+            width: 14,
+            height: 6,
+            margin: const EdgeInsets.only(right: 3),
+            decoration: BoxDecoration(
+              color: couleur.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        const SizedBox(width: 5),
+        Text(
+          '$nuits nuit${nuits > 1 ? 's' : ''}',
+          style: _styleDiscret.copyWith(fontSize: 12.5),
+        ),
+      ],
+    );
+  }
+}
+
+class _Chambre extends StatelessWidget {
+  const _Chambre({required this.reservation, this.aDroite = false});
+
+  final ReservationSummary reservation;
+  final bool aDroite;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = reservation;
+    return Column(
+      crossAxisAlignment: aDroite
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        r.hasRoom
+            ? Text(
+                r.roomNumber!,
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
+                  height: 1.1,
+                  color: AtriumColors.textPrimary,
+                  fontFeatures: tabularFigures,
+                ),
+              )
+            : Tag('À attribuer', color: AtriumColors.warning),
+        const SizedBox(height: 3),
+        Text(
+          '${r.roomTypeLabel} · ${formatAmount(r.nightlyRate)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _styleDiscret.copyWith(fontSize: 12.5),
+        ),
+      ],
     );
   }
 }
@@ -207,88 +594,7 @@ class ReservationsScreen extends ConsumerWidget {
   ),
 };
 
-class _ReservationCard extends ConsumerWidget {
-  const _ReservationCard({required this.reservation});
-
-  final ReservationSummary reservation;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final schema = Theme.of(context).colorScheme;
-    final look = statusAppearance(reservation.status, schema);
-
-    final arrival = parseIsoDate(reservation.arrival);
-    final departure = parseIsoDate(reservation.departure);
-    final nights = (arrival != null && departure != null)
-        ? departure.difference(arrival).inDays
-        : 0;
-
-    final texte = Theme.of(context).textTheme;
-    final dates =
-        '${arrival == null ? reservation.arrival : formatShortDate(arrival)}'
-        '  →  '
-        '${departure == null ? reservation.departure : formatShortDate(departure)}'
-        // Espaces insecables : « 3 nuits » ne se coupe jamais en fin de ligne.
-        '${nights > 0 ? '  ·  $nights\u00a0nuit${nights > 1 ? 's' : ''}' : ''}';
-
-    final identite = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(reservation.guestName, style: texte.titleLarge),
-            _Statut(label: look.label, couleur: look.color),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          dates,
-          style: texte.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            fontFeatures: tabularFigures,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '${reservation.reference}  ·  ${reservation.roomTypeLabel}  ·  '
-          '${formatAmount(reservation.nightlyRate)} / nuit',
-          style: texte.bodySmall,
-        ),
-      ],
-    );
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: LayoutBuilder(
-          builder: (context, contraintes) => contraintes.maxWidth < 520
-              // Telephone : l'identite en haut, la chambre et l'etape
-              // suivante en bas, sur toute la largeur.
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    identite,
-                    const SizedBox(height: 14),
-                    _RoomAndAction(reservation: reservation, etroit: true),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(child: identite),
-                    const SizedBox(width: 16),
-                    _RoomAndAction(reservation: reservation, etroit: false),
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Le statut en toutes lettres, sur sa couleur d'etat.
+/// Le statut en toutes lettres, precede de sa pastille de couleur.
 class _Statut extends StatelessWidget {
   const _Statut({required this.label, required this.couleur});
 
@@ -298,105 +604,99 @@ class _Statut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: couleur.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: couleur.withValues(alpha: 0.5)),
+        color: couleur.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: atriumFontFamily,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: couleur, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AtriumColors.textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _RoomAndAction extends ConsumerWidget {
-  const _RoomAndAction({required this.reservation, required this.etroit});
+bool _aUneAction(ReservationSummary r) =>
+    r.canCheckIn ||
+    r.canCheckOut ||
+    (!r.hasRoom && ReservationFilter.expected.statuses!.contains(r.status));
+
+/// L'etape suivante du sejour, et une seule : attribuer, faire entrer ou
+/// faire sortir. Un sejour termine n'en propose aucune.
+class _Action extends ConsumerWidget {
+  const _Action({required this.reservation, this.expand = false});
 
   final ReservationSummary reservation;
-  final bool etroit;
+  final bool expand;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final schema = Theme.of(context).colorScheme;
-    final texte = Theme.of(context).textTheme;
-
-    Widget? bouton;
-    if (!reservation.hasRoom) {
+    final r = reservation;
+    if (!r.hasRoom) {
       // Une ligne sans chambre est le seul cas qui demande une action
       // immediate de la reception : tant qu'elle n'est pas attribuee, le
       // client ne peut pas arriver.
-      bouton = FilledButton.icon(
-        onPressed: () => showAssignRoomDialog(context, reservation),
-        icon: const Icon(Icons.meeting_room_outlined),
-        label: const Text('Attribuer'),
+      if (!ReservationFilter.expected.statuses!.contains(r.status)) {
+        return const SizedBox.shrink();
+      }
+      return PillButton(
+        label: 'Attribuer',
+        icon: PhosphorIconsLight.door,
+        tone: PillTone.quiet,
+        compact: true,
+        expand: expand,
+        onPressed: () => showAssignRoomDialog(context, r),
       );
-    } else if (reservation.canCheckIn) {
-      // Un seul bouton a la fois : l'etape suivante du sejour, jamais les
-      // deux. Un sejour termine n'en propose aucun.
-      bouton = FilledButton.icon(
+    }
+    if (r.canCheckIn) {
+      return PillButton(
+        label: 'Check-in',
+        icon: PhosphorIconsLight.signIn,
+        tone: PillTone.accent,
+        compact: true,
+        expand: expand,
         onPressed: () => confirmCheckIn(
           context,
           ref,
-          lineId: reservation.lineId,
-          guestName: reservation.guestName,
-          roomNumber: reservation.roomNumber!,
+          lineId: r.lineId,
+          guestName: r.guestName,
+          roomNumber: r.roomNumber!,
         ),
-        icon: const Icon(Icons.login_rounded),
-        label: const Text('Check-in'),
       );
-    } else if (reservation.canCheckOut) {
-      bouton = OutlinedButton.icon(
+    }
+    if (r.canCheckOut) {
+      return PillButton(
+        label: 'Check-out',
+        icon: PhosphorIconsLight.signOut,
+        tone: PillTone.quiet,
+        compact: true,
+        expand: expand,
         onPressed: () => confirmCheckOut(
           context,
           ref,
-          lineId: reservation.lineId,
-          guestName: reservation.guestName,
-          roomNumber: reservation.roomNumber!,
+          lineId: r.lineId,
+          guestName: r.guestName,
+          roomNumber: r.roomNumber!,
         ),
-        icon: const Icon(Icons.logout_rounded),
-        label: const Text('Check-out'),
       );
     }
-
-    final chambre = reservation.hasRoom
-        ? Column(
-            crossAxisAlignment: etroit
-                ? CrossAxisAlignment.start
-                : CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Chambre', style: texte.labelSmall),
-              Text(
-                reservation.roomNumber!,
-                style: texte.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-            ],
-          )
-        : Text(
-            'Sans chambre',
-            style: texte.titleSmall?.copyWith(color: schema.error),
-          );
-
-    return Row(
-      mainAxisSize: etroit ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        chambre,
-        if (bouton != null) ...[
-          const SizedBox(width: 16),
-          if (etroit) Expanded(child: bouton) else bouton,
-        ],
-      ],
-    );
+    return const SizedBox.shrink();
   }
 }

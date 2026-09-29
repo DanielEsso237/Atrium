@@ -16,8 +16,11 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../core/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 
 import '../../data/local/database.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -98,12 +101,15 @@ class _GuestPickerState extends ConsumerState<GuestPicker> {
           onChanged: (v) => setState(() => _query = v),
           decoration: InputDecoration(
             labelText: 'Client',
-            hintText: 'Taper un nom, un prenom ou un telephone…',
-            prefixIcon: const Icon(Icons.search),
+            hintText: 'Un nom, un prénom ou un téléphone…',
+            prefixIcon: const Icon(
+              PhosphorIconsLight.magnifyingGlass,
+              size: 22,
+            ),
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(PhosphorIconsLight.x, size: 20),
                     onPressed: () => setState(() {
                       _query = '';
                       _search.clear();
@@ -123,8 +129,8 @@ class _GuestPickerState extends ConsumerState<GuestPicker> {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(
-              'Un habitue ? Tapez son nom. Un nouveau ? Tapez-le aussi, '
-              'vous pourrez creer sa fiche sans quitter cet ecran.',
+              'Un habitué ? Tapez son nom. Un nouveau ? Tapez-le aussi, '
+              'vous créerez sa fiche sans quitter cet écran.',
               style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
             ),
           ),
@@ -146,7 +152,6 @@ class _Results extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final schema = Theme.of(context).colorScheme;
     final results = ref.watch(guestSearchResultsProvider(query));
 
     return results.when(
@@ -157,27 +162,63 @@ class _Results extends ConsumerWidget {
         children: [
           if (guests.isNotEmpty)
             Container(
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: const BoxConstraints(maxHeight: 260),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                border: Border.all(color: schema.outlineVariant),
-                borderRadius: BorderRadius.circular(12),
-                color: AtriumColors.white,
+                border: Border.all(color: AtriumColors.border),
+                borderRadius: BorderRadius.circular(20),
+                color: AtriumColors.surface,
               ),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: guests.length,
                 itemBuilder: (_, i) {
                   final g = guests[i];
-                  return ListTile(
-                    title: Text(
-                      '${g.lastName.toUpperCase()} ${g.firstName}',
-                      style: const TextStyle(fontSize: 17),
-                    ),
-                    subtitle: Text(
-                      [g.code, if (g.phone != null) g.phone!].join(' · '),
-                      style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
-                    ),
+                  return HoverRow(
                     onTap: () => onChoose(g),
+                    radius: 14,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Monogram('${g.firstName} ${g.lastName}', size: 38),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${g.lastName.toUpperCase()} ${g.firstName}',
+                                style: TextStyle(
+                                  fontFamily: atriumFontFamily,
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AtriumColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                [
+                                  g.code,
+                                  if (g.phone != null) g.phone!,
+                                ].join(' · '),
+                                style: TextStyle(
+                                  fontFamily: atriumFontFamily,
+                                  fontSize: 13,
+                                  color: AtriumColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          PhosphorIconsLight.arrowRight,
+                          size: 18,
+                          color: AtriumColors.textSecondary,
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -188,11 +229,11 @@ class _Results extends ConsumerWidget {
           // au bout du fil, pas l'application.
           OutlinedButton.icon(
             onPressed: onCreate,
-            icon: const Icon(Icons.person_add_alt),
+            icon: const Icon(PhosphorIconsLight.userPlus, size: 20),
             label: Text(
               guests.isEmpty
-                  ? 'Aucun resultat — creer « $query »'
-                  : 'Ce n\'est aucun de ceux-la — creer « $query »',
+                  ? 'Aucun résultat : créer « $query »'
+                  : 'Aucun de ceux-là : créer « $query »',
             ),
           ),
         ],
@@ -215,50 +256,53 @@ class _SelectedGuest extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        color: schema.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: schema.primary.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: schema.primaryContainer,
-            child: Icon(Icons.person, color: schema.onPrimaryContainer),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${guest.lastName.toUpperCase()} ${guest.firstName}',
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
+    final p = AtriumPalette.current;
+    return FadeUp(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: p.accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: p.accent.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            Monogram('${guest.firstName} ${guest.lastName}', size: 46),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${guest.lastName.toUpperCase()} ${guest.firstName}',
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: p.text,
+                    ),
                   ),
-                ),
-                Text(
-                  [
-                    guest.code,
-                    if (guest.phone != null) guest.phone!,
-                  ].join(' · '),
-                  style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
-                ),
-              ],
+                  Text(
+                    [
+                      guest.code,
+                      if (guest.phone != null) guest.phone!,
+                    ].join(' · '),
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 13.5,
+                      color: p.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          TextButton.icon(
-            onPressed: onClear,
-            icon: const Icon(Icons.swap_horiz),
-            label: const Text('Changer'),
-          ),
-        ],
+            TextButton.icon(
+              onPressed: onClear,
+              icon: const Icon(PhosphorIconsLight.arrowsLeftRight, size: 18),
+              label: const Text('Changer'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -340,7 +384,7 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
                     child: TextFormField(
                       controller: _firstName,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Prenom'),
+                      decoration: const InputDecoration(labelText: 'Prénom'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -361,14 +405,14 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
                 controller: _phone,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                  labelText: 'Telephone',
-                  helperText: 'Facultatif, mais precieux pour rappeler',
+                  labelText: 'Téléphone',
+                  helperText: 'Facultatif, mais précieux pour rappeler',
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                'Piece d\'identite, nationalite et adresse se saisissent '
-                'a l\'arrivee, depuis le module Clients.',
+                "Pièce d'identité, nationalité et adresse se saisissent "
+                "à l'arrivée, depuis le module Clients.",
                 style: TextStyle(fontSize: 14, color: schema.onSurfaceVariant),
               ),
             ],
@@ -382,7 +426,7 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: const Text('Creer et choisir'),
+          child: const Text('Créer et choisir'),
         ),
       ],
     );

@@ -84,7 +84,7 @@ ThemeData atriumTheme(AtriumPalette p) {
   );
 
   final texte = p.text;
-  final radius12 = BorderRadius.circular(AtriumRadii.md);
+  final radius12 = BorderRadius.circular(16);
 
   TextStyle ts(double size, FontWeight w, {Color? color, double? height}) =>
       TextStyle(
@@ -114,15 +114,21 @@ ThemeData atriumTheme(AtriumPalette p) {
     // dense (noms, numeros de chambre, montants). Les titres tiennent par le
     // poids et un interlettrage serre, pas par la taille.
     textTheme: TextTheme(
-      displaySmall: ts(36, FontWeight.w700, height: 1.1).copyWith(
-        letterSpacing: -0.8,
-      ),
-      headlineMedium: ts(28, FontWeight.w700, height: 1.15).copyWith(
-        letterSpacing: -0.6,
-      ),
-      headlineSmall: ts(22, FontWeight.w700, height: 1.2).copyWith(
-        letterSpacing: -0.3,
-      ),
+      displaySmall: ts(
+        36,
+        FontWeight.w700,
+        height: 1.1,
+      ).copyWith(letterSpacing: -0.8),
+      headlineMedium: ts(
+        28,
+        FontWeight.w700,
+        height: 1.15,
+      ).copyWith(letterSpacing: -0.6),
+      headlineSmall: ts(
+        22,
+        FontWeight.w700,
+        height: 1.2,
+      ).copyWith(letterSpacing: -0.3),
       titleLarge: ts(20, FontWeight.w700).copyWith(letterSpacing: -0.2),
       titleMedium: ts(17, FontWeight.w600),
       titleSmall: ts(15, FontWeight.w600),
@@ -156,9 +162,7 @@ ThemeData atriumTheme(AtriumPalette p) {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: AtriumSpacing.xl),
         ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius12),
-        ),
+        shape: const WidgetStatePropertyAll(StadiumBorder()),
         textStyle: WidgetStatePropertyAll(ts(17, FontWeight.w700)),
         elevation: const WidgetStatePropertyAll(0),
         backgroundColor: WidgetStateProperty.resolveWith((etats) {
@@ -167,9 +171,8 @@ ThemeData atriumTheme(AtriumPalette p) {
           return p.primary;
         }),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (etats) => etats.contains(WidgetState.disabled)
-              ? p.textDisabled
-              : onPrimary,
+          (etats) =>
+              etats.contains(WidgetState.disabled) ? p.textDisabled : onPrimary,
         ),
         overlayColor: WidgetStateProperty.resolveWith(
           (etats) =>
@@ -189,14 +192,13 @@ ThemeData atriumTheme(AtriumPalette p) {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: AtriumSpacing.xl),
         ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius12),
-        ),
+        shape: const WidgetStatePropertyAll(StadiumBorder()),
         textStyle: WidgetStatePropertyAll(ts(17, FontWeight.w600)),
         foregroundColor: WidgetStatePropertyAll(p.text),
         side: WidgetStateProperty.resolveWith(
           (etats) => BorderSide(
-            color: etats.contains(WidgetState.focused) ||
+            color:
+                etats.contains(WidgetState.focused) ||
                     etats.contains(WidgetState.hovered)
                 ? p.accent
                 : p.border,
@@ -209,14 +211,14 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size(cibleTactile, cibleTactile)),
+        minimumSize: const WidgetStatePropertyAll(
+          Size(cibleTactile, cibleTactile),
+        ),
         textStyle: WidgetStatePropertyAll(ts(16, FontWeight.w700)),
         foregroundColor: WidgetStatePropertyAll(
           p.isDark ? p.accent : p.primary,
         ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius12),
-        ),
+        shape: const WidgetStatePropertyAll(StadiumBorder()),
         overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.12)),
       ),
     ),
@@ -235,7 +237,11 @@ ThemeData atriumTheme(AtriumPalette p) {
       fillColor: p.paper,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       labelStyle: ts(16, FontWeight.w500, color: p.textSecondary),
-      floatingLabelStyle: ts(15, FontWeight.w700, color: p.isDark ? p.accent : p.primary),
+      floatingLabelStyle: ts(
+        15,
+        FontWeight.w700,
+        color: p.isDark ? p.accent : p.primary,
+      ),
       hintStyle: ts(16, FontWeight.w400, color: p.placeholder),
       prefixIconColor: p.textSecondary,
       suffixIconColor: p.textSecondary,
@@ -301,9 +307,7 @@ ThemeData atriumTheme(AtriumPalette p) {
         minimumSize: const WidgetStatePropertyAll(Size(0, cibleTactile)),
         textStyle: WidgetStatePropertyAll(ts(15, FontWeight.w700)),
         backgroundColor: WidgetStateProperty.resolveWith(
-          (etats) => etats.contains(WidgetState.selected)
-              ? p.primary
-              : p.paper,
+          (etats) => etats.contains(WidgetState.selected) ? p.primary : p.paper,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (etats) => etats.contains(WidgetState.selected) ? onPrimary : p.text,
@@ -327,14 +331,20 @@ ThemeData atriumTheme(AtriumPalette p) {
       height: 72,
       iconTheme: WidgetStateProperty.resolveWith(
         (etats) => IconThemeData(
-          color: etats.contains(WidgetState.selected) ? p.accent : p.onNightSoft,
+          color: etats.contains(WidgetState.selected)
+              ? p.accent
+              : p.onNightSoft,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (etats) => ts(
           12,
-          etats.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-          color: etats.contains(WidgetState.selected) ? p.onNight : p.onNightSoft,
+          etats.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+          color: etats.contains(WidgetState.selected)
+              ? p.onNight
+              : p.onNightSoft,
         ),
       ),
     ),
@@ -353,10 +363,17 @@ ThemeData atriumTheme(AtriumPalette p) {
     dialogTheme: DialogThemeData(
       backgroundColor: p.paper,
       surfaceTintColor: Colors.transparent,
-      elevation: 8,
-      shadowColor: p.shadow.withValues(alpha: 0.35),
+      elevation: 24,
+      shadowColor: p.shadow.withValues(alpha: p.isDark ? 0.6 : 0.18),
+      barrierColor: p.night.withValues(alpha: p.isDark ? 0.7 : 0.45),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AtriumRadii.xl),
+        borderRadius: BorderRadius.circular(30),
+        side: BorderSide(
+          color: p.isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : p.border.withValues(alpha: 0.6),
+        ),
       ),
       titleTextStyle: ts(22, FontWeight.w700).copyWith(letterSpacing: -0.3),
       contentTextStyle: ts(16, FontWeight.w400, height: 1.45),
@@ -393,7 +410,11 @@ ThemeData atriumTheme(AtriumPalette p) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.isDark ? p.onNight : p.night,
-      contentTextStyle: ts(16, FontWeight.w500, color: p.isDark ? p.night : p.onNight),
+      contentTextStyle: ts(
+        16,
+        FontWeight.w500,
+        color: p.isDark ? p.night : p.onNight,
+      ),
       actionTextColor: p.accent,
       shape: RoundedRectangleBorder(borderRadius: radius12),
     ),
@@ -409,9 +430,8 @@ ThemeData atriumTheme(AtriumPalette p) {
         (etats) => etats.contains(WidgetState.selected) ? p.night : p.paper,
       ),
       trackColor: WidgetStateProperty.resolveWith(
-        (etats) => etats.contains(WidgetState.selected)
-            ? p.accent
-            : p.surfaceMuted,
+        (etats) =>
+            etats.contains(WidgetState.selected) ? p.accent : p.surfaceMuted,
       ),
       trackOutlineColor: WidgetStatePropertyAll(p.border),
     ),
@@ -451,7 +471,9 @@ ThemeData atriumTheme(AtriumPalette p) {
     ),
 
     scrollbarTheme: ScrollbarThemeData(
-      thumbColor: WidgetStatePropertyAll(p.textSecondary.withValues(alpha: 0.35)),
+      thumbColor: WidgetStatePropertyAll(
+        p.textSecondary.withValues(alpha: 0.35),
+      ),
       radius: const Radius.circular(8),
       thickness: const WidgetStatePropertyAll(6),
     ),

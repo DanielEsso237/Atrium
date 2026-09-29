@@ -235,7 +235,9 @@ class AppShell extends ConsumerWidget {
       if (d.filtre != null) {
         ref.read(reservationFilterProvider.notifier).select(d.filtre!);
       } else if (d.route == '/reservations') {
-        ref.read(reservationFilterProvider.notifier).select(ReservationFilter.all);
+        ref
+            .read(reservationFilterProvider.notifier)
+            .select(ReservationFilter.all);
       }
       context.go(d.route!);
     }
@@ -511,7 +513,10 @@ class _LigneNavState extends State<_LigneNav> {
                 )
               else if (widget.indicateur != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AtriumColors.mintStrong.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(7),
@@ -851,7 +856,10 @@ class _Compte extends StatelessWidget {
         children: [
           synchro,
           const SizedBox(height: 6),
-          MenuCompte(session: session, child: Avatar(session: session, taille: 40)),
+          MenuCompte(
+            session: session,
+            child: Avatar(session: session, taille: 40),
+          ),
         ],
       );
     }

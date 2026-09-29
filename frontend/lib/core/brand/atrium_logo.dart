@@ -114,7 +114,9 @@ class AtriumLockup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final encre = onNight ? AtriumColors.onNight : AtriumColors.textPrimary;
-    final doux = onNight ? AtriumColors.onPurpleSoft : AtriumColors.textSecondary;
+    final doux = onNight
+        ? AtriumColors.onPurpleSoft
+        : AtriumColors.textSecondary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
