@@ -51,6 +51,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'housekeeping_tasks' => db.housekeepingTasks,
     'invoices' => db.invoices,
     'cash_sessions' => db.cashSessions,
+    'maintenance_tickets' => db.maintenanceTickets,
     _ => null,
   };
 }
@@ -442,6 +443,9 @@ class OutboxSender {
           'counted_amount': p['counted_amount'],
         });
 
+      case 'maintenance_tickets':
+        return _maintenance(entree, p);
+
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses
         // propres lignes. Lui envoyer les notres les ferait diverger de ce
@@ -504,6 +508,36 @@ class OutboxSender {
     if (verbe == null) return null;
 
     return _Envoi('/housekeeping-tasks/${p['id']}/$verbe', const {});
+  }
+
+  /// Un ticket de maintenance : creation, puis un verbe par transition,
+  /// comme pour le menage. Toutes ces routes sont rejouables cote serveur.
+  _Envoi? _maintenance(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (entree.op == SyncOp.INSERT) {
+      return _Envoi(
+        '/maintenance-tickets',
+        _sansNuls({
+          'id': p['id'],
+          'room_id': p['room_id'],
+          'location': p['location'],
+          'title': p['title'],
+          'description': p['description'],
+          'priority': p['priority'],
+          'blocks_room': p['blocks_room'],
+        }),
+      );
+    }
+    final base = '/maintenance-tickets/${p['id']}';
+    return switch (p['status']) {
+      'ASSIGNED' when p['assigned_to'] != null => _Envoi('$base/assign', {
+        'user_id': p['assigned_to'],
+      }),
+      'RESOLVED' => _Envoi('$base/resolve', {
+        'resolution': p['resolution'] ?? 'Résolu',
+      }),
+      'CLOSED' => _Envoi('$base/close', const {}),
+      _ => null,
+    };
   }
 
   /// Arrivee, depart, ou attribution de chambre.

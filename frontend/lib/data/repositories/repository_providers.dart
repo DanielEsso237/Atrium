@@ -17,6 +17,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
 import 'invoice_repository.dart';
+import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
@@ -107,4 +108,12 @@ final outboxSenderProvider = Provider<OutboxSender>(
     db: ref.watch(databaseProvider),
     api: ref.watch(apiClientProvider),
   ),
+);
+
+final maintenanceRepositoryProvider = Provider<MaintenanceRepository>(
+  (ref) => MaintenanceRepository(ref.watch(databaseProvider)),
+);
+
+final ticketsProvider = StreamProvider<List<TicketSummary>>(
+  (ref) => ref.watch(maintenanceRepositoryProvider).watchTickets(),
 );

@@ -17,7 +17,9 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
+import '../auth/session.dart';
 import '../billing/charge_labels.dart';
+import '../maintenance/maintenance_screen.dart' show showReportIssueDialog;
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
@@ -163,14 +165,18 @@ class _Fiche extends ConsumerWidget {
 }
 
 /// L'en-tete : le numero en tres grand sur la nuit, l'etat en couleur.
-class _Entete extends StatelessWidget {
+class _Entete extends ConsumerWidget {
   const _Entete({required this.chambre, required this.vue});
 
   final RoomBoardEntry chambre;
   final ({String label, Color couleur}) vue;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final peutSignaler = ref
+        .watch(sessionProvider)
+        .acces
+        .peut('maintenance.manage');
     final p = AtriumPalette.current;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 14, 22),
@@ -227,6 +233,28 @@ class _Entete extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              // Signaler un probleme la ou on le decouvre : un client
+              // appelle, la reception a la fiche sous les yeux.
+              if (peutSignaler)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    tooltip: 'Signaler un problème',
+                    style: IconButton.styleFrom(
+                      backgroundColor: p.onHero.withValues(alpha: 0.1),
+                    ),
+                    icon: Icon(
+                      PhosphorIconsLight.wrench,
+                      color: p.onHero,
+                      size: 22,
+                    ),
+                    onPressed: () => showReportIssueDialog(
+                      context,
+                      roomId: chambre.roomId,
+                      roomNumber: chambre.number,
+                    ),
+                  ),
+                ),
               IconButton(
                 tooltip: 'Fermer',
                 style: IconButton.styleFrom(

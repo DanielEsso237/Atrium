@@ -5,11 +5,12 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
+from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import MaintenanceIntervention, MaintenanceTicket, Room, User
 from app.models.enums import TicketStatus
@@ -53,9 +54,15 @@ async def list_tickets(
     return list(result.scalars().all())
 
 
-@router.post("", response_model=MaintenanceTicketOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=MaintenanceTicketOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Ticket deja cree (meme id) : etat actuel"}},
+)
 async def create_ticket(
     payload: MaintenanceTicketIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("maintenance.manage")),
 ) -> MaintenanceTicket:
@@ -64,13 +71,25 @@ async def create_ticket(
     immediatement (`blocks_room` -> `rooms.is_out_of_order`), pas seulement
     au moment ou un technicien s'en occupe.
     """
+    # Le ticket nait sur la tablette, souvent hors ligne : il porte son id. Un
+    # renvoi rend l'etat actuel au lieu d'ouvrir un second ticket (et une
+    # seconde impression d'ordre de travail).
+    if payload.id is not None:
+        existing = await session.get(MaintenanceTicket, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id or existing.deleted_at is not None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Ticket introuvable.")
+            response.status_code = status.HTTP_200_OK
+            return existing
+
     ticket = MaintenanceTicket(
+        id=payload.id or uuid7(),
         hotel_id=user.hotel_id,
         number=await next_number(session, user.hotel_id, Scope.MAINTENANCE_TICKET),
         status=TicketStatus.OPEN,
         reported_by=user.id,
         reported_at=dt.datetime.now(dt.timezone.utc),
-        **payload.model_dump(),
+        **payload.model_dump(exclude={"id"}),
     )
     session.add(ticket)
 
@@ -117,6 +136,15 @@ async def assign_ticket(
     user: User = Depends(require_permission("maintenance.manage")),
 ) -> MaintenanceTicket:
     ticket = await _get_ticket(session, ticket_id, user)
+    # Renvoi de la tablette : deja pris en charge par la meme personne, on
+    # rend l'etat. Un 409 bloquerait la file d'envoi sur une action passee.
+    if ticket.assigned_to == payload.user_id and ticket.status in (
+        TicketStatus.ASSIGNED,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.RESOLVED,
+        TicketStatus.CLOSED,
+    ):
+        return ticket
     if ticket.status not in (TicketStatus.OPEN, TicketStatus.ASSIGNED):
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible d'assigner (statut actuel : {ticket.status})."
@@ -174,6 +202,9 @@ async def resolve_ticket(
     user: User = Depends(require_permission("maintenance.manage")),
 ) -> MaintenanceTicket:
     ticket = await _get_ticket(session, ticket_id, user)
+    # Deja resolu, voire deja clos : c'est un renvoi, pas un conflit.
+    if ticket.status in (TicketStatus.RESOLVED, TicketStatus.CLOSED):
+        return ticket
     if ticket.status not in (TicketStatus.ASSIGNED, TicketStatus.IN_PROGRESS):
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible de resoudre (statut actuel : {ticket.status})."
@@ -198,6 +229,8 @@ async def close_ticket(
     hors service parce que personne ne pense a lever le drapeau a la main.
     """
     ticket = await _get_ticket(session, ticket_id, user)
+    if ticket.status == TicketStatus.CLOSED:
+        return ticket
     if ticket.status != TicketStatus.RESOLVED:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Impossible de cloturer (statut actuel : {ticket.status})."

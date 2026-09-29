@@ -145,7 +145,7 @@ final destinations = <Destination>[
     'Maintenance',
     PhosphorIconsLight.wrench,
     PhosphorIconsFill.wrench,
-    null,
+    '/maintenance',
     'maintenance.read',
     Groupe.operations,
   ),

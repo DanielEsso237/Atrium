@@ -7,6 +7,8 @@ import 'package:flutter/widgets.dart';
 
 abstract final class PhosphorIconsLight {
   static const addressBook = IconData(0xe6f8, fontFamily: 'PhosphorLight');
+  static const archive = IconData(0xe00c, fontFamily: 'PhosphorLight');
+  static const arrowFatUp = IconData(0xe52e, fontFamily: 'PhosphorLight');
   static const arrowLeft = IconData(0xe058, fontFamily: 'PhosphorLight');
   static const arrowRight = IconData(0xe06c, fontFamily: 'PhosphorLight');
   static const arrowUpRight = IconData(0xe092, fontFamily: 'PhosphorLight');
@@ -48,7 +50,9 @@ abstract final class PhosphorIconsLight {
   static const flowerLotus = IconData(0xe6cc, fontFamily: 'PhosphorLight');
   static const forkKnife = IconData(0xe262, fontFamily: 'PhosphorLight');
   static const globe = IconData(0xe288, fontFamily: 'PhosphorLight');
+  static const handGrabbing = IconData(0xe57c, fontFamily: 'PhosphorLight');
   static const hash = IconData(0xe2a2, fontFamily: 'PhosphorLight');
+  static const hourglass = IconData(0xe2b2, fontFamily: 'PhosphorLight');
   static const identificationCard = IconData(
     0xe2c8,
     fontFamily: 'PhosphorLight',
@@ -56,6 +60,7 @@ abstract final class PhosphorIconsLight {
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
   static const lockSimpleOpen = IconData(0xe30a, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');
+  static const mapPin = IconData(0xe316, fontFamily: 'PhosphorLight');
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorLight');
   static const minusCircle = IconData(0xe32c, fontFamily: 'PhosphorLight');
   static const money = IconData(0xe588, fontFamily: 'PhosphorLight');
@@ -75,6 +80,7 @@ abstract final class PhosphorIconsLight {
   static const shoppingBagOpen = IconData(0xe418, fontFamily: 'PhosphorLight');
   static const signIn = IconData(0xe428, fontFamily: 'PhosphorLight');
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorLight');
+  static const siren = IconData(0xe9b8, fontFamily: 'PhosphorLight');
   static const sparkle = IconData(0xe6a2, fontFamily: 'PhosphorLight');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorLight');
   static const storefront = IconData(0xe470, fontFamily: 'PhosphorLight');
@@ -87,6 +93,7 @@ abstract final class PhosphorIconsLight {
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorLight');
   static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorLight');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorLight');
+  static const warningDiamond = IconData(0xe7fc, fontFamily: 'PhosphorLight');
   static const wine = IconData(0xe6b2, fontFamily: 'PhosphorLight');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorLight');
   static const x = IconData(0xe4f6, fontFamily: 'PhosphorLight');
