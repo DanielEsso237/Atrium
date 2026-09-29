@@ -213,6 +213,18 @@ dossier, même en groupe ou sur un check-in renvoyé.
 Un paiement a **un seul** rattachement : ardoise (`folio_id`), facture
 (`invoice_id`) ou réservation (`reservation_id`) — garanti en base.
 
+## Les points de vente d'un agent
+
+Un agent est rattaché à ses points de vente par `user_outlets`, comme à ses
+rôles. `UserOut.outlet_ids` les porte ; `POST /users` les fixe
+(`outlet_ids`, vide par défaut) et `PATCH /users/{id}` les remplace — champ
+absent : inchangés, `[]` : plus aucun. Un id d'un autre hôtel : 422.
+
+Un agent **sans aucun rattachement voit tous les points de vente** : c'est
+l'état de tout compte neuf, et l'aveugler d'office ferait d'un oubli de
+configuration une panne au service. Rattaché, `GET /outlets` ne renvoie que
+les siens, et `POST /orders` sur un autre point de vente répond 403.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

@@ -23,6 +23,7 @@ from app.models.core import (
     Role,
     RolePermission,
     User,
+    UserOutlet,
     UserRole,
 )
 from app.models.guests import Company, Guest, GuestDocument
@@ -87,6 +88,7 @@ __all__ = [
     "Role",
     "Permission",
     "RolePermission",
+    "UserOutlet",
     "UserRole",
     "Device",
     "RefreshToken",

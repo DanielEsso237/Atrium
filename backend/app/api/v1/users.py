@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_permission
 from app.core.security import hash_secret
 from app.db.session import get_session
-from app.models import Role, User, UserRole
+from app.models import Outlet, Role, User, UserOutlet, UserRole
 from app.schemas.auth import RoleOut
 from app.schemas.users import PasswordReset, UserIn, UserOut, UserUpdate
 
@@ -42,6 +42,36 @@ async def _set_roles(session: AsyncSession, user_id: uuid.UUID, roles: list[Role
     await session.execute(delete(UserRole).where(UserRole.user_id == user_id))
     for role in roles:
         session.add(UserRole(user_id=user_id, role_id=role.id))
+
+
+async def _set_outlets(
+    session: AsyncSession, user: User, target_id: uuid.UUID, outlet_ids: list[uuid.UUID]
+) -> None:
+    """Remplace entierement les points de vente d'un agent. Vide : tous.
+
+    Jamais d'id accepte sans controle : un point de vente d'un autre hotel
+    donnerait a l'agent une vue sur un etablissement qui n'est pas le sien.
+    """
+    wanted = set(outlet_ids)
+    if wanted:
+        known = set(
+            (
+                await session.execute(
+                    select(Outlet.id).where(
+                        Outlet.id.in_(wanted),
+                        Outlet.hotel_id == user.hotel_id,
+                        Outlet.deleted_at.is_(None),
+                    )
+                )
+            ).scalars()
+        )
+        if wanted - known:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Point(s) de vente inconnu(s)."
+            )
+    await session.execute(delete(UserOutlet).where(UserOutlet.user_id == target_id))
+    for outlet_id in wanted:
+        session.add(UserOutlet(user_id=target_id, outlet_id=outlet_id))
 
 
 @router.get(
@@ -96,8 +126,9 @@ async def create_user(
         ) from exc
 
     await _set_roles(session, new_user.id, roles)
+    await _set_outlets(session, user, new_user.id, payload.outlet_ids)
     await session.commit()
-    await session.refresh(new_user, attribute_names=["roles"])
+    await session.refresh(new_user, attribute_names=["roles", "outlets"])
     return new_user
 
 
@@ -131,8 +162,10 @@ async def update_user(
     target.phone = payload.phone
     target.is_active = payload.is_active
     await _set_roles(session, target.id, roles)
+    if payload.outlet_ids is not None:
+        await _set_outlets(session, user, target.id, payload.outlet_ids)
     await session.commit()
-    await session.refresh(target, attribute_names=["roles"])
+    await session.refresh(target, attribute_names=["roles", "outlets"])
     return target
 
 
@@ -152,5 +185,5 @@ async def reset_password(
     target.failed_login_count = 0
     target.locked_until = None
     await session.commit()
-    await session.refresh(target, attribute_names=["roles"])
+    await session.refresh(target, attribute_names=["roles", "outlets"])
     return target
