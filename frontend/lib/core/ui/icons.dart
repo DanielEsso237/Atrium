@@ -46,21 +46,21 @@ abstract final class PhosphorIconsLight {
   static const forkKnife = IconData(0xe262, fontFamily: 'PhosphorLight');
   static const globe = IconData(0xe288, fontFamily: 'PhosphorLight');
   static const hash = IconData(0xe2a2, fontFamily: 'PhosphorLight');
-  static const identificationCard = IconData(
-    0xe2c8,
-    fontFamily: 'PhosphorLight',
-  );
+  static const identificationCard = IconData(0xe2c8, fontFamily: 'PhosphorLight');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
   static const lockSimpleOpen = IconData(0xe30a, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorLight');
+  static const minusCircle = IconData(0xe32c, fontFamily: 'PhosphorLight');
   static const money = IconData(0xe588, fontFamily: 'PhosphorLight');
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorLight');
   static const numpad = IconData(0xe3c8, fontFamily: 'PhosphorLight');
   static const password = IconData(0xe752, fontFamily: 'PhosphorLight');
   static const percent = IconData(0xe3b6, fontFamily: 'PhosphorLight');
   static const phone = IconData(0xe3b8, fontFamily: 'PhosphorLight');
+  static const play = IconData(0xe3d0, fontFamily: 'PhosphorLight');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorLight');
+  static const plusCircle = IconData(0xe3d6, fontFamily: 'PhosphorLight');
   static const receipt = IconData(0xe3ec, fontFamily: 'PhosphorLight');
   static const scales = IconData(0xe750, fontFamily: 'PhosphorLight');
   static const sealCheck = IconData(0xe606, fontFamily: 'PhosphorLight');
@@ -69,6 +69,7 @@ abstract final class PhosphorIconsLight {
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorLight');
   static const sparkle = IconData(0xe6a2, fontFamily: 'PhosphorLight');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorLight');
+  static const storefront = IconData(0xe470, fontFamily: 'PhosphorLight');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorLight');
   static const tShirt = IconData(0xe670, fontFamily: 'PhosphorLight');
   static const tag = IconData(0xe478, fontFamily: 'PhosphorLight');

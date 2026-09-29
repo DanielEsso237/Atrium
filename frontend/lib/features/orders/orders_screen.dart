@@ -15,11 +15,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+
+/// Le point de vente choisi, et la chambre cherchee.
+class _PointChoisi extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void choisir(String id) => state = id;
+}
+
+final _pointChoisiProvider = NotifierProvider<_PointChoisi, String?>(
+  _PointChoisi.new,
+);
+
+class _RechercheChambre extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void maj(String v) => state = v;
+}
+
+final _rechercheProvider = NotifierProvider<_RechercheChambre, String>(
+  _RechercheChambre.new,
+);
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
@@ -30,42 +56,63 @@ class OrdersScreen extends ConsumerWidget {
 
     return points.when(
       loading: () => const ModuleScaffold(
-        title: 'Commandes',
+        title: 'Restaurant',
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => ModuleScaffold(
-        title: 'Commandes',
-        body: Center(child: Text('Erreur : $e')),
+        title: 'Restaurant',
+        body: EmptyState(
+          icon: PhosphorIconsLight.warningCircle,
+          title: 'Lecture impossible',
+          message: '$e',
+        ),
       ),
       data: (liste) {
         if (liste.isEmpty) return const _AucunPointDeVente();
+        final choisiId = ref.watch(_pointChoisiProvider);
+        final outlet = liste.firstWhere(
+          (o) => o.id == choisiId,
+          orElse: () => liste.first,
+        );
+        final etroit = MediaQuery.sizeOf(context).width < 600;
+        final marge = etroit ? 18.0 : 32.0;
+        final horaires = outlet.opensAt != null && outlet.closesAt != null
+            ? '  ·  ouvert de ${outlet.opensAt!.substring(0, 5)} '
+                  'à ${outlet.closesAt!.substring(0, 5)}'
+            : '';
 
-        return DefaultTabController(
-          length: liste.length,
-          child: ModuleScaffold(
-            title: 'Commandes',
-            body: Column(
-              children: [
-                Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: TabBar(
-                    isScrollable: liste.length > 3,
-                    labelStyle: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    tabs: [
-                      for (final o in liste) Tab(height: 56, text: o.label),
-                    ],
-                  ),
+        return ModuleScaffold(
+          title: 'Restaurant',
+          subtitle: outlet.allowsRoomCharge
+              ? '${outlet.label} porte sur la chambre$horaires'
+              : '${outlet.label} encaisse sur place$horaires',
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Un onglet par point de vente, engendre depuis la base.
+              Padding(
+                padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
+                child: etroit || !outlet.allowsRoomCharge
+                    ? _Points(liste: liste, actif: outlet.id)
+                    : Row(
+                        children: [
+                          Flexible(
+                            child: _Points(liste: liste, actif: outlet.id),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(width: 260, child: _ChampChambre()),
+                        ],
+                      ),
+              ),
+              if (etroit && outlet.allowsRoomCharge)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
+                  child: _ChampChambre(),
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [for (final o in liste) _Onglet(outlet: o)],
-                  ),
-                ),
-              ],
-            ),
+              Expanded(
+                child: _Onglet(outlet: outlet, marge: marge),
+              ),
+            ],
           ),
         );
       },
@@ -73,104 +120,109 @@ class OrdersScreen extends ConsumerWidget {
   }
 }
 
+class _Points extends ConsumerWidget {
+  const _Points({required this.liste, required this.actif});
+
+  final List<OutletRow> liste;
+  final String actif;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => FilterPills<String>(
+    selected: actif,
+    onChanged: (id) => ref.read(_pointChoisiProvider.notifier).choisir(id),
+    options: [for (final o in liste) FilterOption(o.id, o.label)],
+  );
+}
+
+class _ChampChambre extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SearchPill(
+    hint: 'Numéro de chambre, nom…',
+    onChanged: (v) => ref.read(_rechercheProvider.notifier).maj(v),
+  );
+}
+
 class _AucunPointDeVente extends StatelessWidget {
   const _AucunPointDeVente();
 
   @override
-  Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-    return ModuleScaffold(
-      title: 'Commandes',
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.storefront_outlined,
-                size: 72,
-                color: schema.onSurfaceVariant,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Aucun point de vente.',
-                style: TextStyle(fontSize: 20, color: schema.onSurfaceVariant),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Ils arrivent du serveur : appuyez sur la fleche de '
-                'synchronisation, ou demandez a l\'administration d\'en '
-                'creer un.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const ModuleScaffold(
+    title: 'Restaurant',
+    body: EmptyState(
+      icon: PhosphorIconsLight.storefront,
+      title: 'Aucun point de vente',
+      message:
+          "Ils arrivent du serveur : lancez une synchronisation, ou demandez "
+          "à l'administration d'en créer un.",
+    ),
+  );
 }
 
-/// Le contenu d'un onglet : la liste des chambres a qui porter.
+/// Les chambres a qui porter, en tuiles : le numero en grand, c'est ce que
+/// le client annonce au comptoir.
 class _Onglet extends ConsumerWidget {
-  const _Onglet({required this.outlet});
+  const _Onglet({required this.outlet, required this.marge});
 
   final OutletRow outlet;
+  final double marge;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final schema = Theme.of(context).colorScheme;
     final chambres = ref.watch(chargeableRoomsProvider);
+    final recherche = ref.watch(_rechercheProvider).trim().toLowerCase();
 
     if (!outlet.allowsRoomCharge) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.money_off, size: 64, color: schema.onSurfaceVariant),
-              const SizedBox(height: 16),
-              Text(
-                '${outlet.label} encaisse sur place.',
-                style: const TextStyle(fontSize: 19),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Ses ventes ne se portent pas sur l\'ardoise d\'un sejour.',
-                style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
+      return EmptyState(
+        icon: PhosphorIconsLight.money,
+        title: '${outlet.label} encaisse sur place',
+        message: "Ses ventes ne se portent pas sur l'ardoise d'un séjour.",
       );
     }
 
     return chambres.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => EmptyState(
+        icon: PhosphorIconsLight.warningCircle,
+        title: 'Lecture impossible',
+        message: '$e',
+      ),
       data: (liste) {
+        final visibles = recherche.isEmpty
+            ? liste
+            : liste
+                  .where(
+                    (c) =>
+                        c.roomNumber.toLowerCase().contains(recherche) ||
+                        c.guestName.toLowerCase().contains(recherche),
+                  )
+                  .toList();
         if (liste.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(48),
-              child: Text(
-                'Aucun client en chambre.\n'
-                'Une consommation ne peut se porter que sur un sejour en '
-                'cours.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, color: schema.onSurfaceVariant),
-              ),
-            ),
+          return const EmptyState(
+            icon: PhosphorIconsLight.bed,
+            title: 'Aucun client en chambre',
+            message: 'Une consommation ne se porte que sur un séjour en cours.',
           );
         }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: liste.length,
-          itemBuilder: (_, i) => _Chambre(outlet: outlet, chambre: liste[i]),
+        if (visibles.isEmpty) {
+          return EmptyState(
+            icon: PhosphorIconsLight.magnifyingGlass,
+            title: 'Aucune chambre ne correspond',
+            message: '« $recherche » ne correspond à aucun séjour en cours.',
+          );
+        }
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 250,
+            mainAxisExtent: 150,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+          itemCount: visibles.length,
+          itemBuilder: (_, i) => FadeUp(
+            index: i.clamp(0, 8),
+            child: _Chambre(outlet: outlet, chambre: visibles[i]),
+          ),
         );
       },
     );
@@ -185,52 +237,63 @@ class _Chambre extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final schema = Theme.of(context).colorScheme;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _saisir(context, ref),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
+    final p = AtriumPalette.current;
+    return Bezel(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      onTap: () => _saisir(context, ref),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Le numero d'abord et en grand : c'est ce que le client
-              // annonce au comptoir.
-              SizedBox(
-                width: 96,
-                child: Text(
-                  chambre.roomNumber,
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                  ),
+              Text(
+                chambre.roomNumber,
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.2,
+                  height: 1,
+                  color: p.text,
+                  fontFeatures: tabularFigures,
                 ),
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      chambre.guestName,
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Ardoise : ${formatAmount(chambre.balance)}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: schema.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              const Spacer(),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: p.accent,
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(PhosphorIconsLight.plus, size: 18, color: p.night),
               ),
-              Icon(Icons.add_circle_outline, size: 30, color: schema.primary),
             ],
           ),
-        ),
+          const Spacer(),
+          Text(
+            chambre.guestName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: p.text,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Ardoise ${formatAmount(chambre.balance)}',
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              color: p.textSecondary,
+              fontFeatures: tabularFigures,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -267,7 +330,7 @@ class _Chambre extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${formatAmount(prix * quantite)} porte a la chambre '
+          '${formatAmount(prix * quantite)} porté à la chambre '
           '${chambre.roomNumber}.',
         ),
       ),
@@ -303,10 +366,12 @@ class _SaisieState extends State<_Saisie> {
   @override
   Widget build(BuildContext context) {
     final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
 
     return AlertDialog(
+      icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
       title: Text(
-        '${widget.outlet.label} — chambre ${widget.chambre.roomNumber}',
+        '${widget.outlet.label} · chambre ${widget.chambre.roomNumber}',
       ),
       content: SizedBox(
         width: 480,
@@ -326,7 +391,7 @@ class _SaisieState extends State<_Saisie> {
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Consommation',
-                hintText: 'Ce qui apparaitra sur la facture',
+                hintText: 'Ce qui apparaîtra sur la facture',
               ),
             ),
             const SizedBox(height: 12),
@@ -339,7 +404,8 @@ class _SaisieState extends State<_Saisie> {
                     keyboardType: TextInputType.number,
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
-                      labelText: 'Prix unitaire (FCFA)',
+                      labelText: 'Prix unitaire',
+                      suffixText: 'FCFA',
                     ),
                   ),
                 ),
@@ -355,20 +421,31 @@ class _SaisieState extends State<_Saisie> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: schema.primaryContainer.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
+                color: p.isDark ? p.nightRaised : p.night,
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 children: [
                   Row(
                     children: [
-                      const Text('A porter', style: TextStyle(fontSize: 17)),
+                      Text(
+                        'À porter',
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 15,
+                          color: p.onNightSoft,
+                        ),
+                      ),
                       const Spacer(),
                       Text(
                         formatAmount(_total),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8,
+                          color: p.accent,
+                          fontFeatures: tabularFigures,
                         ),
                       ),
                     ],
@@ -379,18 +456,22 @@ class _SaisieState extends State<_Saisie> {
                   Row(
                     children: [
                       Text(
-                        'Ardoise apres',
+                        'Ardoise après',
                         style: TextStyle(
-                          fontSize: 15,
-                          color: schema.onSurfaceVariant,
+                          fontFamily: atriumFontFamily,
+                          fontSize: 14,
+                          color: p.onNightSoft,
                         ),
                       ),
                       const Spacer(),
                       Text(
                         formatAmount(widget.chambre.balance + _total),
                         style: TextStyle(
-                          fontSize: 16,
-                          color: schema.onSurfaceVariant,
+                          fontFamily: atriumFontFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: p.onNight,
+                          fontFeatures: tabularFigures,
                         ),
                       ),
                     ],
@@ -412,7 +493,7 @@ class _SaisieState extends State<_Saisie> {
               : () => Navigator.of(
                   context,
                 ).pop((_libelle.text, int.parse(_prix.text.trim()), _quantite)),
-          child: const Text('Porter a la chambre'),
+          child: const Text('Porter à la chambre'),
         ),
       ],
     );
@@ -440,7 +521,7 @@ class _Quantite extends StatelessWidget {
         children: [
           IconButton(
             iconSize: 26,
-            icon: const Icon(Icons.remove_circle_outline),
+            icon: const Icon(PhosphorIconsLight.minusCircle),
             onPressed: valeur > 1 ? () => onChange(valeur - 1) : null,
           ),
           SizedBox(
@@ -453,7 +534,7 @@ class _Quantite extends StatelessWidget {
           ),
           IconButton(
             iconSize: 26,
-            icon: const Icon(Icons.add_circle_outline),
+            icon: const Icon(PhosphorIconsLight.plusCircle),
             onPressed: () => onChange(valeur + 1),
           ),
         ],
