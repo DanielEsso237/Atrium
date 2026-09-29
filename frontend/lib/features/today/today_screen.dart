@@ -455,19 +455,26 @@ class _Chiffres extends ConsumerWidget {
         onTap: () => context.go('/factures'),
       ),
     ];
-    return LayoutBuilder(
-      builder: (context, c) {
-        const gap = 14.0;
-        final colonnes = c.maxWidth < 360 ? 1 : 2;
-        final largeur = (c.maxWidth - gap * (colonnes - 1)) / colonnes;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final carte in cartes) SizedBox(width: largeur, child: carte),
-          ],
-        );
-      },
+    // Deux rangees a colonnes egales, sans LayoutBuilder : le bloc voisin
+    // (l'occupation) s'aligne sur sa hauteur via IntrinsicHeight, qui ne sait
+    // pas mesurer un LayoutBuilder.
+    const gap = 14.0;
+    Widget rangee(Widget a, Widget b) => IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: a),
+          const SizedBox(width: gap),
+          Expanded(child: b),
+        ],
+      ),
+    );
+    return Column(
+      children: [
+        rangee(cartes[0], cartes[1]),
+        const SizedBox(height: gap),
+        rangee(cartes[2], cartes[3]),
+      ],
     );
   }
 }
