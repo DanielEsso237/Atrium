@@ -46,11 +46,24 @@ retombait à zéro en plein service pendant que le serveur, lui, rangeait les
 mêmes écritures sur la veille.
 
 **Une action qui en déclenche une autre exige les deux droits.** Le check-in
-porte la nuitée sur l'ardoise, le check-out ouvre une tâche de ménage : qui
-peut l'un doit pouvoir l'autre, sinon il produit des écritures que le serveur
-lui refuse et la file se bloque derrière. Le piège s'est produit deux fois.
-`backend/tests/test_droits_coherents.py` le verrouille — y ajouter chaque
-nouvelle implication.
+porte la nuitée sur l'ardoise, le check-out ouvre une tâche de ménage,
+encaisser suppose une caisse : qui peut l'un doit pouvoir l'autre, sinon il
+produit des écritures que le serveur lui refuse et la file se bloque derrière.
+**Le piège s'est produit trois fois** — `folio.write`, `housekeeping.manage`,
+`cash.session`. `backend/tests/test_droits_coherents.py` le verrouille : y
+ajouter chaque nouvelle implication avant de livrer.
+
+**Ce que le serveur refuse, la tablette doit le refuser avant.** Un refus qui
+arrive par la file d'envoi la **bloque**, avec tout ce qui attend derrière.
+Une règle métier ajoutée côté serveur sans son équivalent local transforme un
+cas normal en tablette paralysée. Voir `_verifierSeuil` dans
+`folio_repository.dart` : les règles y sont recopiées à la lettre, et deux
+jeux de tests vérifient qu'elles disent la même chose.
+
+**Toute colonne ajoutée à une table locale exige une migration.** Incrémenter
+`schemaVersion` **et** écrire le pas dans `onUpgrade` (`database.dart`).
+Oublier l'un des deux ne se voit pas en développement — une base neuve
+fonctionne — et casse les tablettes déjà déployées.
 
 **Le folio est le centre de la facturation.** Toute consommation y atterrit ; la
 facture n'est qu'un gel du folio. Les totaux se recalculent **en SQL** dans la
@@ -108,6 +121,11 @@ marchent en ligne comme hors ligne :
 | `ADMIN01` | tout | tableau de bord |
 | `RECEP01` | réception | tableau de bord |
 | `MENAGE01` | housekeeping | sa liste, sans retour possible |
+| `RESTAU01` | restauration | ses commandes, sans retour possible |
+
+Un métier à écran unique **n'a pas de flèche retour** : le routeur le renvoie
+à son écran, et le bouton de déconnexion apparaît à la place. Lui montrer une
+flèche, c'est promettre un ailleurs qui n'existe pas.
 
 ## Pièges rencontrés
 
@@ -144,31 +162,60 @@ marchent en ligne comme hors ligne :
 | `backend/README-setup.md` | mise en route pas à pas |
 
 L'équipe : Daniel (frontend et liaison), Oriol (backend), Yann (junior,
-backend). Neo est parti sur un autre projet.
+backend), Neo (frontend, refonte visuelle des écrans).
 
 ## Où en est le produit
 
-Fonctionne de bout en bout : connexion par PIN, plan des chambres, clients,
-réservations, arrivées et départs, facturation avec encaissement, ménage, et
+Fonctionne de bout en bout, testé à la main sur deux postes : connexion par
+PIN, plan des chambres, clients, réservations, arrivées et départs,
+facturation avec encaissement au départ, édition de facture, caisse avec
+écart de fin de service, ménage, commandes par point de vente, et
 **interfaces par métier** (§3.4) — chaque rôle ne voit que ses modules, et le
 routeur refuse les autres, pas seulement l'affichage.
 
-La **file d'envoi remonte toute seule**, dans l'ordre, sans doublon même en cas
-de renvoi, avec espacement des tentatives hors ligne. Un refus du serveur
-bloque la file au lieu de la sauter, et se voit.
+La **synchronisation marche dans les deux sens**. La file remonte toute
+seule, dans l'ordre, sans doublon même en cas de renvoi, avec espacement des
+tentatives hors ligne ; un refus du serveur bloque la file au lieu de la
+sauter, et se voit. La descente rapatrie référentiel, clients, réservations
+et ardoises ouvertes, sans jamais écraser une écriture en attente.
 
-Ce qui manque, par ordre d'importance :
+## Ce que la direction a décidé le 29 septembre
 
-- **La descente.** Seul le référentiel des chambres redescend du serveur. Ni
-  clients, ni réservations, ni ardoises : une tablette neuve est aveugle, et
-  une seconde tablette ne verrait pas le travail de la première.
-- Restaurant et maintenance : modules absents, boutons masqués par les droits.
+Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
+
+- **Photos de pièce d'identité : en v1.** La table `attachments` revient, avec
+  la capture et la remontée de binaire — la file ne transporte que du JSON.
+- **Impression des factures : en v1.** Petites imprimantes de tickets, au
+  départ du client. `printers` et `print_jobs` reviennent.
+- **Chaque agent est restreint à ses points de vente.** Le lien agent ↔ point
+  de vente n'existe pas encore dans le modèle.
+- **Caisse arrhes** : les arrhes sont détenues contre la réservation, puis
+  basculent dans la caisse à l'arrivée — ou à l'annulation, où elles restent
+  acquises. C'est un compte d'attente, pas un tiroir.
+- **Pas de contournement du seuil** : si le responsable n'est pas joignable,
+  on refuse. Le plafond d'un client est fixé par l'administrateur.
+- **Maintenance : hors v1.** Restaurant : carte et prix, pas de ticket cuisine.
+- **Stocks v1** : les produits de l'hôtel — bières, savons, serviettes.
+- Plusieurs tablettes sont prévues, sans nombre arrêté.
+
+## Ce qui manque
+
+- **L'écran d'administration** : points de vente, rôles, agents, règle des
+  arrhes, plafonds clients. Le plus gros morceau restant.
+- **Photos de CNI** et **impression des factures**, les deux briques rouvertes.
+- **La carte du restaurant** : aujourd'hui il faut retaper libellé et prix.
+- Les **arrhes d'une réservation annulée** restent accrochées à la réservation
+  pour toujours : jamais reconnues, aucun document émis.
+- Le détail des **encaissements ne redescend pas** (`FolioOut` ne les expose
+  pas) : sur un second poste, le solde est juste mais on ne sait pas qui a
+  payé quoi.
 - Attribuer une chambre sans enregistrer d'arrivée n'a pas d'endpoint
   (`ReservationRoomUpdate` n'a pas de `room_id`) ; l'attribution repart avec le
   check-in, ce qui suffit aujourd'hui.
 - `SyncOp.DELETE` n'est ni produit ni traité, et `SyncState.conflict` n'est
-  utilisé nulle part — il n'y a pas d'arbitrage de conflit, parce qu'avec une
-  seule tablette il ne peut pas y en avoir.
+  utilisé nulle part — pas d'arbitrage de conflit.
+- Aucun endpoint ne filtre sur une date de modification : chaque descente
+  relit sa fenêtre. Tenable pour dix-huit chambres, à revoir ensuite.
 - `passlib` cherche `bcrypt.__about__` qui n'existe plus : trace d'erreur
-  cosmétique à chaque démarrage. `passlib` n'a plus de version depuis 2020 et
-  ne sert qu'à deux fonctions.
+  cosmétique à chaque démarrage. Il n'a plus de version depuis 2020 et ne sert
+  qu'à deux fonctions.
