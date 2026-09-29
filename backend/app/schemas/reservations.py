@@ -125,6 +125,10 @@ class CheckInIn(BaseModel):
     key_card_code: str | None = None
 
 
+class ChangeRoomIn(BaseModel):
+    room_id: uuid.UUID = Field(description="La chambre ou le client s'installe desormais")
+
+
 class CancelIn(BaseModel):
     reason: str | None = None
 

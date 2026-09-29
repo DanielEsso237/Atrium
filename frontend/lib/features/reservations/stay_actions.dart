@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formats.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../billing/payment_dialog.dart';
+import 'change_room_dialog.dart';
 import '../auth/session.dart';
 
 /// Enregistre l'arrivee apres confirmation.
@@ -47,6 +48,54 @@ Future<bool> confirmCheckIn(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$guestName est arrive — chambre $roomNumber.')),
+    );
+  }
+  return true;
+}
+
+/// Installe un client deja arrive dans une autre chambre.
+///
+/// Renvoie `true` si le changement a eu lieu.
+Future<bool> confirmChangeRoom(
+  BuildContext context,
+  WidgetRef ref, {
+  required String lineId,
+  required String guestName,
+  required String roomNumber,
+}) async {
+  final nouvelle = await pickRoomForChange(
+    context,
+    lineId: lineId,
+    guestName: guestName,
+    currentRoomNumber: roomNumber,
+  );
+  if (nouvelle == null || !context.mounted) return false;
+
+  final ok = await _confirm(
+    context,
+    title: 'Changer de chambre',
+    message:
+        '$guestName quitte la chambre $roomNumber pour la ${nouvelle.number}.'
+        '\n\n'
+        'La $roomNumber redevient libre, sans passer par le menage : personne '
+        'n\'y a dormi. L\'ardoise suit le client.',
+    action: 'Changer de chambre',
+  );
+  if (!ok) return false;
+
+  await ref
+      .read(reservationRepositoryProvider)
+      .changeRoom(
+        lineId: lineId,
+        roomId: nouvelle.id,
+        by: ref.read(sessionProvider).agent?.id,
+      );
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$guestName est maintenant en chambre ${nouvelle.number}.'),
+      ),
     );
   }
   return true;
