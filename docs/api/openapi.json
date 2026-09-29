@@ -229,6 +229,19 @@
       },
       "CancelIn": {
         "properties": {
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id de l'ardoise d'indemnite ouverte par la tablette si des arrhes sont conservees ; absent = genere",
+            "title": "Folio Id"
+          },
           "reason": {
             "anyOf": [
               {
@@ -3309,6 +3322,25 @@
         ],
         "title": "PaymentMethod",
         "type": "string"
+      },
+      "PendingDepositsOut": {
+        "description": "Arrhes encaissees et encore rattachees a une reservation.\n\nNi sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des\nclients pas encore arrives.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "total"
+        ],
+        "title": "PendingDepositsOut",
+        "type": "object"
       },
       "PrepStationIn": {
         "properties": {
@@ -10020,6 +10052,33 @@
         ]
       }
     },
+    "/api/v1/reservations/deposits/pending": {
+      "get": {
+        "description": "Ce que l'hotel detient en arrhes pour des clients pas encore arrives.\n\nUn paiement rattache a une reservation n'est ni sur une ardoise ni\nreconnu : c'est exactement l'argent en attente. Declaree avant\n`/{reservation_id}`, sinon \"deposits\" serait lu comme un identifiant.",
+        "operationId": "pending_deposits_api_v1_reservations_deposits_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingDepositsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Pending Deposits",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
     "/api/v1/reservations/{reservation_id}": {
       "get": {
         "operationId": "get_reservation_api_v1_reservations__reservation_id__get",
@@ -10127,7 +10186,7 @@
     },
     "/api/v1/reservations/{reservation_id}/cancel": {
       "post": {
-        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste rattache a la reservation et dans la caisse\nqui l'a recu, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
+        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste dans la caisse qui l'a recu, aucun\nremboursement n'est emis. C'est leur raison d'etre -- une annulation\ntardive ne coute pas la chambre a l'hotel. Elles sont soldees sur une\nardoise d'indemnite (`_forfeit_deposit`).",
         "operationId": "cancel_reservation_api_v1_reservations__reservation_id__cancel_post",
         "parameters": [
           {
