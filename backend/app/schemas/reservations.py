@@ -125,6 +125,18 @@ class CheckInIn(BaseModel):
     key_card_code: str | None = None
 
 
+class CheckInOut(ReservationOut):
+    """Le dossier, plus l'ardoise **retenue** pour la ligne arrivee.
+
+    Elle peut differer de celle que la tablette proposait : si le sejour etait
+    deja arrive (autre tablette, renvoi), le serveur garde la sienne. La
+    tablette doit alors adopter celle-ci, faute de quoi tout ce qu'elle
+    porterait sur la sienne serait refuse en 404 et bloquerait sa file.
+    """
+
+    folio_id: uuid.UUID | None = None
+
+
 class ChangeRoomIn(BaseModel):
     room_id: uuid.UUID = Field(description="La chambre ou le client s'installe desormais")
 

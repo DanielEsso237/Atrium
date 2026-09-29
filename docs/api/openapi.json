@@ -505,6 +505,154 @@
         "title": "CheckInIn",
         "type": "object"
       },
+      "CheckInOut": {
+        "description": "Le dossier, plus l'ardoise **retenue** pour la ligne arrivee.\n\nElle peut differer de celle que la tablette proposait : si le sejour etait\ndeja arrive (autre tablette, renvoi), le serveur garde la sienne. La\ntablette doit alors adopter celle-ci, faute de quoi tout ce qu'elle\nporterait sur la sienne serait refuse en 404 et bloquerait sa file.",
+        "properties": {
+          "adults": {
+            "title": "Adults",
+            "type": "integer"
+          },
+          "arrival_date": {
+            "format": "date",
+            "title": "Arrival Date",
+            "type": "string"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "children": {
+            "title": "Children",
+            "type": "integer"
+          },
+          "departure_date": {
+            "format": "date",
+            "title": "Departure Date",
+            "type": "string"
+          },
+          "deposit_amount": {
+            "title": "Deposit Amount",
+            "type": "integer"
+          },
+          "deposit_paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deposit Paid At"
+          },
+          "estimated_total": {
+            "title": "Estimated Total",
+            "type": "integer"
+          },
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio Id"
+          },
+          "guest_id": {
+            "format": "uuid",
+            "title": "Guest Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationRoomOut"
+            },
+            "title": "Rooms",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReservationSource"
+          },
+          "special_requests": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Requests"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "guest_id",
+          "source",
+          "status",
+          "arrival_date",
+          "departure_date",
+          "adults",
+          "children",
+          "estimated_total",
+          "deposit_amount",
+          "deposit_paid_at",
+          "special_requests",
+          "internal_notes",
+          "cancelled_at",
+          "cancel_reason",
+          "rooms"
+        ],
+        "title": "CheckInOut",
+        "type": "object"
+      },
       "DashboardSummary": {
         "properties": {
           "active_reservations": {
@@ -10405,7 +10553,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReservationOut"
+                  "$ref": "#/components/schemas/CheckInOut"
                 }
               }
             },

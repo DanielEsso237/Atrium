@@ -27,6 +27,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../repositories/folio_repository.dart';
 import '../repositories/invoice_repository.dart';
 import 'api_client.dart';
 
@@ -204,7 +205,11 @@ class OutboxSender {
 
   /// Recopie ce que seule la reponse du serveur pouvait apprendre.
   ///
-  /// Aujourd'hui un seul cas : le **numero legal** d'une facture. La tablette
+  /// L'**ardoise retenue** a un check-in : si le sejour etait deja arrive sur
+  /// le serveur, il a garde la sienne et ignore celle de la tablette, qui
+  /// l'adopte (voir `FolioRepository.adoptServerFolio`).
+  ///
+  /// Le **numero legal** d'une facture : la tablette
   /// hors ligne pose un numero provisoire -- elle ne peut pas connaitre la
   /// suite legale, qui n'a qu'une seule autorite. Sans cette recopie, la
   /// facture garderait son numero provisoire jusqu'a une descente qui
@@ -214,6 +219,17 @@ class OutboxSender {
     OutboxEntryRow entree,
     Map<String, dynamic> reponse,
   ) async {
+    if (entree.entityTable == 'reservation_rooms') {
+      final p = jsonDecode(entree.payload) as Map<String, dynamic>;
+      final local = p['folio_id'] as String?;
+      final serveur = reponse['folio_id'] as String?;
+      if (p['status'] == 'CHECKED_IN' && local != null && serveur != null) {
+        await FolioRepository(
+          db,
+        ).adoptServerFolio(localId: local, serverId: serveur);
+      }
+      return;
+    }
     if (entree.entityTable != 'invoices') return;
     await InvoiceRepository(db).applyServerNumber(entree.entityId, reponse);
   }
