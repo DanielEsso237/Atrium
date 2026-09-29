@@ -7423,6 +7423,7 @@
         ]
       },
       "patch": {
+        "description": "Modifie **seulement les champs envoyes**.\n\nLa tablette n'envoie que ceux de son ecran. Ecrire le schema entier,\ncomme avant, remettait a vide tout le reste -- adresse, date de\nnaissance, notes -- a chaque modification. Un champ envoye a `null`,\nlui, s'efface : c'est ainsi qu'on retire un telephone.",
         "operationId": "update_guest_api_v1_guests__guest_id__patch",
         "parameters": [
           {

@@ -149,6 +149,22 @@ formes.
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
 
+## Modifier un client
+
+`PATCH /guests/{id}` ne touche **qu'aux champs présents** dans le corps. Un
+champ envoyé à `null` s'efface ; un champ absent reste tel quel. Avant, le
+schéma entier était écrit, et chaque modification remettait à vide
+l'adresse, la date de naissance et les notes. `credit_limit` à `null`
+n'efface pas le seuil.
+
+La tablette envoie les six champs de son écran, vides compris : nom,
+prénom, téléphone, courriel, nationalité, type et numéro de pièce. Ce sont
+ceux que la descente rapatrie.
+
+Les champs obligatoires à la création (téléphone, pièce) sont une règle de
+la **tablette** seulement : le serveur les laisse facultatifs, pour ne pas
+refuser les créations anciennes qui attendent encore dans une file.
+
 ## Changer de chambre en cours de séjour
 
 `POST /reservations/{id}/rooms/{ligne}/change-room`, corps `{"room_id": …}`,

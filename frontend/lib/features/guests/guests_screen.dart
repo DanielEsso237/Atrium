@@ -50,7 +50,7 @@ class GuestsScreen extends ConsumerWidget {
       action: FilledButton.icon(
         onPressed: () => showDialog<void>(
           context: context,
-          builder: (_) => const _NewGuestDialog(),
+          builder: (_) => const _GuestFormDialog(),
         ),
         icon: const Icon(Icons.person_add_alt),
         label: const Text('Nouveau client'),
@@ -196,6 +196,23 @@ class _GuestSheet extends ConsumerWidget {
                     ),
                   ),
                 ),
+                // La fiche se ferme avant d'ouvrir le formulaire : elle
+                // afficherait sinon l'ancienne version une fois corrigee.
+                OutlinedButton.icon(
+                  onPressed: () {
+                    // Le contexte de la fiche meurt avec elle : on ouvre le
+                    // formulaire depuis le navigateur, qui lui survit.
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    showDialog<void>(
+                      context: navigator.context,
+                      builder: (_) => _GuestFormDialog(existing: guest),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Modifier'),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   iconSize: 30,
                   icon: const Icon(Icons.close),
@@ -267,23 +284,43 @@ class _GuestSheet extends ConsumerWidget {
   }
 }
 
-class _NewGuestDialog extends ConsumerStatefulWidget {
-  const _NewGuestDialog();
+/// Creer une fiche, ou modifier celle qu'on lui passe.
+///
+/// Un seul formulaire pour les deux, mais pas les memes exigences : a la
+/// creation, les regles de `guest_rules.dart` ; a la modification, nom et
+/// prenom seulement. Un client ancien sans telephone ni piece doit pouvoir
+/// etre corrige tel quel -- l'obliger a tout remplir le rendrait intouchable
+/// le jour ou il n'a pas ses papiers.
+class _GuestFormDialog extends ConsumerStatefulWidget {
+  const _GuestFormDialog({this.existing});
+
+  final GuestRow? existing;
 
   @override
-  ConsumerState<_NewGuestDialog> createState() => _NewGuestDialogState();
+  ConsumerState<_GuestFormDialog> createState() => _GuestFormDialogState();
 }
 
-class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
+class _GuestFormDialogState extends ConsumerState<_GuestFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _firstName = TextEditingController();
-  final _lastName = TextEditingController();
-  final _phone = TextEditingController();
-  final _email = TextEditingController();
-  final _nationality = TextEditingController();
-  final _documentNumber = TextEditingController();
-  IdDocumentType? _documentType;
+  late final _firstName = TextEditingController(
+    text: widget.existing?.firstName,
+  );
+  late final _lastName = TextEditingController(text: widget.existing?.lastName);
+  late final _phone = TextEditingController(text: widget.existing?.phone);
+  late final _email = TextEditingController(text: widget.existing?.email);
+  late final _nationality = TextEditingController(
+    text: widget.existing?.nationality,
+  );
+  late final _documentNumber = TextEditingController(
+    text: widget.existing?.idDocumentNumber,
+  );
+  late IdDocumentType? _documentType = widget.existing?.idDocumentType;
   bool _busy = false;
+
+  bool get _creation => widget.existing == null;
+
+  /// Validateur des champs exiges a la creation seulement.
+  String? _requisACreation(String? v) => _creation ? requiredText(v) : null;
 
   @override
   void dispose() {
@@ -304,6 +341,9 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final existing = widget.existing;
+    if (existing != null) return _update(existing);
+
     // Filet sous les validateurs du formulaire : la regle vit dans
     // `guest_rules.dart`, et c'est elle qui decide.
     final manquants = missingForCreation(
@@ -338,10 +378,36 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
     );
   }
 
+  Future<void> _update(GuestRow existing) async {
+    setState(() => _busy = true);
+
+    final guest = await ref
+        .read(guestRepositoryProvider)
+        .update(
+          id: existing.id,
+          firstName: _firstName.text,
+          lastName: _lastName.text,
+          phone: _vide(_phone.text),
+          email: _vide(_email.text),
+          nationality: _vide(_nationality.text),
+          documentType: _documentType,
+          documentNumber: _vide(_documentNumber.text),
+          updatedBy: ref.read(sessionProvider).agent?.id,
+        );
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Fiche ${guest.code} modifiee — en attente de remontee.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Nouveau client'),
+      title: Text(_creation ? 'Nouveau client' : 'Modifier le client'),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -376,7 +442,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: 'Telephone'),
-                  validator: requiredText,
+                  validator: _requisACreation,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -406,7 +472,8 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                             DropdownMenuItem(value: t, child: Text(t.name)),
                         ],
                         onChanged: (v) => setState(() => _documentType = v),
-                        validator: (v) => v == null ? champRequis : null,
+                        validator: (v) =>
+                            _creation && v == null ? champRequis : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -414,7 +481,7 @@ class _NewGuestDialogState extends ConsumerState<_NewGuestDialog> {
                       child: TextFormField(
                         controller: _documentNumber,
                         decoration: const InputDecoration(labelText: 'Numero'),
-                        validator: requiredText,
+                        validator: _requisACreation,
                       ),
                     ),
                   ],
