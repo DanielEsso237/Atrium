@@ -309,7 +309,7 @@ class _PillButtonState extends State<PillButton> {
               curve: atriumSpring,
               height: hauteur,
               decoration: BoxDecoration(
-                color: actif ? fond : fond.withValues(alpha: 0.4),
+                color: actif ? fond : fond.withValues(alpha: fond.a * 0.45),
                 borderRadius: BorderRadius.circular(hauteur),
                 boxShadow: widget.tone == PillTone.quiet || !actif
                     ? null

@@ -11,9 +11,13 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../data/repositories/cash_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
@@ -33,15 +37,19 @@ class CashButton extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (vue) => vue == null
-          ? OutlinedButton.icon(
+          ? PillButton(
+              label: 'Ouvrir la caisse',
+              icon: PhosphorIconsLight.lockSimpleOpen,
+              tone: PillTone.accent,
               onPressed: () => _ouvrir(context, ref, agent),
-              icon: const Icon(Icons.lock_open_outlined),
-              label: const Text('Ouvrir la caisse'),
             )
-          : FilledButton.icon(
+          // L'attendu n'est pas affiche ici : il se revele apres le
+          // comptage, pas avant (voir l'en-tete du fichier).
+          : PillButton(
+              label: 'Fermer la caisse',
+              icon: PhosphorIconsLight.cashRegister,
+              tone: PillTone.quiet,
               onPressed: () => _fermer(context, ref, vue),
-              icon: const Icon(Icons.point_of_sale_outlined),
-              label: Text('Caisse · ${formatAmountShort(vue.expected)}'),
             ),
     );
   }
@@ -74,7 +82,7 @@ class CashButton extends ConsumerWidget {
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Caisse ouverte a ${formatAmount(montant)}.')),
+      SnackBar(content: Text('Caisse ouverte à ${formatAmount(montant)}.')),
     );
   }
 
@@ -88,7 +96,7 @@ class CashButton extends ConsumerWidget {
       titre: 'Fermer la caisse',
       question:
           'Comptez le tiroir et saisissez ce que vous trouvez. '
-          'L\'ecart s\'affichera ensuite.',
+          "L'écart s'affichera ensuite.",
       champ: 'Montant compte (FCFA)',
       action: 'Fermer',
     );
@@ -134,35 +142,42 @@ class _Resultat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
     final juste = ecart == 0;
+    final couleur = juste ? p.success : p.error;
 
     return AlertDialog(
-      title: const Text('Caisse fermee'),
+      icon: Icon(
+        juste ? PhosphorIconsLight.sealCheck : PhosphorIconsLight.scales,
+        size: 34,
+        color: couleur,
+      ),
+      title: const Text('Caisse fermée'),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _Ligne(label: 'Attendu', montant: attendu),
-            _Ligne(label: 'Compte', montant: compte),
-            const Divider(height: 24),
+            _Ligne(label: 'Compté', montant: compte),
+            const SizedBox(height: 14),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: juste ? schema.primaryContainer : schema.errorContainer,
-                borderRadius: BorderRadius.circular(12),
+                color: couleur.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: couleur.withValues(alpha: 0.4)),
               ),
               child: Column(
                 children: [
                   Text(
-                    juste ? 'Caisse juste' : 'Ecart',
+                    juste ? 'Caisse juste' : 'Écart',
                     style: TextStyle(
+                      fontFamily: atriumFontFamily,
                       fontSize: 15,
-                      color: juste
-                          ? schema.onPrimaryContainer
-                          : schema.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
                     ),
                   ),
                   if (!juste) ...[
@@ -170,17 +185,20 @@ class _Resultat extends StatelessWidget {
                     Text(
                       '${ecart > 0 ? '+' : ''}${formatAmount(ecart)}',
                       style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: schema.onErrorContainer,
+                        fontFamily: atriumFontFamily,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                        color: couleur,
+                        fontFeatures: tabularFigures,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       ecart > 0 ? 'de trop dans le tiroir' : 'manquants',
                       style: TextStyle(
+                        fontFamily: atriumFontFamily,
                         fontSize: 14,
-                        color: schema.onErrorContainer,
+                        color: p.textSecondary,
                       ),
                     ),
                   ],
@@ -193,7 +211,7 @@ class _Resultat extends StatelessWidget {
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Termine'),
+          child: const Text('Terminé'),
         ),
       ],
     );
@@ -211,11 +229,24 @@ class _Ligne extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 16)),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 15,
+            color: AtriumColors.textSecondary,
+          ),
+        ),
         const Spacer(),
         Text(
           formatAmount(montant),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: AtriumColors.textPrimary,
+            fontFeatures: tabularFigures,
+          ),
         ),
       ],
     ),
@@ -234,6 +265,7 @@ Future<int?> _demanderMontant(
   return showDialog<int>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      icon: const Icon(PhosphorIconsLight.cashRegister, size: 32),
       title: Text(titre),
       content: SizedBox(
         width: 420,
@@ -241,13 +273,26 @@ Future<int?> _demanderMontant(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(question, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
+            Text(question),
+            const SizedBox(height: 18),
             TextField(
               controller: controleur,
               autofocus: true,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: champ),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
+                color: AtriumColors.textPrimary,
+                fontFeatures: tabularFigures,
+              ),
+              decoration: InputDecoration(
+                labelText: champ,
+                prefixIcon: const Icon(PhosphorIconsLight.coins, size: 22),
+                suffixText: 'FCFA',
+              ),
             ),
           ],
         ),

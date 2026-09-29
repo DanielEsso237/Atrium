@@ -22,9 +22,11 @@ abstract final class PhosphorIconsLight {
   static const calendarDots = IconData(0xe7b4, fontFamily: 'PhosphorLight');
   static const calendarPlus = IconData(0xe714, fontFamily: 'PhosphorLight');
   static const caretRight = IconData(0xe13a, fontFamily: 'PhosphorLight');
+  static const cashRegister = IconData(0xed80, fontFamily: 'PhosphorLight');
   static const chartLineUp = IconData(0xe156, fontFamily: 'PhosphorLight');
   static const check = IconData(0xe182, fontFamily: 'PhosphorLight');
   static const checkCircle = IconData(0xe184, fontFamily: 'PhosphorLight');
+  static const checks = IconData(0xe53a, fontFamily: 'PhosphorLight');
   static const circle = IconData(0xe18a, fontFamily: 'PhosphorLight');
   static const cloudArrowUp = IconData(0xe1ae, fontFamily: 'PhosphorLight');
   static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorLight');
@@ -41,6 +43,7 @@ abstract final class PhosphorIconsLight {
   static const globe = IconData(0xe288, fontFamily: 'PhosphorLight');
   static const identificationCard = IconData(0xe2c8, fontFamily: 'PhosphorLight');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
+  static const lockSimpleOpen = IconData(0xe30a, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorLight');
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorLight');
@@ -50,6 +53,7 @@ abstract final class PhosphorIconsLight {
   static const phone = IconData(0xe3b8, fontFamily: 'PhosphorLight');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorLight');
   static const receipt = IconData(0xe3ec, fontFamily: 'PhosphorLight');
+  static const scales = IconData(0xe750, fontFamily: 'PhosphorLight');
   static const sealCheck = IconData(0xe606, fontFamily: 'PhosphorLight');
   static const signIn = IconData(0xe428, fontFamily: 'PhosphorLight');
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorLight');
