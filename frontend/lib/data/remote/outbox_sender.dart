@@ -489,9 +489,9 @@ class OutboxSender {
     return _Envoi('/housekeeping-tasks/${p['id']}/$verbe', const {});
   }
 
-  /// Arrivee, depart, ou attribution de chambre.
+  /// Arrivee, depart, changement ou attribution de chambre.
   ///
-  /// Les deux premieres ont un endpoint, qui veut l'identifiant du dossier en
+  /// Les trois premiers ont un endpoint, qui veut l'identifiant du dossier en
   /// plus de celui de la ligne -- la file ne garde que le second, on va
   /// chercher le premier dans la base.
   Future<_Envoi?> _ligneDeSejour(Map<String, dynamic> p) async {
@@ -509,6 +509,13 @@ class OutboxSender {
 
     final resId = ligne.read<String>('reservation_id');
     final chemin = '/reservations/$resId/rooms/$lineId';
+
+    // Le changement de chambre laisse le statut a CHECKED_IN : lu avant le
+    // statut, sinon il repartirait comme un second check-in, que le serveur
+    // refuse et qui bloquerait la file.
+    if (p['action'] == 'CHANGE_ROOM') {
+      return _Envoi('$chemin/change-room', {'room_id': p['room_id']});
+    }
 
     switch (p['status']) {
       case 'CHECKED_IN':

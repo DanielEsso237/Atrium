@@ -418,6 +418,21 @@
         "title": "CashSessionStatus",
         "type": "string"
       },
+      "ChangeRoomIn": {
+        "properties": {
+          "room_id": {
+            "description": "La chambre ou le client s'installe desormais",
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id"
+        ],
+        "title": "ChangeRoomIn",
+        "type": "object"
+      },
       "ChargeCategory": {
         "enum": [
           "ROOM",
@@ -10164,6 +10179,75 @@
           }
         ],
         "summary": "Cancel Reservation",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/change-room": {
+      "post": {
+        "description": "Un client deja arrive change de chambre sans refaire sa reservation.\n\nL'ancienne redevient vacante **sans** devenir sale, a l'inverse du\ndepart : le client n'y a pas dormi, la faire nettoyer serait une tache\npour rien. Le folio est rattache a la ligne et non a la chambre, il suit\ndonc le client sans qu'on y touche.\n\nNe sont refuses ici que les conflits physiques -- autre categorie, hors\nservice, deja occupee. Une chambre sale n'est pas refusee : la tablette ne\nla propose pas, mais son etat de menage peut etre en retard sur le notre,\net un refus bloquerait sa file d'envoi pour une question de proprete.",
+        "operationId": "change_room_api_v1_reservations__reservation_id__rooms__room_line_id__change_room_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "room_line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Change Room",
         "tags": [
           "reservations"
         ]

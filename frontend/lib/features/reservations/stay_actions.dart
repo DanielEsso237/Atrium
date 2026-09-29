@@ -71,8 +71,36 @@ Future<bool> confirmChangeRoom(
   );
   if (nouvelle == null || !context.mounted) return false;
 
-  // Le geste arrive a l'etape suivante du ticket.
-  return false;
+  final ok = await _confirm(
+    context,
+    title: 'Changer de chambre',
+    message:
+        '$guestName quitte la chambre $roomNumber pour la ${nouvelle.number}.'
+        '
+
+'
+        'La $roomNumber redevient libre, sans passer par le menage : personne '
+        'n'y a dormi. L'ardoise suit le client.',
+    action: 'Changer de chambre',
+  );
+  if (!ok) return false;
+
+  await ref
+      .read(reservationRepositoryProvider)
+      .changeRoom(
+        lineId: lineId,
+        roomId: nouvelle.id,
+        by: ref.read(sessionProvider).agent?.id,
+      );
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$guestName est maintenant en chambre ${nouvelle.number}.'),
+      ),
+    );
+  }
+  return true;
 }
 
 /// Ce que l'agent decide devant une ardoise non soldee.

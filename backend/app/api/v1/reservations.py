@@ -41,6 +41,7 @@ from app.schemas.reservations import (
     CalendarOut,
     CalendarUnassigned,
     CancelIn,
+    ChangeRoomIn,
     CheckInIn,
     ReservationIn,
     ReservationOut,
@@ -846,6 +847,86 @@ async def check_out(
 
     if all(r.status == ReservationStatus.CHECKED_OUT for r in _active_lines(reservation)):
         reservation.status = ReservationStatus.CHECKED_OUT
+
+    await session.commit()
+    await session.refresh(reservation, attribute_names=["rooms"])
+    return reservation
+
+
+@router.post("/{reservation_id}/rooms/{room_line_id}/change-room", response_model=ReservationOut)
+async def change_room(
+    reservation_id: uuid.UUID,
+    room_line_id: uuid.UUID,
+    payload: ChangeRoomIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("reservation.manage")),
+) -> Reservation:
+    """Un client deja arrive change de chambre sans refaire sa reservation.
+
+    L'ancienne redevient vacante **sans** devenir sale, a l'inverse du
+    depart : le client n'y a pas dormi, la faire nettoyer serait une tache
+    pour rien. Le folio est rattache a la ligne et non a la chambre, il suit
+    donc le client sans qu'on y touche.
+
+    Ne sont refuses ici que les conflits physiques -- autre categorie, hors
+    service, deja occupee. Une chambre sale n'est pas refusee : la tablette ne
+    la propose pas, mais son etat de menage peut etre en retard sur le notre,
+    et un refus bloquerait sa file d'envoi pour une question de proprete.
+    """
+    reservation = await _get_reservation(session, reservation_id, user)
+    line = await session.scalar(
+        select(ReservationRoom)
+        .where(
+            ReservationRoom.id == room_line_id,
+            ReservationRoom.reservation_id == reservation.id,
+            ReservationRoom.deleted_at.is_(None),
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if line is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligne de reservation introuvable.")
+    if line.room_id == payload.room_id:
+        return reservation  # rejeu : le client est deja dans cette chambre
+    if line.status != ReservationStatus.CHECKED_IN:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Seul un client arrive change de chambre (statut actuel : {line.status}).",
+        )
+
+    room = await session.scalar(
+        select(Room)
+        .where(
+            Room.id == payload.room_id,
+            Room.hotel_id == user.hotel_id,
+            Room.deleted_at.is_(None),
+        )
+        .with_for_update(of=Room)
+        .execution_options(populate_existing=True)
+    )
+    if room is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chambre introuvable.")
+    if room.room_type_id != line.room_type_id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cette chambre n'appartient pas a la categorie reservee.",
+        )
+    if room.is_out_of_order or not room.is_active:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette chambre est hors service.")
+    if room.occupancy_status == OccupancyStatus.OCCUPIED:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
+        )
+
+    if line.room_id:
+        old = await session.scalar(
+            select(Room).where(Room.id == line.room_id).with_for_update(of=Room)
+        )
+        if old is not None:
+            old.occupancy_status = OccupancyStatus.VACANT
+
+    line.room_id = room.id
+    room.occupancy_status = OccupancyStatus.OCCUPIED
 
     await session.commit()
     await session.refresh(reservation, attribute_names=["rooms"])

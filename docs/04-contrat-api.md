@@ -97,7 +97,7 @@ Une tablette qui a perdu la réponse **renvoie la même requête, même `id`** :
 | Premier envoi | `201`, ligne créée avec l'`id` de la tablette |
 | Renvoi d'un client | `200`, fiche mise à jour, même code `CLI-` |
 | Renvoi d'une réservation, charge ou paiement | `200`, état actuel, **rien n'est réécrit** ni compté deux fois |
-| Check-in, check-out, annulation déjà faits | `200`, état actuel |
+| Check-in, check-out, changement de chambre, annulation déjà faits | `200`, état actuel |
 | `id` appartenant à un autre hôtel | `404` |
 
 Un renvoi ne reçoit **jamais de 409**, même si l'hôtel est devenu complet ou
@@ -148,6 +148,25 @@ formes.
 | 404 | introuvable, ou appartient à un autre hôtel | message |
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
+
+## Changer de chambre en cours de séjour
+
+`POST /reservations/{id}/rooms/{ligne}/change-room`, corps `{"room_id": …}`,
+droit `reservation.manage`. Réservé à une ligne **déjà arrivée** (`409`
+sinon) ; avant l'arrivée, la chambre choisie part avec le check-in.
+
+- La nouvelle chambre passe **occupée**. L'ancienne redevient **vacante sans
+  devenir sale** : le client n'y a pas dormi. C'est l'inverse du départ.
+- Le folio est rattaché à la ligne, pas à la chambre : l'ardoise suit le
+  client, rien n'y est écrit.
+- Refus : autre catégorie `422`, hors service ou déjà occupée `409`,
+  chambre d'un autre hôtel `404`. Une chambre **sale n'est pas refusée** —
+  la tablette ne la propose pas, mais son état de ménage peut être en retard,
+  et un refus bloquerait sa file pour une question de propreté.
+- Renvoi : si la ligne est déjà dans cette chambre, `200`.
+
+Côté tablette, l'entrée de file porte `action: CHANGE_ROOM` et garde le
+statut `CHECKED_IN` : l'envoyeur lit l'action avant le statut.
 
 ## Le seuil de consommation et les arrhes
 
