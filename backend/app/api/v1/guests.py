@@ -128,10 +128,21 @@ async def update_guest(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("guests.write")),
 ) -> Guest:
+    """Modifie **seulement les champs envoyes**.
+
+    La tablette n'envoie que ceux de son ecran. Ecrire le schema entier,
+    comme avant, remettait a vide tout le reste -- adresse, date de
+    naissance, notes -- a chaque modification. Un champ envoye a `null`,
+    lui, s'efface : c'est ainsi qu'on retire un telephone.
+    """
     guest = await session.get(Guest, guest_id)
     if guest is None or guest.hotel_id != user.hotel_id or guest.deleted_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client introuvable.")
-    for field, value in _guest_fields(payload).items():
+    fields = payload.model_dump(exclude={"id"}, exclude_unset=True)
+    # Le seuil est regle par la direction : un `null` ne l'efface pas.
+    if fields.get("credit_limit", 0) is None:
+        del fields["credit_limit"]
+    for field, value in fields.items():
         setattr(guest, field, value)
     await session.commit()
     await session.refresh(guest)
