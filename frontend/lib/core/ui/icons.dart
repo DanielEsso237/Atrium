@@ -6,6 +6,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 abstract final class PhosphorIconsLight {
+  static const addressBook = IconData(0xe6f8, fontFamily: 'PhosphorLight');
   static const arrowLeft = IconData(0xe058, fontFamily: 'PhosphorLight');
   static const arrowRight = IconData(0xe06c, fontFamily: 'PhosphorLight');
   static const arrowUpRight = IconData(0xe092, fontFamily: 'PhosphorLight');
@@ -19,6 +20,8 @@ abstract final class PhosphorIconsLight {
   static const calendarBlank = IconData(0xe10a, fontFamily: 'PhosphorLight');
   static const calendarCheck = IconData(0xe712, fontFamily: 'PhosphorLight');
   static const calendarDots = IconData(0xe7b4, fontFamily: 'PhosphorLight');
+  static const calendarPlus = IconData(0xe714, fontFamily: 'PhosphorLight');
+  static const caretRight = IconData(0xe13a, fontFamily: 'PhosphorLight');
   static const chartLineUp = IconData(0xe156, fontFamily: 'PhosphorLight');
   static const check = IconData(0xe182, fontFamily: 'PhosphorLight');
   static const checkCircle = IconData(0xe184, fontFamily: 'PhosphorLight');
@@ -30,10 +33,12 @@ abstract final class PhosphorIconsLight {
   static const door = IconData(0xe61c, fontFamily: 'PhosphorLight');
   static const doorOpen = IconData(0xe7e6, fontFamily: 'PhosphorLight');
   static const dotsThree = IconData(0xe1fe, fontFamily: 'PhosphorLight');
+  static const envelopeSimple = IconData(0xe218, fontFamily: 'PhosphorLight');
   static const eye = IconData(0xe220, fontFamily: 'PhosphorLight');
   static const eyeSlash = IconData(0xe224, fontFamily: 'PhosphorLight');
   static const flowerLotus = IconData(0xe6cc, fontFamily: 'PhosphorLight');
   static const forkKnife = IconData(0xe262, fontFamily: 'PhosphorLight');
+  static const globe = IconData(0xe288, fontFamily: 'PhosphorLight');
   static const identificationCard = IconData(0xe2c8, fontFamily: 'PhosphorLight');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');

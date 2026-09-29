@@ -352,24 +352,16 @@ class FadeUp extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: duree + delai),
       curve: Interval(delai / (duree + delai), 1, curve: atriumSpring),
-      builder: (context, t, enfant) {
-        final flou = (1 - t) * 8;
-        return Opacity(
-          opacity: t.clamp(0, 1),
-          child: Transform.translate(
-            offset: Offset(0, 18 * (1 - t)),
-            child: flou < 0.2
-                ? enfant
-                : ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(
-                      sigmaX: flou,
-                      sigmaY: flou,
-                    ),
-                    child: enfant,
-                  ),
-          ),
-        );
-      },
+      // Opacite et translation seulement : un flou par element faisait
+      // tomber le contexte WebGL et coute trop cher aux tablettes d'entree
+      // de gamme.
+      builder: (context, t, enfant) => Opacity(
+        opacity: t.clamp(0, 1),
+        child: Transform.translate(
+          offset: Offset(0, 18 * (1 - t)),
+          child: enfant,
+        ),
+      ),
       child: child,
     );
   }
