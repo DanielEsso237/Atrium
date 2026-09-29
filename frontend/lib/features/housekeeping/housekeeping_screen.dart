@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../core/tokens.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/housekeeping_repository.dart';
@@ -29,7 +30,7 @@ class HousekeepingScreen extends ConsumerWidget {
     final jobs = ref.watch(cleaningJobsProvider);
 
     return ModuleScaffold(
-      title: 'Chambres a faire',
+      title: 'Chambres à faire',
       body: jobs.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erreur : $e')),
@@ -83,12 +84,12 @@ class _RienAFaire extends StatelessWidget {
             Icon(Icons.check_circle_outline, size: 72, color: schema.outline),
             const SizedBox(height: 20),
             Text(
-              'Aucune chambre a faire.',
+              'Aucune chambre à faire.',
               style: TextStyle(fontSize: 20, color: schema.outline),
             ),
             const SizedBox(height: 8),
             Text(
-              'Les departs de la journee apparaitront ici.',
+              'Les départs de la journée apparaîtront ici.',
               style: TextStyle(fontSize: 16, color: schema.outline),
             ),
           ],
@@ -161,90 +162,119 @@ class _CarteState extends ConsumerState<_Carte> {
         CouleursEtat.disponible,
         'Fait',
       ),
-      HousekeepingStatus.DIRTY => (CouleursEtat.maintenance, 'A faire'),
+      HousekeepingStatus.DIRTY => (CouleursEtat.occupee, 'À faire'),
     };
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
+    final texte = Theme.of(context).textTheme;
+    final urgent =
+        job.priority == Priority.URGENT || job.priority == Priority.HIGH;
+
+    // Le numero d'abord, et en grand : c'est la seule information qu'elle
+    // cherche en levant les yeux de son chariot.
+    final numero = Text(
+      job.roomNumber,
+      style: texte.displaySmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        fontFeatures: tabularFigures,
+        color: job.faite ? schema.onSurfaceVariant : schema.onSurface,
+      ),
+    );
+
+    final infos = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Le numero d'abord, et en grand : c'est la seule information
-            // qu'elle cherche en levant les yeux de son chariot.
-            SizedBox(
-              width: 108,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: couleur.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: couleur.withValues(alpha: 0.55)),
+              ),
               child: Text(
-                job.roomNumber,
-                style: TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w800,
-                  color: job.faite ? schema.outline : null,
-                ),
+                etat,
+                style: texte.labelMedium?.copyWith(fontSize: 13),
               ),
             ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (urgent)
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: couleur,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(etat, style: const TextStyle(fontSize: 17)),
-                      if (job.priority == Priority.URGENT ||
-                          job.priority == Priority.HIGH) ...[
-                        const SizedBox(width: 10),
-                        Icon(
-                          Icons.priority_high,
-                          size: 20,
-                          color: schema.error,
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+                  Icon(Icons.priority_high_rounded, size: 18, color: schema.error),
                   Text(
-                    _detail(job),
-                    style: TextStyle(fontSize: 15, color: schema.outline),
+                    'Prioritaire',
+                    style: texte.labelMedium?.copyWith(
+                      fontSize: 13,
+                      color: schema.error,
+                    ),
                   ),
                 ],
               ),
-            ),
-            if (!job.faite)
-              SizedBox(
-                height: 56,
-                child: FilledButton.icon(
-                  onPressed: _busy ? null : _agir,
-                  icon: Icon(
-                    job.enCours ? Icons.check : Icons.play_arrow,
-                    size: 26,
-                  ),
-                  // « Marquer terminee » et non « Termine » : le second se
-                  // lit comme un etat deja atteint, et on croit avoir fini
-                  // alors qu'on vient seulement de commencer. Un bouton
-                  // nomme par son action, pas par son resultat.
-                  label: Text(
-                    job.enCours ? 'Marquer terminee' : 'Commencer',
-                    style: const TextStyle(fontSize: 17),
-                  ),
-                  style: job.enCours
-                      ? FilledButton.styleFrom(
-                          backgroundColor: CouleursEtat.disponible,
-                        )
-                      : null,
-                ),
-              )
-            else
-              Icon(Icons.check_circle, size: 32, color: CouleursEtat.disponible),
           ],
+        ),
+        const SizedBox(height: 6),
+        Text(_detail(job), style: texte.bodySmall),
+      ],
+    );
+
+    final Widget action = job.faite
+        ? Icon(Icons.check_circle_rounded, size: 34, color: CouleursEtat.disponible)
+        : SizedBox(
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: _busy ? null : _agir,
+              icon: Icon(
+                job.enCours ? Icons.check_rounded : Icons.play_arrow_rounded,
+                size: 26,
+              ),
+              // « Marquer terminee » et non « Termine » : le second se lit
+              // comme un etat deja atteint, et on croit avoir fini alors
+              // qu'on vient seulement de commencer. Un bouton nomme par son
+              // action, pas par son resultat.
+              label: Text(job.enCours ? 'Marquer terminée' : 'Commencer'),
+              style: job.enCours
+                  ? FilledButton.styleFrom(
+                      backgroundColor: CouleursEtat.disponible,
+                      foregroundColor: AtriumColors.purpleNight,
+                    )
+                  : null,
+            ),
+          );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: LayoutBuilder(
+          builder: (context, contraintes) => contraintes.maxWidth < 520
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        numero,
+                        const SizedBox(width: 16),
+                        Expanded(child: infos),
+                        if (job.faite) action,
+                      ],
+                    ),
+                    if (!job.faite) ...[const SizedBox(height: 14), action],
+                  ],
+                )
+              : Row(
+                  children: [
+                    SizedBox(width: 120, child: numero),
+                    Expanded(child: infos),
+                    const SizedBox(width: 16),
+                    action,
+                  ],
+                ),
         ),
       ),
     );
@@ -257,17 +287,17 @@ class _CarteState extends ConsumerState<_Carte> {
     }
     final ecoulees = job.minutesEcoulees;
     if (ecoulees != null) {
-      return '${job.floorLabel} — commence il y a $ecoulees min';
+      return '${job.floorLabel} — commencé il y a $ecoulees min';
     }
     return job.floorLabel.isEmpty ? _typeLabel(job.type) : job.floorLabel;
   }
 
   String _typeLabel(HousekeepingTaskType? t) => switch (t) {
-    null => 'A nettoyer',
-    HousekeepingTaskType.DEPARTURE => 'Apres depart',
+    null => 'À nettoyer',
+    HousekeepingTaskType.DEPARTURE => 'Après départ',
     HousekeepingTaskType.STAYOVER => 'Client en place',
-    HousekeepingTaskType.REFRESH => 'Rafraichissement',
+    HousekeepingTaskType.REFRESH => 'Rafraîchissement',
     HousekeepingTaskType.DEEP_CLEAN => 'Nettoyage complet',
-    HousekeepingTaskType.INSPECTION => 'Controle',
+    HousekeepingTaskType.INSPECTION => 'Contrôle',
   };
 }
