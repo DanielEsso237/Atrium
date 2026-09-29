@@ -183,18 +183,22 @@ class ReservationsScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(marge, 0, marge, 14),
-            child: etroit
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [champ, const SizedBox(height: 10), filtres],
-                  )
-                : Row(
-                    children: [
-                      Flexible(child: filtres),
-                      const SizedBox(width: 16),
-                      SizedBox(width: 300, child: champ),
-                    ],
-                  ),
+            // Les filtres prennent leur place, la recherche aussi : sur une
+            // largeur de tablette ils ne tiennent pas cote a cote.
+            child: LayoutBuilder(
+              builder: (context, c) => c.maxWidth < 1100
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [champ, const SizedBox(height: 10), filtres],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: filtres),
+                        const SizedBox(width: 16),
+                        SizedBox(width: 300, child: champ),
+                      ],
+                    ),
+            ),
           ),
           Expanded(
             child: reservations.when(

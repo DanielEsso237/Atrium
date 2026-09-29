@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/theme_mode.dart';
 import 'core/tokens.dart';
 import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
@@ -70,14 +71,16 @@ class AtriumApp extends ConsumerWidget {
     // et la remontee automatique n'aurait lieu que sur les ecrans qui
     // l'observent -- c'est-a-dire aucun.
     ref.watch(syncSchedulerProvider);
+    final mode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'Atrium',
       debugShowCheckedModeBanner: false,
-      // Clair le jour, sombre le soir : l'appareil decide.
+      // Clair le jour, sombre le soir : l'appareil decide, sauf si l'agent a
+      // impose l'un ou l'autre.
       theme: atriumTheme(AtriumPalette.light),
       darkTheme: atriumTheme(AtriumPalette.dark),
-      themeMode: ThemeMode.system,
+      themeMode: mode,
       // Bascule franche : un fondu de couleurs sur toute l'application
       // melangerait un instant la palette des ecrans et celle du theme.
       themeAnimationDuration: Duration.zero,
@@ -85,10 +88,13 @@ class AtriumApp extends ConsumerWidget {
       builder: (context, child) {
         // Les ecrans lisent leurs couleurs dans `AtriumPalette.current` : on
         // la cale sur la luminosite de l'appareil.
-        final palette =
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark
-            ? AtriumPalette.dark
-            : AtriumPalette.light;
+        final sombre = switch (mode) {
+          ThemeMode.dark => true,
+          ThemeMode.light => false,
+          ThemeMode.system =>
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+        };
+        final palette = sombre ? AtriumPalette.dark : AtriumPalette.light;
         if (!identical(palette, AtriumPalette.current)) {
           AtriumPalette.current = palette;
           // Les widgets `const` qui lisent un jeton sans dependre du theme ne

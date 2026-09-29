@@ -96,7 +96,7 @@ class OrdersScreen extends ConsumerWidget {
                     ? _Points(liste: liste, actif: outlet.id)
                     : Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: _Points(liste: liste, actif: outlet.id),
                           ),
                           const SizedBox(width: 16),

@@ -12,12 +12,12 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
-import '../features/dashboard/dashboard_screen.dart';
 import '../features/guests/guests_screen.dart';
 import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
+import '../features/stats/stats_screen.dart';
 import '../features/today/today_screen.dart';
 import 'shell/app_shell.dart';
 import '../features/rooms/room_board_screen.dart';
@@ -112,7 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', builder: (_, _) => const TodayScreen()),
           GoRoute(
             path: '/statistiques',
-            builder: (_, _) => const DashboardScreen(),
+            builder: (_, _) => const StatsScreen(),
           ),
           GoRoute(
             path: '/chambres',

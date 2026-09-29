@@ -592,7 +592,6 @@ class FilterPills<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
       child: Row(
         children: [
           for (final o in options)

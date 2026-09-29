@@ -29,6 +29,7 @@ import '../../features/reservations/reservations_screen.dart'
     show ReservationFilter, reservationFilterProvider;
 import '../../features/billing/cash_dialog.dart' show showCaisseDuJour;
 import '../brand/atrium_logo.dart';
+import '../theme_mode.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
@@ -385,7 +386,7 @@ class _Barre extends StatelessWidget {
         groupe = d.groupe;
         lignes.add(
           Padding(
-            padding: EdgeInsets.fromLTRB(14, lignes.isEmpty ? 4 : 20, 0, 8),
+            padding: EdgeInsets.fromLTRB(14, lignes.isEmpty ? 2 : 14, 0, 6),
             child: Text(
               groupe.libelle,
               style: TextStyle(
@@ -420,7 +421,7 @@ class _Barre extends StatelessWidget {
             padding: EdgeInsets.only(left: 8),
             child: AtriumLockup(markSize: 40, hotelName: 'Hôtel Atrium'),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           Expanded(
             child: ListView(padding: EdgeInsets.zero, children: lignes),
           ),
@@ -472,8 +473,8 @@ class _LigneNavState extends State<_LigneNav> {
         child: AnimatedContainer(
           duration: duree,
           curve: atriumSpring,
-          height: 44,
-          margin: const EdgeInsets.only(bottom: 2),
+          height: 40,
+          margin: const EdgeInsets.only(bottom: 1),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -777,6 +778,23 @@ class _CadreTelephone extends StatelessWidget {
                   },
                 ),
               const Divider(height: 24),
+              Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Apparence',
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AtriumColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  BoutonTheme(couleur: AtriumColors.textPrimary),
+                ],
+              ),
               ListTile(
                 leading: Avatar(session: session, taille: 36),
                 title: Text(session.nomAffiche),
@@ -893,6 +911,7 @@ class _Compte extends StatelessWidget {
     if (!etendu) {
       return Column(
         children: [
+          const BoutonTheme(),
           synchro,
           const SizedBox(height: 6),
           MenuCompte(
@@ -950,8 +969,47 @@ class _Compte extends StatelessWidget {
               ),
             ),
           ),
-          synchro,
+          // Les deux petits boutons l'un sur l'autre : cote a cote, ils
+          // mangeaient le nom de l'agent.
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 36, child: BoutonTheme()),
+              SizedBox(height: 36, child: synchro),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Clair ou sombre, a la demande : l'icone montre ce vers quoi on passe.
+class BoutonTheme extends ConsumerWidget {
+  const BoutonTheme({super.key, this.couleur});
+
+  final Color? couleur;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sombre = AtriumPalette.current.isDark;
+    return IconButton(
+      tooltip: sombre ? 'Passer en mode clair' : 'Passer en mode sombre',
+      onPressed: () => ref
+          .read(themeModeProvider.notifier)
+          .basculer(sombre ? Brightness.dark : Brightness.light),
+      icon: AnimatedSwitcher(
+        duration: AtriumMotion.of(context, const Duration(milliseconds: 360)),
+        transitionBuilder: (enfant, a) => RotationTransition(
+          turns: Tween(begin: 0.75, end: 1.0).animate(a),
+          child: FadeTransition(opacity: a, child: enfant),
+        ),
+        child: Icon(
+          sombre ? PhosphorIconsLight.sun : PhosphorIconsLight.moon,
+          key: ValueKey(sombre),
+          size: 22,
+          color: couleur ?? AtriumColors.onPurpleSoft,
+        ),
       ),
     );
   }
