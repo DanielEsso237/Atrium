@@ -17,6 +17,10 @@ class MaintenanceTicketIn(BaseModel):
     case, une ampoule grillee non.
     """
 
+    id: uuid.UUID | None = Field(
+        default=None,
+        description="UUID v7 genere par la tablette ; absent = genere par le serveur",
+    )
     room_id: uuid.UUID | None = None
     equipment_id: uuid.UUID | None = None
     location: str | None = None

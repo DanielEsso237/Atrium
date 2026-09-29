@@ -12,11 +12,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'add_charge_dialog.dart';
 import 'cash_dialog.dart';
 import 'charge_labels.dart';
 import 'invoice_dialog.dart';
@@ -34,147 +38,463 @@ final folioPaymentsProvider = StreamProvider.family<List<PaymentRow>, String>(
   (ref, folioId) => ref.watch(folioRepositoryProvider).watchPayments(folioId),
 );
 
+enum _Filtre { ouvertes, aEncaisser, closes, toutes }
+
+class _FiltreFolios extends Notifier<_Filtre> {
+  @override
+  _Filtre build() => _Filtre.ouvertes;
+
+  void choisir(_Filtre f) => state = f;
+}
+
+final _filtreProvider = NotifierProvider<_FiltreFolios, _Filtre>(
+  _FiltreFolios.new,
+);
+
+class _FolioChoisi extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void choisir(String? id) => state = id;
+}
+
+final _folioChoisiProvider = NotifierProvider<_FolioChoisi, String?>(
+  _FolioChoisi.new,
+);
+
+bool _garde(_Filtre f, FolioSummary x) => switch (f) {
+  _Filtre.ouvertes => x.isOpen,
+  _Filtre.aEncaisser => x.balance > 0,
+  _Filtre.closes => !x.isOpen,
+  _Filtre.toutes => true,
+};
+
 class FoliosScreen extends ConsumerWidget {
   const FoliosScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final folios = ref.watch(foliosProvider);
-    final schema = Theme.of(context).colorScheme;
+    final filtre = ref.watch(_filtreProvider);
+    final toutes = folios.value ?? const <FolioSummary>[];
+    final etroit = MediaQuery.sizeOf(context).width < 600;
+    final marge = etroit ? 18.0 : 32.0;
+
+    final ouvertes = toutes.where((f) => f.isOpen).toList();
+    final du = toutes.fold<int>(
+      0,
+      (t, f) => t + (f.balance > 0 ? f.balance : 0),
+    );
+    final encaisse = ouvertes.fold<int>(0, (t, f) => t + f.paymentsTotal);
 
     return ModuleScaffold(
       title: 'Factures',
+      subtitle:
+          '${ouvertes.length} ardoise${ouvertes.length > 1 ? 's' : ''} '
+          'ouverte${ouvertes.length > 1 ? 's' : ''}  ·  '
+          '${formatAmount(du)} restent à encaisser',
       // La caisse vit ici : c'est le module ou l'argent passe, et la prise de
       // poste comme la fin de service s'y font naturellement.
       action: const CashButton(),
       body: folios.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Lecture impossible : $e')),
-        data: (list) => list.isEmpty
-            ? Center(
-                child: Text(
-                  'Aucune ardoise. Elles s\'ouvrent a l\'arrivee d\'un client.',
-                  style: TextStyle(fontSize: 18, color: schema.outline),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.all(24),
-                itemCount: list.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (_, i) => _FolioCard(folio: list[i]),
+        error: (e, _) => EmptyState(
+          icon: PhosphorIconsLight.warningCircle,
+          title: 'Lecture impossible',
+          message: '$e',
+        ),
+        data: (list) {
+          if (list.isEmpty) {
+            return const EmptyState(
+              icon: PhosphorIconsLight.receipt,
+              title: 'Aucune ardoise',
+              message: "Elles s'ouvrent toutes seules à l'arrivée d'un client.",
+            );
+          }
+          final visibles = list.where((f) => _garde(filtre, f)).toList();
+          final filtres = FilterPills<_Filtre>(
+            selected: filtre,
+            onChanged: (f) => ref.read(_filtreProvider.notifier).choisir(f),
+            options: [
+              FilterOption(
+                _Filtre.ouvertes,
+                'Ouvertes',
+                count: list.where((f) => _garde(_Filtre.ouvertes, f)).length,
               ),
+              FilterOption(
+                _Filtre.aEncaisser,
+                'À encaisser',
+                count: list.where((f) => _garde(_Filtre.aEncaisser, f)).length,
+                color: AtriumColors.error,
+              ),
+              FilterOption(
+                _Filtre.closes,
+                'Closes',
+                count: list.where((f) => _garde(_Filtre.closes, f)).length,
+              ),
+              FilterOption(_Filtre.toutes, 'Toutes', count: list.length),
+            ],
+          );
+
+          return LayoutBuilder(
+            builder: (context, c) {
+              final large = c.maxWidth >= 900;
+              final colonne = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      marge,
+                      0,
+                      large ? 0 : marge,
+                      12,
+                    ),
+                    child: _Bandeau(du: du, encaisse: encaisse),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      marge,
+                      0,
+                      large ? 0 : marge,
+                      12,
+                    ),
+                    child: filtres,
+                  ),
+                  Expanded(
+                    child: visibles.isEmpty
+                        ? const EmptyState(
+                            icon: PhosphorIconsLight.checks,
+                            title: 'Rien dans ce filtre',
+                          )
+                        : _ListeFolios(
+                            folios: visibles,
+                            large: large,
+                            padding: EdgeInsets.fromLTRB(
+                              marge,
+                              0,
+                              large ? 0 : marge,
+                              32,
+                            ),
+                          ),
+                  ),
+                ],
+              );
+              if (!large) return colonne;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 420, child: colonne),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(0, 0, marge, 24),
+                      child: const _PanneauFolio(),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
-class _FolioCard extends StatelessWidget {
-  const _FolioCard({required this.folio});
+/// Deux chiffres en tete de liste : ce qui reste du, ce qui est deja rentre.
+class _Bandeau extends StatelessWidget {
+  const _Bandeau({required this.du, required this.encaisse});
 
-  final FolioSummary folio;
+  final int du;
+  final int encaisse;
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
+    Widget chiffre(String libelle, int montant, Color couleur) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            libelle,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: p.onHeroSoft,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formatAmount(montant),
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.8,
+                color: couleur,
+                fontFeatures: tabularFigures,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return FadeUp(
+      child: Bezel(
+        core: p.hero,
+        radius: 24,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        child: Row(
+          children: [
+            chiffre('Reste à encaisser', du, p.heroAccent),
+            Container(
+              width: 1,
+              height: 40,
+              margin: const EdgeInsets.symmetric(horizontal: 14),
+              color: p.onHero.withValues(alpha: 0.14),
+            ),
+            chiffre('Déjà encaissé', encaisse, p.onHero),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ListeFolios extends ConsumerWidget {
+  const _ListeFolios({
+    required this.folios,
+    required this.large,
+    required this.padding,
+  });
+
+  final List<FolioSummary> folios;
+  final bool large;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final choisi = ref.watch(_folioChoisiProvider);
+    return ListView.builder(
+      padding: padding,
+      itemCount: folios.length,
+      itemBuilder: (context, i) {
+        final f = folios[i];
+        return FadeUp(
+          index: i.clamp(0, 8),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _LigneFolio(
+              folio: f,
+              choisie: large && choisi == f.id,
+              onTap: () {
+                if (large) {
+                  ref.read(_folioChoisiProvider.notifier).choisir(f.id);
+                } else {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    showDragHandle: false,
+                    builder: (_) => FractionallySizedBox(
+                      heightFactor: 0.92,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(30),
+                        ),
+                        child: Material(
+                          color: AtriumColors.background,
+                          child: _FolioDetail(folio: f, fermable: true),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LigneFolio extends StatelessWidget {
+  const _LigneFolio({
+    required this.folio,
+    required this.choisie,
+    required this.onTap,
+  });
+
+  final FolioSummary folio;
+  final bool choisie;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
     // Un solde du se voit de loin ; une ardoise soldee n'a pas besoin
     // d'attirer l'oeil.
     final couleur = folio.balance > 0
-        ? schema.error
-        : (folio.isOpen ? const Color(0xFF2E7D32) : schema.outline);
-
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => FractionallySizedBox(
-            heightFactor: 0.9,
-            child: _FolioSheet(folio: folio),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: couleur,
-                  borderRadius: BorderRadius.circular(3),
-                ),
+        ? p.error
+        : (folio.isOpen ? p.success : p.textSecondary);
+    return AnimatedContainer(
+      duration: AtriumMotion.of(context, const Duration(milliseconds: 320)),
+      curve: atriumSpring,
+      decoration: BoxDecoration(
+        color: choisie ? p.accent.withValues(alpha: 0.12) : p.paper,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: choisie ? p.accent : p.border),
+      ),
+      child: HoverRow(
+        onTap: onTap,
+        radius: 20,
+        padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: p.surfaceMuted,
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          folio.guestName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (folio.roomNumber != null) ...[
-                          const SizedBox(width: 10),
-                          Chip(
-                            label: Text('Ch. ${folio.roomNumber}'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                        if (!folio.isOpen) ...[
-                          const SizedBox(width: 10),
-                          Chip(
-                            label: const Text('Close'),
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: schema.surfaceContainerHighest,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${folio.number} · ${formatAmount(folio.chargesTotal)} '
-                      'porte · ${formatAmount(folio.paymentsTotal)} encaisse',
-                      style: TextStyle(fontSize: 15, color: schema.outline),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: folio.roomNumber != null
+                  ? Text(
+                      folio.roomNumber!,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: p.text,
+                        fontFeatures: tabularFigures,
+                      ),
+                    )
+                  : Icon(PhosphorIconsLight.receipt, size: 20, color: p.text),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    folio.balance > 0 ? 'Reste du' : 'Solde',
-                    style: TextStyle(fontSize: 14, color: schema.outline),
+                    folio.guestName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
                   ),
                   Text(
-                    formatAmount(folio.balance),
+                    folio.isOpen ? folio.number : '${folio.number} · close',
                     style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: couleur,
+                      fontFamily: atriumFontFamily,
+                      fontSize: 12.5,
+                      color: p.textSecondary,
+                      fontFeatures: tabularFigures,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  formatAmount(folio.balance),
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: folio.balance > 0 ? couleur : p.text,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: couleur,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      folio.balance > 0
+                          ? 'reste dû'
+                          : (folio.isOpen ? 'soldée' : 'close'),
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 12,
+                        color: p.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _FolioSheet extends ConsumerWidget {
-  const _FolioSheet({required this.folio});
+class _PanneauFolio extends ConsumerWidget {
+  const _PanneauFolio();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = ref.watch(_folioChoisiProvider);
+    final folio = id == null
+        ? null
+        : ref.watch(foliosProvider).value?.where((f) => f.id == id).firstOrNull;
+    return Bezel(
+      radius: 30,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedSwitcher(
+          duration: AtriumMotion.of(context, const Duration(milliseconds: 380)),
+          switchInCurve: atriumSpring,
+          child: folio == null
+              ? const EmptyState(
+                  key: ValueKey('vide'),
+                  icon: PhosphorIconsLight.receipt,
+                  title: 'Choisissez une ardoise',
+                  message:
+                      'Consommations, encaissements, facture et clôture '
+                      's’y font ici.',
+                )
+              : _FolioDetail(
+                  key: ValueKey(folio.id),
+                  folio: folio,
+                  fermable: false,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Le detail d'une ardoise, lu comme un ticket : le solde en grand, puis ce
+/// qui a ete porte, puis ce qui a ete paye.
+class _FolioDetail extends ConsumerWidget {
+  const _FolioDetail({super.key, required this.folio, required this.fermable});
 
   final FolioSummary folio;
+  final bool fermable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -188,160 +508,223 @@ class _FolioSheet extends ConsumerWidget {
         ?.where((f) => f.id == folio.id)
         .firstOrNull;
     final current = live ?? folio;
-    final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        current.guestName,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 20, 16, 22),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [p.heroTop, p.hero],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            [
+                              current.number,
+                              if (current.roomNumber != null)
+                                'chambre ${current.roomNumber}',
+                            ].join('  ·  '),
+                            style: TextStyle(
+                              fontFamily: atriumFontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.onHeroSoft,
+                              fontFeatures: tabularFigures,
+                            ),
+                          ),
+                        ),
+                        if (fermable)
+                          IconButton(
+                            tooltip: 'Fermer',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.08,
+                              ),
+                            ),
+                            icon: Icon(PhosphorIconsLight.x, color: p.onHero),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      current.guestName,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: p.onHero,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      current.balance > 0 ? 'Reste dû' : 'Solde',
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 13,
+                        color: p.onHeroSoft,
+                      ),
+                    ),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(end: current.balance.toDouble()),
+                      duration: AtriumMotion.of(
+                        context,
+                        const Duration(milliseconds: 700),
+                      ),
+                      curve: atriumSpring,
+                      builder: (_, v, _) => Text(
+                        formatAmount(v.round()),
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.6,
+                          height: 1.1,
+                          color: current.balance > 0 ? p.heroAccent : p.onHero,
+                          fontFeatures: tabularFigures,
                         ),
                       ),
-                      Text(
-                        current.number,
-                        style: TextStyle(fontSize: 16, color: schema.outline),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${formatAmount(current.chargesTotal)} porté  ·  '
+                      '${formatAmount(current.paymentsTotal)} encaissé',
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.onHeroSoft,
+                        fontFeatures: tabularFigures,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  iconSize: 30,
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Section(
+                      titre: 'Consommations',
+                      compteur: items.value?.length,
+                      enfant: items.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text('$e'),
+                        data: (lignes) => lignes.isEmpty
+                            ? _Vide('Rien de porté à cette ardoise.')
+                            : Column(
+                                children: [
+                                  for (final l in lignes)
+                                    _Line(
+                                      label: l.label,
+                                      detail:
+                                          '${chargeCategoryLabel(l.category)} · ${_jour(l.businessDate)}'
+                                          '${l.quantity > 1 ? ' · ×${l.quantity}' : ''}',
+                                      amount: l.amount,
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _Section(
+                      titre: 'Encaissements',
+                      compteur: payments.value?.length,
+                      enfant: payments.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text('$e'),
+                        data: (lignes) => lignes.isEmpty
+                            ? _Vide('Aucun encaissement.')
+                            : Column(
+                                children: [
+                                  for (final pay in lignes)
+                                    _Line(
+                                      label: paymentMethodLabel(pay.method),
+                                      detail: pay.reference ?? '',
+                                      amount: -pay.amount,
+                                      paiement: true,
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                _Totals(folio: current),
-                const SizedBox(height: 16),
-                _Block(
-                  title: 'Consommations',
-                  child: items.when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('$e'),
-                    data: (lignes) => lignes.isEmpty
-                        ? Text(
-                            'Rien de porte a cette ardoise.',
-                            style: TextStyle(
-                              fontSize: 17,
-                              color: schema.outline,
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              for (final l in lignes)
-                                _Line(
-                                  label: l.label,
-                                  detail:
-                                      '${chargeCategoryLabel(l.category)} · ${l.businessDate}'
-                                      '${l.quantity > 1 ? ' · x${l.quantity}' : ''}',
-                                  amount: l.amount,
-                                ),
-                            ],
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _Block(
-                  title: 'Encaissements',
-                  child: payments.when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('$e'),
-                    data: (lignes) => lignes.isEmpty
-                        ? Text(
-                            'Aucun encaissement.',
-                            style: TextStyle(
-                              fontSize: 17,
-                              color: schema.outline,
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              for (final p in lignes)
-                                _Line(
-                                  label: paymentMethodLabel(p.method),
-                                  detail: p.reference ?? '',
-                                  amount: -p.amount,
-                                ),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _Actions(folio: current),
-        ],
-      ),
+        ),
+        _Actions(folio: current),
+      ],
     );
   }
 }
 
-class _Totals extends StatelessWidget {
-  const _Totals({required this.folio});
+String _jour(String iso) {
+  final d = parseIsoDate(iso);
+  return d == null ? iso : formatDayMonth(d);
+}
 
-  final FolioSummary folio;
+class _Vide extends StatelessWidget {
+  const _Vide(this.texte);
+
+  final String texte;
 
   @override
-  Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
+  Widget build(BuildContext context) => Text(
+    texte,
+    style: TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14,
+      color: AtriumColors.textSecondary,
+    ),
+  );
+}
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _Line(label: 'Total porte', amount: folio.chargesTotal),
-            _Line(label: 'Total encaisse', amount: -folio.paymentsTotal),
-            const Divider(height: 24),
-            Row(
-              children: [
-                Text(
-                  folio.balance > 0 ? 'Reste du' : 'Solde',
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                  ),
+class _Section extends StatelessWidget {
+  const _Section({required this.titre, required this.enfant, this.compteur});
+
+  final String titre;
+  final Widget enfant;
+  final int? compteur;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Eyebrow(
+        titre,
+        trailing: compteur == null
+            ? null
+            : Text(
+                '$compteur',
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: AtriumColors.textSecondary,
                 ),
-                const Spacer(),
-                Text(
-                  formatAmount(folio.balance),
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: folio.balance > 0 ? schema.error : null,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
       ),
-    );
-  }
+      const SizedBox(height: 8),
+      enfant,
+    ],
+  );
 }
 
 class _Actions extends ConsumerWidget {
@@ -351,66 +734,116 @@ class _Actions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
     if (!folio.isOpen) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        color: Colors.white,
-        child: Text(
-          'Ardoise close. Plus rien ne peut y etre porte.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Theme.of(context).colorScheme.outline,
-          ),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: p.paper,
+          border: Border(top: BorderSide(color: p.border)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              PhosphorIconsLight.lockSimple,
+              size: 18,
+              color: p.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Ardoise close : plus rien ne peut y être porté.',
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 14,
+                color: p.textSecondary,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0))),
+    final boutons = <Widget>[
+      PillButton(
+        label: 'Encaisser',
+        icon: PhosphorIconsLight.coins,
+        tone: PillTone.accent,
+        compact: true,
+        expand: true,
+        onPressed: folio.balance <= 0 ? null : () => _encaisser(context, ref),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: folio.balance <= 0
-                  ? null
-                  : () => _encaisser(context, ref),
-              icon: const Icon(Icons.payments_outlined),
-              label: const Text('Encaisser'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              // Editer avant d'encaisser est legitime : le client veut voir
-              // ce qu'il doit avant de payer. La seule condition est qu'il y
-              // ait quelque chose a facturer.
-              onPressed: () => showInvoiceDialog(
-                context,
-                ref,
-                folioId: folio.id,
-                guestName: folio.guestName,
-              ),
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('Facture'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              // Une ardoise close avec un impaye est une creance que plus
-              // personne ne verra : la cloture attend un solde nul.
-              onPressed: folio.balance != 0 ? null : () => _clore(context, ref),
-              icon: const Icon(Icons.lock_outline),
-              label: const Text('Clore'),
-            ),
-          ),
-        ],
+      PillButton(
+        label: 'Consommation',
+        icon: PhosphorIconsLight.plus,
+        tone: PillTone.quiet,
+        compact: true,
+        expand: true,
+        onPressed: () => showAddChargeDialog(
+          context,
+          folioId: folio.id,
+          guestName: folio.guestName,
+        ),
+      ),
+      // Editer avant d'encaisser est legitime : le client veut voir ce qu'il
+      // doit avant de payer.
+      PillButton(
+        label: 'Facture',
+        icon: PhosphorIconsLight.receipt,
+        tone: PillTone.quiet,
+        compact: true,
+        expand: true,
+        onPressed: () => showInvoiceDialog(
+          context,
+          ref,
+          folioId: folio.id,
+          guestName: folio.guestName,
+        ),
+      ),
+      // Une ardoise close avec un impaye est une creance que plus personne
+      // ne verra : la cloture attend un solde nul.
+      PillButton(
+        label: 'Clore',
+        icon: PhosphorIconsLight.lockSimple,
+        tone: PillTone.quiet,
+        compact: true,
+        expand: true,
+        onPressed: folio.balance != 0 ? null : () => _clore(context, ref),
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: p.paper,
+        border: Border(top: BorderSide(color: p.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            if (c.maxWidth < 560) {
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final b in boutons)
+                    SizedBox(width: (c.maxWidth - 8) / 2, child: b),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                for (var i = 0; i < boutons.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(child: boutons[i]),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -443,67 +876,60 @@ class _Actions extends ConsumerWidget {
   }
 }
 
-class _Block extends StatelessWidget {
-  const _Block({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    ),
-  );
-}
-
 class _Line extends StatelessWidget {
-  const _Line({required this.label, required this.amount, this.detail});
+  const _Line({
+    required this.label,
+    required this.amount,
+    this.detail,
+    this.paiement = false,
+  });
 
   final String label;
   final String? detail;
   final int amount;
+  final bool paiement;
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
+    final p = AtriumPalette.current;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 17)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: p.text,
+                  ),
+                ),
                 if (detail != null && detail!.isNotEmpty)
                   Text(
                     detail!,
-                    style: TextStyle(fontSize: 14, color: schema.outline),
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 12.5,
+                      color: p.textSecondary,
+                    ),
                   ),
               ],
             ),
           ),
           Text(
             formatAmount(amount),
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: paiement ? p.success : p.text,
+              fontFeatures: tabularFigures,
+            ),
           ),
         ],
       ),

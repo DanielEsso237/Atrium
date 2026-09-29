@@ -75,7 +75,7 @@ final periodeOccupationProvider = NotifierProvider<PeriodeOccupation, int>(
 );
 
 /// Construit une fois : `ThemeData` n'est pas gratuit.
-final _theme = atriumBrandTheme();
+ThemeData get _theme => atriumBrandTheme();
 
 const _photoChambre = 'assets/images/chambre.jpg';
 
@@ -515,7 +515,7 @@ class _Bandeau extends ConsumerWidget {
                 children: [
                   Avatar(session: session, taille: 42),
                   const SizedBox(width: 6),
-                  const Icon(
+                  Icon(
                     Icons.expand_more_rounded,
                     color: AtriumColors.white,
                     size: 26,
@@ -533,7 +533,7 @@ class _Bandeau extends ConsumerWidget {
           constraints: BoxConstraints(minHeight: haut + (etroit ? 150 : 172)),
           child: Stack(
             children: [
-              const Positioned.fill(
+              Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -781,13 +781,14 @@ class _TroisTraits extends CustomPainter {
 
 /// Une pastille du bandeau.
 class _Puce extends StatelessWidget {
-  const _Puce({
+  _Puce({
     required this.icone,
     required this.child,
-    this.fond = AtriumColors.white,
-    this.encre = AtriumDashColors.title,
+    Color? fond,
+    Color? encre,
     this.onTap,
-  });
+  }) : fond = fond ?? AtriumColors.white,
+       encre = encre ?? AtriumDashColors.title;
 
   final IconData icone;
   final Widget child;
@@ -855,7 +856,7 @@ class _PuceDate extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(formatLongDate(journee)),
-                const Text(
+                Text(
                   'service de nuit',
                   style: TextStyle(
                     fontSize: 12,
@@ -965,10 +966,10 @@ class _Cloche extends ConsumerWidget {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(
+          Icon(
             Icons.notifications_none_rounded,
             size: 28,
-            color: AtriumColors.white,
+            color: AtriumDashColors.title,
           ),
           if (nonLues > 0)
             Positioned(
@@ -980,7 +981,7 @@ class _Cloche extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AtriumColors.mintStrong,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AtriumColors.white, width: 1.5),
+                  border: Border.all(color: AtriumColors.onNight, width: 1.5),
                 ),
               ),
             ),
@@ -1002,7 +1003,7 @@ class _Notifications extends ConsumerWidget {
       content: SizedBox(
         width: 420,
         child: liste.isEmpty
-            ? const Text(
+            ? Text(
                 'Aucune notification pour le moment.',
                 style: TextStyle(color: AtriumColors.textSecondary),
               )
@@ -1023,7 +1024,7 @@ class _Notifications extends ConsumerWidget {
                     subtitle: n.corps == null ? null : Text(n.corps!),
                     trailing: Text(
                       _heure(n.moment),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AtriumColors.textSecondary,
                       ),
@@ -1280,7 +1281,7 @@ class _CarteKpi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (valeur == null) {
-      return const _Cadre(
+      return _Cadre(
         child: Center(
           child: SizedBox(
             width: 26,
@@ -1326,7 +1327,7 @@ class _CarteKpi extends StatelessWidget {
                           titre,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AtriumDashColors.title,
@@ -1341,7 +1342,7 @@ class _CarteKpi extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             valeur!(progres.value.clamp(0.0, 1.0)),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
                               color: AtriumDashColors.title,
@@ -1357,7 +1358,7 @@ class _CarteKpi extends StatelessWidget {
                         child: Text(
                           detail,
                           maxLines: 1,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: AtriumColors.textSecondary,
                           ),
@@ -1446,7 +1447,7 @@ class _Section extends StatelessWidget {
                   titre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: AtriumDashColors.title,
@@ -1496,12 +1497,12 @@ class _MenuPoints extends StatelessWidget {
       child: Container(
         width: 36,
         height: 36,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AtriumDashColors.control,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: const Icon(
+        child: Icon(
           Icons.more_horiz_rounded,
           size: 20,
           color: AtriumDashColors.title,
@@ -1528,7 +1529,7 @@ class _CarteOccupation extends ConsumerWidget {
 
     final Widget corps;
     if (historique == null || historique.length < periode * 2) {
-      corps = const Center(
+      corps = Center(
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
           color: AtriumColors.mintStrong,
@@ -1586,14 +1587,14 @@ class _CarteOccupation extends ConsumerWidget {
             children: [
               Text(
                 '$periode jours',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AtriumDashColors.title,
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
+              Icon(
                 Icons.expand_more_rounded,
                 size: 20,
                 color: AtriumDashColors.title,
@@ -1634,7 +1635,7 @@ class _CarteRepartition extends ConsumerWidget {
             )
           : null,
       child: types == null
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
                 color: AtriumColors.mintStrong,
@@ -1681,7 +1682,7 @@ class _CarteActivite extends ConsumerWidget {
             )
           : null,
       child: activite == null
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
                 color: AtriumColors.mintStrong,
@@ -1736,14 +1737,14 @@ class _CarteDernieres extends ConsumerWidget {
               ),
             ),
       child: activites == null
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
                 color: AtriumColors.mintStrong,
               ),
             )
           : activites.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'Rien pour le moment. Réservations, arrivées, départs et '
                 'commandes apparaîtront ici.',
@@ -1766,7 +1767,7 @@ class _CarteDernieres extends ConsumerWidget {
                   children: [
                     for (var i = 0; i < nombre; i++) ...[
                       if (i > 0)
-                        const Divider(height: 1, color: AtriumDashColors.grid),
+                        Divider(height: 1, color: AtriumDashColors.grid),
                       _LigneActivite(activite: activites[i]),
                     ],
                   ],
@@ -1792,7 +1793,7 @@ class _ToutesActivites extends StatelessWidget {
           shrinkWrap: true,
           itemCount: activites.length,
           separatorBuilder: (_, _) =>
-              const Divider(height: 1, color: AtriumDashColors.grid),
+              Divider(height: 1, color: AtriumDashColors.grid),
           itemBuilder: (_, i) => _LigneActivite(activite: activites[i]),
         ),
       ),
@@ -1856,7 +1857,7 @@ class _LigneActivite extends StatelessWidget {
                   titre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                     color: AtriumDashColors.title,
@@ -1867,7 +1868,7 @@ class _LigneActivite extends StatelessWidget {
                     detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       color: AtriumColors.textSecondary,
                     ),
@@ -1878,7 +1879,7 @@ class _LigneActivite extends StatelessWidget {
           const SizedBox(width: AtriumSpacing.sm),
           Text(
             _heure(a.moment),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               color: AtriumColors.textSecondary,
               fontFeatures: tabularFigures,
@@ -1913,7 +1914,7 @@ class _AucunModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _Cadre(
+    return _Cadre(
       padding: EdgeInsets.all(20),
       child: Row(
         children: [
@@ -1943,12 +1944,12 @@ class _Erreur extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AtriumColors.error, size: 28),
+          Icon(Icons.error_outline, color: AtriumColors.error, size: 28),
           const SizedBox(width: AtriumSpacing.md),
           Expanded(
             child: Text(
               'Lecture de la base impossible.\n$message',
-              style: const TextStyle(fontSize: 15, color: AtriumColors.ink),
+              style: TextStyle(fontSize: 15, color: AtriumColors.ink),
             ),
           ),
         ],

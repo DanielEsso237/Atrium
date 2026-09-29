@@ -239,22 +239,22 @@ class HousekeepingRepository with OutboxWriter {
             );
 
         await db
-          .into(db.housekeepingTasks)
-          .insert(
-            HousekeepingTasksCompanion.insert(
-              id: id,
-              createdAt: now,
-              updatedAt: now,
-              hotelId: hotelId,
-              roomId: roomId,
-              type: type,
-              status: const Value(TaskStatus.PENDING),
-              priority: Value(priority),
-              businessDate: businessDate,
-              createdBy: Value(by),
-              syncState: const Value(SyncState.pending),
-            ),
-          );
+            .into(db.housekeepingTasks)
+            .insert(
+              HousekeepingTasksCompanion.insert(
+                id: id,
+                createdAt: now,
+                updatedAt: now,
+                hotelId: hotelId,
+                roomId: roomId,
+                type: type,
+                status: const Value(TaskStatus.PENDING),
+                priority: Value(priority),
+                businessDate: businessDate,
+                createdBy: Value(by),
+                syncState: const Value(SyncState.pending),
+              ),
+            );
       },
     );
 
@@ -284,11 +284,7 @@ class HousekeepingRepository with OutboxWriter {
   Future<void> start(String taskId, {String? by}) =>
       _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
 
-  Future<void> _transition(
-    String taskId,
-    TaskStatus vers, {
-    String? by,
-  }) async {
+  Future<void> _transition(String taskId, TaskStatus vers, {String? by}) async {
     final tache = await (db.select(
       db.housekeepingTasks,
     )..where((t) => t.id.equals(taskId))).getSingleOrNull();
@@ -300,9 +296,7 @@ class HousekeepingRepository with OutboxWriter {
     final demarre = vers == TaskStatus.IN_PROGRESS;
 
     if (!demarre && tache.status != TaskStatus.IN_PROGRESS) {
-      throw StateError(
-        'Il faut commencer le menage avant de le terminer.',
-      );
+      throw StateError('Il faut commencer le menage avant de le terminer.');
     }
 
     await db.transaction(() async {

@@ -12,12 +12,16 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
-import '../features/dashboard/dashboard_screen.dart';
 import '../features/guests/guests_screen.dart';
 import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
+import '../features/billing/cash_screen.dart';
+import '../features/maintenance/maintenance_screen.dart';
+import '../features/stats/stats_screen.dart';
+import '../features/today/today_screen.dart';
+import 'shell/app_shell.dart';
 import '../features/rooms/room_board_screen.dart';
 
 /// La permission qu'exige chaque zone de l'application (3.4).
@@ -34,6 +38,8 @@ const _permissionParZone = <String, String>{
   '/reservations': 'rooms.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
+  '/caisse': 'folio.read',
+  '/maintenance': 'maintenance.read',
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
 };
@@ -101,23 +107,47 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
-      GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
-      GoRoute(path: '/chambres', builder: (_, _) => const RoomBoardScreen()),
-      GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
-      GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
-      GoRoute(path: '/menage', builder: (_, _) => const HousekeepingScreen()),
-      GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
-      GoRoute(
-        path: '/reservations',
-        builder: (_, _) => const ReservationsScreen(),
+      // Tout le reste vit dans la coque : la navigation reste visible sur
+      // chaque ecran, sous la forme qui convient a la largeur.
+      ShellRoute(
+        builder: (context, state, child) =>
+            AppShell(location: state.matchedLocation, child: child),
         routes: [
+          GoRoute(path: '/', builder: (_, _) => const TodayScreen()),
           GoRoute(
-            path: 'nouvelle',
-            // `?client=` pre-selectionne le client quand on arrive depuis sa
-            // fiche, et reste facultatif quand on part d'une page blanche.
-            builder: (_, state) => NewReservationScreen(
-              guestId: state.uri.queryParameters['client'],
-            ),
+            path: '/statistiques',
+            builder: (_, _) => const StatsScreen(),
+          ),
+          GoRoute(
+            path: '/chambres',
+            builder: (_, _) => const RoomBoardScreen(),
+          ),
+          GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
+          GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
+          GoRoute(path: '/caisse', builder: (_, _) => const CashScreen()),
+          GoRoute(
+            path: '/maintenance',
+            builder: (_, _) => const MaintenanceScreen(),
+          ),
+          GoRoute(
+            path: '/menage',
+            builder: (_, _) => const HousekeepingScreen(),
+          ),
+          GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
+          GoRoute(
+            path: '/reservations',
+            builder: (_, _) => const ReservationsScreen(),
+            routes: [
+              GoRoute(
+                path: 'nouvelle',
+                // `?client=` pre-selectionne le client quand on arrive depuis
+                // sa fiche, et reste facultatif quand on part d'une page
+                // blanche.
+                builder: (_, state) => NewReservationScreen(
+                  guestId: state.uri.queryParameters['client'],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -17,6 +17,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
 import 'invoice_repository.dart';
+import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outbox.dart';
 import 'reservation_repository.dart';
@@ -55,8 +56,7 @@ final invoiceRepositoryProvider = Provider<InvoiceRepository>(
 /// La facture d'une ardoise, en direct : elle change quand le serveur
 /// attribue le numero legal.
 final invoiceForFolioProvider = StreamProvider.family<InvoiceView?, String>(
-  (ref, folioId) =>
-      ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
+  (ref, folioId) => ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
 );
 
 final orderRepositoryProvider = Provider<OrderRepository>(
@@ -108,4 +108,12 @@ final outboxSenderProvider = Provider<OutboxSender>(
     db: ref.watch(databaseProvider),
     api: ref.watch(apiClientProvider),
   ),
+);
+
+final maintenanceRepositoryProvider = Provider<MaintenanceRepository>(
+  (ref) => MaintenanceRepository(ref.watch(databaseProvider)),
+);
+
+final ticketsProvider = StreamProvider<List<TicketSummary>>(
+  (ref) => ref.watch(maintenanceRepositoryProvider).watchTickets(),
 );

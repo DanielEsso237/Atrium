@@ -28,7 +28,10 @@ const heureBasculeParDefaut = 6;
 /// La date d'exploitation correspondant a `instant`.
 ///
 /// Avant l'heure de bascule, on est encore dans la journee de la veille.
-DateTime businessDayFor(DateTime instant, {int rolloverHour = heureBasculeParDefaut}) {
+DateTime businessDayFor(
+  DateTime instant, {
+  int rolloverHour = heureBasculeParDefaut,
+}) {
   final local = instant.isUtc ? instant.toLocal() : instant;
   final jour = DateTime(local.year, local.month, local.day);
   return local.hour < rolloverHour

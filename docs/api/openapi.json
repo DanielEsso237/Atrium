@@ -2283,6 +2283,19 @@
             ],
             "title": "Equipment Id"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "location": {
             "anyOf": [
               {
@@ -8048,6 +8061,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Ticket deja cree (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {

@@ -51,6 +51,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'housekeeping_tasks' => db.housekeepingTasks,
     'invoices' => db.invoices,
     'cash_sessions' => db.cashSessions,
+    'maintenance_tickets' => db.maintenanceTickets,
     _ => null,
   };
 }
@@ -328,27 +329,29 @@ class OutboxSender {
   }
 
   Future<void> _marquerEchouee(OutboxEntryRow entree, String raison) {
-    return (db.update(db.outboxEntries)..where((e) => e.id.equals(entree.id)))
-        .write(
-          OutboxEntriesCompanion(
-            status: const Value(OutboxStatus.FAILED),
-            attempts: Value(entree.attempts + 1),
-            lastError: Value(raison),
-            lastAttemptAt: Value(DateTime.now().toUtc()),
-          ),
-        );
+    return (db.update(
+      db.outboxEntries,
+    )..where((e) => e.id.equals(entree.id))).write(
+      OutboxEntriesCompanion(
+        status: const Value(OutboxStatus.FAILED),
+        attempts: Value(entree.attempts + 1),
+        lastError: Value(raison),
+        lastAttemptAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   /// Compte la tentative sans condamner l'entree : elle reste `PENDING`.
   Future<void> _compterTentative(OutboxEntryRow entree, String raison) {
-    return (db.update(db.outboxEntries)..where((e) => e.id.equals(entree.id)))
-        .write(
-          OutboxEntriesCompanion(
-            attempts: Value(entree.attempts + 1),
-            lastError: Value(raison),
-            lastAttemptAt: Value(DateTime.now().toUtc()),
-          ),
-        );
+    return (db.update(
+      db.outboxEntries,
+    )..where((e) => e.id.equals(entree.id))).write(
+      OutboxEntriesCompanion(
+        attempts: Value(entree.attempts + 1),
+        lastError: Value(raison),
+        lastAttemptAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   // --- De la file au contrat -------------------------------------------------
@@ -386,25 +389,31 @@ class OutboxSender {
             patch: true,
           );
         }
-        return _Envoi('/guests', _sansNuls({
-          'id': p['id'],
-          'first_name': p['first_name'],
-          'last_name': p['last_name'],
-          'phone': p['phone'],
-          'email': p['email'],
-          'nationality': p['nationality'],
-          'id_document_type': p['id_document_type'],
-          'id_document_number': p['id_document_number'],
-        }));
+        return _Envoi(
+          '/guests',
+          _sansNuls({
+            'id': p['id'],
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'phone': p['phone'],
+            'email': p['email'],
+            'nationality': p['nationality'],
+            'id_document_type': p['id_document_type'],
+            'id_document_number': p['id_document_number'],
+          }),
+        );
 
       case 'reservations':
-        return _Envoi('/reservations', _sansNuls({
-          'id': p['id'],
-          'guest_id': p['guest_id'],
-          'adults': p['adults'],
-          'children': p['children'],
-          'rooms': _lignes(p),
-        }));
+        return _Envoi(
+          '/reservations',
+          _sansNuls({
+            'id': p['id'],
+            'guest_id': p['guest_id'],
+            'adults': p['adults'],
+            'children': p['children'],
+            'rooms': _lignes(p),
+          }),
+        );
 
       case 'reservation_rooms':
         return _ligneDeSejour(p);
@@ -412,24 +421,30 @@ class OutboxSender {
       case 'folio_items':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('/folios/$folioId/items', _sansNuls({
-          'id': p['id'],
-          'category': p['category'],
-          'label': p['label'],
-          'quantity': p['quantity'],
-          'unit_price': p['unit_price'],
-          'override_by': p['override_by'],
-        }));
+        return _Envoi(
+          '/folios/$folioId/items',
+          _sansNuls({
+            'id': p['id'],
+            'category': p['category'],
+            'label': p['label'],
+            'quantity': p['quantity'],
+            'unit_price': p['unit_price'],
+            'override_by': p['override_by'],
+          }),
+        );
 
       case 'payments':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('/folios/$folioId/payments', _sansNuls({
-          'id': p['id'],
-          'method': p['method'],
-          'amount': p['amount'],
-          'reference': p['reference'],
-        }));
+        return _Envoi(
+          '/folios/$folioId/payments',
+          _sansNuls({
+            'id': p['id'],
+            'method': p['method'],
+            'amount': p['amount'],
+            'reference': p['reference'],
+          }),
+        );
 
       case 'folios':
         // Seule fermeture pour l'instant ; le folio nait au check-in.
@@ -452,6 +467,9 @@ class OutboxSender {
         return _Envoi('/cash-sessions/${p['id']}/close', {
           'counted_amount': p['counted_amount'],
         });
+
+      case 'maintenance_tickets':
+        return _maintenance(entree, p);
 
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses
@@ -494,13 +512,16 @@ class OutboxSender {
   /// `/finish`. C'est ce qui permet a sa duree de nettoyage de faire foi.
   _Envoi? _menage(OutboxEntryRow entree, Map<String, dynamic> p) {
     if (entree.op == SyncOp.INSERT) {
-      return _Envoi('/housekeeping-tasks', _sansNuls({
-        'id': p['id'],
-        'room_id': p['room_id'],
-        'type': p['type'],
-        'priority': p['priority'],
-        'business_date': p['business_date'],
-      }));
+      return _Envoi(
+        '/housekeeping-tasks',
+        _sansNuls({
+          'id': p['id'],
+          'room_id': p['room_id'],
+          'type': p['type'],
+          'priority': p['priority'],
+          'business_date': p['business_date'],
+        }),
+      );
     }
 
     final verbe = switch (p['status']) {
@@ -512,6 +533,36 @@ class OutboxSender {
     if (verbe == null) return null;
 
     return _Envoi('/housekeeping-tasks/${p['id']}/$verbe', const {});
+  }
+
+  /// Un ticket de maintenance : creation, puis un verbe par transition,
+  /// comme pour le menage. Toutes ces routes sont rejouables cote serveur.
+  _Envoi? _maintenance(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (entree.op == SyncOp.INSERT) {
+      return _Envoi(
+        '/maintenance-tickets',
+        _sansNuls({
+          'id': p['id'],
+          'room_id': p['room_id'],
+          'location': p['location'],
+          'title': p['title'],
+          'description': p['description'],
+          'priority': p['priority'],
+          'blocks_room': p['blocks_room'],
+        }),
+      );
+    }
+    final base = '/maintenance-tickets/${p['id']}';
+    return switch (p['status']) {
+      'ASSIGNED' when p['assigned_to'] != null => _Envoi('$base/assign', {
+        'user_id': p['assigned_to'],
+      }),
+      'RESOLVED' => _Envoi('$base/resolve', {
+        'resolution': p['resolution'] ?? 'Résolu',
+      }),
+      'CLOSED' => _Envoi('$base/close', const {}),
+      _ => null,
+    };
   }
 
   /// Arrivee, depart, changement ou attribution de chambre.
@@ -544,13 +595,16 @@ class OutboxSender {
 
     switch (p['status']) {
       case 'CHECKED_IN':
-        return _Envoi('$chemin/check-in', _sansNuls({
-          'folio_id': p['folio_id'],
-          // L'attribution de chambre n'a pas d'endpoint a elle ; c'est ici
-          // qu'elle remonte, ce qui suffit puisque le serveur n'a besoin de
-          // connaitre la chambre qu'a l'arrivee.
-          'room_id': p['room_id'] ?? ligne.read<String?>('room_id'),
-        }));
+        return _Envoi(
+          '$chemin/check-in',
+          _sansNuls({
+            'folio_id': p['folio_id'],
+            // L'attribution de chambre n'a pas d'endpoint a elle ; c'est ici
+            // qu'elle remonte, ce qui suffit puisque le serveur n'a besoin de
+            // connaitre la chambre qu'a l'arrivee.
+            'room_id': p['room_id'] ?? ligne.read<String?>('room_id'),
+          }),
+        );
 
       case 'CHECKED_OUT':
         return _Envoi('$chemin/check-out', const {});

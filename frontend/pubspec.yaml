@@ -73,6 +73,25 @@ flutter:
   # Police de la charte, embarquee plutot que telechargee : une tablette hors
   # ligne n'irait pas la chercher, et retomberait sur la police du systeme.
   fonts:
+    - family: PhosphorLight
+      fonts:
+        - asset: assets/fonts/phosphor/Phosphor-Light.ttf
+    - family: PhosphorFill
+      fonts:
+        - asset: assets/fonts/phosphor/Phosphor-Fill.ttf
+    # La police de la refonte : Plus Jakarta Sans, cinq graisses statiques.
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/jakarta/PlusJakartaSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/jakarta/PlusJakartaSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/jakarta/PlusJakartaSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/jakarta/PlusJakartaSans-700.ttf
+          weight: 700
+        - asset: assets/fonts/jakarta/PlusJakartaSans-800.ttf
+          weight: 800
     - family: Montserrat
       fonts:
         - asset: assets/fonts/montserrat/Montserrat-Regular.ttf

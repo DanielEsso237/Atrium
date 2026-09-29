@@ -65,7 +65,7 @@ class AtriumSegmentedControl<T> extends StatelessWidget {
                 width: largeur + 2,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [AtriumColors.purpleBright, AtriumColors.purple],

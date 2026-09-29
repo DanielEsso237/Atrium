@@ -53,17 +53,17 @@ String formatIsoDate(DateTime jour) {
 
 const _mois = [
   'janvier',
-  'fevrier',
+  'février',
   'mars',
   'avril',
   'mai',
   'juin',
   'juillet',
-  'aout',
+  'août',
   'septembre',
   'octobre',
   'novembre',
-  'decembre',
+  'décembre',
 ];
 
 /// Date lisible pour l'en-tete des ecrans : `23 septembre 2026`.
@@ -76,6 +76,33 @@ String formatShortDate(DateTime jour) {
   final j = jour.day.toString().padLeft(2, '0');
   return '$j/$m/${jour.year}';
 }
+
+const _moisCourts = [
+  'janv.',
+  'févr.',
+  'mars',
+  'avr.',
+  'mai',
+  'juin',
+  'juil.',
+  'août',
+  'sept.',
+  'oct.',
+  'nov.',
+  'déc.',
+];
+
+const _jours = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+
+/// Date courte en toutes lettres : `28 sept.`.
+String formatDayMonth(DateTime jour) =>
+    '${jour.day}\u00a0${_moisCourts[jour.month - 1]}';
+
+/// Mois abrege seul : `sept.`.
+String formatMonthShort(DateTime jour) => _moisCourts[jour.month - 1];
+
+/// Jour de la semaine abrege : `lun.`.
+String formatWeekdayShort(DateTime jour) => _jours[jour.weekday - 1];
 
 /// Relit une date ISO de la base. Renvoie `null` si le texte est inexploitable.
 DateTime? parseIsoDate(String? iso) {
