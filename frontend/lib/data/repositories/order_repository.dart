@@ -70,7 +70,13 @@ class OrderRepository {
          AND rr.deleted_at IS NULL
     ORDER BY r.number
       ''',
-          readsFrom: {db.reservationRooms, db.rooms, db.reservations, db.guests, db.folios},
+          readsFrom: {
+            db.reservationRooms,
+            db.rooms,
+            db.reservations,
+            db.guests,
+            db.folios,
+          },
         )
         .watch()
         .map(

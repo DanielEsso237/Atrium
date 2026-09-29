@@ -946,3 +946,158 @@ class Eyebrow extends StatelessWidget {
     );
   }
 }
+
+/// Un choix parmi quelques options, en tuiles avec icone plutot qu'en menu
+/// deroulant : tout se voit, un seul geste suffit.
+class ChoiceTiles<T> extends StatelessWidget {
+  const ChoiceTiles({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.tileWidth = 132,
+  });
+
+  final List<(T, IconData, String)> options;
+  final T? selected;
+  final ValueChanged<T> onChanged;
+  final double tileWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final duree = _animationsCoupees(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 320);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final (valeur, icone, libelle) in options)
+          Semantics(
+            button: true,
+            selected: valeur == selected,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onChanged(valeur),
+                child: AnimatedContainer(
+                  duration: duree,
+                  curve: atriumSpring,
+                  width: tileWidth,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                  decoration: BoxDecoration(
+                    color: valeur == selected
+                        ? p.accent.withValues(alpha: 0.14)
+                        : p.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: valeur == selected ? p.accent : p.border,
+                      width: valeur == selected ? 1.8 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        icone,
+                        size: 22,
+                        color: valeur == selected ? p.accent : p.textSecondary,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        libelle,
+                        maxLines: 2,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          color: p.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Le style d'un gros champ de montant.
+TextStyle get montantSaisieStyle => TextStyle(
+  fontFamily: atriumFontFamily,
+  fontSize: 26,
+  fontWeight: FontWeight.w800,
+  letterSpacing: -0.6,
+  color: AtriumColors.textPrimary,
+  fontFeatures: tabularFigures,
+);
+
+/// Une chambre a choisir : son numero dans une tuile qui s'allume.
+class RoomChoiceTile extends StatelessWidget {
+  const RoomChoiceTile({
+    super.key,
+    required this.numero,
+    required this.choisie,
+    required this.onTap,
+  });
+
+  final String numero;
+  final bool choisie;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Semantics(
+      button: true,
+      selected: choisie,
+      label: 'Chambre $numero',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AtriumMotion.of(
+              context,
+              const Duration(milliseconds: 320),
+            ),
+            curve: atriumSpring,
+            width: 76,
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: choisie ? p.accent : p.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: choisie ? p.accent : p.border),
+              boxShadow: choisie
+                  ? [
+                      BoxShadow(
+                        color: p.accent.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        spreadRadius: -6,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              numero,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: choisie ? p.night : p.text,
+                fontFeatures: tabularFigures,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -415,10 +415,11 @@ class CatalogApi {
     final debut = from ?? aujourdhui.subtract(Duration(days: joursAvant));
     final fin = to ?? aujourdhui.add(Duration(days: joursApres));
 
-    return _lire('/reservations', RemoteReservation.fromJson, query: {
-      'arrival_from': _jour(debut),
-      'arrival_to': _jour(fin),
-    });
+    return _lire(
+      '/reservations',
+      RemoteReservation.fromJson,
+      query: {'arrival_from': _jour(debut), 'arrival_to': _jour(fin)},
+    );
   }
 
   /// Les ardoises ouvertes, avec leurs lignes.

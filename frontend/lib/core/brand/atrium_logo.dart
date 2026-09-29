@@ -103,7 +103,11 @@ class AtriumLockup extends StatelessWidget {
     this.markSize = 40,
     this.hotelName,
     this.onNight = true,
+    this.ink,
   });
+
+  /// Encre imposee, quel que soit le theme (une facture reste sur papier).
+  final Color? ink;
 
   final double markSize;
   final String? hotelName;

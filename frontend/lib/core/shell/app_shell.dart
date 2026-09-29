@@ -27,6 +27,7 @@ import '../../features/dashboard/dashboard_sidebar.dart'
     show Avatar, MenuCompte, montantCompact;
 import '../../features/reservations/reservations_screen.dart'
     show ReservationFilter, reservationFilterProvider;
+import '../../features/billing/cash_dialog.dart' show showCaisseDuJour;
 import '../brand/atrium_logo.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
@@ -53,7 +54,20 @@ class Destination {
     this.filtre,
     this.raccourci = false,
     this.indicateur,
+    this.caisse = false,
   });
+
+  /// Le nom sous l'icone du rail, ou la place manque.
+  String get court => switch (label) {
+    'Plan des chambres' => 'Chambres',
+    'Caisse du jour' => 'Caisse',
+    'Statistiques' => 'Stats',
+    'Réservations' => 'Résas',
+    _ => label,
+  };
+
+  /// « Caisse du jour » : ouvre la fenetre de caisse au lieu d'une page.
+  final bool caisse;
 
   final String label;
   final IconData icon;
@@ -92,7 +106,7 @@ final destinations = <Destination>[
     '/reservations',
     'rooms.read',
     Groupe.reception,
-    filtre: ReservationFilter.expected,
+    filtre: ReservationFilter.arrivalsToday,
     raccourci: true,
   ),
   const Destination(
@@ -102,7 +116,7 @@ final destinations = <Destination>[
     '/reservations',
     'rooms.read',
     Groupe.reception,
-    filtre: ReservationFilter.inHouse,
+    filtre: ReservationFilter.departuresToday,
     raccourci: true,
   ),
   const Destination(
@@ -171,6 +185,7 @@ final destinations = <Destination>[
     'folio.read',
     Groupe.gestion,
     raccourci: true,
+    caisse: true,
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
   const Destination(
@@ -232,6 +247,10 @@ class AppShell extends ConsumerWidget {
     void aller(int i) {
       final d = liste[i];
       if (d.route == null) return;
+      if (d.caisse) {
+        showCaisseDuJour(context, caDuJour: resume?.caDuJour ?? 0);
+        return;
+      }
       if (d.filtre != null) {
         ref.read(reservationFilterProvider.notifier).select(d.filtre!);
       } else if (d.route == '/reservations') {
@@ -275,7 +294,7 @@ class AppShell extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
               child: _Ile(
-                largeur: 84,
+                largeur: 92,
                 child: _Rail(
                   liste: liste,
                   actif: actif,
@@ -607,27 +626,47 @@ class _EntreeRail extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Center(
-              child: AnimatedContainer(
-                duration: duree,
-                curve: atriumSpring,
-                width: 54,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: actif
-                      ? Colors.white.withValues(alpha: 0.09)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: duree,
+                  curve: atriumSpring,
+                  width: 52,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: actif
+                        ? AtriumColors.mintStrong.withValues(alpha: 0.16)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Icon(
+                    actif ? destination.iconActive : destination.icon,
+                    size: 21,
+                    color: actif
+                        ? AtriumColors.mintStrong
+                        : AtriumColors.onPurpleSoft,
+                  ),
                 ),
-                child: Icon(
-                  actif ? destination.iconActive : destination.icon,
-                  size: 23,
-                  color: actif
-                      ? AtriumColors.mintStrong
-                      : AtriumColors.onPurpleSoft,
+                const SizedBox(height: 3),
+                // Le nom sous l'icone : sans lui, un nouvel agent ne sait pas
+                // ce que cache chaque pictogramme.
+                Text(
+                  destination.court,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 10.5,
+                    fontWeight: actif ? FontWeight.w800 : FontWeight.w600,
+                    color: actif
+                        ? AtriumColors.onNight
+                        : AtriumColors.onPurpleSoft,
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),

@@ -876,7 +876,7 @@ class _AvailableRooms extends ConsumerWidget {
               runSpacing: 10,
               children: [
                 for (final room in rooms)
-                  _TuileChambre(
+                  RoomChoiceTile(
                     numero: room.number,
                     choisie: selected == room.id,
                     onTap: () => onSelect(selected == room.id ? null : room.id),
@@ -886,69 +886,6 @@ class _AvailableRooms extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _TuileChambre extends StatelessWidget {
-  const _TuileChambre({
-    required this.numero,
-    required this.choisie,
-    required this.onTap,
-  });
-
-  final String numero;
-  final bool choisie;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return Semantics(
-      button: true,
-      selected: choisie,
-      label: 'Chambre $numero',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: AtriumMotion.of(
-              context,
-              const Duration(milliseconds: 320),
-            ),
-            curve: atriumSpring,
-            width: 76,
-            height: 64,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: choisie ? p.accent : p.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: choisie ? p.accent : p.border),
-              boxShadow: choisie
-                  ? [
-                      BoxShadow(
-                        color: p.accent.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        spreadRadius: -6,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Text(
-              numero,
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: choisie ? p.night : p.text,
-                fontFeatures: tabularFigures,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

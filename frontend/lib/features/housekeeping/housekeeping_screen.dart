@@ -81,7 +81,11 @@ class _RienAFaire extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline, size: 72, color: schema.onSurfaceVariant),
+            Icon(
+              Icons.check_circle_outline,
+              size: 72,
+              color: schema.onSurfaceVariant,
+            ),
             const SizedBox(height: 20),
             Text(
               'Aucune chambre à faire.',
@@ -158,10 +162,8 @@ class _CarteState extends ConsumerState<_Carte> {
         CouleursEtat.nettoyage,
         'Nettoyage en cours',
       ),
-      HousekeepingStatus.CLEAN || HousekeepingStatus.INSPECTED => (
-        CouleursEtat.disponible,
-        'Fait',
-      ),
+      HousekeepingStatus.CLEAN ||
+      HousekeepingStatus.INSPECTED => (CouleursEtat.disponible, 'Fait'),
       HousekeepingStatus.DIRTY => (CouleursEtat.occupee, 'À faire'),
     };
 
@@ -205,7 +207,11 @@ class _CarteState extends ConsumerState<_Carte> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.priority_high_rounded, size: 18, color: schema.error),
+                  Icon(
+                    Icons.priority_high_rounded,
+                    size: 18,
+                    color: schema.error,
+                  ),
                   Text(
                     'Prioritaire',
                     style: texte.labelMedium?.copyWith(
@@ -223,7 +229,11 @@ class _CarteState extends ConsumerState<_Carte> {
     );
 
     final Widget action = job.faite
-        ? Icon(Icons.check_circle_rounded, size: 34, color: CouleursEtat.disponible)
+        ? Icon(
+            Icons.check_circle_rounded,
+            size: 34,
+            color: CouleursEtat.disponible,
+          )
         : SizedBox(
             height: 56,
             child: FilledButton.icon(

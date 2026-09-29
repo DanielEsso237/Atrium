@@ -41,9 +41,8 @@ class CashView {
   bool get open => session.status == CashSessionStatus.OPEN;
 
   /// Ecart entre le comptage et l'attendu, une fois fermee.
-  int? get variance => session.countedAmount == null
-      ? null
-      : session.countedAmount! - expected;
+  int? get variance =>
+      session.countedAmount == null ? null : session.countedAmount! - expected;
 }
 
 class CashRepository with OutboxWriter {
@@ -100,13 +99,14 @@ class CashRepository with OutboxWriter {
   /// La session ouverte de l'agent, sans son attendu. Sert au rattachement
   /// d'un encaissement, qui n'a pas besoin du calcul.
   Future<String?> openSessionId(String userId) async {
-    final s = await (db.select(db.cashSessions)..where(
-          (c) =>
-              c.userId.equals(userId) &
-              c.status.equalsValue(CashSessionStatus.OPEN) &
-              c.deletedAt.isNull(),
-        ))
-        .getSingleOrNull();
+    final s =
+        await (db.select(db.cashSessions)..where(
+              (c) =>
+                  c.userId.equals(userId) &
+                  c.status.equalsValue(CashSessionStatus.OPEN) &
+                  c.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
     return s?.id;
   }
 
@@ -139,11 +139,7 @@ class CashRepository with OutboxWriter {
       table: 'cash_sessions',
       id: id,
       operation: SyncOp.INSERT,
-      payload: {
-        'id': id,
-        'opening_float': openingFloat,
-        'created_by': by,
-      },
+      payload: {'id': id, 'opening_float': openingFloat, 'created_by': by},
       action: () => db
           .into(db.cashSessions)
           .insert(

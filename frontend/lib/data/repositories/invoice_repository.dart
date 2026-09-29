@@ -93,10 +93,9 @@ class InvoiceRepository with OutboxWriter {
             .getSingleOrNull();
     if (existante != null) return existante.id;
 
-    final lignes = await (db.select(db.folioItems)..where(
-          (i) => i.folioId.equals(folioId) & i.deletedAt.isNull(),
-        ))
-        .get();
+    final lignes = await (db.select(
+      db.folioItems,
+    )..where((i) => i.folioId.equals(folioId) & i.deletedAt.isNull())).get();
     if (lignes.isEmpty) {
       throw StateError(
         'Cette ardoise n\'a aucune consommation : il n\'y a rien a facturer.',

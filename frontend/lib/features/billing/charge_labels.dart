@@ -8,6 +8,9 @@
 /// l'ardoise et la future facture doivent dire la meme chose.
 library;
 
+import 'package:flutter/widgets.dart';
+
+import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
 
 String chargeCategoryLabel(ChargeCategory c) => switch (c) {
@@ -31,4 +34,19 @@ String paymentMethodLabel(PaymentMethod m) => switch (m) {
   PaymentMethod.MOBILE_MONEY => 'Mobile Money',
   PaymentMethod.CITY_LEDGER => 'Facture société',
   PaymentMethod.VOUCHER => 'Bon / voucher',
+};
+
+/// L'icone de chaque categorie : la meme dans la fiche, l'ardoise et la
+/// saisie.
+IconData chargeCategoryIcon(ChargeCategory c) => switch (c) {
+  ChargeCategory.ROOM => PhosphorIconsLight.bed,
+  ChargeCategory.FNB => PhosphorIconsLight.forkKnife,
+  ChargeCategory.MINIBAR => PhosphorIconsLight.wine,
+  ChargeCategory.SPA => PhosphorIconsLight.flowerLotus,
+  ChargeCategory.LAUNDRY => PhosphorIconsLight.tShirt,
+  ChargeCategory.TELEPHONE => PhosphorIconsLight.phone,
+  ChargeCategory.TAX => PhosphorIconsLight.receipt,
+  ChargeCategory.DISCOUNT => PhosphorIconsLight.percent,
+  ChargeCategory.DEPOSIT => PhosphorIconsLight.coins,
+  ChargeCategory.MISC => PhosphorIconsLight.dotsThree,
 };

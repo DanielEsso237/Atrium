@@ -14,6 +14,7 @@ abstract final class PhosphorIconsLight {
   static const arrowsLeftRight = IconData(0xe0a0, fontFamily: 'PhosphorLight');
   static const baby = IconData(0xe774, fontFamily: 'PhosphorLight');
   static const backspace = IconData(0xe0ae, fontFamily: 'PhosphorLight');
+  static const bank = IconData(0xe0b4, fontFamily: 'PhosphorLight');
   static const bed = IconData(0xe0cc, fontFamily: 'PhosphorLight');
   static const broom = IconData(0xec54, fontFamily: 'PhosphorLight');
   static const buildings = IconData(0xe102, fontFamily: 'PhosphorLight');
@@ -28,10 +29,13 @@ abstract final class PhosphorIconsLight {
   static const checkCircle = IconData(0xe184, fontFamily: 'PhosphorLight');
   static const checks = IconData(0xe53a, fontFamily: 'PhosphorLight');
   static const circle = IconData(0xe18a, fontFamily: 'PhosphorLight');
+  static const clockCountdown = IconData(0xed2c, fontFamily: 'PhosphorLight');
   static const cloudArrowUp = IconData(0xe1ae, fontFamily: 'PhosphorLight');
   static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorLight');
   static const cloudSlash = IconData(0xe1b6, fontFamily: 'PhosphorLight');
   static const coins = IconData(0xe78e, fontFamily: 'PhosphorLight');
+  static const creditCard = IconData(0xe1d2, fontFamily: 'PhosphorLight');
+  static const deviceMobile = IconData(0xe1e0, fontFamily: 'PhosphorLight');
   static const door = IconData(0xe61c, fontFamily: 'PhosphorLight');
   static const doorOpen = IconData(0xe7e6, fontFamily: 'PhosphorLight');
   static const dotsThree = IconData(0xe1fe, fontFamily: 'PhosphorLight');
@@ -41,11 +45,16 @@ abstract final class PhosphorIconsLight {
   static const flowerLotus = IconData(0xe6cc, fontFamily: 'PhosphorLight');
   static const forkKnife = IconData(0xe262, fontFamily: 'PhosphorLight');
   static const globe = IconData(0xe288, fontFamily: 'PhosphorLight');
-  static const identificationCard = IconData(0xe2c8, fontFamily: 'PhosphorLight');
+  static const hash = IconData(0xe2a2, fontFamily: 'PhosphorLight');
+  static const identificationCard = IconData(
+    0xe2c8,
+    fontFamily: 'PhosphorLight',
+  );
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
   static const lockSimpleOpen = IconData(0xe30a, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorLight');
+  static const money = IconData(0xe588, fontFamily: 'PhosphorLight');
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorLight');
   static const numpad = IconData(0xe3c8, fontFamily: 'PhosphorLight');
   static const password = IconData(0xe752, fontFamily: 'PhosphorLight');
@@ -55,6 +64,7 @@ abstract final class PhosphorIconsLight {
   static const receipt = IconData(0xe3ec, fontFamily: 'PhosphorLight');
   static const scales = IconData(0xe750, fontFamily: 'PhosphorLight');
   static const sealCheck = IconData(0xe606, fontFamily: 'PhosphorLight');
+  static const shoppingBagOpen = IconData(0xe418, fontFamily: 'PhosphorLight');
   static const signIn = IconData(0xe428, fontFamily: 'PhosphorLight');
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorLight');
   static const sparkle = IconData(0xe6a2, fontFamily: 'PhosphorLight');
@@ -62,6 +72,7 @@ abstract final class PhosphorIconsLight {
   static const sun = IconData(0xe472, fontFamily: 'PhosphorLight');
   static const tShirt = IconData(0xe670, fontFamily: 'PhosphorLight');
   static const tag = IconData(0xe478, fontFamily: 'PhosphorLight');
+  static const ticket = IconData(0xe490, fontFamily: 'PhosphorLight');
   static const user = IconData(0xe4c2, fontFamily: 'PhosphorLight');
   static const userPlus = IconData(0xe4d0, fontFamily: 'PhosphorLight');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorLight');

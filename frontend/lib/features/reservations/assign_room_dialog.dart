@@ -10,6 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
@@ -67,27 +70,38 @@ class _AssignRoomDialogState extends ConsumerState<_AssignRoomDialog> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Chambre attribuee.')));
+    ).showSnackBar(const SnackBar(content: Text('Chambre attribuée.')));
   }
 
   @override
   Widget build(BuildContext context) {
     final r = widget.reservation;
-    final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
+    final a = parseIsoDate(r.arrival);
+    final d = parseIsoDate(r.departure);
 
     return AlertDialog(
-      title: Text('Attribuer une chambre — ${r.guestName}'),
+      icon: const Icon(PhosphorIconsLight.door, size: 32),
+      title: Text('Une chambre pour ${r.guestName}'),
       content: SizedBox(
         width: 480,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${r.roomTypeLabel} · ${r.arrival} → ${r.departure}',
-              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
+              '${r.roomTypeLabel}  ·  '
+              '${a == null ? r.arrival : formatDayMonth(a)} → '
+              '${d == null ? r.departure : formatDayMonth(d)}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: p.textSecondary,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             FutureBuilder<List<AvailableRoom>>(
               future: _rooms,
               builder: (context, snap) {
@@ -99,27 +113,28 @@ class _AssignRoomDialogState extends ConsumerState<_AssignRoomDialog> {
                 }
                 final rooms = snap.data!;
                 if (rooms.isEmpty) {
-                  return Text(
-                    'Aucune chambre libre de cette categorie sur la periode.',
-                    style: TextStyle(fontSize: 17, color: schema.error),
+                  return Row(
+                    children: [
+                      Icon(PhosphorIconsLight.warningCircle, color: p.warning),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Aucune chambre libre de cette catégorie sur la période.',
+                        ),
+                      ),
+                    ],
                   );
                 }
                 return Wrap(
                   spacing: 10,
                   runSpacing: 10,
+                  alignment: WrapAlignment.center,
                   children: [
                     for (final room in rooms)
-                      ChoiceChip(
-                        label: Text(
-                          room.number,
-                          style: const TextStyle(fontSize: 18),
-                        ),
-                        selected: _selected == room.id,
-                        onSelected: (_) => setState(() => _selected = room.id),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
-                        ),
+                      RoomChoiceTile(
+                        numero: room.number,
+                        choisie: _selected == room.id,
+                        onTap: () => setState(() => _selected = room.id),
                       ),
                   ],
                 );

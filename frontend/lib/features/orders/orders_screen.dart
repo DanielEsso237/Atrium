@@ -55,8 +55,7 @@ class OrdersScreen extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                     tabs: [
-                      for (final o in liste)
-                        Tab(height: 56, text: o.label),
+                      for (final o in liste) Tab(height: 56, text: o.label),
                     ],
                   ),
                 ),
@@ -88,7 +87,11 @@ class _AucunPointDeVente extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.storefront_outlined, size: 72, color: schema.onSurfaceVariant),
+              Icon(
+                Icons.storefront_outlined,
+                size: 72,
+                color: schema.onSurfaceVariant,
+              ),
               const SizedBox(height: 20),
               Text(
                 'Aucun point de vente.',
@@ -216,7 +219,10 @@ class _Chambre extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Ardoise : ${formatAmount(chambre.balance)}',
-                      style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: schema.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -299,7 +305,9 @@ class _SaisieState extends State<_Saisie> {
     final schema = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: Text('${widget.outlet.label} — chambre ${widget.chambre.roomNumber}'),
+      title: Text(
+        '${widget.outlet.label} — chambre ${widget.chambre.roomNumber}',
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -372,7 +380,10 @@ class _SaisieState extends State<_Saisie> {
                     children: [
                       Text(
                         'Ardoise apres',
-                        style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: schema.onSurfaceVariant,
+                        ),
                       ),
                       const Spacer(),
                       Text(
@@ -398,11 +409,9 @@ class _SaisieState extends State<_Saisie> {
         FilledButton(
           onPressed: _total <= 0 || _libelle.text.trim().isEmpty
               ? null
-              : () => Navigator.of(context).pop((
-                  _libelle.text,
-                  int.parse(_prix.text.trim()),
-                  _quantite,
-                )),
+              : () => Navigator.of(
+                  context,
+                ).pop((_libelle.text, int.parse(_prix.text.trim()), _quantite)),
           child: const Text('Porter a la chambre'),
         ),
       ],

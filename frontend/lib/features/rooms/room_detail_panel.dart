@@ -504,7 +504,7 @@ class _Consommations extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            _iconeCharge(l.categorie),
+                            chargeCategoryIcon(l.categorie),
                             size: 18,
                             color: p.text,
                           ),
@@ -537,19 +537,6 @@ class _Consommations extends StatelessWidget {
     );
   }
 }
-
-IconData _iconeCharge(ChargeCategory c) => switch (c) {
-  ChargeCategory.ROOM => PhosphorIconsLight.bed,
-  ChargeCategory.FNB => PhosphorIconsLight.forkKnife,
-  ChargeCategory.MINIBAR => PhosphorIconsLight.wine,
-  ChargeCategory.SPA => PhosphorIconsLight.flowerLotus,
-  ChargeCategory.LAUNDRY => PhosphorIconsLight.tShirt,
-  ChargeCategory.TELEPHONE => PhosphorIconsLight.phone,
-  ChargeCategory.TAX => PhosphorIconsLight.receipt,
-  ChargeCategory.DISCOUNT => PhosphorIconsLight.percent,
-  ChargeCategory.DEPOSIT => PhosphorIconsLight.coins,
-  ChargeCategory.MISC => PhosphorIconsLight.dotsThree,
-};
 
 String _jour(String iso) {
   final d = parseIsoDate(iso);

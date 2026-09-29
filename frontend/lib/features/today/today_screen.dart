@@ -27,6 +27,8 @@ import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
 import '../dashboard/dashboard_screen.dart' show dashboardProvider;
 import '../reservations/assign_room_dialog.dart';
+import '../reservations/reservations_screen.dart'
+    show ReservationFilter, reservationFilterProvider;
 import '../reservations/stay_actions.dart';
 import '../rooms/room_board_screen.dart' show apparence, roomBoardProvider;
 import '../rooms/room_detail_panel.dart';
@@ -431,14 +433,14 @@ class _Chiffres extends ConsumerWidget {
         valeur: '${r?.arriveesRestantes ?? 0}',
         libelle: 'arrivées à venir',
         detail: 'sur ${r?.arriveesDuJour ?? 0} prévues',
-        onTap: () => context.go('/reservations'),
+        onTap: () => _voir(context, ref, ReservationFilter.arrivalsToday),
       ),
       _Chiffre(
         icone: PhosphorIconsLight.signOut,
         valeur: '${r?.departsRestants ?? 0}',
         libelle: 'départs à venir',
         detail: 'sur ${r?.departsDuJour ?? 0} prévus',
-        onTap: () => context.go('/reservations'),
+        onTap: () => _voir(context, ref, ReservationFilter.departuresToday),
       ),
       _Chiffre(
         icone: PhosphorIconsLight.broom,
@@ -603,7 +605,13 @@ class _BlocSejours extends ConsumerWidget {
               Tag('${sejours.length}'),
               const Spacer(),
               TextButton(
-                onPressed: () => context.go('/reservations'),
+                onPressed: () => _voir(
+                  context,
+                  ref,
+                  depart
+                      ? ReservationFilter.departuresToday
+                      : ReservationFilter.arrivalsToday,
+                ),
                 child: const Text('Tout voir'),
               ),
             ],
@@ -748,40 +756,45 @@ class _LigneSejour extends ConsumerWidget {
 
 /// L'hotel d'un coup d'oeil : un carre par chambre, dans la couleur de son
 /// etat, etage par etage. Toucher un carre ouvre la fiche de la chambre.
+/// L'hotel vu de la rue : les etages empiles comme une facade, le dernier en
+/// haut, chaque chambre une fenetre allumee de la couleur de son etat.
 class _BlocHotel extends ConsumerWidget {
   const _BlocHotel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
     final chambres = ref.watch(roomBoardProvider).value ?? const [];
     final parEtage = <String, List<RoomBoardEntry>>{};
     for (final c in chambres) {
       parEtage.putIfAbsent(c.floorLabel ?? 'Sans étage', () => []).add(c);
+    }
+    // Le rez-de-chaussee en bas, comme dans la realite.
+    final etages = parEtage.entries.toList().reversed.toList();
+    final compte = <RoomDisplayStatus, int>{};
+    for (final c in chambres) {
+      compte.update(c.displayStatus, (n) => n + 1, ifAbsent: () => 1);
     }
     var rang = 0;
 
     return Bezel(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(
-                PhosphorIconsLight.buildings,
-                size: 21,
-                color: AtriumColors.mintStrong,
-              ),
+              Icon(PhosphorIconsLight.buildings, size: 21, color: p.accent),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "L'hôtel, chambre par chambre",
+                  "L'hôtel ce soir",
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
-                    color: AtriumColors.textPrimary,
+                    color: p.text,
                   ),
                 ),
               ),
@@ -791,52 +804,138 @@ class _BlocHotel extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          for (final e in parEtage.entries) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 10),
-              child: Text(
-                e.key,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AtriumColors.textSecondary,
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              for (final etat in RoomDisplayStatus.values)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: apparence(etat).couleur,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${apparence(etat).label} ${compte[etat] ?? 0}',
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textSecondary,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                  ],
                 ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // La facade : un toit, puis un bandeau par etage.
+          Container(
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: p.accent.withValues(alpha: 0.7),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(6),
               ),
             ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            decoration: BoxDecoration(
+              color: p.isDark
+                  ? Colors.white.withValues(alpha: 0.025)
+                  : p.night.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: p.border),
+            ),
+            child: Column(
               children: [
-                for (final c in e.value) _CarreChambre(chambre: c, rang: rang++),
+                for (var i = 0; i < etages.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 46,
+                          child: Text(
+                            _etageCourt(etages[i].key, etages.length - 1 - i),
+                            style: TextStyle(
+                              fontFamily: atriumFontFamily,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4,
+                              color: p.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final c in etages[i].value)
+                                _Fenetre(chambre: c, rang: rang++),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-          ],
+          ),
+          // Le trottoir.
+          Container(
+            height: 3,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: p.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _CarreChambre extends StatefulWidget {
-  const _CarreChambre({required this.chambre, required this.rang});
+/// « Rez-de-chaussee » devient RDC, les autres etages leur rang.
+String _etageCourt(String libelle, int rang) {
+  final l = libelle.toLowerCase();
+  if (l.startsWith('rez')) return 'RDC';
+  if (l.startsWith('sans')) return '—';
+  return 'ÉT. $rang';
+}
+
+class _Fenetre extends StatefulWidget {
+  const _Fenetre({required this.chambre, required this.rang});
 
   final RoomBoardEntry chambre;
   final int rang;
 
   @override
-  State<_CarreChambre> createState() => _CarreChambreState();
+  State<_Fenetre> createState() => _FenetreState();
 }
 
-class _CarreChambreState extends State<_CarreChambre> {
+class _FenetreState extends State<_Fenetre> {
   bool _survol = false;
 
   @override
   Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
     final vue = apparence(widget.chambre.displayStatus);
     final duree = AtriumMotion.of(context, const Duration(milliseconds: 380));
-    final carre = MouseRegion(
+    final fenetre = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _survol = true),
       onExit: (_) => setState(() => _survol = false),
@@ -845,43 +944,76 @@ class _CarreChambreState extends State<_CarreChambre> {
         child: Tooltip(
           message: 'Chambre ${widget.chambre.number} · ${vue.label}',
           child: AnimatedScale(
-            scale: _survol ? 1.08 : 1,
+            scale: _survol ? 1.06 : 1,
             duration: duree,
             curve: atriumSpring,
             child: AnimatedContainer(
               duration: duree,
               curve: atriumSpring,
-              width: 64,
-              height: 52,
-              alignment: Alignment.center,
+              width: 66,
+              height: 50,
+              padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
               decoration: BoxDecoration(
-                color: vue.couleur,
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(14),
+                // Une fenetre eclairee de l'interieur, par le bas.
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    vue.couleur.withValues(alpha: p.isDark ? 0.42 : 0.30),
+                    vue.couleur.withValues(alpha: p.isDark ? 0.10 : 0.08),
+                  ],
+                ),
+                border: Border.all(
+                  color: vue.couleur.withValues(alpha: _survol ? 0.9 : 0.45),
+                  width: _survol ? 1.6 : 1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: vue.couleur.withValues(alpha: _survol ? 0.55 : 0.25),
-                    blurRadius: _survol ? 20 : 10,
+                    color: vue.couleur.withValues(alpha: _survol ? 0.45 : 0.15),
+                    blurRadius: _survol ? 18 : 10,
                     spreadRadius: -4,
                     offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              child: Text(
-                widget.chambre.number,
-                style: const TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  letterSpacing: -0.3,
-                  color: Color(0xFF0A0F2E),
-                  fontFeatures: tabularFigures,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: vue.couleur,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    widget.chambre.number,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      height: 1,
+                      letterSpacing: -0.3,
+                      color: p.text,
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
     );
-    return FadeUp(index: widget.rang, child: carre);
+    return FadeUp(index: widget.rang.clamp(0, 10), child: fenetre);
   }
+}
+
+/// Ouvre les reservations sur un filtre de la journee.
+void _voir(BuildContext context, WidgetRef ref, ReservationFilter filtre) {
+  ref.read(reservationFilterProvider.notifier).select(filtre);
+  context.go('/reservations');
 }

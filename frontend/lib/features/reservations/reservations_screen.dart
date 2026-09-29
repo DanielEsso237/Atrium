@@ -27,6 +27,16 @@ import 'stay_actions.dart';
 /// Les filtres, tels qu'un receptionniste les pense.
 enum ReservationFilter {
   all('Toutes', null),
+  // Les deux raccourcis de la journee : qui arrive aujourd'hui, qui doit
+  // partir aujourd'hui (ou aurait deja du). C'est ce que la reception ouvre
+  // le matin, pas la liste complete.
+  arrivalsToday('Arrivées du jour', {
+    ReservationStatus.PENDING,
+    ReservationStatus.CONFIRMED,
+  }, jour: ReservationDay.arrivee),
+  departuresToday('Départs du jour', {
+    ReservationStatus.CHECKED_IN,
+  }, jour: ReservationDay.depart),
   expected('Attendues', {
     ReservationStatus.PENDING,
     ReservationStatus.CONFIRMED,
@@ -38,11 +48,25 @@ enum ReservationFilter {
     ReservationStatus.NO_SHOW,
   });
 
-  const ReservationFilter(this.label, this.statuses);
+  const ReservationFilter(this.label, this.statuses, {this.jour});
 
   final String label;
   final Set<ReservationStatus>? statuses;
+  final ReservationDay? jour;
+
+  /// Vrai si la reservation passe ce filtre, pour la journee hoteliere `iso`.
+  bool garde(ReservationSummary r, String iso) {
+    if (statuses != null && !statuses!.contains(r.status)) return false;
+    return switch (jour) {
+      null => true,
+      ReservationDay.arrivee => r.arrival.startsWith(iso),
+      // Un depart oublie hier reste a faire aujourd'hui.
+      ReservationDay.depart => r.departure.substring(0, 10).compareTo(iso) <= 0,
+    };
+  }
 }
+
+enum ReservationDay { arrivee, depart }
 
 class ReservationFilterNotifier extends Notifier<ReservationFilter> {
   @override
@@ -76,6 +100,10 @@ final reservationsProvider = StreamProvider<List<ReservationSummary>>((ref) {
       .watch(reservationRepositoryProvider)
       .watchReservations(statuses: filter.statuses)
       .map((list) {
+        if (filter.jour != null) {
+          final iso = formatIsoDate(businessDayFor(DateTime.now()));
+          list = list.where((r) => filter.garde(r, iso)).toList();
+        }
         if (search.isEmpty) return list;
         // La recherche porte sur ce qu'un receptionniste a sous les yeux ou
         // au telephone : un nom, une reference, un numero de chambre. Filtrer
@@ -109,11 +137,10 @@ class ReservationsScreen extends ConsumerWidget {
     final toutes = ref.watch(_toutesReservationsProvider).value ?? const [];
     final recherche = ref.watch(reservationSearchProvider).trim();
 
-    int compte(ReservationFilter f) => f.statuses == null
-        ? toutes.length
-        : toutes.where((r) => f.statuses!.contains(r.status)).length;
-
     final jour = formatIsoDate(businessDayFor(DateTime.now()));
+    int compte(ReservationFilter f) =>
+        toutes.where((r) => f.garde(r, jour)).length;
+
     final arriventAujourdhui = toutes
         .where(
           (r) =>

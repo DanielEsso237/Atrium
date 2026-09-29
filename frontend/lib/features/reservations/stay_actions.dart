@@ -15,6 +15,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../billing/payment_dialog.dart';
 import '../auth/session.dart';
@@ -31,12 +33,12 @@ Future<bool> confirmCheckIn(
 }) async {
   final ok = await _confirm(
     context,
-    title: 'Enregistrer l\'arrivee',
+    title: "Enregistrer l'arrivée",
     message:
         '$guestName va occuper la chambre $roomNumber.\n\n'
-        'La chambre passera en occupee sur le plan, et son ardoise s\'ouvre '
+        "La chambre passera en occupée sur le plan, et son ardoise s'ouvre "
         'pour recevoir ses consommations.',
-    action: 'Enregistrer l\'arrivee',
+    action: "Enregistrer l'arrivée",
   );
   if (!ok) return false;
 
@@ -46,7 +48,7 @@ Future<bool> confirmCheckIn(
 
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$guestName est arrive — chambre $roomNumber.')),
+      SnackBar(content: Text('$guestName est arrivé, chambre $roomNumber.')),
     );
   }
   return true;
@@ -82,12 +84,12 @@ Future<bool> confirmCheckOut(
     if (balance <= 0) {
       final ok = await _confirm(
         context,
-        title: 'Enregistrer le depart',
+        title: 'Enregistrer le départ',
         message:
-            '$guestName libere la chambre $roomNumber.\n\n'
-            'La chambre repassera libre mais SALE : elle apparaitra dans la '
-            'liste du housekeeping et dans la tuile « a nettoyer ».',
-        action: 'Enregistrer le depart',
+            '$guestName libère la chambre $roomNumber.\n\n'
+            'La chambre repassera libre mais sale : elle apparaîtra dans la '
+            'liste du ménage et dans la tuile « à nettoyer ».',
+        action: 'Enregistrer le départ',
       );
       if (!ok) return false;
       break;
@@ -127,7 +129,7 @@ Future<bool> confirmCheckOut(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$guestName est parti — chambre $roomNumber a nettoyer.'),
+        content: Text('$guestName est parti, chambre $roomNumber à nettoyer.'),
       ),
     );
   }
@@ -150,7 +152,8 @@ Future<_Depart> _confirmerDepartNonSolde(
   final decision = await showDialog<_Depart>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Ardoise non soldee'),
+      icon: const Icon(PhosphorIconsLight.warningCircle, size: 32),
+      title: const Text('Ardoise non soldée'),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -158,7 +161,7 @@ Future<_Depart> _confirmerDepartNonSolde(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$guestName libere la chambre $roomNumber.',
+              '$guestName libère la chambre $roomNumber.',
               style: const TextStyle(fontSize: 17),
             ),
             const SizedBox(height: 18),
@@ -166,26 +169,27 @@ Future<_Depart> _confirmerDepartNonSolde(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: schema.errorContainer,
-                borderRadius: BorderRadius.circular(12),
+                color: schema.error.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: schema.error.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Reste a encaisser',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: schema.onErrorContainer,
-                    ),
+                    'Reste à encaisser',
+                    style: TextStyle(fontSize: 15, color: schema.onSurface),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     formatAmount(balance),
                     style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                      color: schema.onErrorContainer,
+                      fontFamily: atriumFontFamily,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                      color: schema.error,
+                      fontFeatures: tabularFigures,
                     ),
                   ),
                 ],
@@ -193,7 +197,7 @@ Future<_Depart> _confirmerDepartNonSolde(
             ),
             const SizedBox(height: 18),
             Text(
-              'La chambre repassera libre mais SALE.',
+              'La chambre repassera libre, mais sale.',
               style: TextStyle(fontSize: 15, color: schema.onSurfaceVariant),
             ),
           ],
@@ -214,7 +218,7 @@ Future<_Depart> _confirmerDepartNonSolde(
         // client est la et paie.
         FilledButton.icon(
           onPressed: () => Navigator.of(dialogContext).pop(_Depart.encaisser),
-          icon: const Icon(Icons.payments_outlined),
+          icon: const Icon(PhosphorIconsLight.coins, size: 20),
           label: const Text('Encaisser'),
         ),
       ],
@@ -236,6 +240,10 @@ Future<bool> _confirm(
   final answer = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
+      icon: Icon(
+        danger ? PhosphorIconsLight.warningCircle : PhosphorIconsLight.signIn,
+        size: 32,
+      ),
       title: Text(title),
       content: SizedBox(
         width: 460,

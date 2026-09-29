@@ -7,10 +7,13 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../core/tokens.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
@@ -23,7 +26,7 @@ import 'charge_labels.dart';
 typedef _Raccourci = (String libelle, ChargeCategory categorie, int prix);
 
 const _raccourcis = <_Raccourci>[
-  ('Petit dejeuner', ChargeCategory.FNB, 5000),
+  ('Petit déjeuner', ChargeCategory.FNB, 5000),
   ('Minibar', ChargeCategory.MINIBAR, 3000),
   ('Blanchisserie', ChargeCategory.LAUNDRY, 7500),
   ('Room service', ChargeCategory.FNB, 15000),
@@ -111,7 +114,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${formatAmount(_total)} porte a l\'ardoise de ${widget.guestName}.',
+          "${formatAmount(_total)} porté à l'ardoise de ${widget.guestName}.",
         ),
       ),
     );
@@ -119,12 +122,13 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
+    final p = AtriumPalette.current;
 
     return AlertDialog(
-      title: Text('Consommation — ${widget.guestName}'),
+      icon: const Icon(PhosphorIconsLight.shoppingBagOpen, size: 32),
+      title: Text('Consommation · ${widget.guestName}'),
       content: SizedBox(
-        width: 520,
+        width: 560,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -132,55 +136,54 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Eyebrow('Raccourcis'),
+                const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     for (final r in _raccourcis)
-                      ActionChip(
-                        label: Text(r.$1),
-                        onPressed: () => _applyShortcut(r),
-                      ),
+                      _Raccourcis(raccourci: r, onTap: () => _applyShortcut(r)),
                   ],
                 ),
-                const SizedBox(height: 18),
-
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: _label,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
-                    labelText: 'Libelle',
-                    hintText: 'Ce qui apparaitra sur la facture',
+                    labelText: 'Libellé',
+                    hintText: 'Ce qui apparaîtra sur la facture',
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Requis' : null,
                 ),
-                const SizedBox(height: 12),
-
-                DropdownButtonFormField<ChargeCategory>(
-                  initialValue: _category,
-                  decoration: const InputDecoration(labelText: 'Categorie'),
-                  items: [
+                const SizedBox(height: 16),
+                const Eyebrow('Catégorie'),
+                const SizedBox(height: 10),
+                ChoiceTiles<ChargeCategory>(
+                  selected: _category,
+                  tileWidth: 118,
+                  onChanged: (c) => setState(() => _category = c),
+                  options: [
                     for (final c in ChargeCategory.values)
-                      DropdownMenuItem(
-                        value: c,
-                        child: Text(chargeCategoryLabel(c)),
-                      ),
+                      (c, chargeCategoryIcon(c), chargeCategoryLabel(c)),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _category = v ?? ChargeCategory.FNB),
                 ),
-                const SizedBox(height: 12),
-
+                const SizedBox(height: 18),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: _price,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         onChanged: (_) => setState(() {}),
                         decoration: const InputDecoration(
-                          labelText: 'Prix unitaire (FCFA)',
+                          labelText: 'Prix unitaire',
+                          suffixText: 'FCFA',
                         ),
                         validator: (v) {
                           final n = int.tryParse((v ?? '').trim());
@@ -189,7 +192,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     _Quantity(
                       value: _quantity,
                       onChange: (v) => setState(() => _quantity = v),
@@ -197,22 +200,33 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                   ],
                 ),
                 const SizedBox(height: 18),
-
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: schema.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
+                    color: p.isDark ? p.nightRaised : p.night,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     children: [
-                      const Text('Total', style: TextStyle(fontSize: 17)),
+                      Text(
+                        'Total',
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: p.onNightSoft,
+                        ),
+                      ),
                       const Spacer(),
                       Text(
                         formatAmount(_total),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8,
+                          color: p.accent,
+                          fontFeatures: tabularFigures,
                         ),
                       ),
                     ],
@@ -230,9 +244,65 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: const Text('Porter a l\'ardoise'),
+          child: const Text("Porter à l'ardoise"),
         ),
       ],
+    );
+  }
+}
+
+class _Raccourcis extends StatelessWidget {
+  const _Raccourcis({required this.raccourci, required this.onTap});
+
+  final _Raccourci raccourci;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Material(
+      color: p.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: p.border),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(chargeCategoryIcon(raccourci.$2), size: 20, color: p.accent),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    raccourci.$1,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
+                  ),
+                  Text(
+                    formatAmount(raccourci.$3),
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 12,
+                      color: p.textSecondary,
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -245,36 +315,45 @@ class _Quantity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
+    final p = AtriumPalette.current;
+    Widget bouton(IconData i, VoidCallback? f) => IconButton(
+      onPressed: f,
+      style: IconButton.styleFrom(
+        backgroundColor: p.surfaceMuted,
+        fixedSize: const Size(42, 42),
+      ),
+      icon: Icon(i, size: 18),
+    );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: schema.outline),
-        borderRadius: BorderRadius.circular(12),
-        color: AtriumColors.white,
+        border: Border.all(color: p.border, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        color: p.paper,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            iconSize: 26,
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: value > 1 ? () => onChange(value - 1) : null,
+          bouton(
+            PhosphorIconsLight.minus,
+            value > 1 ? () => onChange(value - 1) : null,
           ),
           SizedBox(
-            width: 32,
+            width: 36,
             child: Text(
               '$value',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: p.text,
+                fontFeatures: tabularFigures,
+              ),
             ),
           ),
-          IconButton(
-            iconSize: 26,
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => onChange(value + 1),
-          ),
+          bouton(PhosphorIconsLight.plus, () => onChange(value + 1)),
         ],
       ),
     );

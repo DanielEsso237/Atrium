@@ -55,8 +55,7 @@ final invoiceRepositoryProvider = Provider<InvoiceRepository>(
 /// La facture d'une ardoise, en direct : elle change quand le serveur
 /// attribue le numero legal.
 final invoiceForFolioProvider = StreamProvider.family<InvoiceView?, String>(
-  (ref, folioId) =>
-      ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
+  (ref, folioId) => ref.watch(invoiceRepositoryProvider).watchForFolio(folioId),
 );
 
 final orderRepositoryProvider = Provider<OrderRepository>(

@@ -63,8 +63,7 @@ class PullReport {
 
   bool get succeeded => error == null && !offline;
 
-  int get total =>
-      outlets + guests + reservations + stayLines + folios + items;
+  int get total => outlets + guests + reservations + stayLines + folios + items;
 
   @override
   String toString() =>
@@ -74,7 +73,12 @@ class PullReport {
 }
 
 class Descente {
-  Descente(this.db, this._catalog, this._sync, {this.hotelId = _hotelParDefaut});
+  Descente(
+    this.db,
+    this._catalog,
+    this._sync, {
+    this.hotelId = _hotelParDefaut,
+  });
 
   final AtriumDatabase db;
   final CatalogApi _catalog;
@@ -399,11 +403,9 @@ class Descente {
     return lignes.map((l) => l.read<String>('id')).toSet();
   }
 
-  static ReservationStatus _reservationStatus(String v) =>
-      ReservationStatus.values.firstWhere(
-        (s) => s.name == v,
-        orElse: () => ReservationStatus.PENDING,
-      );
+  static ReservationStatus _reservationStatus(String v) => ReservationStatus
+      .values
+      .firstWhere((s) => s.name == v, orElse: () => ReservationStatus.PENDING);
 
   static FolioStatus _folioStatus(String v) => FolioStatus.values.firstWhere(
     (s) => s.name == v,
@@ -415,11 +417,8 @@ class Descente {
     orElse: () => FolioType.GUEST,
   );
 
-  static ChargeCategory _categorie(String v) =>
-      ChargeCategory.values.firstWhere(
-        (s) => s.name == v,
-        orElse: () => ChargeCategory.MISC,
-      );
+  static ChargeCategory _categorie(String v) => ChargeCategory.values
+      .firstWhere((s) => s.name == v, orElse: () => ChargeCategory.MISC);
 
   static IdDocumentType? _document(String? v) {
     if (v == null) return null;
