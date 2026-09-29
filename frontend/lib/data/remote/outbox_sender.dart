@@ -62,9 +62,13 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
 /// du client. L'ajouter ici donnait `/api/v1/api/v1/guests`, donc un 404 sur
 /// la premiere entree, donc toute la file bloquee derriere elle.
 class _Envoi {
-  const _Envoi(this.chemin, this.corps);
+  const _Envoi(this.chemin, this.corps, {this.patch = false});
   final String chemin;
   final Map<String, Object?> corps;
+
+  /// `PATCH` plutot que `POST` : une modification partielle, ou le serveur ne
+  /// touche qu'aux champs presents dans le corps.
+  final bool patch;
 }
 
 /// Pourquoi le moteur s'est arrete.
@@ -176,7 +180,9 @@ class OutboxSender {
 
       final Map<String, dynamic> reponse;
       try {
-        reponse = await api.post(envoi.chemin, body: envoi.corps);
+        reponse = envoi.patch
+            ? await api.patch(envoi.chemin, body: envoi.corps)
+            : await api.post(envoi.chemin, body: envoi.corps);
       } on ApiException catch (e) {
         return _apresEchec(entree, e, envoyees);
       }
@@ -364,6 +370,25 @@ class OutboxSender {
 
     switch (entree.entityTable) {
       case 'guests':
+        // Modification : `PATCH` avec les champs vides **gardes**. Ici une
+        // cle a `null` veut dire « efface-le » -- un telephone retire de la
+        // fiche doit l'etre aussi sur le serveur. Les champs absents
+        // (adresse, naissance, plafond) ne sont pas touches.
+        if (entree.op == SyncOp.UPDATE) {
+          return _Envoi(
+            '/guests/${p['id']}',
+            {
+              'first_name': p['first_name'],
+              'last_name': p['last_name'],
+              'phone': p['phone'],
+              'email': p['email'],
+              'nationality': p['nationality'],
+              'id_document_type': p['id_document_type'],
+              'id_document_number': p['id_document_number'],
+            },
+            patch: true,
+          );
+        }
         return _Envoi(
           '/guests',
           _sansNuls({
@@ -540,9 +565,9 @@ class OutboxSender {
     };
   }
 
-  /// Arrivee, depart, ou attribution de chambre.
+  /// Arrivee, depart, changement ou attribution de chambre.
   ///
-  /// Les deux premieres ont un endpoint, qui veut l'identifiant du dossier en
+  /// Les trois premiers ont un endpoint, qui veut l'identifiant du dossier en
   /// plus de celui de la ligne -- la file ne garde que le second, on va
   /// chercher le premier dans la base.
   Future<_Envoi?> _ligneDeSejour(Map<String, dynamic> p) async {
@@ -560,6 +585,13 @@ class OutboxSender {
 
     final resId = ligne.read<String>('reservation_id');
     final chemin = '/reservations/$resId/rooms/$lineId';
+
+    // Le changement de chambre laisse le statut a CHECKED_IN : lu avant le
+    // statut, sinon il repartirait comme un second check-in, que le serveur
+    // refuse et qui bloquerait la file.
+    if (p['action'] == 'CHANGE_ROOM') {
+      return _Envoi('$chemin/change-room', {'room_id': p['room_id']});
+    }
 
     switch (p['status']) {
       case 'CHECKED_IN':

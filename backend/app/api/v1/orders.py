@@ -17,6 +17,7 @@ from app.schemas.orders import OrderIn, OrderOut
 from app.services.business_day import current_business_date
 from app.services.folios import recompute_totals
 from app.services.numbering import Scope, next_number
+from app.services.outlets import ensure_outlet_allowed
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(prefix="/orders", tags=["commandes"])
@@ -65,6 +66,7 @@ async def create_order(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "room_id est obligatoire pour un room service."
         )
+    await ensure_outlet_allowed(session, user, payload.outlet_id)
 
     # Tous les articles en une requete, et tous les controles avant la
     # premiere ecriture (et avant de prendre un numero de commande).

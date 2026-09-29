@@ -25,6 +25,7 @@ import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'guest_rules.dart';
 
 class GuestPicker extends ConsumerStatefulWidget {
   const GuestPicker({
@@ -351,6 +352,14 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    // Sans la piece : au telephone, on ne l'a pas sous les yeux.
+    final manquants = missingForCreation(
+      firstName: _firstName.text,
+      lastName: _lastName.text,
+      phone: _phone.text,
+      withDocument: false,
+    );
+    if (manquants.isNotEmpty) return;
     setState(() => _busy = true);
 
     final guest = await ref
@@ -385,6 +394,7 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
                       controller: _firstName,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(labelText: 'Prénom'),
+                      validator: requiredText,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -394,8 +404,7 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
                       autofocus: true,
                       textCapitalization: TextCapitalization.characters,
                       decoration: const InputDecoration(labelText: 'Nom'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                      validator: requiredText,
                     ),
                   ),
                 ],
@@ -404,10 +413,8 @@ class _QuickGuestDialogState extends ConsumerState<_QuickGuestDialog> {
               TextFormField(
                 controller: _phone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Téléphone',
-                  helperText: 'Facultatif, mais précieux pour rappeler',
-                ),
+                decoration: const InputDecoration(labelText: 'Téléphone'),
+                validator: requiredText,
               ),
               const SizedBox(height: 14),
               Text(

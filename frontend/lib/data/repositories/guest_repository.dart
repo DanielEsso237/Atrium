@@ -144,6 +144,67 @@ class GuestRepository with OutboxWriter {
     );
   }
 
+  /// Modifie la fiche d'un client.
+  ///
+  /// Aucune des regles de creation ici (`guest_rules.dart`) : un client
+  /// ancien, sans telephone ni piece, doit pouvoir etre corrige tel quel.
+  /// Seuls nom et prenom restent exiges -- le serveur les refuse vides.
+  ///
+  /// L'entree de file porte les six champs de l'ecran, **vides compris** : un
+  /// telephone efface doit s'effacer aussi sur le serveur. Ce sont exactement
+  /// ceux que la descente rapatrie ; tout le reste de la fiche (adresse, date
+  /// de naissance, plafond) n'est pas envoye, et le `PATCH` n'y touche pas.
+  Future<GuestRow> update({
+    required String id,
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? email,
+    String? nationality,
+    IdDocumentType? documentType,
+    String? documentNumber,
+    String? updatedBy,
+  }) {
+    if (firstName.trim().isEmpty || lastName.trim().isEmpty) {
+      throw StateError('Le nom et le prenom sont obligatoires.');
+    }
+    final now = DateTime.now().toUtc();
+
+    return writeAndEnqueue(
+      table: 'guests',
+      id: id,
+      operation: SyncOp.UPDATE,
+      payload: {
+        'id': id,
+        'first_name': firstName.trim(),
+        'last_name': lastName.trim(),
+        'phone': phone,
+        'email': email,
+        'nationality': nationality,
+        'id_document_type': documentType?.name,
+        'id_document_number': documentNumber,
+        'updated_by': updatedBy,
+      },
+      action: () async {
+        await (db.update(db.guests)..where((g) => g.id.equals(id))).write(
+          GuestsCompanion(
+            firstName: Value(firstName.trim()),
+            lastName: Value(lastName.trim()),
+            phone: Value(phone),
+            email: Value(email),
+            nationality: Value(nationality),
+            idDocumentType: Value(documentType),
+            idDocumentNumber: Value(documentNumber),
+            updatedAt: Value(now),
+            updatedBy: Value(updatedBy),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        return (await byId(id))!;
+      },
+    );
+  }
+
   /// Les sejours d'un client, du plus recent au plus ancien.
   Future<List<GuestStay>> stays(String guestId) async {
     final rows = await db

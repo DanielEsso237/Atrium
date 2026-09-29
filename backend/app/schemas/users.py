@@ -21,6 +21,9 @@ class UserIn(BaseModel):
     role_codes: list[str] = Field(
         default_factory=list, description='Codes des roles a attribuer, ex. ["RECEPTION"]'
     )
+    outlet_ids: list[uuid.UUID] = Field(
+        default_factory=list, description="Points de vente de l'agent ; vide = tous"
+    )
 
 
 class UserUpdate(BaseModel):
@@ -32,6 +35,10 @@ class UserUpdate(BaseModel):
     phone: str | None = None
     is_active: bool = True
     role_codes: list[str] = Field(default_factory=list)
+    outlet_ids: list[uuid.UUID] | None = Field(
+        default=None,
+        description="Remplace les points de vente de l'agent ; absent = inchanges, [] = tous",
+    )
 
 
 class PasswordReset(BaseModel):
@@ -50,3 +57,4 @@ class UserOut(BaseModel):
     is_active: bool
     must_change_password: bool
     roles: list[RoleOut]
+    outlet_ids: list[uuid.UUID]

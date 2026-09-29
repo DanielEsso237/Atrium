@@ -19,6 +19,7 @@ from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import (
     Folio,
+    FolioItem,
     Guest,
     Payment,
     Reservation,
@@ -29,6 +30,7 @@ from app.models import (
     User,
 )
 from app.models.enums import (
+    ChargeCategory,
     FolioStatus,
     FolioType,
     HousekeepingStatus,
@@ -41,7 +43,9 @@ from app.schemas.reservations import (
     CalendarOut,
     CalendarUnassigned,
     CancelIn,
+    ChangeRoomIn,
     CheckInIn,
+    PendingDepositsOut,
     ReservationIn,
     ReservationOut,
     ReservationUpdate,
@@ -278,6 +282,75 @@ async def _transfer_deposit(
     await recompute_totals(session, folio)
 
 
+async def _forfeit_deposit(
+    session: AsyncSession,
+    reservation: Reservation,
+    user: User,
+    folio_id: uuid.UUID | None,
+) -> None:
+    """A l'annulation, les arrhes conservees deviennent une indemnite facturable.
+
+    Sans cela, le paiement restait rattache a la reservation pour toujours :
+    l'argent n'etait jamais reconnu, aucun document n'etait emis, et le total
+    des arrhes en attente grossissait sans que rien ne le vide.
+
+    Meme chemin que le check-in, pour reutiliser la facturation telle quelle :
+    une ardoise au nom du client, une charge "Indemnite d'annulation" du
+    montant des arrhes, le paiement transfere dessus. Le solde tombe a zero et
+    l'ardoise est close ; `POST /folios/{id}/invoice` en tire la facture, qui
+    reste en local comme les autres.
+
+    Meme cle naturelle que `_transfer_deposit` : le paiement encore rattache a
+    la reservation. Une annulation rejouee ne le trouve plus et ne reconnait
+    rien une seconde fois.
+    """
+    payment = await session.scalar(
+        select(Payment)
+        .where(Payment.reservation_id == reservation.id, Payment.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if payment is None:
+        return
+    now = dt.datetime.now(dt.timezone.utc)
+    folio = Folio(
+        id=folio_id or uuid7(),
+        hotel_id=user.hotel_id,
+        number=await next_number(session, user.hotel_id, Scope.FOLIO),
+        type=FolioType.GUEST,
+        status=FolioStatus.OPEN,
+        guest_id=reservation.guest_id,
+        opened_at=now,
+        notes=f"Arrhes conservees - dossier {reservation.reference} annule",
+    )
+    session.add(folio)
+    await session.flush()
+    session.add(
+        FolioItem(
+            folio_id=folio.id,
+            category=ChargeCategory.MISC,
+            label=f"Indemnite d'annulation - dossier {reservation.reference}",
+            quantity=1,
+            unit_price=payment.amount,
+            amount=payment.amount,
+            tax_amount=0,
+            tax_rate=0,
+            # Reconnue le jour de l'annulation, pas le jour de l'encaissement :
+            # c'est l'annulation qui fait de l'avance un produit.
+            business_date=await current_business_date(session, user.hotel_id),
+            source_table="reservations",
+            source_id=reservation.id,
+            posted_by=user.id,
+            posted_at=now,
+        )
+    )
+    payment.reservation_id = None
+    payment.folio_id = folio.id
+    await session.flush()
+    await recompute_totals(session, folio)
+    folio.status = FolioStatus.CLOSED
+    folio.closed_at = now
+
+
 async def _replayed(session: AsyncSession, model, obj_id: uuid.UUID, user: User):
     """Objet deja cree avec cet id (rejeu), ou None s'il est nouveau.
 
@@ -461,6 +534,29 @@ async def reservation_calendar(
 
     rows, unassigned = build_calendar(rooms, lines, date_from, date_to)
     return CalendarOut(date_from=date_from, date_to=date_to, rows=rows, unassigned=unassigned)
+
+
+@router.get("/deposits/pending", response_model=PendingDepositsOut)
+async def pending_deposits(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("reservation.read")),
+) -> PendingDepositsOut:
+    """Ce que l'hotel detient en arrhes pour des clients pas encore arrives.
+
+    Un paiement rattache a une reservation n'est ni sur une ardoise ni
+    reconnu : c'est exactement l'argent en attente. Declaree avant
+    `/{reservation_id}`, sinon "deposits" serait lu comme un identifiant.
+    """
+    row = (
+        await session.execute(
+            select(func.count(Payment.id), func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.hotel_id == user.hotel_id,
+                Payment.reservation_id.is_not(None),
+                Payment.deleted_at.is_(None),
+            )
+        )
+    ).one()
+    return PendingDepositsOut(count=row[0], total=int(row[1]))
 
 
 @router.post(
@@ -852,6 +948,86 @@ async def check_out(
     return reservation
 
 
+@router.post("/{reservation_id}/rooms/{room_line_id}/change-room", response_model=ReservationOut)
+async def change_room(
+    reservation_id: uuid.UUID,
+    room_line_id: uuid.UUID,
+    payload: ChangeRoomIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("reservation.manage")),
+) -> Reservation:
+    """Un client deja arrive change de chambre sans refaire sa reservation.
+
+    L'ancienne redevient vacante **sans** devenir sale, a l'inverse du
+    depart : le client n'y a pas dormi, la faire nettoyer serait une tache
+    pour rien. Le folio est rattache a la ligne et non a la chambre, il suit
+    donc le client sans qu'on y touche.
+
+    Ne sont refuses ici que les conflits physiques -- autre categorie, hors
+    service, deja occupee. Une chambre sale n'est pas refusee : la tablette ne
+    la propose pas, mais son etat de menage peut etre en retard sur le notre,
+    et un refus bloquerait sa file d'envoi pour une question de proprete.
+    """
+    reservation = await _get_reservation(session, reservation_id, user)
+    line = await session.scalar(
+        select(ReservationRoom)
+        .where(
+            ReservationRoom.id == room_line_id,
+            ReservationRoom.reservation_id == reservation.id,
+            ReservationRoom.deleted_at.is_(None),
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if line is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligne de reservation introuvable.")
+    if line.room_id == payload.room_id:
+        return reservation  # rejeu : le client est deja dans cette chambre
+    if line.status != ReservationStatus.CHECKED_IN:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Seul un client arrive change de chambre (statut actuel : {line.status}).",
+        )
+
+    room = await session.scalar(
+        select(Room)
+        .where(
+            Room.id == payload.room_id,
+            Room.hotel_id == user.hotel_id,
+            Room.deleted_at.is_(None),
+        )
+        .with_for_update(of=Room)
+        .execution_options(populate_existing=True)
+    )
+    if room is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chambre introuvable.")
+    if room.room_type_id != line.room_type_id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cette chambre n'appartient pas a la categorie reservee.",
+        )
+    if room.is_out_of_order or not room.is_active:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette chambre est hors service.")
+    if room.occupancy_status == OccupancyStatus.OCCUPIED:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
+        )
+
+    if line.room_id:
+        old = await session.scalar(
+            select(Room).where(Room.id == line.room_id).with_for_update(of=Room)
+        )
+        if old is not None:
+            old.occupancy_status = OccupancyStatus.VACANT
+
+    line.room_id = room.id
+    room.occupancy_status = OccupancyStatus.OCCUPIED
+
+    await session.commit()
+    await session.refresh(reservation, attribute_names=["rooms"])
+    return reservation
+
+
 @router.post("/{reservation_id}/cancel", response_model=ReservationOut)
 async def cancel_reservation(
     reservation_id: uuid.UUID,
@@ -862,9 +1038,10 @@ async def cancel_reservation(
     """Annule tout le dossier.
 
     Les arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne
-    bougent pas, le paiement reste rattache a la reservation et dans la caisse
-    qui l'a recu, aucun remboursement n'est emis. C'est leur raison d'etre --
-    une annulation tardive ne coute pas la chambre a l'hotel.
+    bougent pas, le paiement reste dans la caisse qui l'a recu, aucun
+    remboursement n'est emis. C'est leur raison d'etre -- une annulation
+    tardive ne coute pas la chambre a l'hotel. Elles sont soldees sur une
+    ardoise d'indemnite (`_forfeit_deposit`).
     """
     reservation = await _get_reservation(session, reservation_id, user)
     if reservation.status == ReservationStatus.CANCELLED:
@@ -883,6 +1060,7 @@ async def cancel_reservation(
         if line.status != ReservationStatus.CHECKED_OUT:
             line.status = ReservationStatus.CANCELLED
 
+    await _forfeit_deposit(session, reservation, user, payload.folio_id)
     await session.commit()
     await session.refresh(reservation, attribute_names=["rooms"])
     return reservation

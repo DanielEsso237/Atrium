@@ -58,7 +58,6 @@ class _PaymentDialog extends ConsumerStatefulWidget {
 
 class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   late final TextEditingController _amount;
-  final _reference = TextEditingController();
   PaymentMethod _method = PaymentMethod.CASH;
   bool _busy = false;
 
@@ -72,7 +71,6 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   @override
   void dispose() {
     _amount.dispose();
-    _reference.dispose();
     super.dispose();
   }
 
@@ -91,9 +89,10 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
             folioId: widget.folioId,
             method: _method,
             amount: montant,
-            reference: _reference.text.trim().isEmpty
-                ? null
-                : _reference.text.trim(),
+            // Plus de reference saisie : le patron l'a retiree, elle
+            // ralentissait le comptoir sans rien apporter. Le depot et la
+            // colonne la gardent -- les encaissements deja saisis la portent,
+            // et le serveur l'accepte toujours.
             receivedBy: ref.read(sessionProvider).agent?.id,
           );
     } on StateError catch (e) {
@@ -167,19 +166,10 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
                   ActionChip(
                     label: const Text('La moitié'),
                     onPressed: () => setState(
-                      () => _amount.text = '${(widget.balance / 2).round()}',
+                      () => _amount.text = '${widget.balance ~/ 2}',
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _reference,
-                decoration: const InputDecoration(
-                  labelText: 'Référence',
-                  helperText: 'Numéro de transaction, facultatif',
-                  prefixIcon: Icon(PhosphorIconsLight.hash, size: 20),
-                ),
               ),
             ],
           ),

@@ -229,6 +229,19 @@
       },
       "CancelIn": {
         "properties": {
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id de l'ardoise d'indemnite ouverte par la tablette si des arrhes sont conservees ; absent = genere",
+            "title": "Folio Id"
+          },
           "reason": {
             "anyOf": [
               {
@@ -417,6 +430,21 @@
         ],
         "title": "CashSessionStatus",
         "type": "string"
+      },
+      "ChangeRoomIn": {
+        "properties": {
+          "room_id": {
+            "description": "La chambre ou le client s'installe desormais",
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id"
+        ],
+        "title": "ChangeRoomIn",
+        "type": "object"
       },
       "ChargeCategory": {
         "enum": [
@@ -3308,6 +3336,25 @@
         "title": "PaymentMethod",
         "type": "string"
       },
+      "PendingDepositsOut": {
+        "description": "Arrhes encaissees et encore rattachees a une reservation.\n\nNi sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des\nclients pas encore arrives.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "total"
+        ],
+        "title": "PendingDepositsOut",
+        "type": "object"
+      },
       "PrepStationIn": {
         "properties": {
           "code": {
@@ -6056,6 +6103,15 @@
             "title": "Last Name",
             "type": "string"
           },
+          "outlet_ids": {
+            "description": "Points de vente de l'agent ; vide = tous",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
+          },
           "password": {
             "description": "Mot de passe initial (hache avant stockage)",
             "minLength": 8,
@@ -6121,6 +6177,22 @@
             "minLength": 1,
             "title": "Last Name",
             "type": "string"
+          },
+          "outlet_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Remplace les points de vente de l'agent ; absent = inchanges, [] = tous",
+            "title": "Outlet Ids"
           },
           "phone": {
             "anyOf": [
@@ -6363,6 +6435,14 @@
             "title": "Must Change Password",
             "type": "boolean"
           },
+          "outlet_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
+          },
           "phone": {
             "anyOf": [
               {
@@ -6391,7 +6471,8 @@
           "phone",
           "is_active",
           "must_change_password",
-          "roles"
+          "roles",
+          "outlet_ids"
         ],
         "title": "UserOut",
         "type": "object"
@@ -7421,6 +7502,7 @@
         ]
       },
       "patch": {
+        "description": "Modifie **seulement les champs envoyes**.\n\nLa tablette n'envoie que ceux de son ecran. Ecrire le schema entier,\ncomme avant, remettait a vide tout le reste -- adresse, date de\nnaissance, notes -- a chaque modification. Un champ envoye a `null`,\nlui, s'efface : c'est ainsi qu'on retire un telephone.",
         "operationId": "update_guest_api_v1_guests__guest_id__patch",
         "parameters": [
           {
@@ -8808,6 +8890,7 @@
     },
     "/api/v1/outlets": {
       "get": {
+        "description": "Les points de vente de l'agent, tous s'il n'est rattache a aucun.",
         "operationId": "list_outlets_api_v1_outlets_get",
         "responses": {
           "200": {
@@ -10021,6 +10104,33 @@
         ]
       }
     },
+    "/api/v1/reservations/deposits/pending": {
+      "get": {
+        "description": "Ce que l'hotel detient en arrhes pour des clients pas encore arrives.\n\nUn paiement rattache a une reservation n'est ni sur une ardoise ni\nreconnu : c'est exactement l'argent en attente. Declaree avant\n`/{reservation_id}`, sinon \"deposits\" serait lu comme un identifiant.",
+        "operationId": "pending_deposits_api_v1_reservations_deposits_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingDepositsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Pending Deposits",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
     "/api/v1/reservations/{reservation_id}": {
       "get": {
         "operationId": "get_reservation_api_v1_reservations__reservation_id__get",
@@ -10128,7 +10238,7 @@
     },
     "/api/v1/reservations/{reservation_id}/cancel": {
       "post": {
-        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste rattache a la reservation et dans la caisse\nqui l'a recu, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
+        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste dans la caisse qui l'a recu, aucun\nremboursement n'est emis. C'est leur raison d'etre -- une annulation\ntardive ne coute pas la chambre a l'hotel. Elles sont soldees sur une\nardoise d'indemnite (`_forfeit_deposit`).",
         "operationId": "cancel_reservation_api_v1_reservations__reservation_id__cancel_post",
         "parameters": [
           {
@@ -10180,6 +10290,75 @@
           }
         ],
         "summary": "Cancel Reservation",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/change-room": {
+      "post": {
+        "description": "Un client deja arrive change de chambre sans refaire sa reservation.\n\nL'ancienne redevient vacante **sans** devenir sale, a l'inverse du\ndepart : le client n'y a pas dormi, la faire nettoyer serait une tache\npour rien. Le folio est rattache a la ligne et non a la chambre, il suit\ndonc le client sans qu'on y touche.\n\nNe sont refuses ici que les conflits physiques -- autre categorie, hors\nservice, deja occupee. Une chambre sale n'est pas refusee : la tablette ne\nla propose pas, mais son etat de menage peut etre en retard sur le notre,\net un refus bloquerait sa file d'envoi pour une question de proprete.",
+        "operationId": "change_room_api_v1_reservations__reservation_id__rooms__room_line_id__change_room_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "room_line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Change Room",
         "tags": [
           "reservations"
         ]

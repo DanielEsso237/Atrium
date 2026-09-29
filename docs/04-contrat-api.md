@@ -97,7 +97,7 @@ Une tablette qui a perdu la réponse **renvoie la même requête, même `id`** :
 | Premier envoi | `201`, ligne créée avec l'`id` de la tablette |
 | Renvoi d'un client | `200`, fiche mise à jour, même code `CLI-` |
 | Renvoi d'une réservation, charge ou paiement | `200`, état actuel, **rien n'est réécrit** ni compté deux fois |
-| Check-in, check-out, annulation déjà faits | `200`, état actuel |
+| Check-in, check-out, changement de chambre, annulation déjà faits | `200`, état actuel |
 | `id` appartenant à un autre hôtel | `404` |
 
 Un renvoi ne reçoit **jamais de 409**, même si l'hôtel est devenu complet ou
@@ -149,6 +149,41 @@ formes.
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
 
+## Modifier un client
+
+`PATCH /guests/{id}` ne touche **qu'aux champs présents** dans le corps. Un
+champ envoyé à `null` s'efface ; un champ absent reste tel quel. Avant, le
+schéma entier était écrit, et chaque modification remettait à vide
+l'adresse, la date de naissance et les notes. `credit_limit` à `null`
+n'efface pas le seuil.
+
+La tablette envoie les six champs de son écran, vides compris : nom,
+prénom, téléphone, courriel, nationalité, type et numéro de pièce. Ce sont
+ceux que la descente rapatrie.
+
+Les champs obligatoires à la création (téléphone, pièce) sont une règle de
+la **tablette** seulement : le serveur les laisse facultatifs, pour ne pas
+refuser les créations anciennes qui attendent encore dans une file.
+
+## Changer de chambre en cours de séjour
+
+`POST /reservations/{id}/rooms/{ligne}/change-room`, corps `{"room_id": …}`,
+droit `reservation.manage`. Réservé à une ligne **déjà arrivée** (`409`
+sinon) ; avant l'arrivée, la chambre choisie part avec le check-in.
+
+- La nouvelle chambre passe **occupée**. L'ancienne redevient **vacante sans
+  devenir sale** : le client n'y a pas dormi. C'est l'inverse du départ.
+- Le folio est rattaché à la ligne, pas à la chambre : l'ardoise suit le
+  client, rien n'y est écrit.
+- Refus : autre catégorie `422`, hors service ou déjà occupée `409`,
+  chambre d'un autre hôtel `404`. Une chambre **sale n'est pas refusée** —
+  la tablette ne la propose pas, mais son état de ménage peut être en retard,
+  et un refus bloquerait sa file pour une question de propreté.
+- Renvoi : si la ligne est déjà dans cette chambre, `200`.
+
+Côté tablette, l'entrée de file porte `action: CHANGE_ROOM` et garde le
+statut `CHECKED_IN` : l'envoyeur lit l'action avant le statut.
+
 ## Le seuil de consommation et les arrhes
 
 **Seuil.** `guests.credit_limit` (FCFA, `0` = pas de limite) borne le solde
@@ -186,13 +221,32 @@ l'hôtel, ligne `settings` `reservation.deposit_rule`, sans rien encaisser
 ```
 
 Pas de règle : pas d'arrhes. Des arrhes supérieures au prix du séjour : 422.
-À l'annulation, l'argent reste encaissé (rien n'est remboursé). À
-l'arrivée, le paiement passe de la réservation à l'ardoise : le client ne
+À l'annulation, l'argent reste encaissé (rien n'est remboursé) et il est
+soldé : le serveur ouvre une ardoise d'indemnité au nom du client (id fourni
+par `CancelIn.folio_id`, sinon généré), y porte une charge `MISC`
+« Indemnité d'annulation » du montant des arrhes, y transfère le paiement,
+puis la clôt à solde nul. `POST /folios/{id}/invoice` en tire la facture.
+Une annulation renvoyée ne reconnaît rien deux fois.
+`GET /reservations/deposits/pending` donne `{count, total}` : les arrhes
+encore rattachées à une réservation, ce que l'hôtel détient pour des
+clients pas encore arrivés. À l'arrivée, le paiement passe de la réservation à l'ardoise : le client ne
 doit que le reste, et la facture montre le séjour entier. Une seule fois par
 dossier, même en groupe ou sur un check-in renvoyé.
 
 Un paiement a **un seul** rattachement : ardoise (`folio_id`), facture
 (`invoice_id`) ou réservation (`reservation_id`) — garanti en base.
+
+## Les points de vente d'un agent
+
+Un agent est rattaché à ses points de vente par `user_outlets`, comme à ses
+rôles. `UserOut.outlet_ids` les porte ; `POST /users` les fixe
+(`outlet_ids`, vide par défaut) et `PATCH /users/{id}` les remplace — champ
+absent : inchangés, `[]` : plus aucun. Un id d'un autre hôtel : 422.
+
+Un agent **sans aucun rattachement voit tous les points de vente** : c'est
+l'état de tout compte neuf, et l'aveugler d'office ferait d'un oubli de
+configuration une panne au service. Rattaché, `GET /outlets` ne renvoie que
+les siens, et `POST /orders` sur un autre point de vente répond 403.
 
 ## La pagination
 

@@ -690,6 +690,25 @@ class _Actions extends ConsumerWidget {
             if (fait && context.mounted) Navigator.of(context).pop();
           },
         ),
+      // Seulement pendant un sejour : avant l'arrivee, on reattribue depuis
+      // la liste des reservations, et rien n'est encore occupe.
+      if (sejour != null)
+        PillButton(
+          label: 'Changer de chambre',
+          icon: PhosphorIconsLight.arrowsLeftRight,
+          tone: PillTone.quiet,
+          expand: true,
+          onPressed: () async {
+            final fait = await confirmChangeRoom(
+              context,
+              ref,
+              lineId: sejour.lineId,
+              guestName: sejour.guestName,
+              roomNumber: chambre.number,
+            );
+            if (fait && context.mounted) Navigator.of(context).pop();
+          },
+        ),
       // Une consommation ne se porte que sur une ardoise ouverte, donc
       // uniquement pendant un sejour en cours.
       if (sejour != null && sejour.folioId != null)
