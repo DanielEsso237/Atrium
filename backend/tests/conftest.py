@@ -32,6 +32,10 @@ os.environ.setdefault("ENV", "dev")
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 
+# Le schema de la base de test n'est compare aux modeles qu'une fois par
+# lancement de pytest.
+_schema_aligne = False
+
 
 def pytest_collection_modifyitems(config, items):
     """Ignore les tests marques `db` quand aucune base de test n'est fournie."""
@@ -50,6 +54,7 @@ def database_url() -> str:
     """URL de la base de test, ou saute le test si elle n'est pas configuree."""
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL absent.")
+    verifier_base_de_test(TEST_DATABASE_URL)
     return TEST_DATABASE_URL
 
 
@@ -64,6 +69,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.main import app
+from tests.schema_de_test import aligner_schema, verifier_base_de_test
 from app.db.session import get_session
 from app.core.security import hash_secret
 from app.models import (
@@ -104,9 +110,10 @@ async def session(database_url):
     variable sur la base de developpement**, ce montage vide toutes les
     tables.
 
-    Le schema est cree au premier test (`create_all` ne refait rien s'il
-    existe deja) et **laisse en place** ensuite. Chaque test repart d'une base
-    videe par des `DELETE`, pas d'un schema reconstruit.
+    Au premier test, le schema est compare aux modeles et reconstruit s'il a
+    derive -- une colonne ajoutee depuis la creation de la base, par exemple.
+    Il est ensuite **laisse en place** : chaque test repart d'une base videe
+    par des `DELETE`, pas d'un schema reconstruit.
 
     Ce detail a coute une base de donnees. Le montage d'origine creait puis
     detruisait les soixante tables a *chaque* test : sur trente tests avec
@@ -119,9 +126,17 @@ async def session(database_url):
     ce qui ramenerait le meme pilonnage disque en plus discret. Sur des tables
     de test, qui contiennent quelques lignes, `DELETE` ne coute rien.
     """
+    global _schema_aligne
     engine = create_async_engine(database_url)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        # Une fois par session : le schema est compare aux modeles et
+        # reconstruit s'il a derive (voir `schema_de_test.py`). Ensuite,
+        # `create_all` seul, qui ne fait rien sur un schema deja en place.
+        if not _schema_aligne:
+            await conn.run_sync(aligner_schema, Base.metadata)
+            _schema_aligne = True
+        else:
+            await conn.run_sync(Base.metadata.create_all)
         # Ordre inverse des dependances : les tables qui referencent les
         # autres se vident en premier, sans avoir a desactiver les cles
         # etrangeres.

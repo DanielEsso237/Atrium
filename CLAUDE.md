@@ -137,7 +137,11 @@ flèche, c'est promettre un ailleurs qui n'existe pas.
 - Le montage des tests serveur ne **reconstruit plus le schéma** à chaque test.
   L'ancienne version créait puis détruisait les soixante tables à chaque fois ;
   PostgreSQL a pris 24 minutes de synchronisation sur un point de contrôle et
-  le postmaster s'est arrêté. Ne pas y revenir.
+  le postmaster s'est arrêté. Ne pas y revenir. À la place, le schéma est
+  comparé aux modèles **une fois par lancement** et reconstruit s'il a dérivé
+  (`tests/schema_de_test.py`) : `create_all` seul n'ajoutait jamais une
+  colonne à une table existante. Le montage refuse toute base dont le nom ne
+  finit pas par `_test`.
 - Le magasin sécurisé peut échouer sans rien dire. `TokenStore` garde une copie
   en mémoire : sans elle, la connexion réussissait puis toutes les requêtes
   partaient sans jeton, et rien dans les logs ne l'expliquait.
