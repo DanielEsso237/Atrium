@@ -131,6 +131,22 @@ class ChangeRoomIn(BaseModel):
 
 class CancelIn(BaseModel):
     reason: str | None = None
+    folio_id: uuid.UUID | None = Field(
+        default=None,
+        description="Id de l'ardoise d'indemnite ouverte par la tablette si des arrhes "
+        "sont conservees ; absent = genere",
+    )
+
+
+class PendingDepositsOut(BaseModel):
+    """Arrhes encaissees et encore rattachees a une reservation.
+
+    Ni sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des
+    clients pas encore arrives.
+    """
+
+    count: int
+    total: int
 
 
 class ReservationRoomUpdate(BaseModel):

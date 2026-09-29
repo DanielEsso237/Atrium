@@ -6,7 +6,8 @@ expliquer. Elles sont desormais un vrai paiement :
 
 - a la reservation, rattache a la reservation et a la caisse ouverte de celui
   qui encaisse -- seules les especes font monter l'attendu du tiroir ;
-- a l'annulation, l'argent reste encaisse, rien n'est rembourse ;
+- a l'annulation, l'argent reste encaisse, rien n'est rembourse (il est
+  solde sur une ardoise d'indemnite, voir test_arrhes_annulees.py) ;
 - a l'arrivee, le paiement passe sur l'ardoise, une seule fois par dossier :
   le client ne doit plus que le reste, et la facture montre le sejour entier.
 
@@ -191,9 +192,7 @@ async def test_annulation_apres_arrhes_l_argent_reste_encaisse(
     assert again.json()["deposit_amount"] == 10_000
     assert again.json()["deposit_paid_at"] == first.json()["deposit_paid_at"]
     payments = await _payments(session)
-    assert [(p.amount, p.is_refund, p.reservation_id) for p in payments] == [
-        (10_000, False, uuid.UUID(body["id"]))
-    ]
+    assert [(p.amount, p.is_refund) for p in payments] == [(10_000, False)]
     assert await _expected(client, auth_a) == 20_000  # toujours dans le tiroir
 
 

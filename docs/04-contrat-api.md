@@ -221,8 +221,15 @@ l'hôtel, ligne `settings` `reservation.deposit_rule`, sans rien encaisser
 ```
 
 Pas de règle : pas d'arrhes. Des arrhes supérieures au prix du séjour : 422.
-À l'annulation, l'argent reste encaissé (rien n'est remboursé). À
-l'arrivée, le paiement passe de la réservation à l'ardoise : le client ne
+À l'annulation, l'argent reste encaissé (rien n'est remboursé) et il est
+soldé : le serveur ouvre une ardoise d'indemnité au nom du client (id fourni
+par `CancelIn.folio_id`, sinon généré), y porte une charge `MISC`
+« Indemnité d'annulation » du montant des arrhes, y transfère le paiement,
+puis la clôt à solde nul. `POST /folios/{id}/invoice` en tire la facture.
+Une annulation renvoyée ne reconnaît rien deux fois.
+`GET /reservations/deposits/pending` donne `{count, total}` : les arrhes
+encore rattachées à une réservation, ce que l'hôtel détient pour des
+clients pas encore arrivés. À l'arrivée, le paiement passe de la réservation à l'ardoise : le client ne
 doit que le reste, et la facture montre le séjour entier. Une seule fois par
 dossier, même en groupe ou sur un check-in renvoyé.
 
