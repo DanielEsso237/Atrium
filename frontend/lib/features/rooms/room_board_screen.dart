@@ -13,7 +13,6 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/theme.dart';
@@ -64,11 +63,8 @@ class RoomBoardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          iconSize: 28,
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/'),
-        ),
+        automaticallyImplyLeading: false,
+        titleSpacing: 24,
         title: const Text('Chambres'),
         actions: [
           const PendingWritesBadge(),

@@ -13,7 +13,6 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/repositories/repository_providers.dart';
 // L'ossature commune porte l'etat des echanges : c'est le seul endroit vu de
@@ -50,14 +49,10 @@ class ModuleScaffold extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: ecranUnique
-            ? null
-            : IconButton(
-                iconSize: 28,
-                tooltip: 'Tableau de bord',
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => context.go('/'),
-              ),
+        // Plus de fleche retour : la navigation vit dans la coque, visible
+        // sur chaque ecran.
+        automaticallyImplyLeading: false,
+        titleSpacing: 24,
         title: Text(title),
         actions: [
           const PendingWritesBadge(),
