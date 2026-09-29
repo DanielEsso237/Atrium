@@ -1,29 +1,46 @@
-/// La coque de l'application : la navigation, toujours au meme endroit.
+/// La coque de l'application : une ile de navigation flottante.
 ///
-/// Avant, chaque ecran avait sa fleche retour vers le tableau de bord, seul
-/// endroit ou vivait le menu : pour passer des reservations au menage, il
-/// fallait repasser par l'accueil. La coque garde la navigation visible
-/// partout, sous trois formes selon la largeur :
+/// La navigation reste visible sur chaque ecran, detachee des bords comme un
+/// objet pose sur la page :
 ///
-/// - **PC** (>= 1100) : barre laterale de nuit, le contenu pose sur un
-///   panneau arrondi, comme une feuille sur un bureau ;
-/// - **tablette** (>= 600) : un rail d'icones de nuit, toujours a portee du
-///   pouce gauche ;
-/// - **telephone** : une barre d'onglets en bas, et « Plus » pour le reste.
+/// - **PC et tablette paysage** (>= 1100) : une ile verticale de nuit, avec
+///   les entrees rangees par metier (reception, operations, gestion) ;
+/// - **tablette portrait** (>= 600) : un rail d'icones, meme ile en plus fin ;
+/// - **telephone** : une pilule flottante en bas, « Plus » pour le reste.
 ///
-/// Les entrees sont filtrees par les droits de l'agent (3.4). Ce filtrage est
-/// un confort : la vraie barriere reste dans le routeur.
+/// Les entrees sont filtrees par les droits de l'agent (3.4) ; la vraie
+/// barriere reste dans le routeur. Rien n'a disparu du menu d'origine : les
+/// deux doublons (« Chambres » et « Plan des chambres », « Housekeeping » et
+/// « A nettoyer ») menaient au meme ecran et n'en font plus qu'un, avec leur
+/// compteur.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/ui/icons.dart';
 
+import '../../data/local/queries/dashboard_queries.dart';
 import '../../features/auth/session.dart';
-import '../../features/dashboard/dashboard_sidebar.dart' show Avatar, MenuCompte;
+import '../../features/dashboard/dashboard_screen.dart' show dashboardProvider;
+import '../../features/dashboard/dashboard_sidebar.dart'
+    show Avatar, MenuCompte, montantCompact;
+import '../../features/reservations/reservations_screen.dart'
+    show ReservationFilter, reservationFilterProvider;
 import '../brand/atrium_logo.dart';
 import '../tokens.dart';
+import '../ui/atrium_ui.dart';
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
+
+enum Groupe { reception, operations, gestion }
+
+extension on Groupe {
+  String get libelle => switch (this) {
+    Groupe.reception => 'Réception',
+    Groupe.operations => 'Opérations',
+    Groupe.gestion => 'Gestion',
+  };
+}
 
 class Destination {
   const Destination(
@@ -32,73 +49,137 @@ class Destination {
     this.iconActive,
     this.route,
     this.permission,
-  );
+    this.groupe, {
+    this.filtre,
+    this.raccourci = false,
+    this.indicateur,
+  });
 
   final String label;
   final IconData icon;
   final IconData iconActive;
-  final String route;
+
+  /// `null` : module annonce mais pas encore livre.
+  final String? route;
 
   /// `null` : ouverte a tous.
   final String? permission;
+  final Groupe groupe;
+
+  /// Pour « Arrivees » et « Departs » : le filtre pose sur les reservations.
+  final ReservationFilter? filtre;
+
+  /// Un raccourci vers un ecran deja au menu : jamais surligne comme actif.
+  final bool raccourci;
+
+  /// Un chiffre du jour en bout de ligne.
+  final String? Function(DashboardSummary)? indicateur;
 }
 
-const destinations = <Destination>[
-  Destination(
+final destinations = <Destination>[
+  const Destination(
     "Aujourd'hui",
-    Icons.wb_sunny_outlined,
-    Icons.wb_sunny_rounded,
+    PhosphorIconsLight.sun,
+    PhosphorIconsFill.sun,
     '/',
     null,
+    Groupe.reception,
   ),
-  Destination(
-    'Chambres',
-    Icons.king_bed_outlined,
-    Icons.king_bed_rounded,
-    '/chambres',
-    'rooms.read',
-  ),
-  Destination(
-    'Réservations',
-    Icons.event_note_outlined,
-    Icons.event_note_rounded,
+  const Destination(
+    'Arrivées',
+    PhosphorIconsLight.signIn,
+    PhosphorIconsFill.signIn,
     '/reservations',
     'rooms.read',
+    Groupe.reception,
+    filtre: ReservationFilter.expected,
+    raccourci: true,
   ),
-  Destination(
-    'Clients',
-    Icons.people_outline_rounded,
-    Icons.people_rounded,
-    '/clients',
-    'guests.read',
+  const Destination(
+    'Départs',
+    PhosphorIconsLight.signOut,
+    PhosphorIconsFill.signOut,
+    '/reservations',
+    'rooms.read',
+    Groupe.reception,
+    filtre: ReservationFilter.inHouse,
+    raccourci: true,
+  ),
+  const Destination(
+    'Réservations',
+    PhosphorIconsLight.calendarDots,
+    PhosphorIconsFill.calendarDots,
+    '/reservations',
+    'rooms.read',
+    Groupe.reception,
+  ),
+  const Destination(
+    'Plan des chambres',
+    PhosphorIconsLight.bed,
+    PhosphorIconsFill.bed,
+    '/chambres',
+    'rooms.read',
+    Groupe.reception,
   ),
   Destination(
     'Ménage',
-    Icons.cleaning_services_outlined,
-    Icons.cleaning_services_rounded,
+    PhosphorIconsLight.broom,
+    PhosphorIconsFill.broom,
     '/menage',
     'housekeeping.read',
+    Groupe.operations,
+    indicateur: (r) =>
+        r.chambresANettoyer == 0 ? null : '${r.chambresANettoyer}',
   ),
-  Destination(
+  const Destination(
+    'Maintenance',
+    PhosphorIconsLight.wrench,
+    PhosphorIconsFill.wrench,
+    null,
+    'maintenance.read',
+    Groupe.operations,
+  ),
+  const Destination(
     'Restaurant',
-    Icons.restaurant_outlined,
-    Icons.restaurant_rounded,
+    PhosphorIconsLight.forkKnife,
+    PhosphorIconsFill.forkKnife,
     '/commandes',
     'order.read',
+    Groupe.operations,
   ),
-  Destination(
+  const Destination(
+    'Clients',
+    PhosphorIconsLight.users,
+    PhosphorIconsFill.users,
+    '/clients',
+    'guests.read',
+    Groupe.gestion,
+  ),
+  const Destination(
     'Factures',
-    Icons.receipt_long_outlined,
-    Icons.receipt_long_rounded,
+    PhosphorIconsLight.receipt,
+    PhosphorIconsFill.receipt,
     '/factures',
     'folio.read',
+    Groupe.gestion,
   ),
   Destination(
+    'Caisse du jour',
+    PhosphorIconsLight.coins,
+    PhosphorIconsFill.coins,
+    '/factures',
+    'folio.read',
+    Groupe.gestion,
+    raccourci: true,
+    indicateur: (r) => montantCompact(r.caDuJour),
+  ),
+  const Destination(
     'Statistiques',
-    Icons.insights_outlined,
-    Icons.insights_rounded,
+    PhosphorIconsLight.chartLineUp,
+    PhosphorIconsFill.chartLineUp,
     '/statistiques',
     null,
+    Groupe.gestion,
   ),
 ];
 
@@ -120,7 +201,9 @@ int _indexActif(List<Destination> liste, String chemin) {
   var meilleur = -1;
   var longueur = -1;
   for (var i = 0; i < liste.length; i++) {
-    final r = liste[i].route;
+    final d = liste[i];
+    final r = d.route;
+    if (r == null || d.raccourci) continue;
     final correspond = r == '/'
         ? chemin == '/'
         : (chemin == r || chemin.startsWith('$r/'));
@@ -144,29 +227,64 @@ class AppShell extends ConsumerWidget {
     final liste = destinationsPour(session);
     final actif = _indexActif(liste, location);
     final largeur = MediaQuery.sizeOf(context).width;
+    final resume = ref.watch(dashboardProvider).value;
 
-    void aller(int i) => context.go(liste[i].route);
+    void aller(int i) {
+      final d = liste[i];
+      if (d.route == null) return;
+      if (d.filtre != null) {
+        ref.read(reservationFilterProvider.notifier).select(d.filtre!);
+      } else if (d.route == '/reservations') {
+        ref.read(reservationFilterProvider.notifier).select(ReservationFilter.all);
+      }
+      context.go(d.route!);
+    }
+
+    final page = AmbientBackground(child: child);
 
     if (largeur >= 1100) {
-      return _Cadre(
-        barre: _BarreLaterale(
-          liste: liste,
-          actif: actif,
-          onSelect: aller,
-          session: session,
+      return Material(
+        color: AtriumColors.background,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 0, 14),
+              child: _Ile(
+                largeur: 262,
+                child: _Barre(
+                  liste: liste,
+                  actif: actif,
+                  onSelect: aller,
+                  session: session,
+                  resume: resume,
+                ),
+              ),
+            ),
+            Expanded(child: page),
+          ],
         ),
-        child: child,
       );
     }
     if (largeur >= 600) {
-      return _Cadre(
-        barre: _Rail(
-          liste: liste,
-          actif: actif,
-          onSelect: aller,
-          session: session,
+      return Material(
+        color: AtriumColors.background,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+              child: _Ile(
+                largeur: 84,
+                child: _Rail(
+                  liste: liste,
+                  actif: actif,
+                  onSelect: aller,
+                  session: session,
+                ),
+              ),
+            ),
+            Expanded(child: page),
+          ],
         ),
-        child: child,
       );
     }
     return _CadreTelephone(
@@ -174,96 +292,120 @@ class AppShell extends ConsumerWidget {
       actif: actif,
       onSelect: aller,
       session: session,
-      child: child,
+      child: page,
     );
   }
 }
 
-/// PC et tablette : la nuit tout autour, le contenu sur un panneau arrondi.
-class _Cadre extends StatelessWidget {
-  const _Cadre({required this.barre, required this.child});
+/// L'ile : une plaque de nuit detachee des bords, filet clair, ombre teintee.
+class _Ile extends StatelessWidget {
+  const _Ile({required this.largeur, required this.child});
 
-  final Widget barre;
+  final double largeur;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    // `Material` et non un simple fond : les boutons, info-bulles et le
-    // badge de synchro de la barre en ont besoin, et c'est lui qui donne au
-    // texte son style (sans lui, Flutter souligne tout en jaune).
-    return Material(
-      color: AtriumColors.purpleNight,
-      child: SafeArea(
-        child: Row(
-          children: [
-            barre,
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 10, 10, 10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(26),
-                  child: ColoredBox(
-                    color: AtriumColors.background,
-                    child: child,
-                  ),
-                ),
-              ),
+    return Container(
+      width: largeur,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.alphaBlend(
+              const Color(0xFF263178).withValues(alpha: 0.55),
+              AtriumColors.purpleNight,
             ),
+            AtriumColors.purpleNight,
           ],
         ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF05081A).withValues(alpha: 0.28),
+            blurRadius: 40,
+            spreadRadius: -10,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }
 }
 
-class _BarreLaterale extends StatelessWidget {
-  const _BarreLaterale({
+class _Barre extends StatelessWidget {
+  const _Barre({
     required this.liste,
     required this.actif,
     required this.onSelect,
     required this.session,
+    required this.resume,
   });
 
   final List<Destination> liste;
   final int actif;
   final ValueChanged<int> onSelect;
   final SessionState session;
+  final DashboardSummary? resume;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 252,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 22, 12, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 6),
-              child: AtriumLockup(markSize: 42, hotelName: 'Hôtel Atrium'),
-            ),
-            const SizedBox(height: 30),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (var i = 0; i < liste.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: _LigneNav(
-                        destination: liste[i],
-                        actif: i == actif,
-                        onTap: () => onSelect(i),
-                      ),
-                    ),
-                ],
+    final lignes = <Widget>[];
+    Groupe? groupe;
+    for (var i = 0; i < liste.length; i++) {
+      final d = liste[i];
+      if (d.groupe != groupe) {
+        groupe = d.groupe;
+        lignes.add(
+          Padding(
+            padding: EdgeInsets.fromLTRB(14, lignes.isEmpty ? 4 : 20, 0, 8),
+            child: Text(
+              groupe.libelle,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AtriumColors.onPurpleSoft.withValues(alpha: 0.7),
               ),
             ),
-            const _EtatSynchro(etendu: true),
-            const SizedBox(height: 10),
-            _Compte(session: session, etendu: true),
-          ],
+          ),
+        );
+      }
+      lignes.add(
+        FadeUp(
+          index: i,
+          child: _LigneNav(
+            destination: d,
+            actif: i == actif,
+            indicateur: resume == null ? null : d.indicateur?.call(resume!),
+            onTap: () => onSelect(i),
+          ),
         ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: AtriumLockup(markSize: 40, hotelName: 'Hôtel Atrium'),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: ListView(padding: EdgeInsets.zero, children: lignes),
+          ),
+          const SizedBox(height: 8),
+          _Compte(session: session, etendu: true),
+        ],
       ),
     );
   }
@@ -274,11 +416,13 @@ class _LigneNav extends StatefulWidget {
     required this.destination,
     required this.actif,
     required this.onTap,
+    this.indicateur,
   });
 
   final Destination destination;
   final bool actif;
   final VoidCallback onTap;
+  final String? indicateur;
 
   @override
   State<_LigneNav> createState() => _LigneNavState();
@@ -289,54 +433,100 @@ class _LigneNavState extends State<_LigneNav> {
 
   @override
   Widget build(BuildContext context) {
+    final d = widget.destination;
     final actif = widget.actif;
-    final duree = AtriumMotion.of(context, AtriumMotion.base);
+    final bientot = d.route == null;
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
+    final encre = actif
+        ? AtriumColors.onNight
+        : AtriumColors.onPurpleSoft.withValues(alpha: bientot ? 0.45 : 1);
+
     return MouseRegion(
+      cursor: bientot ? SystemMouseCursors.basic : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _survol = true),
       onExit: (_) => setState(() => _survol = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: bientot ? null : widget.onTap,
         child: AnimatedContainer(
           duration: duree,
-          curve: Curves.easeOutCubic,
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          curve: atriumSpring,
+          height: 44,
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: actif
-                ? AtriumDashColors.activeStart
-                : (_survol
-                      ? AtriumColors.onNight.withValues(alpha: 0.06)
-                      : Colors.transparent),
             borderRadius: BorderRadius.circular(14),
+            color: actif
+                ? Colors.white.withValues(alpha: 0.09)
+                : (_survol && !bientot
+                      ? Colors.white.withValues(alpha: 0.045)
+                      : Colors.transparent),
+            border: Border.all(
+              color: actif
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.transparent,
+            ),
           ),
           child: Row(
             children: [
               AnimatedSwitcher(
                 duration: duree,
                 child: Icon(
-                  actif ? widget.destination.iconActive : widget.destination.icon,
+                  actif ? d.iconActive : d.icon,
                   key: ValueKey(actif),
-                  size: 23,
-                  color: actif
-                      ? AtriumDashColors.activeBorder
-                      : AtriumColors.onPurpleSoft,
+                  size: 21,
+                  color: actif ? AtriumColors.mintStrong : encre,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  widget.destination.label,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15.5,
-                    fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-                    color: actif
-                        ? AtriumColors.onNight
-                        : AtriumColors.onPurpleSoft,
+                child: AnimatedSlide(
+                  duration: duree,
+                  curve: atriumSpring,
+                  offset: _survol && !actif && !bientot
+                      ? const Offset(0.03, 0)
+                      : Offset.zero,
+                  child: Text(
+                    d.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 14.5,
+                      fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
+                      color: encre,
+                    ),
                   ),
                 ),
               ),
+              if (bientot)
+                Text(
+                  'Bientôt',
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: AtriumColors.onPurpleSoft.withValues(alpha: 0.5),
+                  ),
+                )
+              else if (widget.indicateur != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AtriumColors.mintStrong.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    widget.indicateur!,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFFFC65A),
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -360,32 +550,28 @@ class _Rail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 92,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Column(
-          children: [
-            const AtriumMark(size: 44),
-            const SizedBox(height: 22),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (var i = 0; i < liste.length; i++)
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        children: [
+          const AtriumMark(size: 42),
+          const SizedBox(height: 14),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < liste.length; i++)
+                  if (liste[i].route != null)
                     _EntreeRail(
                       destination: liste[i],
                       actif: i == actif,
                       onTap: () => onSelect(i),
                     ),
-                ],
-              ),
+              ],
             ),
-            const _EtatSynchro(etendu: false),
-            const SizedBox(height: 8),
-            _Compte(session: session, etendu: false),
-          ],
-        ),
+          ),
+          _Compte(session: session, etendu: false),
+        ],
       ),
     );
   }
@@ -404,52 +590,40 @@ class _EntreeRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duree = AtriumMotion.of(context, AtriumMotion.base);
-    return Semantics(
-      button: true,
-      selected: actif,
-      label: destination.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            children: [
-              AnimatedContainer(
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
+    return Tooltip(
+      message: destination.label,
+      preferBelow: false,
+      child: Semantics(
+        button: true,
+        selected: actif,
+        label: destination.label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Center(
+              child: AnimatedContainer(
                 duration: duree,
-                curve: Curves.easeOutCubic,
-                width: 58,
-                height: 38,
+                curve: atriumSpring,
+                width: 54,
+                height: 48,
                 decoration: BoxDecoration(
                   color: actif
-                      ? AtriumDashColors.activeStart
+                      ? Colors.white.withValues(alpha: 0.09)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(19),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   actif ? destination.iconActive : destination.icon,
-                  size: 24,
+                  size: 23,
                   color: actif
-                      ? AtriumDashColors.activeBorder
+                      ? AtriumColors.mintStrong
                       : AtriumColors.onPurpleSoft,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                destination.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 11.5,
-                  fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-                  color: actif
-                      ? AtriumColors.onNight
-                      : AtriumColors.onPurpleSoft,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -457,8 +631,7 @@ class _EntreeRail extends StatelessWidget {
   }
 }
 
-/// Telephone : le contenu plein ecran, les onglets dans une barre de nuit
-/// flottante en bas. Au-dela de quatre modules, « Plus » ouvre le reste.
+/// Telephone : la page plein ecran, la navigation dans une pilule flottante.
 class _CadreTelephone extends StatelessWidget {
   const _CadreTelephone({
     required this.liste,
@@ -478,49 +651,54 @@ class _CadreTelephone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Un metier a un seul ecran n'a pas besoin de barre du tout.
-    if (liste.length <= 1) return child;
+    final navigables = [
+      for (var i = 0; i < liste.length; i++)
+        if (liste[i].route != null && !liste[i].raccourci) i,
+    ];
+    if (navigables.length <= 1) return child;
 
-    final deborde = liste.length > _visibles + 1;
-    final onglets = deborde ? liste.take(_visibles).toList() : liste;
-    final actifDansPlus = deborde && actif >= _visibles;
+    final onglets = navigables.take(_visibles).toList();
+    final reste = navigables.skip(_visibles).toList();
+    final actifDansPlus = reste.contains(actif);
 
     return Scaffold(
       body: child,
       extendBody: true,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         child: Container(
-          height: 68,
+          height: 66,
           decoration: BoxDecoration(
             color: AtriumColors.purpleNight,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(33),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF05081A).withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                blurRadius: 30,
+                spreadRadius: -8,
+                offset: const Offset(0, 14),
               ),
             ],
           ),
           child: Row(
             children: [
-              for (var i = 0; i < onglets.length; i++)
+              for (final i in onglets)
                 Expanded(
                   child: _OngletTelephone(
-                    label: onglets[i].label,
-                    icon: i == actif ? onglets[i].iconActive : onglets[i].icon,
+                    label: liste[i].label,
+                    icon: i == actif ? liste[i].iconActive : liste[i].icon,
                     actif: i == actif,
                     onTap: () => onSelect(i),
                   ),
                 ),
-              if (deborde)
+              if (reste.isNotEmpty)
                 Expanded(
                   child: _OngletTelephone(
                     label: 'Plus',
-                    icon: Icons.apps_rounded,
+                    icon: PhosphorIconsLight.squaresFour,
                     actif: actifDansPlus,
-                    onTap: () => _ouvrirPlus(context),
+                    onTap: () => _ouvrirPlus(context, reste),
                   ),
                 ),
             ],
@@ -530,7 +708,7 @@ class _CadreTelephone extends StatelessWidget {
     );
   }
 
-  void _ouvrirPlus(BuildContext context) {
+  void _ouvrirPlus(BuildContext context, List<int> reste) {
     showModalBottomSheet<void>(
       context: context,
       builder: (feuille) => SafeArea(
@@ -539,7 +717,7 @@ class _CadreTelephone extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (var i = _visibles; i < liste.length; i++)
+              for (final i in reste)
                 ListTile(
                   leading: Icon(
                     i == actif ? liste[i].iconActive : liste[i].icon,
@@ -570,7 +748,7 @@ class _CadreTelephone extends StatelessWidget {
                       context,
                     ).read(sessionProvider.notifier).deconnecter();
                   },
-                  icon: const Icon(Icons.logout_rounded),
+                  icon: const Icon(PhosphorIconsLight.signOut),
                   label: const Text('Sortir'),
                 ),
               ),
@@ -597,7 +775,7 @@ class _OngletTelephone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duree = AtriumMotion.of(context, AtriumMotion.base);
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
     return Semantics(
       button: true,
       selected: actif,
@@ -610,18 +788,20 @@ class _OngletTelephone extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: duree,
-              curve: Curves.easeOutCubic,
-              width: actif ? 52 : 40,
+              curve: atriumSpring,
+              width: actif ? 50 : 38,
               height: 30,
               decoration: BoxDecoration(
-                color: actif ? AtriumDashColors.activeStart : Colors.transparent,
+                color: actif
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
                 icon,
-                size: 22,
+                size: 21,
                 color: actif
-                    ? AtriumDashColors.activeBorder
+                    ? AtriumColors.mintStrong
                     : AtriumColors.onPurpleSoft,
               ),
             ),
@@ -644,45 +824,6 @@ class _OngletTelephone extends StatelessWidget {
   }
 }
 
-/// L'etat des echanges, visible en permanence en bas de la barre.
-class _EtatSynchro extends StatelessWidget {
-  const _EtatSynchro({required this.etendu});
-
-  final bool etendu;
-
-  @override
-  Widget build(BuildContext context) {
-    return Theme(
-      // Le badge prend ses couleurs dans le theme : on lui donne celles de la
-      // nuit pour qu'il reste lisible sur la barre.
-      data: Theme.of(context).copyWith(
-        colorScheme: Theme.of(context).colorScheme.copyWith(
-          onSurfaceVariant: AtriumColors.onPurpleSoft,
-          tertiary: AtriumColors.mintStrong,
-        ),
-      ),
-      child: etendu
-          ? Row(
-              children: [
-                const PendingWritesBadge(),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Synchronisation',
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 13,
-                      color: AtriumColors.onPurpleSoft,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : const PendingWritesBadge(),
-    );
-  }
-}
-
 class _Compte extends StatelessWidget {
   const _Compte({required this.session, required this.etendu});
 
@@ -691,20 +832,45 @@ class _Compte extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final role = session.acces.roles.isEmpty ? 'Agent' : session.acces.roles.first;
-    return MenuCompte(
-      session: session,
-      child: etendu
-          ? Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AtriumColors.onNight.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(16),
-              ),
+    final role = session.acces.roles.isEmpty
+        ? 'Agent'
+        : session.acces.roles.first;
+    final synchro = Theme(
+      // Le badge prend ses couleurs dans le theme : celles de la nuit ici.
+      data: Theme.of(context).copyWith(
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          onSurfaceVariant: AtriumColors.onPurpleSoft,
+          tertiary: AtriumColors.mintStrong,
+        ),
+      ),
+      child: const PendingWritesBadge(),
+    );
+
+    if (!etendu) {
+      return Column(
+        children: [
+          synchro,
+          const SizedBox(height: 6),
+          MenuCompte(session: session, child: Avatar(session: session, taille: 40)),
+        ],
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: MenuCompte(
+              session: session,
               child: Row(
                 children: [
-                  Avatar(session: session, taille: 38),
-                  const SizedBox(width: 12),
+                  Avatar(session: session, taille: 36),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,7 +881,7 @@ class _Compte extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: atriumFontFamily,
-                            fontSize: 14.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AtriumColors.onNight,
                           ),
@@ -726,22 +892,20 @@ class _Compte extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: atriumFontFamily,
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: AtriumColors.onPurpleSoft,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.unfold_more_rounded,
-                    size: 20,
-                    color: AtriumColors.onPurpleSoft,
-                  ),
                 ],
               ),
-            )
-          : Avatar(session: session, taille: 42),
+            ),
+          ),
+          synchro,
+        ],
+      ),
     );
   }
 }

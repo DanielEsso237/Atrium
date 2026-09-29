@@ -381,8 +381,8 @@ abstract final class AtriumMotion {
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duree;
 }
 
-/// La police de la charte, embarquee dans `assets/fonts/montserrat`.
-const atriumFontFamily = 'Montserrat';
+/// La police de la refonte, embarquee dans `assets/fonts/jakarta`.
+const atriumFontFamily = 'PlusJakartaSans';
 
 /// Chiffres a chasse fixe : un code ou un montant ne doit pas bouger
 /// horizontalement pendant qu'on le tape.
