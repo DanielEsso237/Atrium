@@ -343,11 +343,16 @@ class _Occupation extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 8,
-                      height: 8,
+                      width: 9,
+                      height: 9,
                       decoration: BoxDecoration(
                         color: apparence(etat).couleur,
                         borderRadius: BorderRadius.circular(3),
+                        // Un liseré d'encre : la pastille « réservée »
+                        // disparaissait sur la carte mangue du mode clair.
+                        border: Border.all(
+                          color: p.onHero.withValues(alpha: 0.35),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),

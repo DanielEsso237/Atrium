@@ -145,7 +145,9 @@ class AtriumPalette {
     nightBright: Color(0xFF263178),
     photoTint: Color(0xFFD7DBF3),
     accentFill: Color(0xFFFFD98A),
-    accent: Color(0xFFE8920A),
+    // Assez sombre pour se lire sur blanc (contraste ~4,5:1) : la mangue
+    // franche reste pour les aplats (`hero`), pas pour le texte.
+    accent: Color(0xFFB45F00),
     accentBorder: Color(0xFFF5CF84),
     accentSoft: Color(0xFFFFE6B3),
     accentTint: Color(0xFFFFF6E2),
