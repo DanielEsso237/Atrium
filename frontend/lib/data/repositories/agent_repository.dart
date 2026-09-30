@@ -18,6 +18,15 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'outbox.dart';
 
+/// Le code du role des commandes -- restaurant, bar, boite de nuit (libelle
+/// « Commandes », anciennement « Restauration »). Le code ne change pas : les
+/// tablettes reconnaissent un role par son code.
+const roleCommandes = 'RESTAURANT';
+
+/// Seul un agent des commandes se rattache a des points de vente.
+List<String> pointsPourLeRole(String roleCode, List<String> outletIds) =>
+    roleCode == roleCommandes ? outletIds : const [];
+
 /// Un agent tel que l'administration le montre.
 class AgentView {
   const AgentView({
@@ -77,10 +86,11 @@ class AgentRepository with OutboxWriter {
   }
 
   /// Les roles que l'administration peut attribuer.
-  Future<List<RoleRow>> roles() => (db.select(db.roles)
-        ..where((r) => r.deletedAt.isNull() & r.isActive.equals(true))
-        ..orderBy([(r) => OrderingTerm(expression: r.label)]))
-      .get();
+  Future<List<RoleRow>> roles() =>
+      (db.select(db.roles)
+            ..where((r) => r.deletedAt.isNull() & r.isActive.equals(true))
+            ..orderBy([(r) => OrderingTerm(expression: r.label)]))
+          .get();
 
   /// Cree un agent. Le PIN part vers le serveur et n'est pas garde ici.
   Future<UserRow> create({
@@ -115,7 +125,7 @@ class AgentRepository with OutboxWriter {
         'last_name': lastName.trim(),
         'pin': pin,
         'role_codes': [roleCode],
-        'outlet_ids': outletIds,
+        'outlet_ids': pointsPourLeRole(roleCode, outletIds),
       },
       action: () async {
         await db
@@ -133,7 +143,7 @@ class AgentRepository with OutboxWriter {
                 syncState: const Value(SyncState.pending),
               ),
             );
-        await _rattacher(id, [roleCode], outletIds);
+        await _rattacher(id, [roleCode], pointsPourLeRole(roleCode, outletIds));
         return _byId(id);
       },
     );
@@ -168,7 +178,7 @@ class AgentRepository with OutboxWriter {
         'last_name': lastName.trim(),
         'is_active': isActive,
         'role_codes': [roleCode],
-        'outlet_ids': outletIds,
+        'outlet_ids': pointsPourLeRole(roleCode, outletIds),
       },
       action: () async {
         await (db.update(db.users)..where((u) => u.id.equals(id))).write(
@@ -180,7 +190,7 @@ class AgentRepository with OutboxWriter {
             syncState: const Value(SyncState.pending),
           ),
         );
-        await _rattacher(id, [roleCode], outletIds);
+        await _rattacher(id, [roleCode], pointsPourLeRole(roleCode, outletIds));
         return _byId(id);
       },
     );
@@ -296,8 +306,9 @@ class AgentRepository with OutboxWriter {
     List<String> roleCodes,
     List<String> outletIds,
   ) async {
-    await (db.delete(db.userRoles)..where((ur) => ur.userId.equals(userId)))
-        .go();
+    await (db.delete(
+      db.userRoles,
+    )..where((ur) => ur.userId.equals(userId))).go();
     for (final code in roleCodes) {
       final role = await (db.select(
         db.roles,
@@ -390,7 +401,9 @@ class AgentRepository with OutboxWriter {
     String? sauf,
   }) async {
     if (code.isEmpty || code.length > 32) {
-      throw StateError('Le code agent est obligatoire (32 caractères au plus).');
+      throw StateError(
+        'Le code agent est obligatoire (32 caractères au plus).',
+      );
     }
     if (firstName.trim().isEmpty || lastName.trim().isEmpty) {
       throw StateError('Le nom et le prénom sont obligatoires.');
@@ -399,12 +412,15 @@ class AgentRepository with OutboxWriter {
       db.roles,
     )..where((r) => r.code.equals(roleCode))).getSingleOrNull();
     if (role == null) throw StateError('Choisissez un rôle.');
-    final pris = await (db.select(db.users)..where(
-          (u) =>
-              u.employeeCode.equals(code) &
-              (sauf == null ? const Constant(true) : u.id.equals(sauf).not()),
-        ))
-        .get();
+    final pris =
+        await (db.select(db.users)..where(
+              (u) =>
+                  u.employeeCode.equals(code) &
+                  (sauf == null
+                      ? const Constant(true)
+                      : u.id.equals(sauf).not()),
+            ))
+            .get();
     if (pris.isNotEmpty) {
       throw StateError('Le code « $code » est déjà utilisé.');
     }

@@ -105,6 +105,26 @@ void main() {
     expect(acces.peut('users.write'), isTrue);
   });
 
+  test("un agent hors Commandes part sans points de vente", () async {
+    final reception = (await agents.roles()).firstWhere(
+      (r) => r.code == 'RECEPTION',
+    );
+    await agents.create(
+      employeeCode: 'REC02',
+      firstName: 'Awa',
+      lastName: 'Traore',
+      pin: '4321',
+      roleCode: reception.code,
+      outletIds: ['01920000-0000-7000-8000-00000000b001'],
+    );
+    final api = _FauxApi();
+
+    await OutboxSender(db: db, api: api).drain();
+
+    expect(api.appels.single.$3['outlet_ids'], isEmpty);
+    expect(await db.select(db.userOutlets).get(), isEmpty);
+  });
+
   test('creer un agent part en POST, avec son PIN, une seule fois', () async {
     final roles = await agents.roles();
     await agents.create(
@@ -201,7 +221,7 @@ void main() {
       firstName: 'Ines',
       lastName: 'Mbarga',
       pin: '4321',
-      roleCode: roles.first.code,
+      roleCode: roleCommandes,
       outletIds: [bar.id],
     );
     final commandes = OrderRepository(db);

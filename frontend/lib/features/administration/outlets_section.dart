@@ -12,6 +12,7 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
+import '../../data/repositories/outlet_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 
 final _tousLesPointsDeVente = StreamProvider<List<OutletRow>>(
@@ -112,7 +113,10 @@ class _LignePointDeVente extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${point.code} · $horaires · ordre ${point.sortOrder}',
-                        style: TextStyle(fontSize: 13.5, color: p.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: p.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -206,6 +210,8 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
   @override
   Widget build(BuildContext context) {
     final creation = widget.existant == null;
+    // Le Restaurant par defaut : son code et son activite ne se touchent pas.
+    final parDefaut = widget.existant?.code == defaultOutletCode;
 
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.storefront, size: 30),
@@ -222,6 +228,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
                     width: 140,
                     child: TextField(
                       controller: _code,
+                      enabled: !parDefaut,
                       decoration: const InputDecoration(labelText: 'Code'),
                     ),
                   ),
@@ -277,7 +284,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
                   'Une consommation peut être portée sur l’ardoise du client.',
                 ),
               ),
-              if (!creation)
+              if (!creation && !parDefaut)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _actif,
