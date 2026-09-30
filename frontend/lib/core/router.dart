@@ -31,12 +31,14 @@ import '../features/rooms/room_board_screen.dart';
 /// sans sa verification serait une porte ouverte, et personne ne s'en
 /// apercevrait avant la mise en service.
 ///
-/// Les reservations relevent de `rooms.read` faute de permission dediee cote
-/// serveur : elles sont le travail de la reception, qui voit deja le plan. A
-/// revoir le jour ou `reservations.read` existera.
+/// Le plan des chambres et les reservations relevent de `reservation.read`,
+/// le droit de la reception. Ils etaient gardes par `rooms.read`, que le
+/// menage porte aussi -- il lui faut les numeros de chambre : la femme de
+/// chambre voyait arrivees, departs, reservations et plan, au lieu du seul
+/// ecran Menage.
 const _permissionParZone = <String, String>{
-  '/chambres': 'rooms.read',
-  '/reservations': 'rooms.read',
+  '/chambres': 'reservation.read',
+  '/reservations': 'reservation.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
   '/caisse': 'folio.read',
