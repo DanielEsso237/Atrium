@@ -96,6 +96,19 @@ void main() {
     expect(acces.peut('rooms.read'), isFalse);
   });
 
+  test("seul l'administrateur atteint l'administration", () async {
+    // Le routeur la garde sous users.write : la reception et le menage ne
+    // l'ont pas, meme en tapant l'adresse.
+    expect(permissionPour('/administration'), 'users.write');
+    final admin = await accessProfileFor(db, await idDe('ADMIN01'));
+    final reception = await accessProfileFor(db, await idDe('RECEP01'));
+    final menage = await accessProfileFor(db, await idDe('MENAGE01'));
+
+    expect(admin.peut('users.write'), isTrue);
+    expect(reception.peut('users.write'), isFalse);
+    expect(menage.peut('users.write'), isFalse);
+  });
+
   group('la barriere du routeur', () {
     test('chaque zone protegee exige sa permission', () {
       expect(permissionPour('/chambres'), 'rooms.read');

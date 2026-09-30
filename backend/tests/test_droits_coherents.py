@@ -50,6 +50,12 @@ IMPLICATIONS = [
     # Autoriser un depassement de seuil, c'est accepter un solde : il faut
     # pouvoir le lire avant de le laisser filer.
     ("folio.override_limit", "folio.read"),
+    # L'ecran d'administration, garde par users.write, cree et desactive les
+    # points de vente, lit la liste des agents, et ecrit le plafond d'un
+    # client par la route des fiches.
+    ("users.write", "restaurant.write"),
+    ("users.write", "users.read"),
+    ("users.write", "guests.write"),
 ]
 
 
