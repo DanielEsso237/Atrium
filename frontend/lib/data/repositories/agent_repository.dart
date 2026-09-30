@@ -230,10 +230,14 @@ class AgentRepository with OutboxWriter {
           r['code'] as String,
           (r['label'] as String?) ?? r['code'] as String,
         );
-        await _permissions(roleId, [
-          for (final p in (r['permissions'] as List? ?? const []))
-            if (p is String) p,
-        ]);
+        // Un serveur plus ancien decrit le role sans ses permissions : ne
+        // rien effacer alors, sinon l'agent perdait tous ses droits locaux.
+        if (r['permissions'] is List) {
+          await _permissions(roleId, [
+            for (final p in r['permissions'] as List)
+              if (p is String) p,
+          ]);
+        }
         codesRoles.add(r['code'] as String);
       }
       await _rattacher(id, codesRoles, [
@@ -255,10 +259,12 @@ class AgentRepository with OutboxWriter {
       )..where((r) => r.code.equals(code))).getSingleOrNull();
       if (local?.syncState == SyncState.pending) return;
       final roleId = await _role(code, (json['label'] as String?) ?? code);
-      await _permissions(roleId, [
-        for (final p in (json['permissions'] as List? ?? const []))
-          if (p is String) p,
-      ]);
+      if (json['permissions'] is List) {
+        await _permissions(roleId, [
+          for (final p in json['permissions'] as List)
+            if (p is String) p,
+        ]);
+      }
     });
   }
 
