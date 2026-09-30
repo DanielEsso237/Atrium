@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
+from app.core.ids import uuid7
 from app.core.security import hash_secret
 from app.db.session import get_session
 from app.models import Outlet, Role, User, UserOutlet, UserRole
@@ -101,20 +102,35 @@ async def list_users(
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: UserIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("users.write")),
 ) -> User:
+    # Renvoi depuis la file d'une tablette : l'agent existe deja, rien a
+    # recreer -- et surtout pas un 409 qui bloquerait la file.
+    if payload.id is not None:
+        existing = await session.get(User, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Agent introuvable.")
+            await session.refresh(existing, attribute_names=["roles", "outlets"])
+            response.status_code = status.HTTP_200_OK
+            return existing
     roles = await _resolve_roles(session, payload.role_codes)
     new_user = User(
+        id=payload.id or uuid7(),
         hotel_id=user.hotel_id,
         employee_code=payload.employee_code,
         first_name=payload.first_name,
         last_name=payload.last_name,
         email=payload.email,
         phone=payload.phone,
-        password_hash=hash_secret(payload.password),
+        password_hash=hash_secret(payload.password) if payload.password else None,
+        pin_hash=hash_secret(payload.pin) if payload.pin else None,
         is_active=True,
-        must_change_password=True,
+        # Un PIN choisi par l'administrateur n'a pas a etre change ; un mot
+        # de passe initial, si.
+        must_change_password=payload.password is not None,
     )
     session.add(new_user)
     try:

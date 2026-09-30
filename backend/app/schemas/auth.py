@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class LoginIn(BaseModel):
@@ -30,10 +30,23 @@ class TokenOut(BaseModel):
 
 
 class RoleOut(BaseModel):
+    """Un role et ses permissions.
+
+    Les permissions voyagent avec le role : c'est ce qui permet a une tablette
+    d'enregistrer, a la connexion en ligne, les droits d'un agent qu'elle ne
+    connaissait pas -- les ecrans et le routeur les lisent en local.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     code: str
     label: str
+    permissions: list[str] = []
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def _codes(cls, value: object) -> list[str]:
+        return sorted(getattr(p, "code", p) for p in (value or []))
 
 
 class UserOut(BaseModel):

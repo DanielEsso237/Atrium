@@ -286,6 +286,17 @@ dossier, même en groupe ou sur un check-in renvoyé.
 Un paiement a **un seul** rattachement : ardoise (`folio_id`), facture
 (`invoice_id`) ou réservation (`reservation_id`) — garanti en base.
 
+## Créer un agent
+
+`POST /users` accepte l'`id` de la tablette (un renvoi répond `200`) et un
+`pin` de 4 à 8 chiffres, haché par le serveur. Un PIN **ou** un mot de passe,
+au moins l'un des deux ; un PIN choisi par l'administrateur n'impose pas de
+changement (`must_change_password` à `false`).
+
+Les rôles renvoyés (`/users`, `/auth/me`) portent leurs `permissions`. À la
+connexion en ligne, la tablette enregistre ainsi l'agent et ses droits tels
+que le serveur les tient — même un agent qu'elle n'avait jamais vu.
+
 ## Les points de vente d'un agent
 
 Un agent est rattaché à ses points de vente par `user_outlets`, comme à ses
