@@ -170,6 +170,33 @@ async def add_folio_item(
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Charge introuvable.")
             response.status_code = status.HTTP_200_OK
             return existing
+    night = None
+    if payload.night_date is not None and folio.reservation_room_id is not None:
+        # Deux tablettes qui ont chacune fait le check-in du meme sejour ont
+        # chacune porte ses nuits. Le registre des nuits est la seule
+        # autorite : une nuit deja portee renvoie sa charge, sans en creer une
+        # seconde -- sans quoi le client payait sa chambre deux fois.
+        night = await session.scalar(
+            select(StayNight)
+            .where(
+                StayNight.reservation_room_id == folio.reservation_room_id,
+                StayNight.business_date == payload.night_date,
+                StayNight.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if night is not None and night.is_posted:
+            existing = await session.scalar(
+                select(FolioItem).where(
+                    FolioItem.source_table == "stay_nights",
+                    FolioItem.source_id == night.id,
+                    FolioItem.deleted_at.is_(None),
+                )
+            )
+            if existing is not None:
+                response.status_code = status.HTTP_200_OK
+                return existing
+
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
     if payload.category == ChargeCategory.DISCOUNT and "folio.discount" not in permission_codes(
@@ -186,7 +213,8 @@ async def add_folio_item(
         amount = -amount
     tax_amount = amount * payload.tax_rate // 100
     override_by = await _check_credit_limit(session, folio, amount, payload.override_by, user)
-    business_date = await current_business_date(session, user.hotel_id)
+    # Une nuitee est datee de sa nuit, pas du jour ou elle remonte.
+    business_date = payload.night_date or await current_business_date(session, user.hotel_id)
     item = FolioItem(
         id=payload.id or uuid7(),
         folio_id=folio.id,
@@ -201,7 +229,12 @@ async def add_folio_item(
         posted_by=user.id,
         posted_at=dt.datetime.now(dt.timezone.utc),
         override_by=override_by,
+        source_table="stay_nights" if night is not None else None,
+        source_id=night.id if night is not None else None,
     )
+    if night is not None:
+        night.is_posted = True
+        night.posted_at = item.posted_at
     session.add(item)
     await session.flush()
     await recompute_totals(session, folio)

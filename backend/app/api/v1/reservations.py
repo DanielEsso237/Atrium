@@ -45,6 +45,7 @@ from app.schemas.reservations import (
     CancelIn,
     ChangeRoomIn,
     CheckInIn,
+    CheckInOut,
     PendingDepositsOut,
     ReservationIn,
     ReservationOut,
@@ -786,14 +787,14 @@ async def update_reservation(
     return reservation
 
 
-@router.post("/{reservation_id}/rooms/{room_line_id}/check-in", response_model=ReservationOut)
+@router.post("/{reservation_id}/rooms/{room_line_id}/check-in", response_model=CheckInOut)
 async def check_in(
     reservation_id: uuid.UUID,
     room_line_id: uuid.UUID,
     payload: CheckInIn,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("reservation.manage")),
-) -> Reservation:
+) -> dict:
     """F1.2 -- attribution de la chambre physique si elle n'a pas deja ete
 
     faite, puis bascule de la chambre en occupee (voir docs/01, "trois axes
@@ -817,8 +818,10 @@ async def check_in(
     if line is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligne de reservation introuvable.")
     if line.status == ReservationStatus.CHECKED_IN and payload.room_id in (None, line.room_id):
-        # Rejeu (reponse perdue sur le reseau) : l'arrivee est deja faite.
-        return reservation
+        # Rejeu (reponse perdue sur le reseau, ou autre tablette) : l'arrivee
+        # est deja faite. On ne cree pas l'ardoise proposee, mais on dit
+        # laquelle existe -- la tablette doit l'adopter.
+        return _check_in_out(reservation, await _folio_of(session, line.id))
     if line.status not in EDITABLE_LINE_STATUSES:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -894,7 +897,20 @@ async def check_in(
     await _transfer_deposit(session, reservation, existing_folio)
     await session.commit()
     await session.refresh(reservation, attribute_names=["rooms"])
-    return reservation
+    return _check_in_out(reservation, existing_folio)
+
+
+async def _folio_of(session: AsyncSession, line_id: uuid.UUID) -> uuid.UUID | None:
+    return await session.scalar(
+        select(Folio.id).where(Folio.reservation_room_id == line_id, Folio.deleted_at.is_(None))
+    )
+
+
+def _check_in_out(reservation: Reservation, folio_id: uuid.UUID | None) -> dict:
+    return {
+        **ReservationOut.model_validate(reservation).model_dump(),
+        "folio_id": folio_id,
+    }
 
 
 @router.post("/{reservation_id}/rooms/{room_line_id}/check-out", response_model=ReservationOut)

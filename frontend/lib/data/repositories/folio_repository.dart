@@ -478,6 +478,148 @@ class FolioRepository with OutboxWriter {
     });
   }
 
+  /// Fait de l'ardoise du serveur la seule ardoise du sejour.
+  ///
+  /// Le cas : un sejour deja arrive sur le serveur (autre tablette, ou check-in
+  /// refait ici) recoit le check-in de cette tablette. Le serveur garde son
+  /// ardoise et ignore celle que la tablette proposait. Sans adoption, la
+  /// tablette continuait de porter consommations et encaissements sur une
+  /// ardoise que le serveur ne connait pas : chaque envoi repondait 404 et
+  /// bloquait la file, avec tout ce qui attendait derriere.
+  ///
+  /// En une transaction : tout ce qui pointait sur l'ardoise locale passe sur
+  /// celle du serveur, les ecritures encore en file sont readressees, et
+  /// l'ardoise locale disparait. Il ne reste qu'une ardoise par sejour.
+  Future<void> adoptServerFolio({
+    required String localId,
+    required String serverId,
+  }) async {
+    if (localId == serverId) return;
+
+    await db.transaction(() async {
+      final local = await (db.select(
+        db.folios,
+      )..where((f) => f.id.equals(localId))).getSingleOrNull();
+      if (local == null) return;
+
+      final serveur = await (db.select(
+        db.folios,
+      )..where((f) => f.id.equals(serverId))).getSingleOrNull();
+      if (serveur == null) {
+        // Pas encore descendue : la locale lui sert de modele. Le serveur la
+        // connait deja, rien a remonter.
+        await db
+            .into(db.folios)
+            .insert(
+              local.copyWith(id: serverId, syncState: SyncState.synced),
+            );
+      }
+
+      // Avant la suppression : supprimer l'ardoise emporterait ses
+      // consommations (`onDelete: cascade`).
+      final vars = [Variable.withString(serverId), Variable.withString(localId)];
+      await db.customUpdate(
+        'UPDATE folio_items SET folio_id = ?1 WHERE folio_id = ?2',
+        variables: vars,
+        updates: {db.folioItems},
+      );
+      await db.customUpdate(
+        'UPDATE payments SET folio_id = ?1 WHERE folio_id = ?2',
+        variables: vars,
+        updates: {db.payments},
+      );
+      await db.customUpdate(
+        'UPDATE invoices SET folio_id = ?1 WHERE folio_id = ?2',
+        variables: vars,
+        updates: {db.invoices},
+      );
+      await db.customUpdate(
+        'UPDATE orders SET folio_id = ?1 WHERE folio_id = ?2',
+        variables: vars,
+        updates: {db.orders},
+      );
+      await (db.delete(db.folios)..where((f) => f.id.equals(localId))).go();
+      await _recomputeTotals(serverId);
+
+      // Les ecritures qui attendent encore portent l'ancienne adresse :
+      // readressees, elles partent vers une ardoise que le serveur connait.
+      await db.customUpdate(
+        '''
+        UPDATE outbox_entries
+           SET payload = json_set(payload, '\$.folio_id', ?1)
+         WHERE status <> 'ACKED'
+           AND json_extract(payload, '\$.folio_id') = ?2
+        ''',
+        variables: vars,
+        updates: {db.outboxEntries},
+      );
+      await db.customUpdate(
+        '''
+        UPDATE outbox_entries
+           SET entity_id = ?1,
+               payload = json_set(payload, '\$.id', ?1)
+         WHERE status <> 'ACKED'
+           AND entity_table = 'folios'
+           AND entity_id = ?2
+        ''',
+        variables: vars,
+        updates: {db.outboxEntries},
+      );
+    });
+  }
+
+  /// Remplace une charge locale par celle que le serveur a gardee.
+  ///
+  /// Le cas : deux tablettes ont chacune porte les nuits du meme sejour, puis
+  /// leurs ardoises se sont rejointes (voir `adoptServerFolio`). Le serveur,
+  /// qui tient le registre des nuits, n'en compte qu'une et designe la
+  /// charge deja portee. Sans ce remplacement, la tablette garderait sa copie
+  /// en plus de celle du serveur, et afficherait la chambre facturee deux
+  /// fois.
+  Future<void> adoptServerCharge({
+    required String localId,
+    required String serverId,
+  }) async {
+    if (localId == serverId) return;
+
+    await db.transaction(() async {
+      final local = await (db.select(
+        db.folioItems,
+      )..where((i) => i.id.equals(localId))).getSingleOrNull();
+      if (local == null) return;
+
+      final dejaLa = await (db.select(
+        db.folioItems,
+      )..where((i) => i.id.equals(serverId))).getSingleOrNull();
+      if (dejaLa == null) {
+        await db
+            .into(db.folioItems)
+            .insert(
+              local.copyWith(id: serverId, syncState: SyncState.synced),
+            );
+      }
+
+      final vars = [Variable.withString(serverId), Variable.withString(localId)];
+      await db.customUpdate(
+        'UPDATE invoice_lines SET folio_item_id = ?1 WHERE folio_item_id = ?2',
+        variables: vars,
+        updates: {db.invoiceLines},
+      );
+      await db.customUpdate(
+        '''
+        UPDATE outbox_entries SET entity_id = ?1
+         WHERE status <> 'ACKED'
+           AND entity_table = 'folio_items'
+           AND entity_id = ?2
+        ''',
+        variables: vars,
+        updates: {db.outboxEntries},
+      );
+      await (db.delete(db.folioItems)..where((i) => i.id.equals(localId))).go();
+      await _recomputeTotals(local.folioId);
+    });
+  }
+
   /// Recalcule charges, encaissements et solde depuis les lignes.
   ///
   /// En SQL et non en Dart : c'est SQLite qui fait la somme, donc le resultat

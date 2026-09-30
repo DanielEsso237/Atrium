@@ -149,6 +149,32 @@ formes.
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
 
+## L'ardoise retenue au check-in
+
+La réponse du check-in porte `folio_id` : l'ardoise que le serveur a
+**retenue** pour la ligne. D'ordinaire c'est celle que la tablette proposait.
+Mais si le séjour était déjà arrivé (autre tablette, check-in refait), le
+serveur garde la sienne, ignore celle proposée, et répond `200` avec la
+sienne.
+
+La tablette doit alors l'**adopter** (`FolioRepository.adoptServerFolio`) :
+consommations, encaissements, factures et commandes passent sur l'ardoise du
+serveur, les écritures encore en file sont réadressées, l'ardoise locale
+disparaît. Sans cela, tout ce qu'elle porterait sur la sienne répondrait
+`404` et bloquerait sa file.
+
+## Une nuit n'est facturée qu'une fois
+
+Une nuitée envoyée par une tablette porte `night_date`, la nuit qu'elle
+facture. Le serveur la rattache à son registre `stay_nights` et la date de
+cette nuit (et non plus du jour où elle remonte).
+
+Si la nuit est **déjà portée** — deux tablettes ont fait le check-in du même
+séjour, chacune avec ses nuits —, il ne crée rien : `200` avec la charge
+existante, et son `id` diffère de celui envoyé. La tablette remplace alors
+sa copie (`FolioRepository.adoptServerCharge`). Ce contrôle passe avant le
+refus d'une ardoise close : un doublon ne reçoit jamais de `409`.
+
 ## Modifier un client
 
 `PATCH /guests/{id}` ne touche **qu'aux champs présents** dans le corps. Un
