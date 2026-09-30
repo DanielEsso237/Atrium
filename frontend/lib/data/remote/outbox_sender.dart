@@ -209,6 +209,10 @@ class OutboxSender {
   /// le serveur, il a garde la sienne et ignore celle de la tablette, qui
   /// l'adopte (voir `FolioRepository.adoptServerFolio`).
   ///
+  /// La **nuitee deja portee** : deux tablettes ont porte la meme nuit, le
+  /// serveur a garde la premiere et designe la sienne ; la tablette remplace
+  /// la sienne (voir `FolioRepository.adoptServerCharge`).
+  ///
   /// Le **numero legal** d'une facture : la tablette
   /// hors ligne pose un numero provisoire -- elle ne peut pas connaitre la
   /// suite legale, qui n'a qu'une seule autorite. Sans cette recopie, la
@@ -227,6 +231,16 @@ class OutboxSender {
         await FolioRepository(
           db,
         ).adoptServerFolio(localId: local, serverId: serveur);
+      }
+      return;
+    }
+    if (entree.entityTable == 'folio_items') {
+      // Une autre charge que la notre : le serveur avait deja cette nuit.
+      final serveur = reponse['id'] as String?;
+      if (serveur != null && serveur != entree.entityId) {
+        await FolioRepository(
+          db,
+        ).adoptServerCharge(localId: entree.entityId, serverId: serveur);
       }
       return;
     }
@@ -446,6 +460,11 @@ class OutboxSender {
             'quantity': p['quantity'],
             'unit_price': p['unit_price'],
             'override_by': p['override_by'],
+            // Une nuitee dit quelle nuit elle facture : le serveur la
+            // reconnait si une autre tablette l'a deja portee.
+            'night_date': p['source_table'] == 'stay_nights'
+                ? p['business_date']
+                : null,
           }),
         );
 

@@ -568,6 +568,58 @@ class FolioRepository with OutboxWriter {
     });
   }
 
+  /// Remplace une charge locale par celle que le serveur a gardee.
+  ///
+  /// Le cas : deux tablettes ont chacune porte les nuits du meme sejour, puis
+  /// leurs ardoises se sont rejointes (voir `adoptServerFolio`). Le serveur,
+  /// qui tient le registre des nuits, n'en compte qu'une et designe la
+  /// charge deja portee. Sans ce remplacement, la tablette garderait sa copie
+  /// en plus de celle du serveur, et afficherait la chambre facturee deux
+  /// fois.
+  Future<void> adoptServerCharge({
+    required String localId,
+    required String serverId,
+  }) async {
+    if (localId == serverId) return;
+
+    await db.transaction(() async {
+      final local = await (db.select(
+        db.folioItems,
+      )..where((i) => i.id.equals(localId))).getSingleOrNull();
+      if (local == null) return;
+
+      final dejaLa = await (db.select(
+        db.folioItems,
+      )..where((i) => i.id.equals(serverId))).getSingleOrNull();
+      if (dejaLa == null) {
+        await db
+            .into(db.folioItems)
+            .insert(
+              local.copyWith(id: serverId, syncState: SyncState.synced),
+            );
+      }
+
+      final vars = [Variable.withString(serverId), Variable.withString(localId)];
+      await db.customUpdate(
+        'UPDATE invoice_lines SET folio_item_id = ?1 WHERE folio_item_id = ?2',
+        variables: vars,
+        updates: {db.invoiceLines},
+      );
+      await db.customUpdate(
+        '''
+        UPDATE outbox_entries SET entity_id = ?1
+         WHERE status <> 'ACKED'
+           AND entity_table = 'folio_items'
+           AND entity_id = ?2
+        ''',
+        variables: vars,
+        updates: {db.outboxEntries},
+      );
+      await (db.delete(db.folioItems)..where((i) => i.id.equals(localId))).go();
+      await _recomputeTotals(local.folioId);
+    });
+  }
+
   /// Recalcule charges, encaissements et solde depuis les lignes.
   ///
   /// En SQL et non en Dart : c'est SQLite qui fait la somme, donc le resultat

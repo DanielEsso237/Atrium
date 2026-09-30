@@ -922,6 +922,19 @@
             "title": "Label",
             "type": "string"
           },
+          "night_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nuitee : la nuit facturee. Une nuit deja portee au sejour n'est pas portee deux fois -- la reponse (200) designe la charge existante.",
+            "title": "Night Date"
+          },
           "override_by": {
             "anyOf": [
               {

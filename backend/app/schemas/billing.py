@@ -21,6 +21,13 @@ class FolioItemIn(BaseModel):
         default=None,
         description="Responsable (folio.override_limit) qui autorise le depassement du seuil",
     )
+    night_date: dt.date | None = Field(
+        default=None,
+        description=(
+            "Nuitee : la nuit facturee. Une nuit deja portee au sejour n'est pas "
+            "portee deux fois -- la reponse (200) designe la charge existante."
+        ),
+    )
 
 
 class FolioItemOut(BaseModel):
