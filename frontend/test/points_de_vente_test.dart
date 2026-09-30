@@ -101,6 +101,46 @@ void main() {
     expect(corps['closes_at'], isNull);
   });
 
+  test("le Restaurant par defaut ne se desactive pas et garde son code",
+      () async {
+    final resto = await points.create(code: defaultOutletCode, label: 'Restaurant');
+    final avant = (await db.select(db.outboxEntries).get()).length;
+
+    await expectLater(
+      points.update(
+        id: resto.id,
+        code: defaultOutletCode,
+        label: 'Restaurant',
+        allowsRoomCharge: true,
+        sortOrder: 0,
+        isActive: false,
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      points.update(
+        id: resto.id,
+        code: 'CUISINE',
+        label: 'Restaurant',
+        allowsRoomCharge: true,
+        sortOrder: 0,
+        isActive: true,
+      ),
+      throwsStateError,
+    );
+    expect((await db.select(db.outboxEntries).get()).length, avant);
+
+    // Son libelle, lui, reste libre.
+    await points.update(
+      id: resto.id,
+      code: defaultOutletCode,
+      label: 'La Terrasse',
+      allowsRoomCharge: true,
+      sortOrder: 0,
+      isActive: true,
+    );
+  });
+
   test('refus avant ecriture : code pris, horaire mal forme', () async {
     await points.create(code: 'BAR', label: 'Bar');
     final avant = (await db.select(db.outboxEntries).get()).length;

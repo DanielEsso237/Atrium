@@ -101,6 +101,21 @@ class OutletRepository with OutboxWriter {
     required int sortOrder,
     required bool isActive,
   }) async {
+    // Le Restaurant par defaut : ni desactive, ni recode -- le serveur les
+    // refuse (409), et un refus par la file la bloquerait.
+    final actuel = await _byId(id);
+    if (actuel.code == defaultOutletCode) {
+      if (!isActive) {
+        throw StateError(
+          'Le point de vente par défaut ne peut pas être désactivé.',
+        );
+      }
+      if (code.trim() != defaultOutletCode) {
+        throw StateError(
+          'Le code du point de vente par défaut ne peut pas être modifié.',
+        );
+      }
+    }
     final propre = await _verifier(
       code: code,
       label: label,
@@ -166,12 +181,15 @@ class OutletRepository with OutboxWriter {
         throw StateError('Horaire invalide : « $h ». Format attendu : 08:30.');
       }
     }
-    final pris = await (db.select(db.outlets)..where(
-          (o) =>
-              o.code.equals(propre) &
-              (sauf == null ? const Constant(true) : o.id.equals(sauf).not()),
-        ))
-        .get();
+    final pris =
+        await (db.select(db.outlets)..where(
+              (o) =>
+                  o.code.equals(propre) &
+                  (sauf == null
+                      ? const Constant(true)
+                      : o.id.equals(sauf).not()),
+            ))
+            .get();
     if (pris.isNotEmpty) {
       throw StateError('Le code « $propre » est déjà utilisé.');
     }
@@ -181,6 +199,10 @@ class OutletRepository with OutboxWriter {
   Future<OutletRow> _byId(String id) =>
       (db.select(db.outlets)..where((o) => o.id.equals(id))).getSingle();
 }
+
+/// Le point de vente « Restaurant » que chaque hotel a d'office
+/// (`DEFAULT_OUTLET_CODE` cote serveur). La carte s'y rattache.
+const defaultOutletCode = 'RESTO';
 
 /// Une heure HH:MM valide, de 00:00 a 23:59.
 bool heureValide(String h) {
