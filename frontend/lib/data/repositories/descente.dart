@@ -34,6 +34,8 @@ import 'sync_repository.dart';
 class PullReport {
   const PullReport({
     this.outlets = 0,
+    this.menuCategories = 0,
+    this.menuItems = 0,
     this.guests = 0,
     this.reservations = 0,
     this.stayLines = 0,
@@ -48,6 +50,8 @@ class PullReport {
   const PullReport.failed(String message) : this(error: message);
 
   final int outlets;
+  final int menuCategories;
+  final int menuItems;
   final int guests;
   final int reservations;
   final int stayLines;
@@ -63,11 +67,20 @@ class PullReport {
 
   bool get succeeded => error == null && !offline;
 
-  int get total => outlets + guests + reservations + stayLines + folios + items;
+  int get total =>
+      outlets +
+      menuCategories +
+      menuItems +
+      guests +
+      reservations +
+      stayLines +
+      folios +
+      items;
 
   @override
   String toString() =>
-      'PullReport($guests clients, $reservations reservations, '
+      'PullReport($menuCategories categories de carte, $menuItems articles, '
+      '$guests clients, $reservations reservations, '
       '$stayLines sejours, $folios ardoises, $items lignes, '
       '$skipped ecartees)';
 }
@@ -95,8 +108,10 @@ class Descente {
     try {
       // Les points de vente d'abord : une commande s'y accroche, et un
       // point de vente absent ferait ecarter la ligne pour une raison qui
-      // n'a rien a voir avec elle.
+      // n'a rien a voir avec elle. La carte suit : categories, puis articles.
       final pointsDeVente = await _catalog.fetchOutlets();
+      final categoriesCarte = await _catalog.fetchMenuCategories();
+      final articlesCarte = await _catalog.fetchMenuItems();
       final clients = await _catalog.fetchGuests();
       final dossiers = await _catalog.fetchReservations();
       final ardoises = await _catalog.fetchOpenFolios();
@@ -105,6 +120,11 @@ class Descente {
       final maintenant = DateTime.now().toUtc();
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
+      final nCategories = await _ecrireCategoriesCarte(
+        categoriesCarte,
+        maintenant,
+      );
+      final nArticles = await _ecrireArticlesCarte(articlesCarte, maintenant);
       final nClients = await _ecrireClients(clients, maintenant, (n) {
         ecartees += n;
       });
@@ -121,6 +141,8 @@ class Descente {
 
       return PullReport(
         outlets: nPoints,
+        menuCategories: nCategories,
+        menuItems: nArticles,
         guests: nClients,
         reservations: nDossiers,
         stayLines: nLignes,
@@ -173,6 +195,79 @@ class Descente {
     });
 
     return points.length;
+  }
+
+  // --- La carte du restaurant ------------------------------------------------
+
+  /// Ecrit les categories de la carte.
+  ///
+  /// Referentiel : pas de barriere d'ecritures en attente, le serveur fait foi.
+  /// `outletId` nul = categorie commune a tous les points de vente. Aucune cle
+  /// etrangere cote local : la valeur du serveur est stockee telle quelle.
+  Future<int> _ecrireCategoriesCarte(
+    List<RemoteMenuCategory> categories,
+    DateTime maintenant,
+  ) async {
+    if (categories.isEmpty) return 0;
+
+    await db.transaction(() async {
+      for (final c in categories) {
+        await db
+            .into(db.menuCategories)
+            .insertOnConflictUpdate(
+              MenuCategoriesCompanion.insert(
+                id: c.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                label: c.label,
+                outletId: Value(c.outletId),
+                sortOrder: Value(c.sortOrder),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+
+    return categories.length;
+  }
+
+  /// Ecrit les articles de la carte.
+  ///
+  /// `prepStationId` est stocke tel que le serveur l'envoie, meme si les
+  /// postes de preparation ne descendent pas encore : c'est cette valeur qui
+  /// portera le routage cuisine/bar. `taxRate` est un pourcentage (0 a 100),
+  /// a garder tel quel.
+  Future<int> _ecrireArticlesCarte(
+    List<RemoteMenuItem> articles,
+    DateTime maintenant,
+  ) async {
+    if (articles.isEmpty) return 0;
+
+    await db.transaction(() async {
+      for (final a in articles) {
+        await db
+            .into(db.menuItems)
+            .insertOnConflictUpdate(
+              MenuItemsCompanion.insert(
+                id: a.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                code: a.code,
+                label: a.label,
+                menuCategoryId: a.menuCategoryId,
+                prepStationId: Value(a.prepStationId),
+                price: Value(a.price),
+                taxRate: Value(a.taxRate),
+                isAvailable: Value(a.isAvailable),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+
+    return articles.length;
   }
 
   // --- Les clients -----------------------------------------------------------

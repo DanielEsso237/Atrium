@@ -128,6 +128,87 @@ class RemoteOutlet {
   }
 }
 
+/// Une categorie de la carte (`MenuCategoryOut`) : Plats, Boissons, Desserts...
+///
+/// `outletId` nul veut dire une categorie commune a tous les points de vente.
+/// Le serveur ne filtre pas la carte par point de vente : c'est la tablette
+/// qui le fait, en lisant ce champ.
+class RemoteMenuCategory {
+  const RemoteMenuCategory({
+    required this.id,
+    required this.label,
+    required this.sortOrder,
+    this.outletId,
+  });
+
+  final String id;
+  final String label;
+  final int sortOrder;
+  final String? outletId;
+
+  static RemoteMenuCategory? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['label'] == null) return null;
+    return RemoteMenuCategory(
+      id: '${raw['id']}',
+      label: '${raw['label']}',
+      sortOrder: _entier(raw['sort_order']),
+      outletId: _texte(raw['outlet_id']),
+    );
+  }
+}
+
+/// Un article de la carte (`MenuItemOut`).
+class RemoteMenuItem {
+  const RemoteMenuItem({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.menuCategoryId,
+    required this.price,
+    required this.taxRate,
+    required this.isAvailable,
+    this.prepStationId,
+  });
+
+  final String id;
+  final String code;
+  final String label;
+  final String menuCategoryId;
+
+  /// Entier en francs CFA, conformement au contrat. Jamais de double.
+  final int price;
+
+  /// Un pourcentage de 0 a 100 (et non des points de base : c'est ce que
+  /// valide le serveur et ce que `orders.py` divise par 100). A stocker tel
+  /// quel, sans conversion.
+  final int taxRate;
+
+  /// `false` = rupture : l'article reste dans la carte mais ne se vend plus.
+  final bool isAvailable;
+
+  /// Nul pour un article sans preparation (un droit d'entree, par exemple).
+  final String? prepStationId;
+
+  static RemoteMenuItem? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['menu_category_id'] == null ||
+        raw['label'] == null) {
+      return null;
+    }
+    return RemoteMenuItem(
+      id: '${raw['id']}',
+      code: '${raw['code'] ?? ''}',
+      label: '${raw['label']}',
+      menuCategoryId: '${raw['menu_category_id']}',
+      price: _entier(raw['price']),
+      taxRate: _entier(raw['tax_rate']),
+      isAvailable: raw['is_available'] != false,
+      prepStationId: _texte(raw['prep_station_id']),
+    );
+  }
+}
+
 /// Un client (`GuestOut`).
 class RemoteGuest {
   const RemoteGuest({
@@ -390,6 +471,14 @@ class CatalogApi {
   /// visible sur les tablettes.
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
+
+  /// Les categories de la carte, dans leur ordre d'affichage.
+  Future<List<RemoteMenuCategory>> fetchMenuCategories() =>
+      _lire('/menu-categories', RemoteMenuCategory.fromJson);
+
+  /// Les articles de la carte.
+  Future<List<RemoteMenuItem>> fetchMenuItems() =>
+      _lire('/menu-items', RemoteMenuItem.fromJson);
 
   /// Les clients de l'hotel.
   ///
