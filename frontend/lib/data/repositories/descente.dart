@@ -31,6 +31,7 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
+import 'agent_repository.dart';
 import 'settings_repository.dart' show depositRuleKey;
 import 'sync_repository.dart';
 
@@ -126,12 +127,20 @@ class Descente {
       final dossiers = await _siPermis(() => _catalog.fetchReservations());
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
       final regleArrhes = await _catalog.fetchDepositRule();
+      final agents = await _siPermis(_catalog.fetchUsers);
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
       await _ecrireRegleArrhes(regleArrhes, maintenant);
+      // Les agents : chacun avec ses roles, ses permissions et ses points de
+      // vente. `applyServerAgent` epargne un agent modifie ici et pas encore
+      // remonte.
+      final depotAgents = AgentRepository(db, hotelId: hotelId);
+      for (final a in agents) {
+        await depotAgents.applyServerAgent(a);
+      }
       final nCategories = await _ecrireCategoriesCarte(
         categoriesCarte,
         maintenant,

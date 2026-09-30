@@ -52,7 +52,9 @@ class OrdersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final points = ref.watch(outletsProvider);
+    final points = ref.watch(
+      outletsProvider(ref.watch(sessionProvider).agent?.id),
+    );
 
     return points.when(
       loading: () => const ModuleScaffold(

@@ -60,3 +60,6 @@ class UserOut(BaseModel):
     is_active: bool
     must_change_password: bool
     roles: list[RoleOut]
+    # Ses points de vente (vide = tous) : la tablette, partagee, en tire les
+    # onglets de l'ecran Commande de l'agent connecte.
+    outlet_ids: list[uuid.UUID] = []

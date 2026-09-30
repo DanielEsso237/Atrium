@@ -482,6 +482,15 @@ class CatalogApi {
   /// considere actif. Le jour ou l'administration permettra d'en desactiver
   /// un, il faudra que le schema l'expose — sans quoi l'onglet resterait
   /// visible sur les tablettes.
+  /// Les agents, bruts (`UserOut`) : roles avec permissions, points de vente.
+  ///
+  /// Reserve a qui porte `users.read` -- l'administration. Les autres postes
+  /// apprennent chaque agent a sa connexion (`/auth/me`).
+  Future<List<Map<String, dynamic>>> fetchUsers() async => [
+    for (final u in await _client.getList('/users'))
+      if (u is Map<String, dynamic>) u,
+  ];
+
   /// La regle des arrhes, telle que le serveur la tient (`null` : aucune).
   ///
   /// Brute, en JSON : c'est `DepositRule.fromJson` qui la lit, la meme

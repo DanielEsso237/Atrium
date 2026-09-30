@@ -55,6 +55,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'maintenance_tickets' => db.maintenanceTickets,
     'outlets' => db.outlets,
     'settings' => db.settings,
+    'users' => db.users,
     _ => null,
   };
 }
@@ -240,6 +241,17 @@ class OutboxSender {
           db,
         ).adoptServerFolio(localId: local, serverId: serveur);
       }
+      return;
+    }
+    if (entree.entityTable == 'users' && entree.op == SyncOp.INSERT) {
+      // Le serveur a le PIN, hache : la tablette n'en garde aucune copie,
+      // pas meme dans l'historique de sa file.
+      await db.customUpdate(
+        "UPDATE outbox_entries SET payload = json_remove(payload, '\$.pin') "
+        'WHERE id = ?',
+        variables: [Variable.withInt(entree.id)],
+        updates: {db.outboxEntries},
+      );
       return;
     }
     if (entree.entityTable == 'folio_items') {
@@ -542,6 +554,35 @@ class OutboxSender {
             'allows_room_charge': p['allows_room_charge'],
             'sort_order': p['sort_order'],
             'is_active': p['is_active'],
+          },
+          methode: _Methode.patch,
+        );
+
+      case 'users':
+        // Creation : l'id de la tablette rend le renvoi sans danger, et le
+        // PIN part une seule fois -- il est efface de l'entree des que le
+        // serveur l'a recu (`_appliquerReponse`).
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi('/users', {
+            'id': p['id'],
+            'employee_code': p['employee_code'],
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'pin': p['pin'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
+          });
+        }
+        // `PATCH` remplace les roles et, s'ils sont envoyes, les points de
+        // vente : on envoie toujours les deux.
+        return _Envoi(
+          '/users/${p['id']}',
+          {
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'is_active': p['is_active'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
           },
           methode: _Methode.patch,
         );

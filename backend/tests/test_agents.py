@@ -77,3 +77,10 @@ async def test_la_connexion_dit_les_permissions_de_chaque_role(client, auth_a):
     permissions = {p for r in me["roles"] for p in r["permissions"]}
     assert "users.write" in permissions
     assert "guests.read" in permissions
+
+
+async def test_la_connexion_dit_les_points_de_vente_de_l_agent(client, auth_a):
+    me = (await client.get("/api/v1/auth/me", headers=auth_a)).json()
+
+    # Aucun rattachement : tous, comme cote serveur.
+    assert me["outlet_ids"] == []

@@ -113,6 +113,25 @@ class UserRoles extends Table {
   Set<Column> get primaryKey => {userId, roleId};
 }
 
+/// Les points de vente d'un agent (decision du 29 septembre).
+///
+/// Aucun rattachement veut dire **tous** : c'est l'etat de tout compte neuf,
+/// comme cote serveur (`services/outlets.py`). Le barman rattache au bar
+/// seul ne voit plus que le bar dans l'ecran Commande.
+///
+/// Sans cle etrangere vers `outlets` : un rattachement peut descendre avant
+/// le point de vente qu'il designe, et la tablette est partagee -- elle
+/// garde les rattachements de tous les agents qui s'y connectent.
+@DataClassName('UserOutletRow')
+class UserOutlets extends Table {
+  TextColumn get userId =>
+      text().references(Users, #id, onDelete: KeyAction.cascade)();
+  TextColumn get outletId => text()();
+
+  @override
+  Set<Column> get primaryKey => {userId, outletId};
+}
+
 /// Terminaux connus.
 ///
 /// La tablette porte la flotte entiere et pas seulement sa propre fiche : la

@@ -16,6 +16,7 @@ class AuthSession {
     required this.refreshToken,
     required this.expiresIn,
     this.userId = '',
+    this.me = const {},
   });
 
   final String accessToken;
@@ -28,6 +29,10 @@ class AuthSession {
   final int expiresIn;
 
   final String userId;
+
+  /// L'agent tel que `GET /auth/me` le decrit : identite, roles avec leurs
+  /// permissions, points de vente. Vide avant la connexion.
+  final Map<String, dynamic> me;
 
   static AuthSession? fromJson(Map<String, dynamic> data) {
     final access = data['access_token'] as String?;
@@ -92,6 +97,7 @@ class AuthApi {
       refreshToken: session.refreshToken,
       expiresIn: session.expiresIn,
       userId: userId,
+      me: me,
     );
   }
 

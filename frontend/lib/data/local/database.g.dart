@@ -4514,6 +4514,224 @@ class UserRolesCompanion extends UpdateCompanion<UserRoleRow> {
   }
 }
 
+class $UserOutletsTable extends UserOutlets
+    with TableInfo<$UserOutletsTable, UserOutletRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserOutletsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES users (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _outletIdMeta = const VerificationMeta(
+    'outletId',
+  );
+  @override
+  late final GeneratedColumn<String> outletId = GeneratedColumn<String>(
+    'outlet_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [userId, outletId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_outlets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserOutletRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('outlet_id')) {
+      context.handle(
+        _outletIdMeta,
+        outletId.isAcceptableOrUnknown(data['outlet_id']!, _outletIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_outletIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {userId, outletId};
+  @override
+  UserOutletRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserOutletRow(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      outletId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outlet_id'],
+      )!,
+    );
+  }
+
+  @override
+  $UserOutletsTable createAlias(String alias) {
+    return $UserOutletsTable(attachedDatabase, alias);
+  }
+}
+
+class UserOutletRow extends DataClass implements Insertable<UserOutletRow> {
+  final String userId;
+  final String outletId;
+  const UserOutletRow({required this.userId, required this.outletId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['user_id'] = Variable<String>(userId);
+    map['outlet_id'] = Variable<String>(outletId);
+    return map;
+  }
+
+  UserOutletsCompanion toCompanion(bool nullToAbsent) {
+    return UserOutletsCompanion(
+      userId: Value(userId),
+      outletId: Value(outletId),
+    );
+  }
+
+  factory UserOutletRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserOutletRow(
+      userId: serializer.fromJson<String>(json['userId']),
+      outletId: serializer.fromJson<String>(json['outletId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'userId': serializer.toJson<String>(userId),
+      'outletId': serializer.toJson<String>(outletId),
+    };
+  }
+
+  UserOutletRow copyWith({String? userId, String? outletId}) => UserOutletRow(
+    userId: userId ?? this.userId,
+    outletId: outletId ?? this.outletId,
+  );
+  UserOutletRow copyWithCompanion(UserOutletsCompanion data) {
+    return UserOutletRow(
+      userId: data.userId.present ? data.userId.value : this.userId,
+      outletId: data.outletId.present ? data.outletId.value : this.outletId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserOutletRow(')
+          ..write('userId: $userId, ')
+          ..write('outletId: $outletId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(userId, outletId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserOutletRow &&
+          other.userId == this.userId &&
+          other.outletId == this.outletId);
+}
+
+class UserOutletsCompanion extends UpdateCompanion<UserOutletRow> {
+  final Value<String> userId;
+  final Value<String> outletId;
+  final Value<int> rowid;
+  const UserOutletsCompanion({
+    this.userId = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserOutletsCompanion.insert({
+    required String userId,
+    required String outletId,
+    this.rowid = const Value.absent(),
+  }) : userId = Value(userId),
+       outletId = Value(outletId);
+  static Insertable<UserOutletRow> custom({
+    Expression<String>? userId,
+    Expression<String>? outletId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
+      if (outletId != null) 'outlet_id': outletId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserOutletsCompanion copyWith({
+    Value<String>? userId,
+    Value<String>? outletId,
+    Value<int>? rowid,
+  }) {
+    return UserOutletsCompanion(
+      userId: userId ?? this.userId,
+      outletId: outletId ?? this.outletId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (outletId.present) {
+      map['outlet_id'] = Variable<String>(outletId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserOutletsCompanion(')
+          ..write('userId: $userId, ')
+          ..write('outletId: $outletId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $DevicesTable extends Devices with TableInfo<$DevicesTable, DeviceRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -66631,6 +66849,7 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
   );
   late final $UsersTable users = $UsersTable(this);
   late final $UserRolesTable userRoles = $UserRolesTable(this);
+  late final $UserOutletsTable userOutlets = $UserOutletsTable(this);
   late final $DevicesTable devices = $DevicesTable(this);
   late final $FloorsTable floors = $FloorsTable(this);
   late final $RoomTypesTable roomTypes = $RoomTypesTable(this);
@@ -66715,6 +66934,7 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
     rolePermissions,
     users,
     userRoles,
+    userOutlets,
     devices,
     floors,
     roomTypes,
@@ -66802,6 +67022,13 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('user_roles', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'users',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('user_outlets', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -68848,6 +69075,24 @@ final class $$UsersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$UserOutletsTable, List<UserOutletRow>>
+  _userOutletsRefsTable(_$AtriumDatabase db) => MultiTypedResultKey.fromTable(
+    db.userOutlets,
+    aliasName: 'users__id__user_outlets__user_id',
+  );
+
+  $$UserOutletsTableProcessedTableManager get userOutletsRefs {
+    final manager = $$UserOutletsTableTableManager(
+      $_db,
+      $_db.userOutlets,
+    ).filter((f) => f.userId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_userOutletsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$UsersTableFilterComposer
@@ -69001,6 +69246,31 @@ class $$UsersTableFilterComposer
           }) => $$UserRolesTableFilterComposer(
             $db: $db,
             $table: $db.userRoles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> userOutletsRefs(
+    Expression<bool> Function($$UserOutletsTableFilterComposer f) f,
+  ) {
+    final $$UserOutletsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.userOutlets,
+      getReferencedColumn: (t) => t.userId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UserOutletsTableFilterComposer(
+            $db: $db,
+            $table: $db.userOutlets,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -69268,6 +69538,31 @@ class $$UsersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> userOutletsRefs<T extends Object>(
+    Expression<T> Function($$UserOutletsTableAnnotationComposer a) f,
+  ) {
+    final $$UserOutletsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.userOutlets,
+      getReferencedColumn: (t) => t.userId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UserOutletsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.userOutlets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$UsersTableTableManager
@@ -69283,7 +69578,7 @@ class $$UsersTableTableManager
           $$UsersTableUpdateCompanionBuilder,
           (UserRow, $$UsersTableReferences),
           UserRow,
-          PrefetchHooks Function({bool userRolesRefs})
+          PrefetchHooks Function({bool userRolesRefs, bool userOutletsRefs})
         > {
   $$UsersTableTableManager(_$AtriumDatabase db, $UsersTable table)
     : super(
@@ -69414,32 +69709,63 @@ class $$UsersTableTableManager
                     (e.readTable(table), $$UsersTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({userRolesRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (userRolesRefs) db.userRoles],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (userRolesRefs)
-                    await $_getPrefetchedData<
-                      UserRow,
-                      $UsersTable,
-                      UserRoleRow
-                    >(
-                      currentTable: table,
-                      referencedTable: $$UsersTableReferences
-                          ._userRolesRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$UsersTableReferences(db, table, p0).userRolesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.userId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({userRolesRefs = false, userOutletsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (userRolesRefs) db.userRoles,
+                    if (userOutletsRefs) db.userOutlets,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (userRolesRefs)
+                        await $_getPrefetchedData<
+                          UserRow,
+                          $UsersTable,
+                          UserRoleRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$UsersTableReferences
+                              ._userRolesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$UsersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).userRolesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.userId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (userOutletsRefs)
+                        await $_getPrefetchedData<
+                          UserRow,
+                          $UsersTable,
+                          UserOutletRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$UsersTableReferences
+                              ._userOutletsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$UsersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).userOutletsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.userId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -69456,7 +69782,7 @@ typedef $$UsersTableProcessedTableManager =
       $$UsersTableUpdateCompanionBuilder,
       (UserRow, $$UsersTableReferences),
       UserRow,
-      PrefetchHooks Function({bool userRolesRefs})
+      PrefetchHooks Function({bool userRolesRefs, bool userOutletsRefs})
     >;
 typedef $$UserRolesTableCreateCompanionBuilder =
     UserRolesCompanion Function({
@@ -69803,6 +70129,266 @@ typedef $$UserRolesTableProcessedTableManager =
       (UserRoleRow, $$UserRolesTableReferences),
       UserRoleRow,
       PrefetchHooks Function({bool userId, bool roleId})
+    >;
+typedef $$UserOutletsTableCreateCompanionBuilder =
+    UserOutletsCompanion Function({
+      required String userId,
+      required String outletId,
+      Value<int> rowid,
+    });
+typedef $$UserOutletsTableUpdateCompanionBuilder =
+    UserOutletsCompanion Function({
+      Value<String> userId,
+      Value<String> outletId,
+      Value<int> rowid,
+    });
+
+final class $$UserOutletsTableReferences
+    extends BaseReferences<_$AtriumDatabase, $UserOutletsTable, UserOutletRow> {
+  $$UserOutletsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $UsersTable _userIdTable(_$AtriumDatabase db) =>
+      db.users.createAlias('user_outlets__user_id__users__id');
+
+  $$UsersTableProcessedTableManager get userId {
+    final $_column = $_itemColumn<String>('user_id')!;
+
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_userIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$UserOutletsTableFilterComposer
+    extends Composer<_$AtriumDatabase, $UserOutletsTable> {
+  $$UserOutletsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$UsersTableFilterComposer get userId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UserOutletsTableOrderingComposer
+    extends Composer<_$AtriumDatabase, $UserOutletsTable> {
+  $$UserOutletsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$UsersTableOrderingComposer get userId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableOrderingComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UserOutletsTableAnnotationComposer
+    extends Composer<_$AtriumDatabase, $UserOutletsTable> {
+  $$UserOutletsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get outletId =>
+      $composableBuilder(column: $table.outletId, builder: (column) => column);
+
+  $$UsersTableAnnotationComposer get userId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UserOutletsTableTableManager
+    extends
+        RootTableManager<
+          _$AtriumDatabase,
+          $UserOutletsTable,
+          UserOutletRow,
+          $$UserOutletsTableFilterComposer,
+          $$UserOutletsTableOrderingComposer,
+          $$UserOutletsTableAnnotationComposer,
+          $$UserOutletsTableCreateCompanionBuilder,
+          $$UserOutletsTableUpdateCompanionBuilder,
+          (UserOutletRow, $$UserOutletsTableReferences),
+          UserOutletRow,
+          PrefetchHooks Function({bool userId})
+        > {
+  $$UserOutletsTableTableManager(_$AtriumDatabase db, $UserOutletsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserOutletsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserOutletsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserOutletsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> userId = const Value.absent(),
+                Value<String> outletId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserOutletsCompanion(
+                userId: userId,
+                outletId: outletId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String userId,
+                required String outletId,
+                Value<int> rowid = const Value.absent(),
+              }) => UserOutletsCompanion.insert(
+                userId: userId,
+                outletId: outletId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$UserOutletsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({userId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (userId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.userId,
+                                referencedTable: $$UserOutletsTableReferences
+                                    ._userIdTable(db),
+                                referencedColumn: $$UserOutletsTableReferences
+                                    ._userIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$UserOutletsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtriumDatabase,
+      $UserOutletsTable,
+      UserOutletRow,
+      $$UserOutletsTableFilterComposer,
+      $$UserOutletsTableOrderingComposer,
+      $$UserOutletsTableAnnotationComposer,
+      $$UserOutletsTableCreateCompanionBuilder,
+      $$UserOutletsTableUpdateCompanionBuilder,
+      (UserOutletRow, $$UserOutletsTableReferences),
+      UserOutletRow,
+      PrefetchHooks Function({bool userId})
     >;
 typedef $$DevicesTableCreateCompanionBuilder =
     DevicesCompanion Function({
@@ -100312,6 +100898,8 @@ class $AtriumDatabaseManager {
       $$UsersTableTableManager(_db, _db.users);
   $$UserRolesTableTableManager get userRoles =>
       $$UserRolesTableTableManager(_db, _db.userRoles);
+  $$UserOutletsTableTableManager get userOutlets =>
+      $$UserOutletsTableTableManager(_db, _db.userOutlets);
   $$DevicesTableTableManager get devices =>
       $$DevicesTableTableManager(_db, _db.devices);
   $$FloorsTableTableManager get floors =>
