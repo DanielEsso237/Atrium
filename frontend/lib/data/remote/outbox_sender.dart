@@ -425,6 +425,19 @@ class OutboxSender {
         // cle a `null` veut dire « efface-le » -- un telephone retire de la
         // fiche doit l'etre aussi sur le serveur. Les champs absents
         // (adresse, naissance, plafond) ne sont pas touches.
+        // Le plafond, fixe par l'administration : lui seul, avec les noms
+        // que le schema du serveur exige.
+        if (p['action'] == 'CREDIT_LIMIT') {
+          return _Envoi(
+            '/guests/${p['id']}',
+            {
+              'first_name': p['first_name'],
+              'last_name': p['last_name'],
+              'credit_limit': p['credit_limit'],
+            },
+            methode: _Methode.patch,
+          );
+        }
         if (entree.op == SyncOp.UPDATE) {
           return _Envoi(
             '/guests/${p['id']}',

@@ -9,7 +9,7 @@ from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import permission_codes, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import Guest, User
@@ -17,6 +17,18 @@ from app.schemas.guests import GuestIn, GuestOut
 from app.services.numbering import Scope, next_number
 
 router = APIRouter(prefix="/guests", tags=["clients"])
+
+
+def _plafond_autorise(fields: dict, user: User) -> None:
+    """Le plafond d'un client est fixe par l'administration (decision du 29/09).
+
+    Seul un agent portant `users.write` peut l'ecrire. La fiche client de la
+    reception ne l'envoie jamais : ce refus ne peut pas bloquer sa file.
+    """
+    if "credit_limit" in fields and "users.write" not in permission_codes(user):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Le plafond d'un client est fixe par l'administration."
+        )
 
 
 def _guest_fields(payload: GuestIn) -> dict:
@@ -76,6 +88,7 @@ async def create_guest(
     """
     guest_id = payload.id or uuid7()
     fields = _guest_fields(payload)
+    _plafond_autorise(fields, user)
 
     existing = (
         await session.execute(
@@ -142,6 +155,7 @@ async def update_guest(
     # Le seuil est regle par la direction : un `null` ne l'efface pas.
     if fields.get("credit_limit", 0) is None:
         del fields["credit_limit"]
+    _plafond_autorise(fields, user)
     for field, value in fields.items():
         setattr(guest, field, value)
     await session.commit()
