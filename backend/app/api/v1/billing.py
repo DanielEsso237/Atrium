@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import permission_codes, require_permission
+from app.api.deps import permission_codes, require_any_permission, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import (
@@ -152,7 +152,7 @@ async def add_folio_item(
     payload: FolioItemIn,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("folio.write")),
+    user: User = Depends(require_any_permission("folio.write", "folio.charge")),
 ) -> FolioItem:
     """Charge manuelle (minibar, blanchisserie, remise...).
 

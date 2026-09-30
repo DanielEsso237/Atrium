@@ -56,6 +56,8 @@ IMPLICATIONS = [
     ("users.write", "restaurant.write"),
     ("users.write", "users.read"),
     ("users.write", "guests.write"),
+    # Une commande portee a une chambre ecrit sur son ardoise.
+    ("order.create", "folio.charge"),
 ]
 
 
