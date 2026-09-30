@@ -2720,6 +2720,19 @@
       },
       "MenuCategoryIn": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -2806,6 +2819,19 @@
               }
             ],
             "title": "Description"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "is_available": {
             "default": true,
@@ -8821,6 +8847,7 @@
         ]
       },
       "post": {
+        "description": "Cree une categorie ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_menu_category_api_v1_menu_categories_post",
         "requestBody": {
           "content": {
@@ -8895,6 +8922,7 @@
         ]
       },
       "post": {
+        "description": "Cree un article ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_menu_item_api_v1_menu_items_post",
         "requestBody": {
           "content": {

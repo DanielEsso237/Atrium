@@ -187,6 +187,35 @@ erreur 500). La tablette refuse le doublon avant d'écrire.
 `GET /outlets` renvoie aussi les points de vente désactivés : c'est la
 tablette qui les retire des onglets de l'écran Commande.
 
+### Le point de vente « Restaurant » par défaut
+
+Chaque hôtel a d'office un point de vente de code `RESTO`, libellé
+« Restaurant », `allows_room_charge: true`, `sort_order: 0`. C'est lui qui
+portera la carte facturée sur l'ardoise d'une chambre. Le seed le crée (id
+fixe `01920000-0000-7000-8000-000000007001` pour l'hôtel de démonstration),
+et la migration `0008` le crée pour les hôtels existants qui n'en ont pas.
+Rejouer le seed ne remet pas son libellé.
+
+Le **code** est son identité : la tablette le retrouve par là. Le serveur
+refuse donc, avec `409` et un message lisible :
+
+- `PATCH /outlets/{id}` avec `is_active: false` sur ce point de vente ;
+- `PATCH /outlets/{id}` qui change son `code`.
+
+Son libellé, lui, reste modifiable. **La tablette refuse d'avance ce que le
+serveur refuse** : un `409` qui arrive par la file d'envoi la bloquerait, avec
+tout ce qui attend derrière.
+
+Ne pas renommer le code du rôle `RESTAURANT` : seul son libellé change, et
+les tablettes reconnaissent un rôle par son code.
+
+### La carte rejouable
+
+`POST /menu-categories` et `POST /menu-items` acceptent l'`id` de la
+tablette, comme `POST /outlets` : un renvoi du même `id` répond `200` avec la
+ligne existante, sans rien créer (`201` à la première fois). Sans `id`, le
+serveur en génère un. `PATCH /menu-items/{id}` ne touche jamais à l'`id`.
+
 ## Une nuit n'est facturée qu'une fois
 
 Une nuitée envoyée par une tablette porte `night_date`, la nuit qu'elle

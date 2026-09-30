@@ -89,6 +89,9 @@ class RestaurantTableOut(BaseModel):
 
 
 class MenuCategoryIn(BaseModel):
+    # Meme cle generee hors ligne que pour les points de vente : un renvoi du
+    # meme id ne cree pas une seconde categorie.
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     outlet_id: uuid.UUID | None = None
     label: str = Field(min_length=1, max_length=80)
     sort_order: int = 0
@@ -110,6 +113,7 @@ class MenuItemIn(BaseModel):
     modele `MenuItem` pour la regle R1 que ce champ met en oeuvre.
     """
 
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     code: str = Field(min_length=1, max_length=32)
     label: str = Field(min_length=1, max_length=160)
     description: str | None = None

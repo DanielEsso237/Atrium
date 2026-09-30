@@ -25,7 +25,7 @@ from app.schemas.restaurant import (
     RestaurantTableIn,
     RestaurantTableOut,
 )
-from app.services.outlets import allowed_outlet_ids
+from app.services.outlets import DEFAULT_OUTLET_CODE, allowed_outlet_ids
 
 router = APIRouter(tags=["restauration"])
 
@@ -110,6 +110,20 @@ async def update_outlet(
     fields = payload.model_dump(exclude_unset=True)
     # `null` n'efface que les horaires ; ailleurs il ne veut rien dire.
     fields = {k: v for k, v in fields.items() if v is not None or k in ("opens_at", "closes_at")}
+    # Le point de vente par defaut est celui que la carte et les tablettes
+    # retrouvent par son code : le desactiver ou le renommer casserait tout
+    # ce qui s'y rattache. Le libelle, lui, reste libre.
+    if outlet.code == DEFAULT_OUTLET_CODE:
+        if fields.get("is_active") is False:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Le point de vente par defaut ne peut pas etre desactive.",
+            )
+        if "code" in fields and fields["code"] != outlet.code:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Le code du point de vente par defaut ne peut pas etre modifie.",
+            )
     if "code" in fields and await _code_pris(session, user.hotel_id, fields["code"], outlet.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce code de point de vente existe deja.")
     for field, value in fields.items():
@@ -220,10 +234,21 @@ async def list_menu_categories(
 )
 async def create_menu_category(
     payload: MenuCategoryIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("restaurant.write")),
 ) -> MenuCategory:
-    category = MenuCategory(hotel_id=user.hotel_id, **payload.model_dump())
+    """Cree une categorie ; un renvoi du meme `id` repond 200 sans rien creer."""
+    if payload.id is not None:
+        existing = await session.get(MenuCategory, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Categorie introuvable.")
+            response.status_code = status.HTTP_200_OK
+            return existing
+    category = MenuCategory(
+        id=payload.id or uuid7(), hotel_id=user.hotel_id, **payload.model_dump(exclude={"id"})
+    )
     session.add(category)
     await session.commit()
     await session.refresh(category)
@@ -255,10 +280,21 @@ async def list_menu_items(
 @router.post("/menu-items", response_model=MenuItemOut, status_code=status.HTTP_201_CREATED)
 async def create_menu_item(
     payload: MenuItemIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("restaurant.write")),
 ) -> MenuItem:
-    item = MenuItem(hotel_id=user.hotel_id, **payload.model_dump())
+    """Cree un article ; un renvoi du meme `id` repond 200 sans rien creer."""
+    if payload.id is not None:
+        existing = await session.get(MenuItem, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Article introuvable.")
+            response.status_code = status.HTTP_200_OK
+            return existing
+    item = MenuItem(
+        id=payload.id or uuid7(), hotel_id=user.hotel_id, **payload.model_dump(exclude={"id"})
+    )
     session.add(item)
     await session.commit()
     await session.refresh(item)
@@ -278,7 +314,7 @@ async def update_menu_item(
     de cet article, sans toucher au code (voir R1 dans le modele `MenuItem`).
     """
     item = await _get_scoped(session, MenuItem, item_id, user)
-    for field, value in payload.model_dump().items():
+    for field, value in payload.model_dump(exclude={"id"}).items():
         setattr(item, field, value)
     await session.commit()
     await session.refresh(item)
