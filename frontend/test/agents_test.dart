@@ -83,6 +83,28 @@ void main() {
     expect(u.firstName, 'Ines');
   });
 
+  test("un role decrit sans ses permissions n'efface rien", () async {
+    // Vecu : un serveur pas encore a jour renvoie les roles sans leurs
+    // permissions. L'administrateur perdait tous ses modules a la connexion.
+    final admin = await (db.select(db.users)
+          ..where((u) => u.employeeCode.equals('ADMIN01')))
+        .getSingle();
+
+    await agents.applyServerAgent({
+      'id': admin.id,
+      'employee_code': 'ADMIN01',
+      'first_name': 'Admin',
+      'last_name': 'Atrium',
+      'roles': [
+        {'code': 'ADMIN', 'label': 'Administrateur'},
+      ],
+    });
+
+    final acces = await accessProfileFor(db, admin.id);
+    expect(acces.peut('rooms.read'), isTrue);
+    expect(acces.peut('users.write'), isTrue);
+  });
+
   test('creer un agent part en POST, avec son PIN, une seule fois', () async {
     final roles = await agents.roles();
     await agents.create(
