@@ -146,6 +146,12 @@ const _permissions = <_PermissionDemo>[
     'maintenance',
   ),
   (
+    '01920000-0000-7000-8000-000000004131',
+    'reservation.read',
+    'Consulter les reservations',
+    'reservation',
+  ),
+  (
     '01920000-0000-7000-8000-000000004130',
     'users.write',
     'Administrer : agents, roles, points de vente, parametres',
@@ -165,9 +171,12 @@ const _droits = <(String role, String permission)>[
   (_roleAdmin, '01920000-0000-7000-8000-000000004129'),
   // L'administration, comme cote serveur : l'administrateur seul.
   (_roleAdmin, '01920000-0000-7000-8000-000000004130'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004131'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
+  // Le plan et les reservations : l'ecran de la reception, pas du menage.
+  (_roleReception, '01920000-0000-7000-8000-000000004131'),
   // La reception suit l'avancement du menage : c'est ce que compte deja sa
   // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
   (_roleReception, '01920000-0000-7000-8000-000000004126'),
