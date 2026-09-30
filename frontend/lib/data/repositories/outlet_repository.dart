@@ -34,17 +34,24 @@ class OutletRepository with OutboxWriter {
         .watch();
   }
 
+  /// Cree un point de vente. Sans `code`, il se deduit du libelle (« Boite
+  /// de nuit » -> `BOITE_DE_NUIT`), rendu unique ; sans `sortOrder`, il se
+  /// range apres les autres.
   Future<OutletRow> create({
-    required String code,
+    String? code,
     required String label,
     String? opensAt,
     String? closesAt,
     bool allowsRoomCharge = true,
-    int sortOrder = 0,
+    int? sortOrder,
   }) async {
     final id = newId();
+    final choisi = (code == null || code.trim().isEmpty)
+        ? await codeLibre(label)
+        : code;
+    final ordre = sortOrder ?? await _ordreSuivant();
     final propre = await _verifier(
-      code: code,
+      code: choisi,
       label: label,
       opensAt: opensAt,
       closesAt: closesAt,
@@ -62,7 +69,7 @@ class OutletRepository with OutboxWriter {
         'opens_at': opensAt,
         'closes_at': closesAt,
         'allows_room_charge': allowsRoomCharge,
-        'sort_order': sortOrder,
+        'sort_order': ordre,
       },
       action: () async {
         await db
@@ -78,7 +85,7 @@ class OutletRepository with OutboxWriter {
                 opensAt: Value(opensAt),
                 closesAt: Value(closesAt),
                 allowsRoomCharge: Value(allowsRoomCharge),
-                sortOrder: Value(sortOrder),
+                sortOrder: Value(ordre),
                 syncState: const Value(SyncState.pending),
               ),
             );
@@ -196,8 +203,67 @@ class OutletRepository with OutboxWriter {
     return propre;
   }
 
+  /// Range les points de vente dans l'ordre donne (glisser-deposer). Seuls
+  /// ceux dont la position change sont modifies, et donc renvoyes.
+  Future<void> reorder(List<String> ids) async {
+    for (var i = 0; i < ids.length; i++) {
+      final o = await _byId(ids[i]);
+      if (o.sortOrder == i) continue;
+      await update(
+        id: o.id,
+        code: o.code,
+        label: o.label,
+        opensAt: o.opensAt,
+        closesAt: o.closesAt,
+        allowsRoomCharge: o.allowsRoomCharge,
+        sortOrder: i,
+        isActive: o.isActive,
+      );
+    }
+  }
+
+  /// Un code libre, deduit du libelle : `BAR`, puis `BAR_2` s'il est pris.
+  Future<String> codeLibre(String label) async {
+    final base = codeDepuisLibelle(label);
+    final pris = {for (final o in await db.select(db.outlets).get()) o.code};
+    if (!pris.contains(base)) return base;
+    for (var n = 2; ; n++) {
+      final suffixe = '_$n';
+      final candidat =
+          '${base.substring(0, base.length.clamp(0, 32 - suffixe.length))}$suffixe';
+      if (!pris.contains(candidat)) return candidat;
+    }
+  }
+
+  Future<int> _ordreSuivant() async {
+    final r = await db
+        .customSelect('SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM outlets')
+        .getSingle();
+    return r.read<int>('n');
+  }
+
   Future<OutletRow> _byId(String id) =>
       (db.select(db.outlets)..where((o) => o.id.equals(id))).getSingle();
+}
+
+/// « Boîte de nuit » -> `BOITE_DE_NUIT` : sans accents, en majuscules,
+/// 32 caracteres au plus.
+String codeDepuisLibelle(String label) {
+  const accents = {
+    'À': 'A', 'Â': 'A', 'Ä': 'A', 'Ç': 'C', 'É': 'E', 'È': 'E', 'Ê': 'E',
+    'Ë': 'E', 'Î': 'I', 'Ï': 'I', 'Ô': 'O', 'Ö': 'O', 'Ù': 'U', 'Û': 'U',
+    'Ü': 'U', 'Œ': 'OE', 'Æ': 'AE',
+  };
+  final sansAccents = label
+      .toUpperCase()
+      .split('')
+      .map((c) => accents[c] ?? c)
+      .join();
+  final code = sansAccents
+      .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  if (code.isEmpty) return 'PDV';
+  return code.length <= 32 ? code : code.substring(0, 32);
 }
 
 /// Le point de vente « Restaurant » que chaque hotel a d'office

@@ -141,6 +141,28 @@ void main() {
     );
   });
 
+  test("le code se deduit du libelle, unique", () async {
+    final a = await points.create(label: 'Boîte de nuit');
+    final b = await points.create(label: 'Boite de Nuit');
+
+    expect(a.code, 'BOITE_DE_NUIT');
+    expect(b.code, 'BOITE_DE_NUIT_2');
+    expect(codeDepuisLibelle('  '), 'PDV');
+  });
+
+  test("glisser-deposer renvoie seulement ce qui a bouge", () async {
+    final a = await points.create(label: 'A');
+    final b = await points.create(label: 'B');
+    final c = await points.create(label: 'C');
+    final avant = (await db.select(db.outboxEntries).get()).length;
+
+    await points.reorder([c.id, a.id, b.id]);
+
+    final ordre = await points.watchAll().first;
+    expect(ordre.map((o) => o.label).where((l) => l.length == 1), ['C', 'A', 'B']);
+    expect((await db.select(db.outboxEntries).get()).length - avant, 3);
+  });
+
   test('refus avant ecriture : code pris, horaire mal forme', () async {
     await points.create(code: 'BAR', label: 'Bar');
     final avant = (await db.select(db.outboxEntries).get()).length;
