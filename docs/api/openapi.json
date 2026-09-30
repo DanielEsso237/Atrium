@@ -3326,6 +3326,19 @@
             "title": "Code",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -3384,6 +3397,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -3412,9 +3429,100 @@
           "opens_at",
           "closes_at",
           "allows_room_charge",
-          "sort_order"
+          "sort_order",
+          "is_active"
         ],
         "title": "OutletOut",
+        "type": "object"
+      },
+      "OutletUpdate": {
+        "description": "Modification partielle : seuls les champs envoyes changent.\n\nUn point de vente ne se supprime pas -- les commandes passees y renvoient.\n`is_active: false` le retire des onglets de l'ecran Commande.",
+        "properties": {
+          "allows_room_charge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allows Room Charge"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "OutletUpdate",
         "type": "object"
       },
       "PasswordReset": {
@@ -9080,6 +9188,7 @@
         ]
       },
       "post": {
+        "description": "Cree un point de vente ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_outlet_api_v1_outlets_post",
         "requestBody": {
           "content": {
@@ -9119,6 +9228,65 @@
           }
         ],
         "summary": "Create Outlet",
+        "tags": [
+          "restauration"
+        ]
+      }
+    },
+    "/api/v1/outlets/{outlet_id}": {
+      "patch": {
+        "description": "Modifie ou desactive un point de vente -- jamais de suppression.",
+        "operationId": "update_outlet_api_v1_outlets__outlet_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outlet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Outlet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutletOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Outlet",
         "tags": [
           "restauration"
         ]

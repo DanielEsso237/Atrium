@@ -17,6 +17,13 @@ import 'api_client.dart';
 /// cette chaine-la passerait ensuite pour une vraie valeur jusque dans la base.
 String? _texte(Object? v) => v == null ? null : '$v';
 
+/// Une heure en HH:MM. Le serveur ecrit `08:00:00` ; la colonne locale n'en
+/// garde que cinq caracteres, et refuserait le reste.
+String? _heure(Object? v) {
+  final t = _texte(v);
+  return t == null || t.length <= 5 ? t : t.substring(0, 5);
+}
+
 DateTime? _instant(Object? v) =>
     v == null ? null : DateTime.tryParse('$v')?.toUtc();
 
@@ -98,11 +105,16 @@ class RemoteOutlet {
     required this.sortOrder,
     this.opensAt,
     this.closesAt,
+    this.isActive = true,
   });
 
   final String id;
   final String code;
   final String label;
+
+  /// Desactive par l'administration : il sort des onglets de l'ecran
+  /// Commande, mais reste en base -- les commandes passees y renvoient.
+  final bool isActive;
 
   /// Ce point de vente peut-il porter une consommation sur la chambre.
   ///
@@ -122,8 +134,9 @@ class RemoteOutlet {
       label: '${raw['label'] ?? raw['code']}',
       allowsRoomCharge: raw['allows_room_charge'] != false,
       sortOrder: _entier(raw['sort_order']),
-      opensAt: _texte(raw['opens_at']),
-      closesAt: _texte(raw['closes_at']),
+      opensAt: _heure(raw['opens_at']),
+      closesAt: _heure(raw['closes_at']),
+      isActive: raw['is_active'] != false,
     );
   }
 }

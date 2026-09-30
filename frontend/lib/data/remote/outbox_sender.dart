@@ -53,6 +53,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'invoices' => db.invoices,
     'cash_sessions' => db.cashSessions,
     'maintenance_tickets' => db.maintenanceTickets,
+    'outlets' => db.outlets,
     _ => null,
   };
 }
@@ -505,6 +506,38 @@ class OutboxSender {
 
       case 'maintenance_tickets':
         return _maintenance(entree, p);
+
+      case 'outlets':
+        // Creation : l'id de la tablette rend le renvoi sans danger.
+        // Modification : `PATCH`, horaires vides compris -- un horaire retire
+        // doit l'etre aussi sur le serveur.
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi(
+            '/outlets',
+            _sansNuls({
+              'id': p['id'],
+              'code': p['code'],
+              'label': p['label'],
+              'opens_at': p['opens_at'],
+              'closes_at': p['closes_at'],
+              'allows_room_charge': p['allows_room_charge'],
+              'sort_order': p['sort_order'],
+            }),
+          );
+        }
+        return _Envoi(
+          '/outlets/${p['id']}',
+          {
+            'code': p['code'],
+            'label': p['label'],
+            'opens_at': p['opens_at'],
+            'closes_at': p['closes_at'],
+            'allows_room_charge': p['allows_room_charge'],
+            'sort_order': p['sort_order'],
+            'is_active': p['is_active'],
+          },
+          patch: true,
+        );
 
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses

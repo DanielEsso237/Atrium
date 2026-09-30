@@ -163,17 +163,18 @@ class Descente {
 
   /// Ecrit les points de vente.
   ///
-  /// Pas de barriere d'ecritures en attente ici : c'est du referentiel, que
-  /// seule l'administration modifie, et jamais depuis la tablette. Le
-  /// serveur fait toujours foi.
+  /// L'ecran d'administration les modifie depuis la tablette : un point de
+  /// vente en attente de remontee n'est pas ecrase, comme partout ailleurs.
   Future<int> _ecrirePointsDeVente(
     List<RemoteOutlet> points,
     DateTime maintenant,
   ) async {
     if (points.isEmpty) return 0;
+    final proteges = await _sync.lignesEnAttente(db.outlets);
 
     await db.transaction(() async {
       for (final o in points) {
+        if (proteges.contains(o.id)) continue;
         await db
             .into(db.outlets)
             .insertOnConflictUpdate(
@@ -188,6 +189,7 @@ class Descente {
                 closesAt: Value(o.closesAt),
                 allowsRoomCharge: Value(o.allowsRoomCharge),
                 sortOrder: Value(o.sortOrder),
+                isActive: Value(o.isActive),
                 syncState: const Value(SyncState.synced),
               ),
             );

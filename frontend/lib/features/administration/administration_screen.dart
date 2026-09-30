@@ -15,12 +15,13 @@ import 'package:flutter/material.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import 'outlets_section.dart';
 
 class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
 
   static const _sections = <(String, IconData, Widget)>[
-    ('Points de vente', PhosphorIconsLight.storefront, _AVenir()),
+    ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, _AVenir()),
     ('Agents', PhosphorIconsLight.usersThree, _AVenir()),
     ('Rôles', PhosphorIconsLight.identificationCard, _AVenir()),
