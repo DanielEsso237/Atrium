@@ -244,7 +244,7 @@ class OutboxSender {
       }
       return;
     }
-    if (entree.entityTable == 'users' && entree.op == SyncOp.INSERT) {
+    if (entree.entityTable == 'users') {
       // Le serveur a le PIN, hache : la tablette n'en garde aucune copie,
       // pas meme dans l'historique de sa file.
       await db.customUpdate(
@@ -576,6 +576,9 @@ class OutboxSender {
         // Creation : l'id de la tablette rend le renvoi sans danger, et le
         // PIN part une seule fois -- il est efface de l'entree des que le
         // serveur l'a recu (`_appliquerReponse`).
+        if (p['action'] == 'RESET_PIN') {
+          return _Envoi('/users/${p['id']}/reset-pin', {'new_pin': p['pin']});
+        }
         if (entree.op == SyncOp.INSERT) {
           return _Envoi('/users', {
             'id': p['id'],

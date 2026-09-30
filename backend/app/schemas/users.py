@@ -73,6 +73,12 @@ class PermissionOut(BaseModel):
     module: str
 
 
+class PinReset(BaseModel):
+    """Nouveau PIN choisi par l'administration, pour un agent qui l'a oublie."""
+
+    new_pin: str = Field(pattern=r"^\d{4,8}$")
+
+
 class PasswordReset(BaseModel):
     new_password: str = Field(min_length=8)
 

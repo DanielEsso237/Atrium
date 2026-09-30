@@ -1,8 +1,8 @@
 /// Les points de vente : liste, creation, modification, desactivation.
 ///
 /// Jamais de suppression : les commandes passees y renvoient. Desactive, un
-/// point de vente sort des onglets de l'ecran Commande et reste ici, pret a
-/// etre reactive.
+/// point de vente sort des onglets de l'ecran Commandes et reste ici, pret a
+/// etre reactive. L'ordre des onglets se regle en glissant les lignes.
 library;
 
 import 'package:flutter/material.dart';
@@ -26,43 +26,83 @@ class OutletsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final points = ref.watch(_tousLesPointsDeVente);
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Expanded(child: Eyebrow('Points de vente')),
-            PillButton(
-              label: 'Nouveau point de vente',
-              icon: PhosphorIconsLight.plus,
-              tone: PillTone.accent,
-              compact: true,
-              onPressed: () => _ouvrir(context),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 6),
+          child: Row(
+            children: [
+              const Expanded(child: Eyebrow('Points de vente')),
+              PillButton(
+                label: 'Nouveau point de vente',
+                icon: PhosphorIconsLight.plus,
+                tone: PillTone.accent,
+                compact: true,
+                onPressed: () => _ouvrir(context),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
-        ...points.when(
-          loading: () => [const Center(child: CircularProgressIndicator())],
-          error: (e, _) => [Text('Lecture impossible : $e')],
-          data: (liste) => liste.isEmpty
-              ? [
-                  const EmptyState(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Glissez une ligne pour changer l’ordre des onglets de l’écran '
+            'Commandes.',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: AtriumPalette.current.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: points.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Lecture impossible : $e'),
+            data: (liste) => liste.isEmpty
+                ? const EmptyState(
                     icon: PhosphorIconsLight.storefront,
                     title: 'Aucun point de vente',
                     message: 'Créez le restaurant, le bar, la piscine…',
-                  ),
-                ]
-              : [
-                  for (final o in liste)
-                    _LignePointDeVente(
-                      point: o,
-                      onTap: () => _ouvrir(context, existant: o),
+                  )
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    itemCount: liste.length,
+                    onReorder: (de, vers) =>
+                        _reordonner(context, ref, liste, de, vers),
+                    itemBuilder: (_, i) => _LignePointDeVente(
+                      key: ValueKey(liste[i].id),
+                      point: liste[i],
+                      onTap: () => _ouvrir(context, existant: liste[i]),
                     ),
-                ],
+                  ),
+          ),
         ),
       ],
     );
+  }
+
+  Future<void> _reordonner(
+    BuildContext context,
+    WidgetRef ref,
+    List<OutletRow> liste,
+    int de,
+    int vers,
+  ) async {
+    final ordre = [...liste];
+    final deplace = ordre.removeAt(de);
+    ordre.insert(vers > de ? vers - 1 : vers, deplace);
+    try {
+      await ref
+          .read(outletRepositoryProvider)
+          .reorder([for (final o in ordre) o.id]);
+    } on StateError catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   void _ouvrir(BuildContext context, {OutletRow? existant}) {
@@ -74,7 +114,11 @@ class OutletsSection extends ConsumerWidget {
 }
 
 class _LignePointDeVente extends StatelessWidget {
-  const _LignePointDeVente({required this.point, required this.onTap});
+  const _LignePointDeVente({
+    super.key,
+    required this.point,
+    required this.onTap,
+  });
 
   final OutletRow point;
   final VoidCallback onTap;
@@ -95,7 +139,7 @@ class _LignePointDeVente extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 40, 16),
             child: Row(
               children: [
                 Expanded(
@@ -112,11 +156,8 @@ class _LignePointDeVente extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${point.code} · $horaires · ordre ${point.sortOrder}',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: p.textSecondary,
-                        ),
+                        '${point.code} · $horaires',
+                        style: TextStyle(fontSize: 13.5, color: p.textSecondary),
                       ),
                     ],
                   ),
@@ -145,53 +186,66 @@ class _OutletDialog extends ConsumerStatefulWidget {
 }
 
 class _OutletDialogState extends ConsumerState<_OutletDialog> {
-  late final _code = TextEditingController(text: widget.existant?.code);
   late final _libelle = TextEditingController(text: widget.existant?.label);
-  late final _ouverture = TextEditingController(text: widget.existant?.opensAt);
-  late final _fermeture = TextEditingController(
-    text: widget.existant?.closesAt,
-  );
-  late final _ordre = TextEditingController(
-    text: '${widget.existant?.sortOrder ?? 0}',
-  );
+  late TimeOfDay? _ouverture = _lire(widget.existant?.opensAt);
+  late TimeOfDay? _fermeture = _lire(widget.existant?.closesAt);
   late bool _chambre = widget.existant?.allowsRoomCharge ?? true;
   late bool _actif = widget.existant?.isActive ?? true;
   bool _busy = false;
 
   @override
   void dispose() {
-    for (final c in [_code, _libelle, _ouverture, _fermeture, _ordre]) {
-      c.dispose();
-    }
+    _libelle.dispose();
     super.dispose();
   }
 
-  String? _heure(String v) => v.trim().isEmpty ? null : v.trim();
+  static TimeOfDay? _lire(String? hhmm) {
+    if (hhmm == null || !heureValide(hhmm)) return null;
+    final [h, m] = hhmm.split(':');
+    return TimeOfDay(hour: int.parse(h), minute: int.parse(m));
+  }
+
+  static String? _ecrire(TimeOfDay? t) => t == null
+      ? null
+      : '${t.hour.toString().padLeft(2, '0')}:'
+            '${t.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _choisir(bool ouverture) async {
+    final choisie = await showTimePicker(
+      context: context,
+      initialTime:
+          (ouverture ? _ouverture : _fermeture) ??
+          TimeOfDay(hour: ouverture ? 7 : 23, minute: 0),
+      builder: (context, enfant) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: enfant!,
+      ),
+    );
+    if (choisie == null) return;
+    setState(() => ouverture ? _ouverture = choisie : _fermeture = choisie);
+  }
 
   Future<void> _enregistrer() async {
     setState(() => _busy = true);
     final depot = ref.read(outletRepositoryProvider);
-    final ordre = int.tryParse(_ordre.text.trim()) ?? 0;
     final existant = widget.existant;
     try {
       if (existant == null) {
         await depot.create(
-          code: _code.text,
           label: _libelle.text,
-          opensAt: _heure(_ouverture.text),
-          closesAt: _heure(_fermeture.text),
+          opensAt: _ecrire(_ouverture),
+          closesAt: _ecrire(_fermeture),
           allowsRoomCharge: _chambre,
-          sortOrder: ordre,
         );
       } else {
         await depot.update(
           id: existant.id,
-          code: _code.text,
+          code: existant.code,
           label: _libelle.text,
-          opensAt: _heure(_ouverture.text),
-          closesAt: _heure(_fermeture.text),
+          opensAt: _ecrire(_ouverture),
+          closesAt: _ecrire(_fermeture),
           allowsRoomCharge: _chambre,
-          sortOrder: ordre,
+          sortOrder: existant.sortOrder,
           isActive: _actif,
         );
       }
@@ -209,9 +263,11 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final creation = widget.existant == null;
-    // Le Restaurant par defaut : son code et son activite ne se touchent pas.
-    final parDefaut = widget.existant?.code == defaultOutletCode;
+    final existant = widget.existant;
+    final creation = existant == null;
+    // Le Restaurant par defaut : son activite ne se touche pas.
+    final parDefaut = existant?.code == defaultOutletCode;
+    final p = AtriumPalette.current;
 
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.storefront, size: 30),
@@ -221,58 +277,49 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              TextField(
+                controller: _libelle,
+                autofocus: creation,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'Libellé',
+                  hintText: 'Bar, Boîte de nuit, Piscine…',
+                  // Le code se deduit du libelle : l'administrateur n'a pas
+                  // a l'inventer.
+                  helperText: creation
+                      ? 'Code : ${codeDepuisLibelle(_libelle.text)}'
+                      : 'Code : ${existant.code}',
+                ),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  SizedBox(
-                    width: 140,
-                    child: TextField(
-                      controller: _code,
-                      enabled: !parDefaut,
-                      decoration: const InputDecoration(labelText: 'Code'),
+                  Expanded(
+                    child: _ChampHeure(
+                      libelle: 'Ouverture',
+                      heure: _ecrire(_ouverture),
+                      onTap: () => _choisir(true),
+                      onEffacer: () => setState(() => _ouverture = null),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
-                      controller: _libelle,
-                      decoration: const InputDecoration(labelText: 'Libellé'),
+                    child: _ChampHeure(
+                      libelle: 'Fermeture',
+                      heure: _ecrire(_fermeture),
+                      onTap: () => _choisir(false),
+                      onEffacer: () => setState(() => _fermeture = null),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _ouverture,
-                      decoration: const InputDecoration(
-                        labelText: 'Ouverture',
-                        hintText: '07:00',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _fermeture,
-                      decoration: const InputDecoration(
-                        labelText: 'Fermeture',
-                        hintText: '23:00',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 90,
-                    child: TextField(
-                      controller: _ordre,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Ordre'),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 4),
+              Text(
+                'Sans horaire, le point de vente est ouvert à toute heure.',
+                style: TextStyle(fontSize: 12.5, color: p.textSecondary),
               ),
               const SizedBox(height: 8),
               SwitchListTile(
@@ -291,7 +338,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
                   onChanged: (v) => setState(() => _actif = v),
                   title: const Text('Actif'),
                   subtitle: const Text(
-                    'Désactivé, il disparaît des onglets de l’écran Commande. '
+                    'Désactivé, il disparaît des onglets de l’écran Commandes. '
                     'Ses commandes passées restent.',
                   ),
                 ),
@@ -305,10 +352,48 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
           child: const Text('Annuler'),
         ),
         FilledButton(
-          onPressed: _busy ? null : _enregistrer,
+          onPressed: _busy || _libelle.text.trim().isEmpty ? null : _enregistrer,
           child: const Text('Enregistrer'),
         ),
       ],
+    );
+  }
+}
+
+/// Un champ d'heure : on touche, une horloge s'ouvre. Pas de saisie au
+/// clavier, donc pas de « 25:00 » possible.
+class _ChampHeure extends StatelessWidget {
+  const _ChampHeure({
+    required this.libelle,
+    required this.heure,
+    required this.onTap,
+    required this.onEffacer,
+  });
+
+  final String libelle;
+  final String? heure;
+  final VoidCallback onTap;
+  final VoidCallback onEffacer;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: libelle,
+          prefixIcon: const Icon(PhosphorIconsLight.clock, size: 20),
+          suffixIcon: heure == null
+              ? null
+              : IconButton(
+                  tooltip: 'Effacer',
+                  icon: const Icon(PhosphorIconsLight.x, size: 18),
+                  onPressed: onEffacer,
+                ),
+        ),
+        child: Text(heure ?? '—', style: const TextStyle(fontSize: 17)),
+      ),
     );
   }
 }

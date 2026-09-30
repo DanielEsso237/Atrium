@@ -164,6 +164,11 @@ class PendingWritesBadge extends ConsumerWidget {
     final pending = ref.watch(pendingWritesProvider).value ?? 0;
     final sync = ref.watch(syncProvider);
     final schema = Theme.of(context).colorScheme;
+    // L'etat vient du dernier echange, pas de la connexion : sans quoi il
+    // faudrait se reconnecter pour voir que le serveur est revenu. Tant
+    // qu'aucun echange n'a rien appris, on retombe sur la connexion.
+    final enLigne = sync.joignable ?? ref.watch(sessionProvider).online;
+    final raison = sync.push?.detail;
 
     final (IconData icone, Color couleur, String message) = switch ((
       pending,
@@ -183,8 +188,8 @@ class PendingWritesBadge extends ConsumerWidget {
       (_, true, _) => (
         PhosphorIconsLight.warningCircle,
         schema.error,
-        'Une ecriture est refusee et bloque les $pending suivantes. '
-            'Appuyer pour reessayer.',
+        'Une ecriture est refusee et bloque les $pending suivantes'
+            '${raison == null ? '' : ' : $raison'}. Appuyer pour reessayer.',
       ),
       (_, _, true) => (
         PhosphorIconsLight.cloudSlash,
@@ -208,23 +213,29 @@ class PendingWritesBadge extends ConsumerWidget {
         borderRadius: BorderRadius.circular(24),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: pending == 0
-              ? Icon(icone, size: 24, color: couleur)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icone, size: 22, color: couleur),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$pending',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: couleur,
-                      ),
-                    ),
-                  ],
+          // L'etat en toutes lettres : une icone seule ne dit pas a l'agent
+          // s'il travaille en ligne ou non.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icone, size: 22, color: couleur),
+              const SizedBox(width: 6),
+              Text(
+                sync.isBlocked && pending > 0
+                    ? 'Bloqué · $pending'
+                    : pending > 0
+                    ? '${enLigne ? 'En ligne' : 'Hors ligne'} · $pending'
+                    : enLigne
+                    ? 'En ligne'
+                    : 'Hors ligne',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: couleur,
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );

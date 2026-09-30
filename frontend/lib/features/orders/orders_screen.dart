@@ -305,50 +305,78 @@ class _Chambre extends ConsumerWidget {
   }
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
-    final saisie = await showDialog<(String, int, int)>(
+    final lignes = await showDialog<List<(String, int, int)>>(
       context: context,
       builder: (_) => _Saisie(outlet: outlet, chambre: chambre),
     );
-    if (saisie == null || !context.mounted) return;
+    if (lignes == null || lignes.isEmpty || !context.mounted) return;
 
-    final (libelle, prix, quantite) = saisie;
-
-    try {
-      await ref
-          .read(orderRepositoryProvider)
-          .charge(
-            outlet: outlet,
-            folioId: chambre.folioId,
-            label: libelle,
-            unitPrice: prix,
-            quantity: quantite,
-            by: ref.read(sessionProvider).agent?.id,
-          );
-    } on StateError catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
-      return;
+    // Une ligne apres l'autre : si le plafond du client arrete l'une d'elles,
+    // celles d'avant sont bien portees, et le message dit ou l'on en est.
+    var portees = 0;
+    var total = 0;
+    for (final (libelle, prix, quantite) in lignes) {
+      try {
+        await ref
+            .read(orderRepositoryProvider)
+            .charge(
+              outlet: outlet,
+              folioId: chambre.folioId,
+              label: libelle,
+              unitPrice: prix,
+              quantity: quantite,
+              by: ref.read(sessionProvider).agent?.id,
+            );
+      } on StateError catch (e) {
+        if (!context.mounted) return;
+        final deja = portees == 0
+            ? ''
+            : '$portees ligne(s) portée(s) (${formatAmount(total)}). ';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$deja« $libelle » refusé : ${e.message}')),
+        );
+        return;
+      }
+      portees++;
+      total += prix * quantite;
     }
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${formatAmount(prix * quantite)} porté à la chambre '
-          '${chambre.roomNumber}.',
+          '${formatAmount(total)} porté à la chambre ${chambre.roomNumber}.',
         ),
       ),
     );
   }
 }
 
-/// Saisie d'une consommation. Rend `(libelle, prix unitaire, quantite)`.
+/// Une ligne de la saisie : ce qui ira sur l'ardoise.
+class _Ligne {
+  final libelle = TextEditingController();
+  final prix = TextEditingController();
+  int quantite = 1;
+
+  /// L'article de la carte choisi, pour le mettre en evidence seulement :
+  /// ce qui part est ce que disent les champs.
+  String? articleId;
+
+  int get total => (int.tryParse(prix.text.trim()) ?? 0) * quantite;
+  bool get complete => libelle.text.trim().isNotEmpty && total > 0;
+
+  void dispose() {
+    libelle.dispose();
+    prix.dispose();
+  }
+}
+
+/// Saisie de consommations. Rend la liste `(libelle, prix unitaire,
+/// quantite)`, une par ligne.
 ///
-/// La carte du point de vente est proposee au-dessus de la saisie libre : un
-/// article choisi remplit le libelle et le prix, rien de plus. Ce qui part
-/// vers l'ardoise est toujours ce que disent les champs.
+/// Plusieurs lignes d'un coup : de l'eau et deux plats de poulet se portent
+/// ensemble, sans rouvrir la chambre pour chacun. La carte du point de vente
+/// remplit la ligne en cours ; la saisie libre reste toujours possible.
 class _Saisie extends ConsumerStatefulWidget {
   const _Saisie({required this.outlet, required this.chambre});
 
@@ -360,30 +388,37 @@ class _Saisie extends ConsumerStatefulWidget {
 }
 
 class _SaisieState extends ConsumerState<_Saisie> {
-  final _libelle = TextEditingController();
-  final _prix = TextEditingController();
-  int _quantite = 1;
+  final _lignes = [_Ligne()];
 
-  /// L'article de la carte choisi, s'il y en a un. Sert seulement a le
-  /// mettre en evidence : ce qui part est ce que disent les champs.
-  String? _articleId;
+  _Ligne get _enCours => _lignes.last;
 
   void _choisir(MenuEntry e) {
     setState(() {
-      _articleId = e.id;
-      _libelle.text = e.label;
-      _prix.text = '${e.price}';
+      _enCours.articleId = e.id;
+      _enCours.libelle.text = e.label;
+      _enCours.prix.text = '${e.price}';
     });
   }
 
+  void _ajouter() => setState(() => _lignes.add(_Ligne()));
+
+  void _retirer(_Ligne l) => setState(() {
+    _lignes.remove(l);
+    l.dispose();
+  });
+
   @override
   void dispose() {
-    _libelle.dispose();
-    _prix.dispose();
+    for (final l in _lignes) {
+      l.dispose();
+    }
     super.dispose();
   }
 
-  int get _total => (int.tryParse(_prix.text.trim()) ?? 0) * _quantite;
+  int get _total => _lignes.fold(0, (t, l) => t + l.total);
+
+  /// Pret a porter : aucune ligne a moitie remplie.
+  bool get _pret => _lignes.every((l) => l.complete);
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +426,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
     final p = AtriumPalette.current;
 
     return AlertDialog(
-      // La carte + les champs + le recapitulatif depassent vite un ecran de
+      // La carte, les lignes et le recapitulatif depassent vite un ecran de
       // tablette quand le clavier s'ouvre : le contenu doit pouvoir defiler.
       scrollable: true,
       icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
@@ -399,7 +434,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
         '${widget.outlet.label} · chambre ${widget.chambre.roomNumber}',
       ),
       content: SizedBox(
-        width: 480,
+        width: 520,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -410,47 +445,73 @@ class _SaisieState extends ConsumerState<_Saisie> {
             ),
             const SizedBox(height: 16),
 
-            // La carte d'abord, la saisie libre juste en dessous.
+            // La carte d'abord : elle remplit la derniere ligne.
             _Carte(
               outletId: widget.outlet.id,
-              choisi: _articleId,
+              choisi: _enCours.articleId,
               onChoisir: _choisir,
             ),
 
-            TextField(
-              controller: _libelle,
-              // Retoucher le libelle a la main : ce n'est plus l'article de
-              // la carte, la mise en evidence disparait.
-              onChanged: (_) => setState(() => _articleId = null),
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Consommation',
-                hintText: 'Ce qui apparaîtra sur la facture',
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _prix,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Prix unitaire',
-                      suffixText: 'FCFA',
+            for (final (i, l) in _lignes.indexed) ...[
+              if (i > 0) const Divider(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: l.libelle,
+                      // Retoucher le libelle a la main : ce n'est plus
+                      // l'article de la carte.
+                      onChanged: (_) => setState(() => l.articleId = null),
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        labelText: _lignes.length > 1
+                            ? 'Consommation ${i + 1}'
+                            : 'Consommation',
+                        hintText: 'Ce qui apparaîtra sur la facture',
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                _Quantite(
-                  valeur: _quantite,
-                  onChange: (v) => setState(() => _quantite = v),
-                ),
-              ],
+                  if (_lignes.length > 1)
+                    IconButton(
+                      tooltip: 'Retirer cette ligne',
+                      icon: const Icon(PhosphorIconsLight.x, size: 20),
+                      onPressed: () => _retirer(l),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: l.prix,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Prix unitaire',
+                        suffixText: 'FCFA',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  _Quantite(
+                    valeur: l.quantite,
+                    onChange: (v) => setState(() => l.quantite = v),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                // Une ligne vide de plus ne sert a rien : on remplit d'abord.
+                onPressed: _enCours.complete ? _ajouter : null,
+                icon: const Icon(PhosphorIconsLight.plus, size: 18),
+                label: const Text('Ajouter une ligne'),
+              ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 8),
 
             Container(
               padding: const EdgeInsets.all(16),
@@ -463,7 +524,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
                   Row(
                     children: [
                       Text(
-                        'À porter',
+                        _lignes.length > 1
+                            ? 'À porter (${_lignes.length} lignes)'
+                            : 'À porter',
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
@@ -522,11 +585,16 @@ class _SaisieState extends ConsumerState<_Saisie> {
           child: const Text('Annuler'),
         ),
         FilledButton(
-          onPressed: _total <= 0 || _libelle.text.trim().isEmpty
+          onPressed: !_pret
               ? null
-              : () => Navigator.of(
-                  context,
-                ).pop((_libelle.text, int.parse(_prix.text.trim()), _quantite)),
+              : () => Navigator.of(context).pop([
+                  for (final l in _lignes)
+                    (
+                      l.libelle.text.trim(),
+                      int.parse(l.prix.text.trim()),
+                      l.quantite,
+                    ),
+                ]),
           child: const Text('Porter à la chambre'),
         ),
       ],

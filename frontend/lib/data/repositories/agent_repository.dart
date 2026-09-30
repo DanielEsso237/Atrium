@@ -196,6 +196,23 @@ class AgentRepository with OutboxWriter {
     );
   }
 
+  /// Donne un nouveau PIN a un agent qui a oublie le sien.
+  ///
+  /// Comme a la creation, le PIN part une fois vers le serveur et n'est pas
+  /// garde ici : il est efface de la file des que le serveur l'a recu.
+  Future<void> resetPin({required String id, required String pin}) async {
+    if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+      throw StateError('Le PIN compte de 4 à 8 chiffres.');
+    }
+    await writeAndEnqueue(
+      table: 'users',
+      id: id,
+      operation: SyncOp.UPDATE,
+      payload: {'id': id, 'action': 'RESET_PIN', 'pin': pin},
+      action: () async {},
+    );
+  }
+
   /// Enregistre un agent tel que le serveur le decrit (`UserOut`) : son
   /// identite, ses roles **avec leurs permissions**, ses points de vente.
   ///
