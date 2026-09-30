@@ -100,6 +100,7 @@ abstract final class PhosphorIconsLight {
 }
 
 abstract final class PhosphorIconsFill {
+  static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorFill');
   static const bed = IconData(0xe0cc, fontFamily: 'PhosphorFill');
   static const broom = IconData(0xec54, fontFamily: 'PhosphorFill');
   static const calendarDots = IconData(0xe7b4, fontFamily: 'PhosphorFill');

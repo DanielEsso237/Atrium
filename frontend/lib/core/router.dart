@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/administration/administration_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
@@ -42,6 +43,9 @@ const _permissionParZone = <String, String>{
   '/maintenance': 'maintenance.read',
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
+  // Le meme droit que le serveur exige pour creer un agent : tout ce que cet
+  // ecran ecrit, il le refuserait sinon, et la file se bloquerait.
+  '/administration': 'users.write',
 };
 
 /// La permission exigee par un chemin, sous-routes comprises.
@@ -134,6 +138,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const HousekeepingScreen(),
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
+          GoRoute(
+            path: '/administration',
+            builder: (_, _) => const AdministrationScreen(),
+          ),
           GoRoute(
             path: '/reservations',
             builder: (_, _) => const ReservationsScreen(),
