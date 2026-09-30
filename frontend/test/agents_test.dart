@@ -215,7 +215,6 @@ void main() {
     final points = OutletRepository(db);
     final bar = await points.create(code: 'BAR', label: 'Bar');
     await points.create(code: 'RESTO', label: 'Restaurant');
-    final roles = await agents.roles();
     final barman = await agents.create(
       employeeCode: 'BAR01',
       firstName: 'Ines',
