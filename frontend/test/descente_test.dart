@@ -14,6 +14,7 @@ library;
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
 import 'package:atrium/data/repositories/descente.dart';
 import 'package:atrium/data/repositories/sync_repository.dart';
@@ -118,6 +119,26 @@ void main() {
         .getSingle();
     return r.read<int>('n');
   }
+
+  test('un droit manquant saute la ressource, pas toute la descente',
+      () async {
+    // Vecu : la reception n'a pas le droit de lire les points de vente.
+    // Ce 403 faisait echouer la descente entiere, et le poste de reception
+    // ne recevait plus ni clients, ni reservations, ni ardoises.
+    final api = _SansRestaurant(
+      guests: [_guest()],
+      reservations: [_reservation(typeStandard)],
+      folios: [_folio()],
+    );
+
+    final rapport = await Descente(db, api, SyncRepository(db, api)).pull();
+
+    expect(rapport.succeeded, isTrue);
+    expect(rapport.outlets, 0);
+    expect(await compter('guests'), 1);
+    expect(await compter('reservation_rooms'), 1);
+    expect(await compter('folio_items'), 1);
+  });
 
   test('une base vide se remplit entierement', () async {
     // Le cas d'une tablette neuve : ses donnees sont sur le serveur, elle
@@ -318,4 +339,21 @@ void main() {
         .getSingle();
     expect(o.read<bool>('a'), isFalse);
   });
+}
+
+/// Le serveur tel que la reception le voit : le restaurant lui est refuse.
+class _SansRestaurant extends FakeCatalogApi {
+  const _SansRestaurant({super.guests, super.reservations, super.folios});
+
+  Never _refus() =>
+      throw const ApiException(ApiFailure.forbidden, 'restaurant.read');
+
+  @override
+  Future<List<RemoteOutlet>> fetchOutlets() async => _refus();
+
+  @override
+  Future<List<RemoteMenuCategory>> fetchMenuCategories() async => _refus();
+
+  @override
+  Future<List<RemoteMenuItem>> fetchMenuItems() async => _refus();
 }

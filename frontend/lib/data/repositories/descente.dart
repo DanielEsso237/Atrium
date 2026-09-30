@@ -113,12 +113,18 @@ class Descente {
       // Les points de vente d'abord : une commande s'y accroche, et un
       // point de vente absent ferait ecarter la ligne pour une raison qui
       // n'a rien a voir avec elle. La carte suit : categories, puis articles.
-      final pointsDeVente = await _catalog.fetchOutlets();
-      final categoriesCarte = await _catalog.fetchMenuCategories();
-      final articlesCarte = await _catalog.fetchMenuItems();
-      final clients = await _catalog.fetchGuests();
-      final dossiers = await _catalog.fetchReservations();
-      final ardoises = await _catalog.fetchOpenFolios();
+      //
+      // Chaque ressource n'est lue que si l'agent en a le droit : la
+      // reception ne lit pas le restaurant, le menage ne lit pas les
+      // clients. Un refus (403) passait pour une panne et faisait echouer
+      // toute la descente -- la reception ne recevait plus ni clients, ni
+      // reservations, ni ardoises.
+      final pointsDeVente = await _siPermis(_catalog.fetchOutlets);
+      final categoriesCarte = await _siPermis(_catalog.fetchMenuCategories);
+      final articlesCarte = await _siPermis(_catalog.fetchMenuItems);
+      final clients = await _siPermis(_catalog.fetchGuests);
+      final dossiers = await _siPermis(() => _catalog.fetchReservations());
+      final ardoises = await _siPermis(_catalog.fetchOpenFolios);
       final regleArrhes = await _catalog.fetchDepositRule();
 
       var ecartees = 0;
@@ -162,6 +168,20 @@ class Descente {
       return e.isOffline
           ? const PullReport.offline()
           : PullReport.failed(e.message);
+    }
+  }
+
+  /// La ressource, ou rien si l'agent n'a pas le droit de la lire.
+  ///
+  /// Rien, c'est une liste vide : la descente n'efface jamais, une liste
+  /// vide veut seulement dire « rien a ecrire ». Toute autre erreur remonte
+  /// telle quelle -- hors ligne compris, que `pull` traite a part.
+  Future<List<T>> _siPermis<T>(Future<List<T>> Function() lire) async {
+    try {
+      return await lire();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.forbidden) return <T>[];
+      rethrow;
     }
   }
 
