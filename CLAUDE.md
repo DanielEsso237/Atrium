@@ -177,11 +177,21 @@ facturation avec encaissement au départ, édition de facture, caisse avec
 **interfaces par métier** (§3.4) — chaque rôle ne voit que ses modules, et le
 routeur refuse les autres, pas seulement l'affichage.
 
+**L'écran d'administration** (`/administration`, droit `users.write`) : points
+de vente (le Restaurant `RESTO` par défaut ne se désactive pas), règle des
+arrhes, agents avec PIN, rôle et points de vente, permissions des rôles
+(la dernière permission d'administration ne se retire pas), plafonds clients.
+Les droits d'un agent viennent du serveur à sa connexion en ligne
+(`/auth/me` porte les permissions de chaque rôle) : un agent créé sur un
+poste a ses droits sur tous les autres.
+
 La **synchronisation marche dans les deux sens**. La file remonte toute
 seule, dans l'ordre, sans doublon même en cas de renvoi, avec espacement des
 tentatives hors ligne ; un refus du serveur bloque la file au lieu de la
 sauter, et se voit. La descente rapatrie référentiel, clients, réservations
-et ardoises ouvertes, sans jamais écraser une écriture en attente.
+et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
+ressource que l'agent n'a pas le droit de lire (403) est sautée, pas fatale :
+la réception ne lit pas le restaurant, le ménage ne lit pas les clients.
 
 ## Ce que la direction a décidé le 29 septembre
 
@@ -191,8 +201,9 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
   la capture et la remontée de binaire — la file ne transporte que du JSON.
 - **Impression des factures : en v1.** Petites imprimantes de tickets, au
   départ du client. `printers` et `print_jobs` reviennent.
-- **Chaque agent est restreint à ses points de vente.** Le lien agent ↔ point
-  de vente n'existe pas encore dans le modèle.
+- **Chaque agent est restreint à ses points de vente.** Fait : `user_outlets`
+  des deux côtés, et les onglets de l'écran Commandes suivent l'agent
+  connecté. Seul le rôle Commandes (code `RESTAURANT`) s'y rattache.
 - **Caisse arrhes** : les arrhes sont détenues contre la réservation, puis
   basculent dans la caisse à l'arrivée — ou à l'annulation, où elles restent
   acquises. C'est un compte d'attente, pas un tiroir.
@@ -204,12 +215,16 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
 
 ## Ce qui manque
 
-- **L'écran d'administration** : points de vente, rôles, agents, règle des
-  arrhes, plafonds clients. Le plus gros morceau restant.
-- **Photos de CNI** et **impression des factures**, les deux briques rouvertes.
-- **La carte du restaurant** : aujourd'hui il faut retaper libellé et prix.
-- Les **arrhes d'une réservation annulée** restent accrochées à la réservation
-  pour toujours : jamais reconnues, aucun document émis.
+- **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
+  l'administration se connecte en ligne seulement : son PIN est haché par le
+  serveur et effacé de la file. `auth_locale.dart` ne vérifie que les
+  empreintes `DEMO:` ; il faudrait bcrypt côté tablette et la descente des
+  empreintes.
+- **Photos de CNI** (carte de Neo) et **impression des factures**, les deux
+  briques rouvertes.
+- **Créer la carte du restaurant** (menus et prix) depuis l'écran Commandes :
+  elle descend déjà et se choisit à la commande, mais ne se crée pas encore
+  depuis la tablette.
 - Le détail des **encaissements ne redescend pas** (`FolioOut` ne les expose
   pas) : sur un second poste, le solde est juste mais on ne sait pas qui a
   payé quoi.
