@@ -11,6 +11,7 @@ import '../local/database.dart';
 import '../local/database_provider.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
+import 'agent_repository.dart';
 import 'cash_repository.dart';
 import 'descente.dart';
 import 'folio_repository.dart';
@@ -22,11 +23,20 @@ import 'order_repository.dart';
 import 'outbox.dart';
 import 'outlet_repository.dart';
 import 'reservation_repository.dart';
+import 'role_repository.dart';
 import 'settings_repository.dart';
 import 'sync_repository.dart';
 
 final outletRepositoryProvider = Provider<OutletRepository>(
   (ref) => OutletRepository(ref.watch(databaseProvider)),
+);
+
+final agentRepositoryProvider = Provider<AgentRepository>(
+  (ref) => AgentRepository(ref.watch(databaseProvider)),
+);
+
+final roleRepositoryProvider = Provider<RoleRepository>(
+  (ref) => RoleRepository(ref.watch(databaseProvider)),
 );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
@@ -74,8 +84,9 @@ final orderRepositoryProvider = Provider<OrderRepository>(
 );
 
 /// Les points de vente actifs, dans l'ordre de leurs onglets.
-final outletsProvider = StreamProvider<List<OutletRow>>(
-  (ref) => ref.watch(orderRepositoryProvider).watchOutlets(),
+final outletsProvider = StreamProvider.family<List<OutletRow>, String?>(
+  (ref, agentId) =>
+      ref.watch(orderRepositoryProvider).watchOutlets(agentId: agentId),
 );
 
 /// La carte d'un point de vente, en direct.

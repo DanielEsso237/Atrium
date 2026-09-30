@@ -205,6 +205,51 @@ class GuestRepository with OutboxWriter {
     );
   }
 
+  /// Fixe le plafond de consommation a credit d'un client.
+  ///
+  /// C'est l'administration qui le fixe (decision du 29 septembre), et le
+  /// serveur le refuse a tout autre agent. `0` veut dire **pas de limite**.
+  /// La verification du seuil, elle, lit ce champ avant chaque consommation
+  /// (`FolioRepository._verifierSeuil`).
+  Future<GuestRow> setCreditLimit({
+    required String id,
+    required int creditLimit,
+    String? updatedBy,
+  }) async {
+    if (creditLimit < 0) {
+      throw StateError('Le plafond ne peut pas être négatif.');
+    }
+    final client = (await byId(id))!;
+    final now = DateTime.now().toUtc();
+
+    return writeAndEnqueue(
+      table: 'guests',
+      id: id,
+      operation: SyncOp.UPDATE,
+      // `action` : l'envoyeur n'envoie que le plafond, et pas les six
+      // champs de la fiche -- ce n'est pas une modification de fiche.
+      payload: {
+        'id': id,
+        'action': 'CREDIT_LIMIT',
+        'first_name': client.firstName,
+        'last_name': client.lastName,
+        'credit_limit': creditLimit,
+        'updated_by': updatedBy,
+      },
+      action: () async {
+        await (db.update(db.guests)..where((g) => g.id.equals(id))).write(
+          GuestsCompanion(
+            creditLimit: Value(creditLimit),
+            updatedAt: Value(now),
+            updatedBy: Value(updatedBy),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        return (await byId(id))!;
+      },
+    );
+  }
+
   /// Les sejours d'un client, du plus recent au plus ancien.
   Future<List<GuestStay>> stays(String guestId) async {
     final rows = await db

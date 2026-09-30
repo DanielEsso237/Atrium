@@ -410,6 +410,13 @@ class ReservationRepository with OutboxWriter {
 
     final folioId = newId();
     final folioNumber = codeFromId(folioId, 'FOL');
+    // Le client de l'ardoise, comme le serveur le pose au check-in : c'est
+    // par lui que se lit le plafond de consommation. Sans lui, la tablette
+    // laissait passer un depassement que le serveur refusait ensuite -- et
+    // la file se bloquait.
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(line.reservationId))).getSingle();
 
     await db.transaction(() async {
       await (db.update(
@@ -456,6 +463,7 @@ class ReservationRepository with OutboxWriter {
               type: const Value(FolioType.GUEST),
               status: const Value(FolioStatus.OPEN),
               reservationRoomId: Value(lineId),
+              guestId: Value(dossier.guestId),
               syncState: const Value(SyncState.pending),
             ),
           );

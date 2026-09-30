@@ -119,9 +119,27 @@ class OrderRepository {
   }
 
   /// Les points de vente ouverts, dans l'ordre de leurs onglets.
-  Stream<List<OutletRow>> watchOutlets() {
+  ///
+  /// Avec `agentId`, seulement les siens : le barman rattache au bar ne voit
+  /// que le bar. Un agent sans rattachement les voit tous, comme cote
+  /// serveur. La tablette est partagee -- elle ne peut pas se contenter de
+  /// ce que le serveur a renvoye au dernier agent connecte.
+  Stream<List<OutletRow>> watchOutlets({String? agentId}) {
     return (db.select(db.outlets)
-          ..where((o) => o.isActive.equals(true) & o.deletedAt.isNull())
+          ..where(
+            (o) =>
+                o.isActive.equals(true) &
+                o.deletedAt.isNull() &
+                (agentId == null
+                    ? const Constant(true)
+                    : CustomExpression<bool>(
+                        '(NOT EXISTS (SELECT 1 FROM user_outlets uo '
+                        "WHERE uo.user_id = '${_sql(agentId)}') "
+                        'OR outlets.id IN (SELECT uo.outlet_id FROM '
+                        "user_outlets uo WHERE uo.user_id = '${_sql(agentId)}'))",
+                        watchedTables: [db.userOutlets],
+                      )),
+          )
           ..orderBy([
             (o) => OrderingTerm(expression: o.sortOrder),
             (o) => OrderingTerm(expression: o.label),
@@ -231,3 +249,7 @@ class OrderRepository {
     return ChargeCategory.MISC;
   }
 }
+
+/// Un identifiant pour une expression SQL : un UUID ne contient pas
+/// d'apostrophe, mais rien ne coute de le garantir.
+String _sql(String id) => id.replaceAll("'", "''");

@@ -55,6 +55,8 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'maintenance_tickets' => db.maintenanceTickets,
     'outlets' => db.outlets,
     'settings' => db.settings,
+    'users' => db.users,
+    'roles' => db.roles,
     _ => null,
   };
 }
@@ -242,6 +244,17 @@ class OutboxSender {
       }
       return;
     }
+    if (entree.entityTable == 'users' && entree.op == SyncOp.INSERT) {
+      // Le serveur a le PIN, hache : la tablette n'en garde aucune copie,
+      // pas meme dans l'historique de sa file.
+      await db.customUpdate(
+        "UPDATE outbox_entries SET payload = json_remove(payload, '\$.pin') "
+        'WHERE id = ?',
+        variables: [Variable.withInt(entree.id)],
+        updates: {db.outboxEntries},
+      );
+      return;
+    }
     if (entree.entityTable == 'folio_items') {
       // Une autre charge que la notre : le serveur avait deja cette nuit.
       final serveur = reponse['id'] as String?;
@@ -412,6 +425,19 @@ class OutboxSender {
         // cle a `null` veut dire « efface-le » -- un telephone retire de la
         // fiche doit l'etre aussi sur le serveur. Les champs absents
         // (adresse, naissance, plafond) ne sont pas touches.
+        // Le plafond, fixe par l'administration : lui seul, avec les noms
+        // que le schema du serveur exige.
+        if (p['action'] == 'CREDIT_LIMIT') {
+          return _Envoi(
+            '/guests/${p['id']}',
+            {
+              'first_name': p['first_name'],
+              'last_name': p['last_name'],
+              'credit_limit': p['credit_limit'],
+            },
+            methode: _Methode.patch,
+          );
+        }
         if (entree.op == SyncOp.UPDATE) {
           return _Envoi(
             '/guests/${p['id']}',
@@ -544,6 +570,44 @@ class OutboxSender {
             'is_active': p['is_active'],
           },
           methode: _Methode.patch,
+        );
+
+      case 'users':
+        // Creation : l'id de la tablette rend le renvoi sans danger, et le
+        // PIN part une seule fois -- il est efface de l'entree des que le
+        // serveur l'a recu (`_appliquerReponse`).
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi('/users', {
+            'id': p['id'],
+            'employee_code': p['employee_code'],
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'pin': p['pin'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
+          });
+        }
+        // `PATCH` remplace les roles et, s'ils sont envoyes, les points de
+        // vente : on envoie toujours les deux.
+        return _Envoi(
+          '/users/${p['id']}',
+          {
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'is_active': p['is_active'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
+          },
+          methode: _Methode.patch,
+        );
+
+      case 'roles':
+        // Les permissions du role en entier : le serveur remplace, et un
+        // renvoi du meme corps ne change rien.
+        return _Envoi(
+          '/roles/${p['code']}/permissions',
+          {'permissions': p['permissions']},
+          methode: _Methode.put,
         );
 
       case 'settings':

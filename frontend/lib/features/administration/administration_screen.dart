@@ -12,11 +12,13 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import 'agents_section.dart';
+import 'credit_limits_section.dart';
 import 'deposit_section.dart';
 import 'outlets_section.dart';
+import 'roles_section.dart';
 
 class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
@@ -24,9 +26,9 @@ class AdministrationScreen extends StatelessWidget {
   static const _sections = <(String, IconData, Widget)>[
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
-    ('Agents', PhosphorIconsLight.usersThree, _AVenir()),
-    ('Rôles', PhosphorIconsLight.identificationCard, _AVenir()),
-    ('Plafonds clients', PhosphorIconsLight.scales, _AVenir()),
+    ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
+    ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),
+    ('Plafonds clients', PhosphorIconsLight.scales, CreditLimitsSection()),
   ];
 
   @override
@@ -54,20 +56,6 @@ class AdministrationScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Une section dont le contenu n'est pas encore livre.
-class _AVenir extends StatelessWidget {
-  const _AVenir();
-
-  @override
-  Widget build(BuildContext context) {
-    return const EmptyState(
-      icon: PhosphorIconsLight.wrench,
-      title: 'Bientôt',
-      message: 'Cette section arrive avec les prochaines étapes.',
     );
   }
 }

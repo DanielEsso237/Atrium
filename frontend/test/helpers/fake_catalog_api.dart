@@ -20,6 +20,9 @@ class FakeCatalogApi implements CatalogApi {
     this.menuCategories = const [],
     this.menuItems = const [],
     this.depositRule,
+    this.users = const [],
+    this.roles = const [],
+    this.permissions = const [],
   });
 
   final List<RemoteRoom> rooms;
@@ -30,6 +33,9 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteMenuCategory> menuCategories;
   final List<RemoteMenuItem> menuItems;
   final Object? depositRule;
+  final List<Map<String, dynamic>> users;
+  final List<Map<String, dynamic>> roles;
+  final List<Map<String, dynamic>> permissions;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
@@ -60,6 +66,15 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => depositRule;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchUsers() async => users;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchRoles() async => roles;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchPermissions() async => permissions;
 }
 
 /// Un serveur injoignable : tout appel echoue comme dans un couloir.
@@ -100,4 +115,13 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchUsers() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchRoles() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchPermissions() async => _couloir();
 }

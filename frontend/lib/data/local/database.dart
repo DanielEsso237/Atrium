@@ -33,6 +33,7 @@ part 'database.g.dart';
     RolePermissions,
     Users,
     UserRoles,
+    UserOutlets,
     Devices,
     // Hebergement
     Floors,
@@ -116,7 +117,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne — le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -145,6 +146,11 @@ class AtriumDatabase extends _$AtriumDatabase {
         // la tablette ne pouvait pas transmettre l'autorisation, donc pas la
         // demander.
         await m.addColumn(folioItems, folioItems.overrideBy);
+      }
+      // 2 -> 3 : les points de vente de chaque agent, attribues depuis
+      // l'administration.
+      if (depuis < 3) {
+        await m.createTable(userOutlets);
       }
     },
     beforeOpen: (details) async {

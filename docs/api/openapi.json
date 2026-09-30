@@ -3688,6 +3688,29 @@
         "title": "PendingDepositsOut",
         "type": "object"
       },
+      "PermissionOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "module": {
+            "title": "Module",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "module"
+        ],
+        "title": "PermissionOut",
+        "type": "object"
+      },
       "PrepStationIn": {
         "properties": {
           "code": {
@@ -5347,6 +5370,7 @@
         "type": "object"
       },
       "RoleOut": {
+        "description": "Un role et ses permissions.\n\nLes permissions voyagent avec le role : c'est ce qui permet a une tablette\nd'enregistrer, a la connexion en ligne, les droits d'un agent qu'elle ne\nconnaissait pas -- les ecrans et le routeur les lisent en local.",
         "properties": {
           "code": {
             "title": "Code",
@@ -5355,6 +5379,14 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "permissions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
           }
         },
         "required": [
@@ -5362,6 +5394,23 @@
           "label"
         ],
         "title": "RoleOut",
+        "type": "object"
+      },
+      "RolePermissionsIn": {
+        "description": "Les permissions d'un role, en entier : celles-ci et aucune autre.",
+        "properties": {
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "title": "RolePermissionsIn",
         "type": "object"
       },
       "RoomChargeOut": {
@@ -6405,7 +6454,7 @@
         "type": "object"
       },
       "UserIn": {
-        "description": "Creation d'un membre du personnel (admin).",
+        "description": "Creation d'un membre du personnel (admin).\n\nUn PIN ou un mot de passe, au moins l'un des deux : la reception se\nconnecte au PIN sur la tablette, l'administration au mot de passe.",
         "properties": {
           "email": {
             "anyOf": [
@@ -6430,6 +6479,19 @@
             "title": "First Name",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette",
+            "title": "Id"
+          },
           "last_name": {
             "maxLength": 80,
             "minLength": 1,
@@ -6446,10 +6508,17 @@
             "type": "array"
           },
           "password": {
+            "anyOf": [
+              {
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Mot de passe initial (hache avant stockage)",
-            "minLength": 8,
-            "title": "Password",
-            "type": "string"
+            "title": "Password"
           },
           "phone": {
             "anyOf": [
@@ -6461,6 +6530,19 @@
               }
             ],
             "title": "Phone"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4,8}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PIN de 4 a 8 chiffres (hache avant stockage)",
+            "title": "Pin"
           },
           "role_codes": {
             "description": "Codes des roles a attribuer, ex. [\"RECEPTION\"]",
@@ -6474,8 +6556,7 @@
         "required": [
           "employee_code",
           "first_name",
-          "last_name",
-          "password"
+          "last_name"
         ],
         "title": "UserIn",
         "type": "object"
@@ -6623,6 +6704,15 @@
           "must_change_password": {
             "title": "Must Change Password",
             "type": "boolean"
+          },
+          "outlet_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
           },
           "roles": {
             "items": {
@@ -9356,6 +9446,37 @@
         ]
       }
     },
+    "/api/v1/permissions": {
+      "get": {
+        "description": "Le catalogue des permissions, pour cocher celles d'un role.",
+        "operationId": "list_permissions_api_v1_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOut"
+                  },
+                  "title": "Response List Permissions Api V1 Permissions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Permissions",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
     "/api/v1/prep-stations": {
       "get": {
         "operationId": "list_prep_stations_api_v1_prep_stations_get",
@@ -10911,6 +11032,64 @@
           }
         ],
         "summary": "List Roles",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_code}/permissions": {
+      "put": {
+        "description": "Remplace les permissions d'un role. Rejouable : meme corps, meme etat.\n\nRefuse (409) ce qui laisserait l'hotel sans aucun agent actif portant\n`users.write` : un hotel sans administrateur ne se repare pas depuis\nl'application.\n\nLes roles ne sont pas propres a un hotel dans le modele : un changement\nvaut pour tous. Le controle, lui, porte sur l'hotel de l'appelant.",
+        "operationId": "set_role_permissions_api_v1_roles__role_code__permissions_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_code",
+            "required": true,
+            "schema": {
+              "title": "Role Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Set Role Permissions",
         "tags": [
           "personnel"
         ]
