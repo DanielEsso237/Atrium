@@ -297,6 +297,19 @@ Les rôles renvoyés (`/users`, `/auth/me`) portent leurs `permissions`. À la
 connexion en ligne, la tablette enregistre ainsi l'agent et ses droits tels
 que le serveur les tient — même un agent qu'elle n'avait jamais vu.
 
+## Les rôles et leurs permissions
+
+`GET /permissions` : le catalogue (droit `users.read`). `PUT
+/roles/{code}/permissions` remplace les permissions d'un rôle (droit
+`users.write`) ; rejouable. Une permission inconnue répond `422`.
+
+**`409` si le changement laisse l'hôtel sans aucun agent actif portant
+`users.write`** : un hôtel sans administrateur ne se répare pas depuis
+l'application. La tablette fait le même calcul avant d'écrire.
+
+Les rôles ne sont pas propres à un hôtel dans le modèle : un changement vaut
+pour tous. Le contrôle ci-dessus porte sur l'hôtel de l'appelant.
+
 ## Les points de vente d'un agent
 
 Un agent est rattaché à ses points de vente par `user_outlets`, comme à ses

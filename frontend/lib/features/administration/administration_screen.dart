@@ -18,6 +18,7 @@ import '../../core/widgets/module_scaffold.dart';
 import 'agents_section.dart';
 import 'deposit_section.dart';
 import 'outlets_section.dart';
+import 'roles_section.dart';
 
 class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
@@ -26,7 +27,7 @@ class AdministrationScreen extends StatelessWidget {
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
-    ('Rôles', PhosphorIconsLight.identificationCard, _AVenir()),
+    ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),
     ('Plafonds clients', PhosphorIconsLight.scales, _AVenir()),
   ];
 

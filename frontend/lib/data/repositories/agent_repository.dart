@@ -243,6 +243,47 @@ class AgentRepository with OutboxWriter {
     });
   }
 
+  /// Enregistre un role tel que le serveur le decrit : code, libelle,
+  /// permissions. Un role modifie ici et pas encore remonte n'est pas
+  /// ecrase.
+  Future<void> applyServerRole(Map<String, dynamic> json) async {
+    final code = json['code'];
+    if (code is! String) return;
+    await db.transaction(() async {
+      final local = await (db.select(
+        db.roles,
+      )..where((r) => r.code.equals(code))).getSingleOrNull();
+      if (local?.syncState == SyncState.pending) return;
+      final roleId = await _role(code, (json['label'] as String?) ?? code);
+      await _permissions(roleId, [
+        for (final p in (json['permissions'] as List? ?? const []))
+          if (p is String) p,
+      ]);
+    });
+  }
+
+  /// Le catalogue des permissions, tel que le serveur le tient.
+  Future<void> applyServerPermission(Map<String, dynamic> json) async {
+    final code = json['code'];
+    if (code is! String) return;
+    final existante = await (db.select(
+      db.permissions,
+    )..where((p) => p.code.equals(code))).getSingleOrNull();
+    final now = DateTime.now().toUtc();
+    await db
+        .into(db.permissions)
+        .insertOnConflictUpdate(
+          PermissionsCompanion.insert(
+            id: existante?.id ?? newId(),
+            createdAt: existante?.createdAt ?? now,
+            updatedAt: now,
+            code: code,
+            label: (json['label'] as String?) ?? code,
+            module: (json['module'] as String?) ?? code.split('.').first,
+          ),
+        );
+  }
+
   /// Remplace les roles et les points de vente d'un agent.
   Future<void> _rattacher(
     String userId,

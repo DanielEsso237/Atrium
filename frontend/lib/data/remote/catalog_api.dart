@@ -491,6 +491,18 @@ class CatalogApi {
       if (u is Map<String, dynamic>) u,
   ];
 
+  /// Les roles avec leurs permissions, et le catalogue des permissions.
+  /// Reserves a `users.read`, comme la liste des agents.
+  Future<List<Map<String, dynamic>>> fetchRoles() async => [
+    for (final r in await _client.getList('/roles'))
+      if (r is Map<String, dynamic>) r,
+  ];
+
+  Future<List<Map<String, dynamic>>> fetchPermissions() async => [
+    for (final p in await _client.getList('/permissions'))
+      if (p is Map<String, dynamic>) p,
+  ];
+
   /// La regle des arrhes, telle que le serveur la tient (`null` : aucune).
   ///
   /// Brute, en JSON : c'est `DepositRule.fromJson` qui la lit, la meme

@@ -3688,6 +3688,29 @@
         "title": "PendingDepositsOut",
         "type": "object"
       },
+      "PermissionOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "module": {
+            "title": "Module",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "module"
+        ],
+        "title": "PermissionOut",
+        "type": "object"
+      },
       "PrepStationIn": {
         "properties": {
           "code": {
@@ -5373,6 +5396,23 @@
         "title": "RoleOut",
         "type": "object"
       },
+      "RolePermissionsIn": {
+        "description": "Les permissions d'un role, en entier : celles-ci et aucune autre.",
+        "properties": {
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "title": "RolePermissionsIn",
+        "type": "object"
+      },
       "RoomChargeOut": {
         "properties": {
           "amount": {
@@ -6664,6 +6704,15 @@
           "must_change_password": {
             "title": "Must Change Password",
             "type": "boolean"
+          },
+          "outlet_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
           },
           "roles": {
             "items": {
@@ -9397,6 +9446,37 @@
         ]
       }
     },
+    "/api/v1/permissions": {
+      "get": {
+        "description": "Le catalogue des permissions, pour cocher celles d'un role.",
+        "operationId": "list_permissions_api_v1_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOut"
+                  },
+                  "title": "Response List Permissions Api V1 Permissions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Permissions",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
     "/api/v1/prep-stations": {
       "get": {
         "operationId": "list_prep_stations_api_v1_prep_stations_get",
@@ -10952,6 +11032,64 @@
           }
         ],
         "summary": "List Roles",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_code}/permissions": {
+      "put": {
+        "description": "Remplace les permissions d'un role. Rejouable : meme corps, meme etat.\n\nRefuse (409) ce qui laisserait l'hotel sans aucun agent actif portant\n`users.write` : un hotel sans administrateur ne se repare pas depuis\nl'application.\n\nLes roles ne sont pas propres a un hotel dans le modele : un changement\nvaut pour tous. Le controle, lui, porte sur l'hotel de l'appelant.",
+        "operationId": "set_role_permissions_api_v1_roles__role_code__permissions_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_code",
+            "required": true,
+            "schema": {
+              "title": "Role Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Set Role Permissions",
         "tags": [
           "personnel"
         ]

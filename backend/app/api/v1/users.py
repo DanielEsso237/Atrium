@@ -13,9 +13,16 @@ from app.api.deps import require_permission
 from app.core.ids import uuid7
 from app.core.security import hash_secret
 from app.db.session import get_session
-from app.models import Outlet, Role, User, UserOutlet, UserRole
+from app.models import Outlet, Permission, Role, RolePermission, User, UserOutlet, UserRole
 from app.schemas.auth import RoleOut
-from app.schemas.users import PasswordReset, UserIn, UserOut, UserUpdate
+from app.schemas.users import (
+    PasswordReset,
+    PermissionOut,
+    RolePermissionsIn,
+    UserIn,
+    UserOut,
+    UserUpdate,
+)
 
 router = APIRouter(tags=["personnel"])
 
@@ -84,6 +91,82 @@ async def list_roles(session: AsyncSession = Depends(get_session)) -> list[Role]
     """Catalogue des roles disponibles (pour peupler un menu deroulant)."""
     result = await session.execute(select(Role).order_by(Role.label))
     return list(result.scalars().all())
+
+
+@router.get(
+    "/permissions",
+    response_model=list[PermissionOut],
+    dependencies=[Depends(require_permission("users.read"))],
+)
+async def list_permissions(session: AsyncSession = Depends(get_session)) -> list[Permission]:
+    """Le catalogue des permissions, pour cocher celles d'un role."""
+    result = await session.execute(select(Permission).order_by(Permission.module, Permission.code))
+    return list(result.scalars().all())
+
+
+# La permission sans laquelle plus personne n'administre l'hotel.
+ADMIN_PERMISSION = "users.write"
+
+
+@router.put("/roles/{role_code}/permissions", response_model=RoleOut)
+async def set_role_permissions(
+    role_code: str,
+    payload: RolePermissionsIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("users.write")),
+) -> Role:
+    """Remplace les permissions d'un role. Rejouable : meme corps, meme etat.
+
+    Refuse (409) ce qui laisserait l'hotel sans aucun agent actif portant
+    `users.write` : un hotel sans administrateur ne se repare pas depuis
+    l'application.
+
+    Les roles ne sont pas propres a un hotel dans le modele : un changement
+    vaut pour tous. Le controle, lui, porte sur l'hotel de l'appelant.
+    """
+    role = await session.scalar(select(Role).where(Role.code == role_code))
+    if role is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Role introuvable.")
+    codes = sorted(set(payload.permissions))
+    permissions = list(
+        (await session.execute(select(Permission).where(Permission.code.in_(codes)))).scalars()
+    )
+    inconnues = set(codes) - {p.code for p in permissions}
+    if inconnues:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Permissions inconnues : {', '.join(sorted(inconnues))}.",
+        )
+
+    if ADMIN_PERMISSION not in codes:
+        # Qui garderait users.write sans ce role ? Au moins un agent actif de
+        # l'hotel, par un autre role qui la porte.
+        reste = await session.scalar(
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(RolePermission, RolePermission.role_id == UserRole.role_id)
+            .join(Permission, Permission.id == RolePermission.permission_id)
+            .where(
+                User.hotel_id == user.hotel_id,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+                UserRole.role_id != role.id,
+                Permission.code == ADMIN_PERMISSION,
+            )
+            .limit(1)
+        )
+        if reste is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Ce role porte la derniere permission d'administration de l'hotel.",
+            )
+
+    await session.execute(delete(RolePermission).where(RolePermission.role_id == role.id))
+    for p in permissions:
+        session.add(RolePermission(role_id=role.id, permission_id=p.id))
+    await session.commit()
+    await session.refresh(role, attribute_names=["permissions"])
+    return role
 
 
 @router.get("/users", response_model=list[UserOut])

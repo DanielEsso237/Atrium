@@ -59,6 +59,20 @@ class UserUpdate(BaseModel):
     )
 
 
+class RolePermissionsIn(BaseModel):
+    """Les permissions d'un role, en entier : celles-ci et aucune autre."""
+
+    permissions: list[str]
+
+
+class PermissionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str
+    label: str
+    module: str
+
+
 class PasswordReset(BaseModel):
     new_password: str = Field(min_length=8)
 

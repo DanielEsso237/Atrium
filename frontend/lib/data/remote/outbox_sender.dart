@@ -56,6 +56,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'outlets' => db.outlets,
     'settings' => db.settings,
     'users' => db.users,
+    'roles' => db.roles,
     _ => null,
   };
 }
@@ -585,6 +586,15 @@ class OutboxSender {
             'outlet_ids': p['outlet_ids'],
           },
           methode: _Methode.patch,
+        );
+
+      case 'roles':
+        // Les permissions du role en entier : le serveur remplace, et un
+        // renvoi du meme corps ne change rien.
+        return _Envoi(
+          '/roles/${p['code']}/permissions',
+          {'permissions': p['permissions']},
+          methode: _Methode.put,
         );
 
       case 'settings':

@@ -23,6 +23,7 @@ import 'order_repository.dart';
 import 'outbox.dart';
 import 'outlet_repository.dart';
 import 'reservation_repository.dart';
+import 'role_repository.dart';
 import 'settings_repository.dart';
 import 'sync_repository.dart';
 
@@ -32,6 +33,10 @@ final outletRepositoryProvider = Provider<OutletRepository>(
 
 final agentRepositoryProvider = Provider<AgentRepository>(
   (ref) => AgentRepository(ref.watch(databaseProvider)),
+);
+
+final roleRepositoryProvider = Provider<RoleRepository>(
+  (ref) => RoleRepository(ref.watch(databaseProvider)),
 );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(

@@ -128,6 +128,8 @@ class Descente {
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
       final regleArrhes = await _catalog.fetchDepositRule();
       final agents = await _siPermis(_catalog.fetchUsers);
+      final roles = await _siPermis(_catalog.fetchRoles);
+      final permissions = await _siPermis(_catalog.fetchPermissions);
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
@@ -138,6 +140,14 @@ class Descente {
       // vente. `applyServerAgent` epargne un agent modifie ici et pas encore
       // remonte.
       final depotAgents = AgentRepository(db, hotelId: hotelId);
+      // Le catalogue d'abord, puis les roles qui s'y referent, puis les
+      // agents qui portent ces roles.
+      for (final p in permissions) {
+        await depotAgents.applyServerPermission(p);
+      }
+      for (final r in roles) {
+        await depotAgents.applyServerRole(r);
+      }
       for (final a in agents) {
         await depotAgents.applyServerAgent(a);
       }
