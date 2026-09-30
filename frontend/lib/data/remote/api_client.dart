@@ -137,6 +137,14 @@ class ApiClient {
     return _asMap(await _send(() => _dio.patch(path, data: body)));
   }
 
+  Future<Map<String, dynamic>> put(String path, {Object? body}) async {
+    return _asMap(await _send(() => _dio.put(path, data: body)));
+  }
+
+  Future<Map<String, dynamic>> delete(String path) async {
+    return _asMap(await _send(() => _dio.delete(path)));
+  }
+
   Map<String, dynamic> _asMap(Object? data) =>
       data is Map<String, dynamic> ? data : <String, dynamic>{};
 

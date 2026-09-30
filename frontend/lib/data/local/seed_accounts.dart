@@ -145,6 +145,12 @@ const _permissions = <_PermissionDemo>[
     'Creer, assigner, resoudre un ticket de maintenance',
     'maintenance',
   ),
+  (
+    '01920000-0000-7000-8000-000000004130',
+    'users.write',
+    'Administrer : agents, roles, points de vente, parametres',
+    'users',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -157,6 +163,8 @@ const _droits = <(String role, String permission)>[
   (_roleAdmin, '01920000-0000-7000-8000-000000004126'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004128'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004129'),
+  // L'administration, comme cote serveur : l'administrateur seul.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004130'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),

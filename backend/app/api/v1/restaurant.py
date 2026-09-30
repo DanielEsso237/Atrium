@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
+from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import MenuCategory, MenuItem, Outlet, PrepStation, RestaurantTable, User
 from app.schemas.restaurant import (
@@ -18,6 +19,7 @@ from app.schemas.restaurant import (
     MenuItemOut,
     OutletIn,
     OutletOut,
+    OutletUpdate,
     PrepStationIn,
     PrepStationOut,
     RestaurantTableIn,
@@ -58,14 +60,60 @@ async def list_outlets(
     return list(result.scalars().all())
 
 
+async def _code_pris(
+    session: AsyncSession, hotel_id: uuid.UUID, code: str, sauf: uuid.UUID | None
+) -> bool:
+    stmt = select(Outlet.id).where(Outlet.hotel_id == hotel_id, Outlet.code == code)
+    if sauf is not None:
+        stmt = stmt.where(Outlet.id != sauf)
+    return await session.scalar(stmt) is not None
+
+
 @router.post("/outlets", response_model=OutletOut, status_code=status.HTTP_201_CREATED)
 async def create_outlet(
     payload: OutletIn,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("restaurant.write")),
 ) -> Outlet:
-    outlet = Outlet(hotel_id=user.hotel_id, **payload.model_dump())
+    """Cree un point de vente ; un renvoi du meme `id` repond 200 sans rien creer."""
+    if payload.id is not None:
+        existing = await session.get(Outlet, payload.id)
+        if existing is not None:
+            if existing.hotel_id != user.hotel_id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Point de vente introuvable.")
+            response.status_code = status.HTTP_200_OK
+            return existing
+    # Le code est unique par hotel : le dire plutot que laisser la base lever
+    # une erreur 500 que personne ne saurait lire.
+    if await _code_pris(session, user.hotel_id, payload.code, None):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce code de point de vente existe deja.")
+    fields = payload.model_dump(exclude={"id"})
+    outlet = Outlet(id=payload.id or uuid7(), hotel_id=user.hotel_id, **fields)
     session.add(outlet)
+    await session.commit()
+    await session.refresh(outlet)
+    return outlet
+
+
+@router.patch("/outlets/{outlet_id}", response_model=OutletOut)
+async def update_outlet(
+    outlet_id: uuid.UUID,
+    payload: OutletUpdate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("restaurant.write")),
+) -> Outlet:
+    """Modifie ou desactive un point de vente -- jamais de suppression."""
+    outlet = await session.get(Outlet, outlet_id)
+    if outlet is None or outlet.hotel_id != user.hotel_id or outlet.deleted_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Point de vente introuvable.")
+    fields = payload.model_dump(exclude_unset=True)
+    # `null` n'efface que les horaires ; ailleurs il ne veut rien dire.
+    fields = {k: v for k, v in fields.items() if v is not None or k in ("opens_at", "closes_at")}
+    if "code" in fields and await _code_pris(session, user.hotel_id, fields["code"], outlet.id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce code de point de vente existe deja.")
+    for field, value in fields.items():
+        setattr(outlet, field, value)
     await session.commit()
     await session.refresh(outlet)
     return outlet

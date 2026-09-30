@@ -20,8 +20,18 @@ import 'invoice_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outbox.dart';
+import 'outlet_repository.dart';
 import 'reservation_repository.dart';
+import 'settings_repository.dart';
 import 'sync_repository.dart';
+
+final outletRepositoryProvider = Provider<OutletRepository>(
+  (ref) => OutletRepository(ref.watch(databaseProvider)),
+);
+
+final settingsRepositoryProvider = Provider<SettingsRepository>(
+  (ref) => SettingsRepository(ref.watch(databaseProvider)),
+);
 
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),

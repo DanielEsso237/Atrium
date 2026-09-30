@@ -53,6 +53,8 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'invoices' => db.invoices,
     'cash_sessions' => db.cashSessions,
     'maintenance_tickets' => db.maintenanceTickets,
+    'outlets' => db.outlets,
+    'settings' => db.settings,
     _ => null,
   };
 }
@@ -63,14 +65,17 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
 /// du client. L'ajouter ici donnait `/api/v1/api/v1/guests`, donc un 404 sur
 /// la premiere entree, donc toute la file bloquee derriere elle.
 class _Envoi {
-  const _Envoi(this.chemin, this.corps, {this.patch = false});
+  const _Envoi(this.chemin, this.corps, {this.methode = _Methode.post});
   final String chemin;
   final Map<String, Object?> corps;
 
-  /// `PATCH` plutot que `POST` : une modification partielle, ou le serveur ne
-  /// touche qu'aux champs presents dans le corps.
-  final bool patch;
+  /// `POST` le plus souvent. `PATCH` pour une modification partielle, ou le
+  /// serveur ne touche qu'aux champs presents dans le corps ; `PUT` et
+  /// `DELETE` pour un reglage qu'on remplace ou qu'on retire.
+  final _Methode methode;
 }
+
+enum _Methode { post, patch, put, delete }
 
 /// Pourquoi le moteur s'est arrete.
 enum DrainStop {
@@ -181,9 +186,12 @@ class OutboxSender {
 
       final Map<String, dynamic> reponse;
       try {
-        reponse = envoi.patch
-            ? await api.patch(envoi.chemin, body: envoi.corps)
-            : await api.post(envoi.chemin, body: envoi.corps);
+        reponse = switch (envoi.methode) {
+          _Methode.post => await api.post(envoi.chemin, body: envoi.corps),
+          _Methode.patch => await api.patch(envoi.chemin, body: envoi.corps),
+          _Methode.put => await api.put(envoi.chemin, body: envoi.corps),
+          _Methode.delete => await api.delete(envoi.chemin),
+        };
       } on ApiException catch (e) {
         return _apresEchec(entree, e, envoyees);
       }
@@ -416,7 +424,7 @@ class OutboxSender {
               'id_document_type': p['id_document_type'],
               'id_document_number': p['id_document_number'],
             },
-            patch: true,
+            methode: _Methode.patch,
           );
         }
         return _Envoi(
@@ -505,6 +513,56 @@ class OutboxSender {
 
       case 'maintenance_tickets':
         return _maintenance(entree, p);
+
+      case 'outlets':
+        // Creation : l'id de la tablette rend le renvoi sans danger.
+        // Modification : `PATCH`, horaires vides compris -- un horaire retire
+        // doit l'etre aussi sur le serveur.
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi(
+            '/outlets',
+            _sansNuls({
+              'id': p['id'],
+              'code': p['code'],
+              'label': p['label'],
+              'opens_at': p['opens_at'],
+              'closes_at': p['closes_at'],
+              'allows_room_charge': p['allows_room_charge'],
+              'sort_order': p['sort_order'],
+            }),
+          );
+        }
+        return _Envoi(
+          '/outlets/${p['id']}',
+          {
+            'code': p['code'],
+            'label': p['label'],
+            'opens_at': p['opens_at'],
+            'closes_at': p['closes_at'],
+            'allows_room_charge': p['allows_room_charge'],
+            'sort_order': p['sort_order'],
+            'is_active': p['is_active'],
+          },
+          methode: _Methode.patch,
+        );
+
+      case 'settings':
+        // Un seul reglage remonte aujourd'hui : la regle des arrhes. Une
+        // valeur vide la retire.
+        if (p['key'] != 'reservation.deposit_rule') return null;
+        final regle = p['value'];
+        if (regle == null) {
+          return const _Envoi(
+            '/settings/deposit-rule',
+            {},
+            methode: _Methode.delete,
+          );
+        }
+        return _Envoi(
+          '/settings/deposit-rule',
+          (regle as Map).cast<String, Object?>(),
+          methode: _Methode.put,
+        );
 
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses

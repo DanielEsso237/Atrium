@@ -183,6 +183,14 @@ final destinations = <Destination>[
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
   const Destination(
+    'Administration',
+    PhosphorIconsLight.lockSimple,
+    PhosphorIconsFill.lockSimple,
+    '/administration',
+    'users.write',
+    Groupe.gestion,
+  ),
+  const Destination(
     'Statistiques',
     PhosphorIconsLight.chartLineUp,
     PhosphorIconsFill.chartLineUp,

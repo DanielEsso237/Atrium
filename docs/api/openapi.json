@@ -704,6 +704,70 @@
         "title": "DashboardSummary",
         "type": "object"
       },
+      "DepositRule": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FCFA, mode FIXED",
+            "title": "Amount"
+          },
+          "mode": {
+            "enum": [
+              "FIXED",
+              "PERCENT"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "rate_bp": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 10000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Points de base, mode PERCENT (3000 = 30 %)",
+            "title": "Rate Bp"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "DepositRule",
+        "type": "object"
+      },
+      "DepositRuleOut": {
+        "properties": {
+          "rule": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "title": "DepositRuleOut",
+        "type": "object"
+      },
       "DocumentTemplateIn": {
         "properties": {
           "content": {
@@ -3326,6 +3390,19 @@
             "title": "Code",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -3384,6 +3461,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -3412,9 +3493,100 @@
           "opens_at",
           "closes_at",
           "allows_room_charge",
-          "sort_order"
+          "sort_order",
+          "is_active"
         ],
         "title": "OutletOut",
+        "type": "object"
+      },
+      "OutletUpdate": {
+        "description": "Modification partielle : seuls les champs envoyes changent.\n\nUn point de vente ne se supprime pas -- les commandes passees y renvoient.\n`is_active: false` le retire des onglets de l'ecran Commande.",
+        "properties": {
+          "allows_room_charge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allows Room Charge"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "OutletUpdate",
         "type": "object"
       },
       "PasswordReset": {
@@ -9080,6 +9252,7 @@
         ]
       },
       "post": {
+        "description": "Cree un point de vente ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_outlet_api_v1_outlets_post",
         "requestBody": {
           "content": {
@@ -9119,6 +9292,65 @@
           }
         ],
         "summary": "Create Outlet",
+        "tags": [
+          "restauration"
+        ]
+      }
+    },
+    "/api/v1/outlets/{outlet_id}": {
+      "patch": {
+        "description": "Modifie ou desactive un point de vente -- jamais de suppression.",
+        "operationId": "update_outlet_api_v1_outlets__outlet_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outlet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Outlet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutletOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Outlet",
         "tags": [
           "restauration"
         ]
@@ -10996,6 +11228,96 @@
         "summary": "Update Room",
         "tags": [
           "chambres"
+        ]
+      }
+    },
+    "/api/v1/settings/deposit-rule": {
+      "delete": {
+        "description": "Plus d'arrhes par defaut. Sans regle, rien n'est exige (voir deposit.py).",
+        "operationId": "delete_deposit_rule_api_v1_settings_deposit_rule_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "get": {
+        "description": "Ouverte a tout agent : la reception en a besoin pour calculer les arrhes.\n\nUn droit dedie ferait echouer la descente des agents qui ne l'ont pas.",
+        "operationId": "get_deposit_rule_api_v1_settings_deposit_rule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "put": {
+        "description": "Fixe la regle. Rejouable : renvoyer la meme regle ne change rien.",
+        "operationId": "put_deposit_rule_api_v1_settings_deposit_rule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositRule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Deposit Rule",
+        "tags": [
+          "reglages"
         ]
       }
     },
