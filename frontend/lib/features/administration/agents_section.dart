@@ -130,7 +130,10 @@ class _LigneAgent extends StatelessWidget {
                       ),
                       Text(
                         '${u.employeeCode} · ${role.isEmpty ? 'sans rôle' : role} · $points',
-                        style: TextStyle(fontSize: 13.5, color: p.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: p.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -170,6 +173,10 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
 
   bool get _creation => widget.existant == null;
 
+  /// Le role des commandes (restaurant, bar, boite de nuit...) : le seul
+  /// qui se rattache a des points de vente.
+  bool get _commandes => _role == roleCommandes;
+
   @override
   void dispose() {
     for (final c in [_prenom, _nom, _code, _pin]) {
@@ -186,6 +193,9 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
     }
     setState(() => _busy = true);
     final depot = ref.read(agentRepositoryProvider);
+    // Seul un agent des commandes a des points de vente ; les autres n'en
+    // envoient aucun.
+    final points = _commandes ? _points.toList() : <String>[];
     try {
       if (_creation) {
         await depot.create(
@@ -194,7 +204,7 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
           lastName: _nom.text,
           pin: _pin.text.trim(),
           roleCode: role,
-          outletIds: _points.toList(),
+          outletIds: points,
         );
       } else {
         await depot.update(
@@ -203,7 +213,7 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
           lastName: _nom.text,
           isActive: _actif,
           roleCode: role,
-          outletIds: _points.toList(),
+          outletIds: points,
         );
       }
     } on StateError catch (e) {
@@ -295,35 +305,42 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
                   for (final r in roles)
                     DropdownMenuItem(value: r.code, child: Text(r.label)),
                 ],
-                onChanged: (v) => setState(() => _role = v),
+                // Changer de role vide les points de vente coches : ils ne
+                // valent que pour les commandes.
+                onChanged: (v) => setState(() {
+                  _role = v;
+                  if (!_commandes) _points.clear();
+                }),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Points de vente',
-                style: TextStyle(fontSize: 14, color: p.textSecondary),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final o in points)
-                    FilterChip(
-                      label: Text(o.label),
-                      selected: _points.contains(o.id),
-                      onSelected: (v) => setState(
-                        () => v ? _points.add(o.id) : _points.remove(o.id),
+              if (_commandes) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Points de vente',
+                  style: TextStyle(fontSize: 14, color: p.textSecondary),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final o in points)
+                      FilterChip(
+                        label: Text(o.label),
+                        selected: _points.contains(o.id),
+                        onSelected: (v) => setState(
+                          () => v ? _points.add(o.id) : _points.remove(o.id),
+                        ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _points.isEmpty
-                    ? 'Aucun coché : l’agent voit tous les points de vente.'
-                    : 'L’agent ne verra que ceux-là dans l’écran Commande.',
-                style: TextStyle(fontSize: 13, color: p.textSecondary),
-              ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _points.isEmpty
+                      ? 'Aucun coché : l’agent voit tous les points de vente.'
+                      : 'L’agent ne verra que ceux-là dans l’écran Commande.',
+                  style: TextStyle(fontSize: 13, color: p.textSecondary),
+                ),
+              ],
               if (_creation) ...[
                 const SizedBox(height: 12),
                 Text(
