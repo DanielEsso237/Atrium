@@ -19,6 +19,7 @@ class FakeCatalogApi implements CatalogApi {
     this.outlets = const [],
     this.menuCategories = const [],
     this.menuItems = const [],
+    this.depositRule,
   });
 
   final List<RemoteRoom> rooms;
@@ -28,6 +29,7 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteOutlet> outlets;
   final List<RemoteMenuCategory> menuCategories;
   final List<RemoteMenuItem> menuItems;
+  final Object? depositRule;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
@@ -55,6 +57,9 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<RemoteMenuItem>> fetchMenuItems() async => menuItems;
+
+  @override
+  Future<Object?> fetchDepositRule() async => depositRule;
 }
 
 /// Un serveur injoignable : tout appel echoue comme dans un couloir.
@@ -92,4 +97,7 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemoteMenuItem>> fetchMenuItems() async => _couloir();
+
+  @override
+  Future<Object?> fetchDepositRule() async => _couloir();
 }

@@ -22,12 +22,16 @@
 /// reception des quarante autres. On la saute et on continue.
 library;
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
+import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
+import 'settings_repository.dart' show depositRuleKey;
 import 'sync_repository.dart';
 
 /// Ce qu'une descente a rapatrie.
@@ -115,11 +119,13 @@ class Descente {
       final clients = await _catalog.fetchGuests();
       final dossiers = await _catalog.fetchReservations();
       final ardoises = await _catalog.fetchOpenFolios();
+      final regleArrhes = await _catalog.fetchDepositRule();
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
+      await _ecrireRegleArrhes(regleArrhes, maintenant);
       final nCategories = await _ecrireCategoriesCarte(
         categoriesCarte,
         maintenant,
@@ -157,6 +163,36 @@ class Descente {
           ? const PullReport.offline()
           : PullReport.failed(e.message);
     }
+  }
+
+  // --- La regle des arrhes --------------------------------------------------
+
+  /// Ecrit la regle des arrhes, sauf si l'administration de cette tablette en
+  /// a fixe une qui n'est pas encore remontee.
+  Future<void> _ecrireRegleArrhes(Object? regle, DateTime maintenant) async {
+    final existante = await (db.select(db.settings)..where(
+          (s) =>
+              s.key.equals(depositRuleKey) &
+              s.scope.equalsValue(SettingScope.GLOBAL) &
+              s.scopeId.isNull(),
+        ))
+        .getSingleOrNull();
+    if (existante?.syncState == SyncState.pending) return;
+
+    await db
+        .into(db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(
+            id: existante?.id ?? newId(),
+            createdAt: existante?.createdAt ?? maintenant,
+            updatedAt: maintenant,
+            hotelId: hotelId,
+            key: depositRuleKey,
+            value: Value(regle == null ? null : jsonEncode(regle)),
+            label: const Value('Regle des arrhes'),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
   }
 
   // --- Les points de vente ---------------------------------------------------

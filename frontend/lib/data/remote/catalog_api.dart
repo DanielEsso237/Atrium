@@ -482,6 +482,13 @@ class CatalogApi {
   /// considere actif. Le jour ou l'administration permettra d'en desactiver
   /// un, il faudra que le schema l'expose — sans quoi l'onglet resterait
   /// visible sur les tablettes.
+  /// La regle des arrhes, telle que le serveur la tient (`null` : aucune).
+  ///
+  /// Brute, en JSON : c'est `DepositRule.fromJson` qui la lit, la meme
+  /// lecture que pour ce que la tablette ecrit elle-meme.
+  Future<Object?> fetchDepositRule() async =>
+      (await _client.get('/settings/deposit-rule'))['rule'];
+
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
 

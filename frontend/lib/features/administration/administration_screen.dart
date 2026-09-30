@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import 'deposit_section.dart';
 import 'outlets_section.dart';
 
 class AdministrationScreen extends StatelessWidget {
@@ -22,7 +23,7 @@ class AdministrationScreen extends StatelessWidget {
 
   static const _sections = <(String, IconData, Widget)>[
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
-    ('Arrhes', PhosphorIconsLight.coins, _AVenir()),
+    ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Agents', PhosphorIconsLight.usersThree, _AVenir()),
     ('Rôles', PhosphorIconsLight.identificationCard, _AVenir()),
     ('Plafonds clients', PhosphorIconsLight.scales, _AVenir()),

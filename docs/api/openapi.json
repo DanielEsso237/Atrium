@@ -704,6 +704,70 @@
         "title": "DashboardSummary",
         "type": "object"
       },
+      "DepositRule": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FCFA, mode FIXED",
+            "title": "Amount"
+          },
+          "mode": {
+            "enum": [
+              "FIXED",
+              "PERCENT"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "rate_bp": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 10000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Points de base, mode PERCENT (3000 = 30 %)",
+            "title": "Rate Bp"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "DepositRule",
+        "type": "object"
+      },
+      "DepositRuleOut": {
+        "properties": {
+          "rule": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "title": "DepositRuleOut",
+        "type": "object"
+      },
       "DocumentTemplateIn": {
         "properties": {
           "content": {
@@ -11164,6 +11228,96 @@
         "summary": "Update Room",
         "tags": [
           "chambres"
+        ]
+      }
+    },
+    "/api/v1/settings/deposit-rule": {
+      "delete": {
+        "description": "Plus d'arrhes par defaut. Sans regle, rien n'est exige (voir deposit.py).",
+        "operationId": "delete_deposit_rule_api_v1_settings_deposit_rule_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "get": {
+        "description": "Ouverte a tout agent : la reception en a besoin pour calculer les arrhes.\n\nUn droit dedie ferait echouer la descente des agents qui ne l'ont pas.",
+        "operationId": "get_deposit_rule_api_v1_settings_deposit_rule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "put": {
+        "description": "Fixe la regle. Rejouable : renvoyer la meme regle ne change rien.",
+        "operationId": "put_deposit_rule_api_v1_settings_deposit_rule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositRule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Deposit Rule",
+        "tags": [
+          "reglages"
         ]
       }
     },

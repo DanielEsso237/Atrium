@@ -163,6 +163,17 @@ serveur, les écritures encore en file sont réadressées, l'ardoise locale
 disparaît. Sans cela, tout ce qu'elle porterait sur la sienne répondrait
 `404` et bloquerait sa file.
 
+## La règle des arrhes
+
+`GET /settings/deposit-rule` rend `{"rule": …}` (`null` : aucune règle). Ouvert
+à tout agent connecté : la réception en a besoin, et un droit dédié ferait
+échouer la descente de ceux qui ne l'ont pas.
+
+`PUT` la fixe, `DELETE` la retire — droit `users.write`. Format strict, celui
+de `services/deposit.py` : `{"mode":"FIXED","amount":20000}` ou
+`{"mode":"PERCENT","rate_bp":3000}`. Tout autre corps répond `422` : une
+règle mal formée serait sinon lue, en silence, comme « pas d'arrhes ».
+
 ## Les points de vente
 
 `POST /outlets` accepte l'`id` de la tablette : un renvoi répond `200` sans
