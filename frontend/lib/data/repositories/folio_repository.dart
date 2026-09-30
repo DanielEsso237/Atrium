@@ -240,13 +240,24 @@ class FolioRepository with OutboxWriter {
     final ligne = await db
         .customSelect(
           """
-      SELECT f.balance AS balance, COALESCE(g.credit_limit, 0) AS seuil
+      SELECT f.balance AS balance,
+             COALESCE(g.credit_limit, gs.credit_limit, 0) AS seuil
         FROM folios f
         LEFT JOIN guests g ON g.id = f.guest_id
+        -- Une ardoise ouverte par la tablette avant que le check-in ne
+        -- pose son client : on le retrouve par le sejour.
+        LEFT JOIN reservation_rooms rr ON rr.id = f.reservation_room_id
+        LEFT JOIN reservations r ON r.id = rr.reservation_id
+        LEFT JOIN guests gs ON gs.id = r.guest_id
        WHERE f.id = ?1
       """,
           variables: [Variable.withString(folioId)],
-          readsFrom: {db.folios, db.guests},
+          readsFrom: {
+            db.folios,
+            db.guests,
+            db.reservationRooms,
+            db.reservations,
+          },
         )
         .getSingleOrNull();
     if (ligne == null) return;
