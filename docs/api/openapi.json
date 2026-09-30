@@ -3737,6 +3737,21 @@
         "title": "PermissionOut",
         "type": "object"
       },
+      "PinReset": {
+        "description": "Nouveau PIN choisi par l'administration, pour un agent qui l'a oublie.",
+        "properties": {
+          "new_pin": {
+            "pattern": "^\\d{4,8}$",
+            "title": "New Pin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_pin"
+        ],
+        "title": "PinReset",
+        "type": "object"
+      },
       "PrepStationIn": {
         "properties": {
           "code": {
@@ -12293,6 +12308,65 @@
           }
         ],
         "summary": "Reset Password",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/reset-pin": {
+      "post": {
+        "description": "Un agent a oublie son PIN : l'administration lui en donne un nouveau.\n\nRejouable : renvoyer le meme PIN laisse le meme etat. Le compte est\ndeverrouille, comme pour un mot de passe.",
+        "operationId": "reset_pin_api_v1_users__user_id__reset_pin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__users__UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reset Pin",
         "tags": [
           "personnel"
         ]
