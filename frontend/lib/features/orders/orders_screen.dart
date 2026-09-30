@@ -343,20 +343,36 @@ class _Chambre extends ConsumerWidget {
 }
 
 /// Saisie d'une consommation. Rend `(libelle, prix unitaire, quantite)`.
-class _Saisie extends StatefulWidget {
+///
+/// La carte du point de vente est proposee au-dessus de la saisie libre : un
+/// article choisi remplit le libelle et le prix, rien de plus. Ce qui part
+/// vers l'ardoise est toujours ce que disent les champs.
+class _Saisie extends ConsumerStatefulWidget {
   const _Saisie({required this.outlet, required this.chambre});
 
   final OutletRow outlet;
   final ChargeableRoom chambre;
 
   @override
-  State<_Saisie> createState() => _SaisieState();
+  ConsumerState<_Saisie> createState() => _SaisieState();
 }
 
-class _SaisieState extends State<_Saisie> {
+class _SaisieState extends ConsumerState<_Saisie> {
   final _libelle = TextEditingController();
   final _prix = TextEditingController();
   int _quantite = 1;
+
+  /// L'article de la carte choisi, s'il y en a un. Sert seulement a le
+  /// mettre en evidence : ce qui part est ce que disent les champs.
+  String? _articleId;
+
+  void _choisir(MenuEntry e) {
+    setState(() {
+      _articleId = e.id;
+      _libelle.text = e.label;
+      _prix.text = '${e.price}';
+    });
+  }
 
   @override
   void dispose() {
@@ -373,6 +389,9 @@ class _SaisieState extends State<_Saisie> {
     final p = AtriumPalette.current;
 
     return AlertDialog(
+      // La carte + les champs + le recapitulatif depassent vite un ecran de
+      // tablette quand le clavier s'ouvre : le contenu doit pouvoir defiler.
+      scrollable: true,
       icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
       title: Text(
         '${widget.outlet.label} · chambre ${widget.chambre.roomNumber}',
@@ -389,9 +408,18 @@ class _SaisieState extends State<_Saisie> {
             ),
             const SizedBox(height: 16),
 
+            // La carte d'abord, la saisie libre juste en dessous.
+            _Carte(
+              outletId: widget.outlet.id,
+              choisi: _articleId,
+              onChoisir: _choisir,
+            ),
+
             TextField(
               controller: _libelle,
-              autofocus: true,
+              // Retoucher le libelle a la main : ce n'est plus l'article de
+              // la carte, la mise en evidence disparait.
+              onChanged: (_) => setState(() => _articleId = null),
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Consommation',
@@ -499,6 +527,81 @@ class _SaisieState extends State<_Saisie> {
                 ).pop((_libelle.text, int.parse(_prix.text.trim()), _quantite)),
           child: const Text('Porter à la chambre'),
         ),
+      ],
+    );
+  }
+}
+
+/// La carte du point de vente, au-dessus de la saisie libre.
+///
+/// Absente tant qu'elle est vide ou en cours de lecture : la saisie libre
+/// reste alors seule, comme avant. Un plat du jour ou un service hors carte
+/// doit toujours rester possible.
+class _Carte extends ConsumerWidget {
+  const _Carte({
+    required this.outletId,
+    required this.choisi,
+    required this.onChoisir,
+  });
+
+  final String outletId;
+  final String? choisi;
+  final void Function(MenuEntry) onChoisir;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entrees =
+        ref.watch(menuForOutletProvider(outletId)).asData?.value ??
+        const <MenuEntry>[];
+    if (entrees.isEmpty) return const SizedBox.shrink();
+
+    final schema = Theme.of(context).colorScheme;
+    final lignes = <Widget>[];
+    String? derniere;
+
+    for (final e in entrees) {
+      if (e.categoryLabel != derniere) {
+        derniere = e.categoryLabel;
+        lignes.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 4, 2),
+            child: Text(
+              e.categoryLabel,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: schema.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+      lignes.add(
+        ListTile(
+          dense: true,
+          selected: e.id == choisi,
+          enabled: e.isAvailable,
+          title: Text(e.label),
+          subtitle: e.isAvailable ? null : const Text('Rupture'),
+          trailing: Text(formatAmount(e.price)),
+          onTap: e.isAvailable ? () => onChoisir(e) : null,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 220),
+          child: ListView(shrinkWrap: true, children: lignes),
+        ),
+        const Divider(height: 24),
+        Text(
+          'Ou saisie libre',
+          style: TextStyle(fontSize: 12.5, color: schema.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }

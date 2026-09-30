@@ -68,6 +68,11 @@ final outletsProvider = StreamProvider<List<OutletRow>>(
   (ref) => ref.watch(orderRepositoryProvider).watchOutlets(),
 );
 
+/// La carte d'un point de vente, en direct.
+final menuForOutletProvider = StreamProvider.family<List<MenuEntry>, String>(
+  (ref, outletId) => ref.watch(orderRepositoryProvider).watchMenu(outletId),
+);
+
 /// Les chambres a qui l'on peut porter une consommation.
 final chargeableRoomsProvider = StreamProvider<List<ChargeableRoom>>(
   (ref) => ref.watch(orderRepositoryProvider).watchChargeableRooms(),

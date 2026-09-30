@@ -23,6 +23,16 @@ void main() {
   const barId = '01920000-0000-7000-8000-00000000f101';
   const boutiqueId = '01920000-0000-7000-8000-00000000f102';
 
+  // La carte : une categorie commune, une propre au bar, une propre a la
+  // boutique.
+  const catCommuneId = '01920000-0000-7000-8000-00000000f201';
+  const catBarId = '01920000-0000-7000-8000-00000000f202';
+  const catBoutiqueId = '01920000-0000-7000-8000-00000000f203';
+  const pouletId = '01920000-0000-7000-8000-00000000f301';
+  const biereId = '01920000-0000-7000-8000-00000000f302';
+  const teeShirtId = '01920000-0000-7000-8000-00000000f303';
+  const saumonId = '01920000-0000-7000-8000-00000000f304';
+
   setUp(() async {
     db = AtriumDatabase.memory();
     await db.customStatement('PRAGMA foreign_keys = ON');
@@ -89,6 +99,50 @@ void main() {
 
     final dispo = await commandes.watchChargeableRooms().first;
     return dispo.single;
+  }
+
+  /// Une carte minimale, comme la descente la deposerait dans la base.
+  Future<void> garnirLaCarte() async {
+    final now = DateTime.now().toUtc();
+
+    for (final (id, outlet, label, rang) in [
+      (catCommuneId, null, 'Plats', 1),
+      (catBarId, barId, 'Boissons', 2),
+      (catBoutiqueId, boutiqueId, 'Souvenirs', 3),
+    ]) {
+      await db.into(db.menuCategories).insert(
+            MenuCategoriesCompanion.insert(
+              id: id,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotel,
+              label: label,
+              outletId: Value(outlet),
+              sortOrder: Value(rang),
+            ),
+          );
+    }
+
+    for (final (id, code, label, categorie, prix, dispo) in [
+      (pouletId, 'PLAT1', 'Poulet DG', catCommuneId, 5000, true),
+      (biereId, 'BOIS1', 'Biere', catBarId, 2000, true),
+      (teeShirtId, 'SOUV1', 'Tee-shirt', catBoutiqueId, 5000, true),
+      (saumonId, 'PLAT2', 'Saumon', catCommuneId, 8000, false),
+    ]) {
+      await db.into(db.menuItems).insert(
+            MenuItemsCompanion.insert(
+              id: id,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotel,
+              code: code,
+              label: label,
+              menuCategoryId: categorie,
+              price: Value(prix),
+              isAvailable: Value(dispo),
+            ),
+          );
+    }
   }
 
   test('seules les chambres occupees avec ardoise sont proposees', () async {
@@ -216,5 +270,98 @@ void main() {
 
     final onglets = await commandes.watchOutlets().first;
     expect(onglets.map((o) => o.code), ['BAR']);
+  });
+
+  // --- La carte du restaurant -------------------------------------------------
+
+  group('la carte', () {
+    test('un point de vente ne voit que ses categories et les communes',
+        () async {
+      await garnirLaCarte();
+
+      final carteBar = await commandes.watchMenu(barId).first;
+      final libelles = carteBar.map((e) => e.label).toList();
+
+      // Categorie commune + categorie du bar, pas celle de la boutique.
+      expect(libelles, containsAll(['Poulet DG', 'Biere']));
+      expect(libelles, isNot(contains('Tee-shirt')));
+
+      final carteBoutique = await commandes.watchMenu(boutiqueId).first;
+      final libellesBoutique = carteBoutique.map((e) => e.label).toList();
+      expect(libellesBoutique, containsAll(['Poulet DG', 'Tee-shirt']));
+      expect(libellesBoutique, isNot(contains('Biere')));
+    });
+
+    test('un article en rupture reste dans la carte, marque indisponible',
+        () async {
+      await garnirLaCarte();
+
+      final carte = await commandes.watchMenu(barId).first;
+      final saumon = carte.firstWhere((e) => e.label == 'Saumon');
+
+      expect(saumon.isAvailable, isFalse);
+      expect(carte.firstWhere((e) => e.label == 'Poulet DG').isAvailable,
+          isTrue);
+    });
+
+    test('choisir un article porte le bon prix sur l ardoise', () async {
+      await garnirLaCarte();
+      final chambre = await installer();
+      final avant = chambre.balance;
+
+      // Ce que fait l'ecran au tap : l'article remplit libelle et prix, puis
+      // la fenetre rend (libelle, prix, quantite) a `charge`.
+      final carte = await commandes.watchMenu(barId).first;
+      final poulet = carte.firstWhere((e) => e.label == 'Poulet DG');
+      expect(poulet.price, 5000);
+
+      await commandes.charge(
+        outlet: await pointDeVente(barId),
+        folioId: chambre.folioId,
+        label: poulet.label,
+        unitPrice: poulet.price,
+      );
+
+      final ligne = await db
+          .customSelect(
+            "SELECT unit_price AS p, amount AS a, quantity AS q "
+            "FROM folio_items WHERE label = 'Poulet DG'",
+          )
+          .getSingle();
+      expect(ligne.read<int>('p'), 5000);
+      expect(ligne.read<int>('a'), 5000);
+      expect(ligne.read<int>('q'), 1);
+
+      final apres = await commandes.watchChargeableRooms().first;
+      expect(apres.single.balance, avant + 5000);
+    });
+
+    test('la saisie libre fonctionne toujours', () async {
+      // Meme parcours, sans passer par la carte : un plat du jour ou un
+      // service hors carte doit rester possible. Protege l'ancien
+      // comportement contre une regression.
+      await garnirLaCarte();
+      final chambre = await installer();
+      final avant = chambre.balance;
+
+      await commandes.charge(
+        outlet: await pointDeVente(barId),
+        folioId: chambre.folioId,
+        label: 'Plat du jour',
+        unitPrice: 5000,
+      );
+
+      final ligne = await db
+          .customSelect(
+            "SELECT unit_price AS p, amount AS a FROM folio_items "
+            "WHERE label = 'Plat du jour'",
+          )
+          .getSingle();
+      expect(ligne.read<int>('p'), 5000);
+      expect(ligne.read<int>('a'), 5000);
+
+      final apres = await commandes.watchChargeableRooms().first;
+      expect(apres.single.balance, avant + 5000);
+    });
   });
 }
