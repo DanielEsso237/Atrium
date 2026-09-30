@@ -39,7 +39,6 @@ const _housekeeper = '01920000-0000-7000-8000-000000050003';
 ///
 /// Quatrieme metier, quatrieme interface : il prend les commandes au bar, au
 /// restaurant ou a la boite de nuit, et les porte sur l'ardoise de la chambre.
-const _restaurateur = '01920000-0000-7000-8000-000000050004';
 
 /// Code PIN du jeu de demonstration.
 ///
@@ -249,24 +248,6 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           ),
         );
 
-    await db
-        .into(db.users)
-        .insertOnConflictUpdate(
-          UsersCompanion.insert(
-            id: _restaurateur,
-            createdAt: maintenant,
-            updatedAt: maintenant,
-            hotelId: _hotel,
-            employeeCode: 'RESTAU01',
-            firstName: 'Kofi',
-            lastName: 'Mensah',
-            pinHash: const Value(_pinStocke),
-            passwordHash: const Value(_motDePasseStocke),
-            mustChangePassword: const Value(false),
-            syncState: const Value(SyncState.synced),
-          ),
-        );
-
     // --- Roles, permissions, rattachements -------------------------------
     for (final (id, code, label, accueil) in _roles) {
       await db
@@ -317,7 +298,6 @@ Future<void> seedAccounts(AtriumDatabase db) async {
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
       (_housekeeper, _roleHousekeeping),
-      (_restaurateur, _roleRestaurant),
     ]) {
       await db
           .into(db.userRoles)

@@ -217,7 +217,6 @@ DEMO_HOUSEKEEPING = uuid.UUID("01920000-0000-7000-8000-000000050003")
 # Le restaurant : quatrieme metier, quatrieme interface. C'est lui qui prend
 # les commandes au bar, au restaurant ou a la boite de nuit, et les porte sur
 # l'ardoise de la chambre.
-DEMO_RESTAURANT = uuid.UUID("01920000-0000-7000-8000-000000050004")
 
 # Le PIN sert aux releves de poste ; le mot de passe reste pour une premiere
 # connexion et pour l'administration.
@@ -281,13 +280,11 @@ async def seed(session: AsyncSession) -> None:
         # plusieurs valeurs refuse des lignes de formes differentes.
         {"id": DEMO_RECEPTION, "hotel_id": HOTEL, "employee_code": "RECEP01", "first_name": "Awa", "last_name": "Traore", "email": "reception@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
         {"id": DEMO_HOUSEKEEPING, "hotel_id": HOTEL, "employee_code": "MENAGE01", "first_name": "Fatou", "last_name": "Sow", "email": "menage@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
-        {"id": DEMO_RESTAURANT, "hotel_id": HOTEL, "employee_code": "RESTAU01", "first_name": "Kofi", "last_name": "Mensah", "email": "restaurant@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
     ])
     await upsert_link(UserRole, [
         {"user_id": DEMO_ADMIN, "role_id": ADMIN_ROLE},
         {"user_id": DEMO_RECEPTION, "role_id": RECEPTION_ROLE},
         {"user_id": DEMO_HOUSEKEEPING, "role_id": HOUSEKEEPING_ROLE},
-        {"user_id": DEMO_RESTAURANT, "role_id": RESTAURANT_ROLE},
     ], index_elements=["user_id", "role_id"])
     await upsert(Printer, [{"id": DEFAULT_PRINTER, "hotel_id": HOTEL, "logical_name": "IMP_DEFAUT_01", "label": "Imprimante par defaut", "kind": PrinterKind.LASER, "protocol": PrinterProtocol.IPP}])
     await upsert(DocumentType, [{"id": did, "hotel_id": HOTEL, "code": code, "label": label, "default_kind": kind} for did, code, label, kind in DOCUMENT_TYPES])
@@ -303,7 +300,7 @@ async def main() -> None:
         await seed(session)
     await engine.dispose()
     print(f"{len(ROOM_TYPES)} categories, {len(ROOMS)} chambres, {len(ROLES)} roles, {len(PERMISSIONS)} permissions.")
-    print(f"Comptes demo : ADMIN01, RECEP01, MENAGE01, RESTAU01 — mot de passe {DEMO_ADMIN_PASSWORD}, code PIN {DEMO_PIN}.")
+    print(f"Comptes demo : ADMIN01, RECEP01, MENAGE01 — mot de passe {DEMO_ADMIN_PASSWORD}, code PIN {DEMO_PIN}.")
 
 
 if __name__ == "__main__":
