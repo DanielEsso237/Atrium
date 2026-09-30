@@ -14,6 +14,7 @@ from app.models import (
     DocumentType,
     Floor,
     Hotel,
+    Outlet,
     Permission,
     PrintRoute,
     Printer,
@@ -36,6 +37,12 @@ FLOORS = [
     (uuid.UUID("01920000-0000-7000-8000-000000000105"), "E5", "Quatrieme etage", 5),
 ]
 F1, F2, F3, F4, F5 = (f[0] for f in FLOORS)
+
+# Le point de vente « Restaurant » que possede d'office chaque hotel. Meme
+# identifiant que dans la migration 0008 : le seed et la migration doivent
+# designer la meme ligne pour l'hotel de demonstration.
+OUTLET_RESTO = uuid.UUID("01920000-0000-7000-8000-000000007001")
+OUTLET_RESTO_CODE = "RESTO"
 
 STANDARD = uuid.UUID("01920000-0000-7000-8000-000000000201")
 CLASSIC = uuid.UUID("01920000-0000-7000-8000-000000000202")
@@ -254,6 +261,14 @@ async def seed(session: AsyncSession) -> None:
         await session.execute(stmt.on_conflict_do_nothing(index_elements=index_elements))
 
     await upsert(Hotel, [{"id": HOTEL, "code": "ATR", "name": "Hotel Atrium", "city": "Abidjan", "country": "Cote d'Ivoire", "currency": "XOF"}])
+    # `do nothing`, pas `upsert` : le libelle se change a l'administration,
+    # et rejouer le seed ne doit pas le remettre a « Restaurant ». Sans cible
+    # de conflit, le code deja pris par une autre ligne est ignore lui aussi.
+    await session.execute(
+        insert(Outlet)
+        .values([{"id": OUTLET_RESTO, "hotel_id": HOTEL, "code": OUTLET_RESTO_CODE, "label": "Restaurant", "allows_room_charge": True, "sort_order": 0}])
+        .on_conflict_do_nothing()
+    )
     await upsert(Floor, [{"id": fid, "hotel_id": HOTEL, "code": code, "label": label, "sort_order": order} for fid, code, label, order in FLOORS])
     await upsert(RoomType, [{"id": tid, "hotel_id": HOTEL, "code": code, "label": label, "base_capacity": base, "max_capacity": maxi, "default_rate": rate, "sort_order": i} for i, (tid, code, label, base, maxi, rate) in enumerate(ROOM_TYPES)])
     await upsert(Room, [{"id": room_id(number), "hotel_id": HOTEL, "number": number, "room_type_id": type_id, "floor_id": floor_id} for number, type_id, floor_id in ROOMS])

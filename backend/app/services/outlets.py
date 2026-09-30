@@ -16,6 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, UserOutlet
 
+# Chaque hotel a d'office un point de vente « Restaurant » : c'est lui qui
+# portera la carte facturee sur l'ardoise d'une chambre. Son *code* est
+# l'identite que tout le monde retrouve (tablette, seed, migration) ; son
+# libelle, lui, peut etre change a l'administration. D'ou l'interdiction de
+# le renommer ou de le desactiver (voir `update_outlet`).
+DEFAULT_OUTLET_CODE = "RESTO"
+DEFAULT_OUTLET_LABEL = "Restaurant"
+
 
 async def allowed_outlet_ids(session: AsyncSession, user: User) -> set[uuid.UUID] | None:
     """Les points de vente de l'agent, ou None s'il n'est rattache a aucun (tous)."""
