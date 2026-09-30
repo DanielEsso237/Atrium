@@ -18,6 +18,7 @@ from app.schemas.auth import RoleOut
 from app.schemas.users import (
     PasswordReset,
     PermissionOut,
+    PinReset,
     RolePermissionsIn,
     UserIn,
     UserOut,
@@ -263,6 +264,30 @@ async def update_user(
     await _set_roles(session, target.id, roles)
     if payload.outlet_ids is not None:
         await _set_outlets(session, user, target.id, payload.outlet_ids)
+    await session.commit()
+    await session.refresh(target, attribute_names=["roles", "outlets"])
+    return target
+
+
+@router.post("/users/{user_id}/reset-pin", response_model=UserOut)
+async def reset_pin(
+    user_id: uuid.UUID,
+    payload: PinReset,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("users.write")),
+) -> User:
+    """Un agent a oublie son PIN : l'administration lui en donne un nouveau.
+
+    Rejouable : renvoyer le meme PIN laisse le meme etat. Le compte est
+    deverrouille, comme pour un mot de passe.
+    """
+    target = await session.get(User, user_id)
+    if target is None or target.hotel_id != user.hotel_id or target.deleted_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Utilisateur introuvable.")
+
+    target.pin_hash = hash_secret(payload.new_pin)
+    target.failed_login_count = 0
+    target.locked_until = None
     await session.commit()
     await session.refresh(target, attribute_names=["roles", "outlets"])
     return target

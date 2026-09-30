@@ -125,6 +125,29 @@ void main() {
     expect(await db.select(db.userOutlets).get(), isEmpty);
   });
 
+  test("redonner un PIN part vers reset-pin, puis s'efface", () async {
+    final admin = await (db.select(db.users)
+          ..where((u) => u.employeeCode.equals('RECEP01')))
+        .getSingle();
+
+    await agents.resetPin(id: admin.id, pin: '9876');
+    final api = _FauxApi();
+    await OutboxSender(db: db, api: api).drain();
+
+    final (methode, chemin, corps) = api.appels.single;
+    expect((methode, chemin), ('POST', '/users/${admin.id}/reset-pin'));
+    expect(corps, {'new_pin': '9876'});
+    final restes = await db.select(db.outboxEntries).get();
+    expect(
+      restes.map((e) => (jsonDecode(e.payload) as Map).containsKey('pin')),
+      everyElement(isFalse),
+    );
+    await expectLater(
+      agents.resetPin(id: admin.id, pin: '12'),
+      throwsStateError,
+    );
+  });
+
   test('creer un agent part en POST, avec son PIN, une seule fois', () async {
     final roles = await agents.roles();
     await agents.create(

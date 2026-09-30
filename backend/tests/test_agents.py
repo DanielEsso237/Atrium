@@ -84,3 +84,22 @@ async def test_la_connexion_dit_les_points_de_vente_de_l_agent(client, auth_a):
 
     # Aucun rattachement : tous, comme cote serveur.
     assert me["outlet_ids"] == []
+
+
+async def test_l_administration_redonne_un_pin(client, auth_a):
+    corps = _agent()
+    await client.post("/api/v1/users", json=corps, headers=auth_a)
+
+    resp = await client.post(
+        f"/api/v1/users/{corps['id']}/reset-pin", json={"new_pin": "9876"}, headers=auth_a
+    )
+
+    assert resp.status_code == 200, resp.text
+    ancien = await client.post(
+        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "4321"}
+    )
+    nouveau = await client.post(
+        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "9876"}
+    )
+    assert ancien.status_code == 401
+    assert nouveau.status_code == 200, nouveau.text

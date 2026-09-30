@@ -215,6 +215,13 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
           roleCode: role,
           outletIds: points,
         );
+        // Un PIN saisi ici remplace celui que l'agent a oublie.
+        if (_pin.text.trim().isNotEmpty) {
+          await depot.resetPin(
+            id: widget.existant!.user.id,
+            pin: _pin.text.trim(),
+          );
+        }
       }
     } on StateError catch (e) {
       if (!mounted) return;
@@ -279,22 +286,25 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  if (_creation)
-                    Expanded(
-                      child: TextField(
-                        controller: _pin,
-                        obscureText: true,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(8),
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'PIN',
-                          helperText: '4 à 8 chiffres',
-                        ),
+                  Expanded(
+                    child: TextField(
+                      controller: _pin,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      // A la modification, le PIN ne se relit jamais : on en
+                      // donne un nouveau, seulement si l'agent l'a oublie.
+                      decoration: InputDecoration(
+                        labelText: _creation ? 'PIN' : 'Nouveau PIN',
+                        helperText: _creation
+                            ? '4 à 8 chiffres'
+                            : 'Seulement en cas d’oubli',
                       ),
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
