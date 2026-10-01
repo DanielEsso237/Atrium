@@ -150,9 +150,9 @@ final destinations = <Destination>[
     Groupe.operations,
   ),
   const Destination(
-    'Restaurant',
-    PhosphorIconsLight.forkKnife,
-    PhosphorIconsFill.forkKnife,
+    'Commandes',
+    PhosphorIconsLight.shoppingBagOpen,
+    PhosphorIconsFill.shoppingBagOpen,
     '/commandes',
     'order.read',
     Groupe.operations,
