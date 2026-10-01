@@ -84,7 +84,7 @@ const _roles = <_RoleDemo>[
   // housekeeping le jour ou il existera.
   (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
-  (_roleRestaurant, 'RESTAURANT', 'Restauration', '/commandes'),
+  (_roleRestaurant, 'RESTAURANT', 'Commandes', '/commandes'),
   (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
   (

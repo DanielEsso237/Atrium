@@ -33,7 +33,7 @@ class OutletsSection extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 6),
           child: Row(
             children: [
-              const Expanded(child: Eyebrow('Points de vente')),
+              const Expanded(child: Eyebrow('Commandes')),
               PillButton(
                 label: 'Nouveau point de vente',
                 icon: PhosphorIconsLight.plus,
@@ -47,8 +47,8 @@ class OutletsSection extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Glissez une ligne pour changer l’ordre des onglets de l’écran '
-            'Commandes.',
+            'Chaque point de vente est un onglet de l’écran Commandes. Glissez '
+            'une ligne pour changer leur ordre.',
             style: TextStyle(
               fontSize: 13.5,
               color: AtriumPalette.current.textSecondary,
