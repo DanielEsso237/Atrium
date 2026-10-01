@@ -475,6 +475,8 @@ class OutboxSender {
             'guest_id': p['guest_id'],
             'adults': p['adults'],
             'children': p['children'],
+            'deposit_amount': p['deposit_amount'],
+            'deposit_method': p['deposit_method'],
             'rooms': _lignes(p),
           }),
         );

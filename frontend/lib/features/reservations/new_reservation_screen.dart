@@ -21,8 +21,10 @@ import '../../data/local/database_provider.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
+import '../administration/deposit_section.dart' show formatRate;
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
+import 'deposit_dialog.dart';
 
 final roomTypesProvider = FutureProvider<List<RoomTypeSummary>>(
   (ref) => ref.watch(databaseProvider).roomTypeSummaries(),
@@ -111,22 +113,51 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
 
   Future<void> _save() async {
     if (!_canSave) return;
+
+    // Les arrhes que la regle de l'hotel demande : la reception les encaisse
+    // tout de suite, ou les laisse dues.
+    final regle = await ref.read(settingsRepositoryProvider).depositRule();
+    final du = regle?.depositFor(_total) ?? 0;
+    DepositChoice? choix;
+    if (du > 0) {
+      if (!mounted) return;
+      choix = await askDeposit(
+        context,
+        du: du,
+        total: _total,
+        regle: regle!.isFixed
+            ? 'Somme fixe de ${formatAmount(regle.amount!)}'
+            : formatRate(regle.rateBp!),
+      );
+      if (choix == null) return;
+    }
     setState(() => _busy = true);
 
-    await ref
-        .read(reservationRepositoryProvider)
-        .create(
-          guestId: _guestId!,
-          roomTypeId: _roomType!.typeId,
-          arrival: _dates!.start,
-          departure: _dates!.end,
-          nightlyRate: _rate,
-          adults: _adults,
-          children: _children,
-          roomId: _roomId,
-          notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-          createdBy: ref.read(sessionProvider).agent?.id,
-        );
+    try {
+      await ref
+          .read(reservationRepositoryProvider)
+          .create(
+            guestId: _guestId!,
+            roomTypeId: _roomType!.typeId,
+            arrival: _dates!.start,
+            departure: _dates!.end,
+            nightlyRate: _rate,
+            adults: _adults,
+            children: _children,
+            roomId: _roomId,
+            notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            createdBy: ref.read(sessionProvider).agent?.id,
+            depositCollected: choix?.montant,
+            depositMethod: choix?.moyen,
+          );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
 
     if (!mounted) return;
     context.go('/reservations');
