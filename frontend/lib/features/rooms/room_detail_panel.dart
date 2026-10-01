@@ -1,22 +1,28 @@
 /// La fiche qui s'ouvre au clic sur une chambre (paragraphe 5.2).
 ///
 /// Le cahier des charges impose son contenu : numero, type, prix, client
-/// actuel, dates, consommations, etat, historique, et les trois boutons
+/// actuel, dates, consommations, etat, historique, et les trois gestes
 /// Check-in / Check-out / Ajouter consommation.
 ///
-/// Les trois boutons sont inertes pour l'instant : ce sont des ecritures, et
-/// une ecriture locale qui ne remonterait jamais au serveur serait pire que
-/// pas de bouton du tout. Ils s'activeront avec la couche de liaison.
+/// Seuls les gestes possibles sont proposes : le check-in quand un client
+/// attendu a cette chambre, le depart et les consommations quand quelqu'un
+/// y dort. Un bouton grise n'apprend rien a la reception, il lui fait
+/// essayer une porte fermee.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/widgets/atrium_bandeau.dart';
 import '../../data/local/database_provider.dart';
+import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../billing/add_charge_dialog.dart';
+import '../billing/charge_labels.dart';
 import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
@@ -27,125 +33,694 @@ final ficheChambreProvider = StreamProvider.family<RoomDetail, String>((
   return ref.watch(databaseProvider).watchRoomDetail(roomId);
 });
 
-/// Ouvre la fiche en panneau lateral.
-///
-/// Un panneau plutot qu'une page : la reception garde le plan sous les yeux et
-/// ferme d'un geste, ce qui compte quand on enchaine dix chambres.
+/// Ouvre la fiche : en panneau lateral sur une tablette couchee, pour garder
+/// le plan sous les yeux et enchainer dix chambres ; en feuille qui monte du
+/// bas sur un telephone, ou la place manque pour les deux.
 void afficherFicheChambre(BuildContext context, RoomBoardEntry chambre) {
+  final theme = Theme.of(context);
+  final large = MediaQuery.sizeOf(context).width >= 900;
+
+  if (large) {
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fermer la fiche',
+      barrierColor: AtriumDashColors.title.withValues(alpha: 0.35),
+      transitionDuration: AtriumMotion.of(
+        context,
+        const Duration(milliseconds: 320),
+      ),
+      pageBuilder: (_, _, _) => Theme(
+        data: theme,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 500,
+            height: double.infinity,
+            child: _Fiche(chambre: chambre, panneau: true),
+          ),
+        ),
+      ),
+      transitionBuilder: (_, animation, _, enfant) => SlideTransition(
+        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        ),
+        child: enfant,
+      ),
+    );
+    return;
+  }
+
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => FractionallySizedBox(
-      heightFactor: 0.9,
-      child: _Fiche(chambre: chambre),
+    builder: (_) => Theme(
+      data: theme,
+      child: FractionallySizedBox(
+        heightFactor: 0.94,
+        child: _Fiche(chambre: chambre, panneau: false),
+      ),
     ),
   );
 }
 
 class _Fiche extends ConsumerWidget {
-  const _Fiche({required this.chambre});
+  const _Fiche({required this.chambre, required this.panneau});
 
+  /// La chambre telle qu'au clic ; la fiche suit ensuite le plan en direct.
   final RoomBoardEntry chambre;
+  final bool panneau;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fiche = ref.watch(ficheChambreProvider(chambre.roomId));
-    final vue = apparence(chambre.displayStatus);
-    final schema = Theme.of(context).colorScheme;
+    final actuelle =
+        ref
+            .watch(roomBoardProvider)
+            .value
+            ?.where((c) => c.roomId == chambre.roomId)
+            .firstOrNull ??
+        chambre;
+    final vue = apparence(actuelle.displayStatus);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return Material(
+      color: AtriumDashColors.page,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: panneau
+          ? const BorderRadius.horizontal(left: Radius.circular(28))
+          : const BorderRadius.vertical(top: Radius.circular(28)),
       child: Column(
         children: [
-          _Entete(chambre: chambre, vue: vue),
+          _EnTete(chambre: actuelle, vue: vue, panneau: panneau),
           Expanded(
             child: fiche.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AtriumColors.mintStrong,
+                ),
+              ),
               error: (e, _) => Center(child: Text('Lecture impossible : $e')),
               data: (f) => ListView(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 children: [
-                  _Caracteristiques(chambre: chambre),
-                  const SizedBox(height: 16),
                   if (f.sejour != null) ...[
-                    _Sejour(sejour: f.sejour!),
+                    _Sejour(sejour: f.sejour!, titre: 'Séjour en cours'),
                     const SizedBox(height: 16),
                     _Consommations(lignes: f.consommations),
-                  ] else if (f.expected != null) ...[
-                    _Bloc(
-                      titre: 'Arrivee attendue',
-                      enfant: _Sejour(sejour: f.expected!),
-                    ),
-                  ] else
-                    _Bloc(
-                      titre: 'Sejour en cours',
-                      enfant: Text(
-                        'Aucun client dans cette chambre.',
-                        style: TextStyle(fontSize: 17, color: schema.outline),
+                  ] else if (f.expected != null)
+                    _Sejour(sejour: f.expected!, titre: 'Arrivée attendue')
+                  else
+                    _Carte(
+                      child: Row(
+                        children: [
+                          _Tuile(
+                            icone: vue.icone,
+                            fond: vue.fond,
+                            encre: vue.encre,
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Text(
+                              'Aucun client dans cette chambre.',
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                color: AtriumColors.ink,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  const SizedBox(height: 16),
+                  _Caracteristiques(chambre: actuelle),
                   const SizedBox(height: 16),
                   _Historique(sejours: f.historique),
                 ],
               ),
             ),
           ),
-          _Actions(fiche: fiche.value, chambre: chambre),
+          _Actions(fiche: fiche.value, chambre: actuelle),
         ],
       ),
     );
   }
 }
 
-class _Entete extends StatelessWidget {
-  const _Entete({required this.chambre, required this.vue});
+// --- En-tete -----------------------------------------------------------------
+
+/// La chambre de nuit en fond, le numero comme sur la plaque de la porte.
+class _EnTete extends StatelessWidget {
+  const _EnTete({
+    required this.chambre,
+    required this.vue,
+    required this.panneau,
+  });
 
   final RoomBoardEntry chambre;
-  final ({String label, Color couleur}) vue;
+  final ApparenceEtat vue;
+  final bool panneau;
+
+  @override
+  Widget build(BuildContext context) {
+    final haut = panneau ? MediaQuery.paddingOf(context).top : 0.0;
+    final lieu = [
+      chambre.typeLabel,
+      if (chambre.floorLabel != null) chambre.floorLabel!.toLowerCase(),
+    ].join(', ');
+
+    return SizedBox(
+      height: 200 + haut,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            photoChambre,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0.4, 0.2),
+            color: AtriumColors.photoTint,
+            colorBlendMode: BlendMode.multiply,
+            filterQuality: FilterQuality.medium,
+            excludeFromSemantics: true,
+          ),
+          // La nuit monte du bas : le numero et le prix se lisent en blanc
+          // sans ombre portee.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AtriumColors.purpleNight.withValues(alpha: 0.35),
+                  AtriumColors.purpleNight.withValues(alpha: 0.6),
+                  AtriumColors.purpleNight.withValues(alpha: 0.94),
+                ],
+                stops: const [0, 0.45, 1],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(22, haut + 14, 14, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!panneau)
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: AtriumColors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    PastilleEtat(apparence: vue, surFonce: true),
+                    const Spacer(),
+                    Semantics(
+                      button: true,
+                      label: 'Fermer la fiche',
+                      excludeSemantics: true,
+                      child: Material(
+                        color: AtriumColors.white.withValues(alpha: 0.16),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => Navigator.of(context).pop(),
+                          child: const SizedBox.square(
+                            dimension: 44,
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: AtriumColors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chambre ${chambre.number}',
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              color: AtriumColors.white,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            lieu,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AtriumColors.onPurpleSoft,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatAmount(chambre.rate),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AtriumColors.white,
+                          ),
+                        ),
+                        const Text(
+                          'la nuit',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AtriumColors.onPurpleSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Sections ----------------------------------------------------------------
+
+class _Carte extends StatelessWidget {
+  const _Carte({required this.child, this.titre});
+
+  final String? titre;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(bottom: BorderSide(color: vue.couleur, width: 3)),
+        color: AtriumDashColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AtriumDashColors.cardBorder),
+        boxShadow: AtriumShadows.soft,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (titre != null) ...[
+            Text(
+              titre!,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AtriumDashColors.title,
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Tuile extends StatelessWidget {
+  const _Tuile({
+    required this.icone,
+    required this.fond,
+    required this.encre,
+    this.taille = 42,
+  });
+
+  final IconData icone;
+  final Color fond;
+  final Color encre;
+  final double taille;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: taille,
+      height: taille,
+      decoration: BoxDecoration(
+        color: fond,
+        borderRadius: BorderRadius.circular(taille * 0.3),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icone, size: taille * 0.5, color: encre),
+    );
+  }
+}
+
+class _Sejour extends StatelessWidget {
+  const _Sejour({required this.sejour, required this.titre});
+
+  final CurrentStay sejour;
+  final String titre;
+
+  @override
+  Widget build(BuildContext context) {
+    final arrivee = parseIsoDate(sejour.arrival);
+    final depart = parseIsoDate(sejour.departure);
+    final aujourdhui = businessDayFor(DateTime.now());
+    final nuits = arrivee == null || depart == null
+        ? null
+        : depart.difference(arrivee).inDays;
+    final nuitEnCours = arrivee == null
+        ? null
+        : aujourdhui.difference(arrivee).inDays + 1;
+    final personnes = [
+      '${sejour.adultes} adulte${sejour.adultes > 1 ? 's' : ''}',
+      if (sejour.enfants > 0)
+        '${sejour.enfants} enfant${sejour.enfants > 1 ? 's' : ''}',
+    ].join(', ');
+
+    return _Carte(
+      titre: titre,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AtriumColors.purpleBright, AtriumColors.purple],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _initiales(sejour.guestName),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AtriumColors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sejour.guestName,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AtriumDashColors.title,
+                      ),
+                    ),
+                    Text(
+                      personnes,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: AtriumColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _Date(
+                  libelle: 'Arrivée',
+                  date: arrivee,
+                  brut: sejour.arrival,
+                ),
+              ),
+              const Icon(
+                Icons.east_rounded,
+                size: 20,
+                color: AtriumColors.textSecondary,
+              ),
+              Expanded(
+                child: _Date(
+                  libelle: 'Départ',
+                  date: depart,
+                  brut: sejour.departure,
+                  alignerFin: true,
+                ),
+              ),
+            ],
+          ),
+          if (nuits != null && nuits > 0 && nuitEnCours != null) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (nuitEnCours / nuits).clamp(0.0, 1.0),
+                      minHeight: 6,
+                      color: AtriumColors.purple,
+                      backgroundColor: AtriumDashColors.control,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  nuitEnCours <= 0
+                      ? '$nuits nuit${nuits > 1 ? 's' : ''}'
+                      : 'Nuit ${nuitEnCours.clamp(1, nuits)} sur $nuits',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AtriumColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          _Ligne(
+            cle: 'Tarif de la nuit',
+            valeur: formatAmount(sejour.nightlyRate),
+          ),
+          const SizedBox(height: 12),
+          _Solde(solde: sejour.balance),
+        ],
+      ),
+    );
+  }
+}
+
+class _Date extends StatelessWidget {
+  const _Date({
+    required this.libelle,
+    required this.date,
+    required this.brut,
+    this.alignerFin = false,
+  });
+
+  final String libelle;
+  final DateTime? date;
+  final String brut;
+  final bool alignerFin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignerFin
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          libelle,
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: AtriumColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          date == null ? brut : formatShortDate(date!),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AtriumDashColors.title,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Le solde de l'ardoise, en evidence : c'est la question du client qui part.
+class _Solde extends StatelessWidget {
+  const _Solde({required this.solde});
+
+  final int solde;
+
+  @override
+  Widget build(BuildContext context) {
+    final (libelle, fond, encre) = solde > 0
+        ? (
+            'Reste à régler',
+            AtriumRoomColors.reservedTint,
+            AtriumRoomColors.reservedInk,
+          )
+        : (
+            'Ardoise soldée',
+            AtriumRoomColors.availableTint,
+            AtriumRoomColors.availableInk,
+          );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: fond,
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
       ),
       child: Row(
         children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: vue.couleur,
+          Icon(
+            solde > 0
+                ? Icons.account_balance_wallet_outlined
+                : Icons.verified_outlined,
+            color: encre,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              libelle,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: encre,
+              ),
             ),
           ),
-          const SizedBox(width: 14),
           Text(
-            'Chambre ${chambre.number}',
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(width: 14),
-          Chip(
-            label: Text(vue.label),
-            backgroundColor: vue.couleur.withValues(alpha: 0.12),
-            side: BorderSide(color: vue.couleur.withValues(alpha: 0.4)),
-            labelStyle: TextStyle(color: vue.couleur, fontSize: 15),
-          ),
-          const Spacer(),
-          IconButton(
-            iconSize: 30,
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
+            formatAmount(solde),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: encre,
+              fontFeatures: tabularFigures,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+IconData _iconeCategorie(ChargeCategory c) => switch (c) {
+  ChargeCategory.ROOM => Icons.bed_outlined,
+  ChargeCategory.FNB => Icons.restaurant_outlined,
+  ChargeCategory.MINIBAR => Icons.local_bar_outlined,
+  ChargeCategory.SPA => Icons.spa_outlined,
+  ChargeCategory.LAUNDRY => Icons.local_laundry_service_outlined,
+  ChargeCategory.TELEPHONE => Icons.phone_outlined,
+  ChargeCategory.TAX => Icons.receipt_long_outlined,
+  ChargeCategory.DISCOUNT => Icons.sell_outlined,
+  ChargeCategory.DEPOSIT => Icons.savings_outlined,
+  ChargeCategory.MISC => Icons.more_horiz_rounded,
+};
+
+class _Consommations extends StatelessWidget {
+  const _Consommations({required this.lignes});
+
+  final List<Charge> lignes;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Carte(
+      titre: 'Consommations',
+      child: lignes.isEmpty
+          ? const Text(
+              'Aucune consommation portée à l’ardoise.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < lignes.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 18, color: AtriumDashColors.grid),
+                  Row(
+                    children: [
+                      _Tuile(
+                        icone: _iconeCategorie(lignes[i].categorie),
+                        fond: AtriumDashColors.tileLavender,
+                        encre: AtriumDashColors.tileLavenderInk,
+                        taille: 38,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lignes[i].libelle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: AtriumDashColors.title,
+                              ),
+                            ),
+                            Text(
+                              '${chargeCategoryLabel(lignes[i].categorie)}, '
+                              '${_jour(lignes[i].journee)}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AtriumColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatAmount(lignes[i].montant),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AtriumDashColors.title,
+                          fontFeatures: tabularFigures,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -157,21 +732,62 @@ class _Caracteristiques extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Bloc(
+    // Les trois axes, montres separement et non fondus en un seul mot : c'est
+    // ce qui permet a la reception et au housekeeping de lire la meme fiche
+    // sans se contredire.
+    final (occupation, apOccupation) = switch (chambre.occupancy) {
+      OccupancyStatus.OCCUPIED => (
+        'Occupée',
+        apparence(RoomDisplayStatus.OCCUPIED),
+      ),
+      OccupancyStatus.RESERVED => (
+        'Réservée',
+        apparence(RoomDisplayStatus.RESERVED),
+      ),
+      OccupancyStatus.VACANT => (
+        'Libre',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+    };
+    final (proprete, apProprete) = switch (chambre.housekeeping) {
+      HousekeepingStatus.CLEAN => (
+        'Propre',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+      HousekeepingStatus.INSPECTED => (
+        'Inspectée',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+      HousekeepingStatus.DIRTY => (
+        'À nettoyer',
+        apparence(RoomDisplayStatus.CLEANING),
+      ),
+      HousekeepingStatus.IN_PROGRESS => (
+        'Ménage en cours',
+        apparence(RoomDisplayStatus.CLEANING),
+      ),
+    };
+    final (service, apService) = chambre.isOutOfOrder
+        ? ('Hors service', apparence(RoomDisplayStatus.MAINTENANCE))
+        : ('En service', apparence(RoomDisplayStatus.AVAILABLE));
+
+    return _Carte(
       titre: 'La chambre',
-      enfant: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Ligne(cle: 'Categorie', valeur: chambre.typeLabel),
-          _Ligne(cle: 'Tarif de reference', valeur: formatAmount(chambre.rate)),
-          _Ligne(cle: 'Etage', valeur: chambre.floorLabel ?? '—'),
-          // Les trois axes, affiches separement et non fondus en un seul mot :
-          // c'est ce qui permet a la reception et au housekeeping de lire la
-          // meme fiche sans se contredire.
-          _Ligne(cle: 'Occupation', valeur: chambre.occupancy.name),
-          _Ligne(cle: 'Proprete', valeur: chambre.housekeeping.name),
-          _Ligne(
-            cle: 'Hors service',
-            valeur: chambre.isOutOfOrder ? 'oui' : 'non',
+          _Ligne(cle: 'Catégorie', valeur: chambre.typeLabel),
+          _Ligne(cle: 'Tarif de référence', valeur: formatAmount(chambre.rate)),
+          _Ligne(cle: 'Étage', valeur: chambre.floorLabel ?? 'Non renseigné'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Axe(nom: 'Occupation', valeur: occupation, vue: apOccupation),
+              _Axe(nom: 'Propreté', valeur: proprete, vue: apProprete),
+              _Axe(nom: 'Service', valeur: service, vue: apService),
+            ],
           ),
         ],
       ),
@@ -179,101 +795,43 @@ class _Caracteristiques extends StatelessWidget {
   }
 }
 
-class _Sejour extends StatelessWidget {
-  const _Sejour({required this.sejour});
+/// Un des trois axes de l'etat de la chambre.
+class _Axe extends StatelessWidget {
+  const _Axe({required this.nom, required this.valeur, required this.vue});
 
-  final CurrentStay sejour;
+  final String nom;
+  final String valeur;
+  final ApparenceEtat vue;
 
   @override
   Widget build(BuildContext context) {
-    final arrivee = parseIsoDate(sejour.arrival);
-    final depart = parseIsoDate(sejour.departure);
-
-    return _Bloc(
-      titre: 'Sejour en cours',
-      enfant: Column(
-        children: [
-          _Ligne(cle: 'Client', valeur: sejour.guestName, gras: true),
-          _Ligne(
-            cle: 'Arrivee',
-            valeur: arrivee == null ? sejour.arrival : formatShortDate(arrivee),
-          ),
-          _Ligne(
-            cle: 'Depart',
-            valeur: depart == null ? sejour.departure : formatShortDate(depart),
-          ),
-          _Ligne(
-            cle: 'Personnes',
-            valeur: '${sejour.adultes} adulte(s), ${sejour.enfants} enfant(s)',
-          ),
-          _Ligne(
-            cle: 'Tarif de la nuit',
-            valeur: formatAmount(sejour.nightlyRate),
-          ),
-          _Ligne(
-            cle: 'Solde de l\'ardoise',
-            valeur: formatAmount(sejour.balance),
-            gras: true,
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+      decoration: BoxDecoration(
+        color: vue.fond,
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-}
-
-class _Consommations extends StatelessWidget {
-  const _Consommations({required this.lignes});
-
-  final List<Charge> lignes;
-
-  @override
-  Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
-    return _Bloc(
-      titre: 'Consommations',
-      enfant: lignes.isEmpty
-          ? Text(
-              'Aucune consommation portee a l\'ardoise.',
-              style: TextStyle(fontSize: 17, color: schema.outline),
-            )
-          : Column(
-              children: [
-                for (final l in lignes)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l.libelle,
-                                style: const TextStyle(fontSize: 17),
-                              ),
-                              Text(
-                                '${l.categorie.name} · ${l.journee}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: schema.outline,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          formatAmount(l.montant),
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            nom,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: vue.encre.withValues(alpha: 0.8),
             ),
+          ),
+          Text(
+            valeur,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: vue.encre,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -285,27 +843,104 @@ class _Historique extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-
-    return _Bloc(
+    return _Carte(
       titre: 'Historique',
-      enfant: sejours.isEmpty
-          ? Text(
-              'Aucun sejour termine dans cette chambre.',
-              style: TextStyle(fontSize: 17, color: schema.outline),
+      child: sejours.isEmpty
+          ? const Text(
+              'Aucun séjour terminé dans cette chambre.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
             )
           : Column(
               children: [
-                for (final s in sejours)
-                  _Ligne(
-                    cle: s.guestName,
-                    valeur: '${s.arrival} → ${s.departure}',
+                for (var i = 0; i < sejours.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 16, color: AtriumDashColors.grid),
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          color: AtriumDashColors.control,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _initiales(sejours[i].guestName),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AtriumDashColors.title,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          sejours[i].guestName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: AtriumDashColors.title,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'du ${_jour(sejours[i].arrival)} '
+                        'au ${_jour(sejours[i].departure)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AtriumColors.textSecondary,
+                          fontFeatures: tabularFigures,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
               ],
             ),
     );
   }
 }
+
+class _Ligne extends StatelessWidget {
+  const _Ligne({required this.cle, required this.valeur});
+
+  final String cle;
+  final String valeur;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              cle,
+              style: const TextStyle(
+                fontSize: 14.5,
+                color: AtriumColors.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            valeur,
+            style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: AtriumDashColors.title,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Actions -----------------------------------------------------------------
 
 class _Actions extends ConsumerWidget {
   const _Actions({required this.fiche, required this.chambre});
@@ -318,143 +953,127 @@ class _Actions extends ConsumerWidget {
     final sejour = fiche?.sejour;
     final attendu = fiche?.expected;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0))),
-      ),
-      child: Row(
-        children: [
-          // Le check-in n'a de sens que si un sejour attribue attend, et le
-          // check-out que si quelqu'un est la. Les deux ne sont jamais
-          // proposes ensemble : ce serait offrir une action impossible.
+    // Le check-in n'a de sens que si un sejour attribue attend, et le
+    // check-out que si quelqu'un est la. Les deux ne sont jamais proposes
+    // ensemble : ce serait offrir une action impossible.
+    final List<Widget> boutons;
+    if (sejour != null) {
+      boutons = [
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              foregroundColor: AtriumDashColors.title,
+              side: const BorderSide(color: AtriumDashColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () async {
+              final fait = await confirmCheckOut(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                guestName: sejour.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Check-out'),
+          ),
+        ),
+        // Une consommation ne se porte que sur une ardoise ouverte.
+        if (sejour.folioId != null) ...[
+          const SizedBox(width: 12),
           Expanded(
             child: FilledButton.icon(
-              onPressed: attendu == null
-                  ? null
-                  : () async {
-                      final fait = await confirmCheckIn(
-                        context,
-                        ref,
-                        lineId: attendu.lineId,
-                        guestName: attendu.guestName,
-                        roomNumber: chambre.number,
-                      );
-                      if (fait && context.mounted) Navigator.of(context).pop();
-                    },
-              icon: const Icon(Icons.login),
-              label: const Text('Check-in'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: sejour == null
-                  ? null
-                  : () async {
-                      final fait = await confirmCheckOut(
-                        context,
-                        ref,
-                        lineId: sejour.lineId,
-                        guestName: sejour.guestName,
-                        roomNumber: chambre.number,
-                      );
-                      if (fait && context.mounted) Navigator.of(context).pop();
-                    },
-              icon: const Icon(Icons.logout),
-              label: const Text('Check-out'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Une consommation ne se porte que sur une ardoise ouverte, donc
-          // uniquement pendant un sejour en cours.
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: (sejour == null || sejour.folioId == null)
-                  ? null
-                  : () => showAddChargeDialog(
-                      context,
-                      folioId: sejour.folioId!,
-                      guestName: sejour.guestName,
-                    ),
-              icon: const Icon(Icons.add_shopping_cart),
-              label: const Text('Consommation'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 54),
+                backgroundColor: AtriumColors.mintSoft,
+                foregroundColor: AtriumColors.ink,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AtriumRadii.md),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: () => showAddChargeDialog(
+                context,
+                folioId: sejour.folioId!,
+                guestName: sejour.guestName,
+              ),
+              icon: const Icon(Icons.add_shopping_cart_rounded),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('Consommation'),
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Bloc extends StatelessWidget {
-  const _Bloc({required this.titre, required this.enfant});
-
-  final String titre;
-  final Widget enfant;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              titre.toUpperCase(),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: Theme.of(context).colorScheme.outline,
+      ];
+    } else if (attendu != null) {
+      boutons = [
+        Expanded(
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              side: const BorderSide(
+                color: AtriumColors.mintStrong,
+                width: 1.5,
               ),
             ),
-            const SizedBox(height: 12),
-            enfant,
-          ],
+            onPressed: () async {
+              final fait = await confirmCheckIn(
+                context,
+                ref,
+                lineId: attendu.lineId,
+                guestName: attendu.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.login_rounded),
+            label: Text('Check-in de ${attendu.guestName}'),
+          ),
         ),
+      ];
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.paddingOf(context).bottom,
       ),
+      decoration: const BoxDecoration(
+        color: AtriumDashColors.card,
+        border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
+      ),
+      child: Row(children: boutons),
     );
   }
 }
 
-class _Ligne extends StatelessWidget {
-  const _Ligne({required this.cle, required this.valeur, this.gras = false});
+String _initiales(String nom) {
+  final mots = nom.split(' ').where((m) => m.isNotEmpty).toList();
+  if (mots.isEmpty) return '?';
+  return mots.take(2).map((m) => m.characters.first.toUpperCase()).join();
+}
 
-  final String cle;
-  final String valeur;
-  final bool gras;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 170,
-            child: Text(
-              cle,
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              valeur,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: gras ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+/// « 28/09 » a partir d'une date ISO de la base.
+String _jour(String iso) {
+  final d = parseIsoDate(iso);
+  return d == null ? iso : formatShortDate(d).substring(0, 5);
 }

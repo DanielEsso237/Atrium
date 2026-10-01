@@ -23,12 +23,15 @@ const double rayonCarte = 16;
 ///
 /// Elles vivent ici et nulle part ailleurs : la pastille du plan, la legende
 /// et la fiche de chambre doivent etre d'accord, sinon l'ecran ment.
+///
+/// Elles pointent vers `AtriumRoomColors`, la palette de la charte : les
+/// ecrans pas encore refondus (le menage) parlent ainsi deja comme le plan.
 abstract final class CouleursEtat {
-  static const disponible = Color(0xFF2E7D32); // vert
-  static const occupee = Color(0xFFC62828); // rouge
-  static const reservee = Color(0xFFF9A825); // jaune
-  static const nettoyage = Color(0xFF1565C0); // bleu
-  static const maintenance = Color(0xFF424242); // gris fonce
+  static const disponible = AtriumRoomColors.available;
+  static const occupee = AtriumRoomColors.occupied;
+  static const reservee = AtriumRoomColors.reserved;
+  static const nettoyage = AtriumRoomColors.cleaning;
+  static const maintenance = AtriumRoomColors.outOfOrder;
 }
 
 const _graine = Color(0xFF00695C);

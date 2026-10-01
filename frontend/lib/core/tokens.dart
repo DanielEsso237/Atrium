@@ -114,6 +114,81 @@ abstract final class AtriumDashColors {
   static const wave = Color(0xFFF5B83D);
 }
 
+/// Les cinq etats d'une chambre (cahier des charges, paragraphe 5.2) : libre
+/// en vert, occupee en rouge, reservee en jaune, en nettoyage en bleu, hors
+/// service en gris.
+///
+/// Les teintes du cahier des charges, raffinees pour la charte et passees au
+/// validateur dataviz. Le vert tire vers l'eau : c'est ce qui le garde
+/// distinct du rouge pour un lecteur daltonien (ecart de 12 contre 5 pour un
+/// vert franc) -- et il rejoint la menthe de la charte. La couleur n'est
+/// jamais seule : chaque etat porte aussi son libelle et son icone.
+///
+/// Trois nuances par etat : la couleur pleine (le voyant, les barres), un
+/// fond pale (les pastilles) et une encre lisible sur ce fond (le libelle).
+abstract final class AtriumRoomColors {
+  static const available = Color(0xFF0FA3A0);
+  static const availableTint = Color(0xFFE0F5F4);
+  static const availableInk = Color(0xFF0A6664);
+
+  static const occupied = Color(0xFFE5484D);
+  static const occupiedTint = Color(0xFFFDEBEC);
+  static const occupiedInk = Color(0xFFB0252B);
+
+  static const reserved = Color(0xFFE0A00E);
+  static const reservedTint = Color(0xFFFDF3DB);
+  static const reservedInk = Color(0xFF7D5500);
+
+  static const cleaning = Color(0xFF4F6FF0);
+  static const cleaningTint = Color(0xFFE7ECFE);
+  static const cleaningInk = Color(0xFF2B45BF);
+
+  static const outOfOrder = Color(0xFF5A6072);
+  static const outOfOrderTint = Color(0xFFECEEF2);
+  static const outOfOrderInk = Color(0xFF3E4454);
+
+  // Les memes etats poses sur le violet des cartes-cles : un voyant plus vif,
+  // qui brille sur le fond sombre, et un libelle pale (contraste superieur a
+  // 6:1 sur le fond teinte du badge).
+  static const availableLed = Color(0xFF3FE0C5);
+  static const availableOnDark = AtriumColors.mint;
+
+  static const occupiedLed = Color(0xFFFF5C61);
+  static const occupiedOnDark = Color(0xFFFFB8BA);
+
+  static const reservedLed = Color(0xFFFFC23D);
+  static const reservedOnDark = Color(0xFFFFDC8F);
+
+  static const cleaningLed = Color(0xFF7D95FF);
+  static const cleaningOnDark = Color(0xFFC6D0FF);
+
+  static const outOfOrderLed = Color(0xFFA9AFC0);
+  static const outOfOrderOnDark = Color(0xFFDDE0E8);
+}
+
+/// Les cartes-cles du plan des chambres : toutes taillees dans le violet de
+/// la charte, comme les cles d'un meme hotel. L'etat ne les teint jamais.
+abstract final class AtriumKeyCardColors {
+  /// Le haut de la carte, ou la lumiere accroche : un cran au-dessus de la
+  /// charte, pas davantage, sinon le degrade se voit.
+  static const light = Color(0xFF38227F);
+  static const base = AtriumColors.purple;
+  static const deep = Color(0xFF231457);
+
+  /// Le liseret interieur qui donne son epaisseur a la carte.
+  static const edge = Color(0x1FFFFFFF);
+  static const divider = Color(0x1AFFFFFF);
+
+  /// Categorie, depart, prix : le texte secondaire sur le violet.
+  static const muted = Color(0xFFC9C2E8);
+
+  /// Le signe sans contact, a peine grave.
+  static const glyph = Color(0x5CFFFFFF);
+
+  /// Le fond des pictogrammes et la piste de l'anneau de sejour.
+  static const well = Color(0x17FFFFFF);
+}
+
 /// Les couleurs des graphiques.
 ///
 /// Passees au validateur dataviz (clarte, separation pour les daltonismes
@@ -208,6 +283,18 @@ abstract final class AtriumShadows {
       blurRadius: 24,
       spreadRadius: -6,
       offset: Offset(0, 10),
+    ),
+  ];
+
+  /// Carte-cle du plan : une ombre violette, courte, qui la pose sur la page
+  /// comme une carte sur un comptoir.
+  static const keyCard = [
+    BoxShadow(color: Color(0x1A2D1B69), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(
+      color: Color(0x292D1B69),
+      blurRadius: 26,
+      spreadRadius: -12,
+      offset: Offset(0, 14),
     ),
   ];
 
