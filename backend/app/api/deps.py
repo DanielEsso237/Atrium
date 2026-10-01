@@ -56,6 +56,25 @@ def permission_codes(user: User) -> set[str]:
     return {perm.code for role in user.roles for perm in role.permissions}
 
 
+def require_any_permission(*codes: str):
+    """Comme `require_permission`, mais l'une des permissions suffit.
+
+    Pour une route que deux metiers atteignent a des titres differents : la
+    reception porte une charge avec folio.write, le comptoir avec
+    folio.charge, qui ne permet ni d'encaisser ni de clore.
+    """
+
+    async def _check(user: User = Depends(get_current_user)) -> User:
+        if not permission_codes(user) & set(codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission manquante : {' ou '.join(codes)}",
+            )
+        return user
+
+    return _check
+
+
 def require_permission(code: str):
     """Fabrique une dependance qui exige la permission `code` (RBAC, 6.2).
 

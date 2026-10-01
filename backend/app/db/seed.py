@@ -113,6 +113,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004130"), "stock.movement", "Enregistrer un mouvement de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004131"), "cash.session", "Ouvrir et fermer sa session de caisse", "cash"),
     (uuid.UUID("01920000-0000-7000-8000-000000004132"), "folio.override_limit", "Autoriser une consommation au-dela du seuil du client", "folio"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004133"), "folio.charge", "Porter une consommation sur une ardoise (sans encaisser)", "folio"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -137,6 +138,7 @@ MAINTENANCE_MANAGE = PERMISSIONS[28][0]
 STOCK_MOVEMENT = PERMISSIONS[29][0]
 CASH_SESSION = PERMISSIONS[30][0]
 FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
+FOLIO_CHARGE = PERMISSIONS[32][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -184,6 +186,11 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RESTAURANT_ROLE, ORDER_READ),
     (RESTAURANT_ROLE, ORDER_CREATE),
     (RESTAURANT_ROLE, ORDER_MANAGE),
+    # Porter une commande sur une chambre ecrit sur l'ardoise : sans ce droit,
+    # chaque consommation etait refusee et bloquait la file du comptoir.
+    # folio.charge et non folio.write : le comptoir porte, il n'encaisse pas,
+    # ne clot rien et ne voit pas les factures.
+    (RESTAURANT_ROLE, FOLIO_CHARGE),
     (RESTAURANT_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, FOLIO_READ),
     (CAISSE_ROLE, FOLIO_WRITE),
