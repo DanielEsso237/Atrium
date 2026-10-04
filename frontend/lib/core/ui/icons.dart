@@ -108,8 +108,8 @@ abstract final class PhosphorIconsFill {
   static const check = IconData(0xe182, fontFamily: 'PhosphorFill');
   static const checkCircle = IconData(0xe184, fontFamily: 'PhosphorFill');
   static const coins = IconData(0xe78e, fontFamily: 'PhosphorFill');
-  static const forkKnife = IconData(0xe262, fontFamily: 'PhosphorFill');
   static const receipt = IconData(0xe3ec, fontFamily: 'PhosphorFill');
+  static const shoppingBagOpen = IconData(0xe418, fontFamily: 'PhosphorFill');
   static const signIn = IconData(0xe428, fontFamily: 'PhosphorFill');
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorFill');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorFill');
