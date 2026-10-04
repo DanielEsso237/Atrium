@@ -1,29 +1,30 @@
 /// La fiche qui s'ouvre au clic sur une chambre (paragraphe 5.2).
 ///
 /// Le cahier des charges impose son contenu : numero, type, prix, client
-/// actuel, dates, consommations, etat, historique, et les trois boutons
+/// actuel, dates, consommations, etat, historique, et les trois gestes
 /// Check-in / Check-out / Ajouter consommation.
 ///
-/// Les trois boutons sont inertes pour l'instant : ce sont des ecritures, et
-/// une ecriture locale qui ne remonterait jamais au serveur serait pire que
-/// pas de bouton du tout. Ils s'activeront avec la couche de liaison.
+/// Seuls les gestes possibles sont proposes : le check-in quand un client
+/// attendu a cette chambre, le depart et les consommations quand quelqu'un
+/// y dort. Un bouton grise n'apprend rien a la reception, il lui fait
+/// essayer une porte fermee.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/tokens.dart';
-import '../../core/ui/atrium_ui.dart';
-import '../../core/ui/icons.dart';
-import '../../data/local/enums.dart';
-import '../auth/session.dart';
-import '../billing/charge_labels.dart';
-import '../maintenance/maintenance_screen.dart' show showReportIssueDialog;
+import '../../core/widgets/atrium_bandeau.dart';
 import '../../data/local/database_provider.dart';
+import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../billing/add_charge_dialog.dart';
+import '../auth/session.dart';
+import '../billing/charge_labels.dart';
+import '../maintenance/maintenance_screen.dart' show showReportIssueDialog;
 import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
@@ -34,142 +35,159 @@ final ficheChambreProvider = StreamProvider.family<RoomDetail, String>((
   return ref.watch(databaseProvider).watchRoomDetail(roomId);
 });
 
-/// Ouvre la fiche en panneau lateral.
-///
-/// Un panneau plutot qu'une page : la reception garde le plan sous les yeux et
-/// ferme d'un geste, ce qui compte quand on enchaine dix chambres. Sur
-/// tablette et PC il glisse depuis la droite ; sur telephone il monte du bas.
+/// Ouvre la fiche : en panneau lateral sur une tablette couchee, pour garder
+/// le plan sous les yeux et enchainer dix chambres ; en feuille qui monte du
+/// bas sur un telephone, ou la place manque pour les deux.
 void afficherFicheChambre(BuildContext context, RoomBoardEntry chambre) {
+  final theme = Theme.of(context);
   final large = MediaQuery.sizeOf(context).width >= 900;
-  if (!large) {
-    showModalBottomSheet<void>(
+
+  if (large) {
+    showGeneralDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      showDragHandle: false,
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.92,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          child: _Fiche(chambre: chambre),
+      barrierDismissible: true,
+      barrierLabel: 'Fermer la fiche',
+      barrierColor: AtriumDashColors.title.withValues(alpha: 0.35),
+      transitionDuration: AtriumMotion.of(
+        context,
+        const Duration(milliseconds: 320),
+      ),
+      pageBuilder: (_, _, _) => Theme(
+        data: theme,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 500,
+            height: double.infinity,
+            child: _Fiche(chambre: chambre, panneau: true),
+          ),
         ),
+      ),
+      transitionBuilder: (_, animation, _, enfant) => SlideTransition(
+        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        ),
+        child: enfant,
       ),
     );
     return;
   }
-  final p = AtriumPalette.current;
-  showGeneralDialog<void>(
+
+  showModalBottomSheet<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Fermer la fiche',
-    barrierColor: p.night.withValues(alpha: p.isDark ? 0.6 : 0.35),
-    transitionDuration: AtriumMotion.of(
-      context,
-      const Duration(milliseconds: 520),
-    ),
-    pageBuilder: (_, _, _) => Align(
-      alignment: Alignment.centerRight,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: SizedBox(
-          width: 500,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: _Fiche(chambre: chambre),
-          ),
-        ),
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => Theme(
+      data: theme,
+      child: FractionallySizedBox(
+        heightFactor: 0.94,
+        child: _Fiche(chambre: chambre, panneau: false),
       ),
     ),
-    transitionBuilder: (_, animation, _, enfant) {
-      final t = CurvedAnimation(parent: animation, curve: atriumSpring);
-      return SlideTransition(
-        position: Tween(
-          begin: const Offset(0.35, 0),
-          end: Offset.zero,
-        ).animate(t),
-        child: FadeTransition(opacity: t, child: enfant),
-      );
-    },
   );
 }
 
 class _Fiche extends ConsumerWidget {
-  const _Fiche({required this.chambre});
+  const _Fiche({required this.chambre, required this.panneau});
 
+  /// La chambre telle qu'au clic ; la fiche suit ensuite le plan en direct.
   final RoomBoardEntry chambre;
+  final bool panneau;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fiche = ref.watch(ficheChambreProvider(chambre.roomId));
-    final vue = apparence(chambre.displayStatus);
-    final p = AtriumPalette.current;
+    final actuelle =
+        ref
+            .watch(roomBoardProvider)
+            .value
+            ?.where((c) => c.roomId == chambre.roomId)
+            .firstOrNull ??
+        chambre;
+    final vue = apparence(actuelle.displayStatus);
 
     return Material(
-      color: p.background,
+      color: AtriumDashColors.page,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: panneau
+          ? const BorderRadius.horizontal(left: Radius.circular(28))
+          : const BorderRadius.vertical(top: Radius.circular(28)),
       child: Column(
         children: [
-          _Entete(chambre: chambre, vue: vue),
+          _EnTete(chambre: actuelle, vue: vue, panneau: panneau),
           Expanded(
             child: fiche.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => EmptyState(
-                icon: PhosphorIconsLight.warningCircle,
-                title: 'Lecture impossible',
-                message: '$e',
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AtriumColors.mintStrong,
+                ),
               ),
+              error: (e, _) => Center(child: Text('Lecture impossible : $e')),
               data: (f) => ListView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 children: [
-                  FadeUp(child: _Axes(chambre: chambre)),
-                  const SizedBox(height: 14),
                   if (f.sejour != null) ...[
-                    FadeUp(
-                      index: 1,
-                      child: _Sejour(
-                        titre: 'Séjour en cours',
-                        sejour: f.sejour!,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    FadeUp(
-                      index: 2,
-                      child: _Consommations(lignes: f.consommations),
-                    ),
+                    _Sejour(sejour: f.sejour!, titre: 'Séjour en cours'),
+                    const SizedBox(height: 16),
+                    _Consommations(lignes: f.consommations),
                   ] else if (f.expected != null)
-                    FadeUp(
-                      index: 1,
-                      child: _Sejour(
-                        titre: 'Arrivée attendue',
-                        sejour: f.expected!,
-                      ),
-                    )
+                    _Sejour(sejour: f.expected!, titre: 'Arrivée attendue')
                   else
-                    FadeUp(
-                      index: 1,
-                      child: _Bloc(
-                        titre: 'Séjour en cours',
-                        enfant: _Vide("Aucun client dans cette chambre."),
+                    _Carte(
+                      child: Row(
+                        children: [
+                          _Tuile(
+                            icone: vue.icone,
+                            fond: vue.fond,
+                            encre: vue.encre,
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Text(
+                              'Aucun client dans cette chambre.',
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                color: AtriumColors.ink,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  const SizedBox(height: 14),
-                  FadeUp(index: 3, child: _Historique(sejours: f.historique)),
+                  const SizedBox(height: 16),
+                  _Caracteristiques(chambre: actuelle),
+                  const SizedBox(height: 16),
+                  _Historique(sejours: f.historique),
                 ],
               ),
             ),
           ),
-          _Actions(fiche: fiche.value, chambre: chambre),
+          _Actions(fiche: fiche.value, chambre: actuelle),
         ],
       ),
     );
   }
 }
 
-/// L'en-tete : le numero en tres grand sur la nuit, l'etat en couleur.
-class _Entete extends ConsumerWidget {
-  const _Entete({required this.chambre, required this.vue});
+// --- En-tete -----------------------------------------------------------------
+
+/// La chambre de nuit en fond, le numero comme sur la plaque de la porte.
+class _EnTete extends ConsumerWidget {
+  const _EnTete({
+    required this.chambre,
+    required this.vue,
+    required this.panneau,
+  });
 
   final RoomBoardEntry chambre;
-  final ({String label, Color couleur}) vue;
+  final ApparenceEtat vue;
+  final bool panneau;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -177,119 +195,164 @@ class _Entete extends ConsumerWidget {
         .watch(sessionProvider)
         .acces
         .peut('maintenance.manage');
-    final p = AtriumPalette.current;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 14, 22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(
-              vue.couleur.withValues(alpha: p.isDark ? 0.28 : 0.2),
-              p.isDark ? p.night : p.paper,
-            ),
-            p.isDark ? p.night : p.paper,
-          ],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final haut = panneau ? MediaQuery.paddingOf(context).top : 0.0;
+    final lieu = [
+      chambre.typeLabel,
+      if (chambre.floorLabel != null) chambre.floorLabel!.toLowerCase(),
+    ].join(', ');
+
+    return SizedBox(
+      height: 200 + haut,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: vue.couleur.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: vue.couleur.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
+          Image.asset(
+            photoChambre,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0.4, 0.2),
+            color: AtriumColors.photoTint,
+            colorBlendMode: BlendMode.multiply,
+            filterQuality: FilterQuality.medium,
+            excludeFromSemantics: true,
+          ),
+          // La nuit monte du bas : le numero et le prix se lisent en blanc
+          // sans ombre portee.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AtriumColors.purpleNight.withValues(alpha: 0.35),
+                  AtriumColors.purpleNight.withValues(alpha: 0.6),
+                  AtriumColors.purpleNight.withValues(alpha: 0.94),
+                ],
+                stops: const [0, 0.45, 1],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(22, haut + 14, 14, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!panneau)
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: vue.couleur,
-                        shape: BoxShape.circle,
+                        color: AtriumColors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(3),
                       ),
                     ),
-                    const SizedBox(width: 7),
-                    Text(
-                      vue.label,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: p.onHero,
+                  ),
+                Row(
+                  children: [
+                    PastilleEtat(apparence: vue, surFonce: true),
+                    const Spacer(),
+                    // Signaler un probleme la ou on le decouvre : un client
+                    // appelle, la reception a la fiche sous les yeux.
+                    if (peutSignaler)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Material(
+                          color: AtriumColors.white.withValues(alpha: 0.16),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => showReportIssueDialog(
+                              context,
+                              roomId: chambre.roomId,
+                              roomNumber: chambre.number,
+                            ),
+                            child: Tooltip(
+                              message: 'Signaler un problème',
+                              child: SizedBox.square(
+                                dimension: 44,
+                                child: Icon(
+                                  Icons.build_outlined,
+                                  color: AtriumColors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Semantics(
+                      button: true,
+                      label: 'Fermer la fiche',
+                      excludeSemantics: true,
+                      child: Material(
+                        color: AtriumColors.white.withValues(alpha: 0.16),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => Navigator.of(context).pop(),
+                          child: const SizedBox.square(
+                            dimension: 44,
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: AtriumColors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const Spacer(),
-              // Signaler un probleme la ou on le decouvre : un client
-              // appelle, la reception a la fiche sous les yeux.
-              if (peutSignaler)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    tooltip: 'Signaler un problème',
-                    style: IconButton.styleFrom(
-                      backgroundColor: p.onHero.withValues(alpha: 0.1),
+                const Spacer(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chambre ${chambre.number}',
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              color: AtriumColors.white,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            lieu,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AtriumColors.onPurpleSoft,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    icon: Icon(
-                      PhosphorIconsLight.wrench,
-                      color: p.onHero,
-                      size: 22,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatAmount(chambre.rate),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AtriumColors.white,
+                          ),
+                        ),
+                        const Text(
+                          'la nuit',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AtriumColors.onPurpleSoft,
+                          ),
+                        ),
+                      ],
                     ),
-                    onPressed: () => showReportIssueDialog(
-                      context,
-                      roomId: chambre.roomId,
-                      roomNumber: chambre.number,
-                    ),
-                  ),
+                  ],
                 ),
-              IconButton(
-                tooltip: 'Fermer',
-                style: IconButton.styleFrom(
-                  backgroundColor: p.onHero.withValues(alpha: 0.1),
-                ),
-                icon: Icon(PhosphorIconsLight.x, color: p.onHero, size: 22),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            chambre.number,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 64,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -3,
-              height: 1,
-              color: p.onHero,
-              fontFeatures: tabularFigures,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            [
-              chambre.typeLabel,
-              chambre.floorLabel ?? 'Sans étage',
-              '${formatAmount(chambre.rate)} / nuit',
-            ].join('  ·  '),
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              color: p.onHeroSoft,
+              ],
             ),
           ),
         ],
@@ -298,138 +361,124 @@ class _Entete extends ConsumerWidget {
   }
 }
 
-/// Les trois axes, cote a cote et non fondus en un seul mot : c'est ce qui
-/// permet a la reception et au housekeeping de lire la meme fiche sans se
-/// contredire.
-class _Axes extends StatelessWidget {
-  const _Axes({required this.chambre});
+// --- Sections ----------------------------------------------------------------
 
-  final RoomBoardEntry chambre;
+class _Carte extends StatelessWidget {
+  const _Carte({required this.child, this.titre});
 
-  @override
-  Widget build(BuildContext context) {
-    final occupation = switch (chambre.occupancy) {
-      OccupancyStatus.VACANT => (PhosphorIconsLight.doorOpen, 'Libre'),
-      OccupancyStatus.RESERVED => (
-        PhosphorIconsLight.calendarCheck,
-        'Réservée',
-      ),
-      OccupancyStatus.OCCUPIED => (PhosphorIconsLight.user, 'Occupée'),
-    };
-    final proprete = switch (chambre.housekeeping) {
-      HousekeepingStatus.CLEAN => (PhosphorIconsLight.sparkle, 'Propre'),
-      HousekeepingStatus.DIRTY => (PhosphorIconsLight.broom, 'Sale'),
-      HousekeepingStatus.IN_PROGRESS => (PhosphorIconsLight.broom, 'En cours'),
-      HousekeepingStatus.INSPECTED => (
-        PhosphorIconsLight.sealCheck,
-        'Inspectée',
-      ),
-    };
-    final service = chambre.isOutOfOrder
-        ? (PhosphorIconsLight.wrench, 'Hors service')
-        : (PhosphorIconsLight.checkCircle, 'En service');
-    return Row(
-      children: [
-        Expanded(child: _Axe('Occupation', occupation.$1, occupation.$2)),
-        const SizedBox(width: 10),
-        Expanded(child: _Axe('Propreté', proprete.$1, proprete.$2)),
-        const SizedBox(width: 10),
-        Expanded(child: _Axe('Service', service.$1, service.$2)),
-      ],
-    );
-  }
-}
-
-class _Axe extends StatelessWidget {
-  const _Axe(this.titre, this.icone, this.valeur);
-
-  final String titre;
-  final IconData icone;
-  final String valeur;
+  final String? titre;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: p.paper,
+        color: AtriumDashColors.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: p.border),
+        border: Border.all(color: AtriumDashColors.cardBorder),
+        boxShadow: AtriumShadows.soft,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icone, size: 22, color: p.accent),
-          const SizedBox(height: 10),
-          Text(
-            valeur,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: p.text,
+          if (titre != null) ...[
+            Text(
+              titre!,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AtriumDashColors.title,
+              ),
             ),
-          ),
-          Text(
-            titre,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12,
-              color: p.textSecondary,
-            ),
-          ),
+            const SizedBox(height: 14),
+          ],
+          child,
         ],
       ),
+    );
+  }
+}
+
+class _Tuile extends StatelessWidget {
+  const _Tuile({
+    required this.icone,
+    required this.fond,
+    required this.encre,
+    this.taille = 42,
+  });
+
+  final IconData icone;
+  final Color fond;
+  final Color encre;
+  final double taille;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: taille,
+      height: taille,
+      decoration: BoxDecoration(
+        color: fond,
+        borderRadius: BorderRadius.circular(taille * 0.3),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icone, size: taille * 0.5, color: encre),
     );
   }
 }
 
 class _Sejour extends StatelessWidget {
-  const _Sejour({required this.titre, required this.sejour});
+  const _Sejour({required this.sejour, required this.titre});
 
-  final String titre;
   final CurrentStay sejour;
+  final String titre;
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
     final arrivee = parseIsoDate(sejour.arrival);
     final depart = parseIsoDate(sejour.departure);
-    final nuits = (arrivee != null && depart != null)
-        ? depart.difference(arrivee).inDays
-        : 0;
+    final aujourdhui = businessDayFor(DateTime.now());
+    final nuits = arrivee == null || depart == null
+        ? null
+        : depart.difference(arrivee).inDays;
+    final nuitEnCours = arrivee == null
+        ? null
+        : aujourdhui.difference(arrivee).inDays + 1;
+    final personnes = [
+      '${sejour.adultes} adulte${sejour.adultes > 1 ? 's' : ''}',
+      if (sejour.enfants > 0)
+        '${sejour.enfants} enfant${sejour.enfants > 1 ? 's' : ''}',
+    ].join(', ');
 
-    Widget date(String libelle, DateTime? d, String brut) => Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(libelle, style: _styleCle),
-          const SizedBox(height: 2),
-          Text(
-            d == null ? brut : formatDayMonth(d),
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: p.text,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return _Bloc(
+    return _Carte(
       titre: titre,
-      enfant: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Monogram(sejour.guestName, size: 48),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AtriumColors.purpleBright, AtriumColors.purple],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _initiales(sejour.guestName),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AtriumColors.white,
+                  ),
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -437,75 +486,206 @@ class _Sejour extends StatelessWidget {
                   children: [
                     Text(
                       sejour.guestName,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: p.text,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AtriumDashColors.title,
                       ),
                     ),
                     Text(
-                      '${sejour.adultes} adulte${sejour.adultes > 1 ? 's' : ''}'
-                      '${sejour.enfants > 0 ? ', ${sejour.enfants} enfant${sejour.enfants > 1 ? 's' : ''}' : ''}'
-                      '  ·  ${formatAmount(sejour.nightlyRate)} / nuit',
-                      style: _styleCle,
+                      personnes,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: AtriumColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: p.surfaceMuted.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                date('Arrivée', arrivee, sejour.arrival),
-                Column(
-                  children: [
-                    Icon(
-                      PhosphorIconsLight.moonStars,
-                      size: 18,
-                      color: p.accent,
-                    ),
-                    Text(
-                      '$nuits nuit${nuits > 1 ? 's' : ''}',
-                      style: _styleCle.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 18),
-                date('Départ', depart, sejour.departure),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Row(
             children: [
-              Text("Solde de l'ardoise", style: _styleCle),
-              const Spacer(),
-              Text(
-                formatAmount(sejour.balance),
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.6,
-                  color: sejour.balance > 0 ? p.accent : p.text,
-                  fontFeatures: tabularFigures,
+              Expanded(
+                child: _Date(
+                  libelle: 'Arrivée',
+                  date: arrivee,
+                  brut: sejour.arrival,
+                ),
+              ),
+              const Icon(
+                Icons.east_rounded,
+                size: 20,
+                color: AtriumColors.textSecondary,
+              ),
+              Expanded(
+                child: _Date(
+                  libelle: 'Départ',
+                  date: depart,
+                  brut: sejour.departure,
+                  alignerFin: true,
                 ),
               ),
             ],
+          ),
+          if (nuits != null && nuits > 0 && nuitEnCours != null) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (nuitEnCours / nuits).clamp(0.0, 1.0),
+                      minHeight: 6,
+                      color: AtriumColors.purple,
+                      backgroundColor: AtriumDashColors.control,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  nuitEnCours <= 0
+                      ? '$nuits nuit${nuits > 1 ? 's' : ''}'
+                      : 'Nuit ${nuitEnCours.clamp(1, nuits)} sur $nuits',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AtriumColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          _Ligne(
+            cle: 'Tarif de la nuit',
+            valeur: formatAmount(sejour.nightlyRate),
+          ),
+          const SizedBox(height: 12),
+          _Solde(solde: sejour.balance),
+        ],
+      ),
+    );
+  }
+}
+
+class _Date extends StatelessWidget {
+  const _Date({
+    required this.libelle,
+    required this.date,
+    required this.brut,
+    this.alignerFin = false,
+  });
+
+  final String libelle;
+  final DateTime? date;
+  final String brut;
+  final bool alignerFin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignerFin
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          libelle,
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: AtriumColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          date == null ? brut : formatShortDate(date!),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AtriumDashColors.title,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Le solde de l'ardoise, en evidence : c'est la question du client qui part.
+class _Solde extends StatelessWidget {
+  const _Solde({required this.solde});
+
+  final int solde;
+
+  @override
+  Widget build(BuildContext context) {
+    final (libelle, fond, encre) = solde > 0
+        ? (
+            'Reste à régler',
+            AtriumRoomColors.reservedTint,
+            AtriumRoomColors.reservedInk,
+          )
+        : (
+            'Ardoise soldée',
+            AtriumRoomColors.availableTint,
+            AtriumRoomColors.availableInk,
+          );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: fond,
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            solde > 0
+                ? Icons.account_balance_wallet_outlined
+                : Icons.verified_outlined,
+            color: encre,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              libelle,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: encre,
+              ),
+            ),
+          ),
+          Text(
+            formatAmount(solde),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: encre,
+              fontFeatures: tabularFigures,
+            ),
           ),
         ],
       ),
     );
   }
 }
+
+IconData _iconeCategorie(ChargeCategory c) => switch (c) {
+  ChargeCategory.ROOM => Icons.bed_outlined,
+  ChargeCategory.FNB => Icons.restaurant_outlined,
+  ChargeCategory.MINIBAR => Icons.local_bar_outlined,
+  ChargeCategory.SPA => Icons.spa_outlined,
+  ChargeCategory.LAUNDRY => Icons.local_laundry_service_outlined,
+  ChargeCategory.TELEPHONE => Icons.phone_outlined,
+  ChargeCategory.TAX => Icons.receipt_long_outlined,
+  ChargeCategory.DISCOUNT => Icons.sell_outlined,
+  ChargeCategory.DEPOSIT => Icons.savings_outlined,
+  ChargeCategory.MISC => Icons.more_horiz_rounded,
+};
 
 class _Consommations extends StatelessWidget {
   const _Consommations({required this.lignes});
@@ -514,64 +694,180 @@ class _Consommations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return _Bloc(
+    return _Carte(
       titre: 'Consommations',
-      compteur: lignes.length,
-      enfant: lignes.isEmpty
-          ? _Vide("Rien n'est encore porté à l'ardoise.")
+      child: lignes.isEmpty
+          ? const Text(
+              'Aucune consommation portée à l’ardoise.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
+            )
           : Column(
               children: [
-                for (final l in lignes)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: p.surfaceMuted,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            chargeCategoryIcon(l.categorie),
-                            size: 18,
-                            color: p.text,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(l.libelle, style: _styleValeur),
-                              Text(
-                                '${chargeCategoryLabel(l.categorie)} · ${_jour(l.journee)}',
-                                style: _styleCle,
+                for (var i = 0; i < lignes.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 18, color: AtriumDashColors.grid),
+                  Row(
+                    children: [
+                      _Tuile(
+                        icone: _iconeCategorie(lignes[i].categorie),
+                        fond: AtriumDashColors.tileLavender,
+                        encre: AtriumDashColors.tileLavenderInk,
+                        taille: 38,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lignes[i].libelle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: AtriumDashColors.title,
                               ),
-                            ],
-                          ),
+                            ),
+                            Text(
+                              '${chargeCategoryLabel(lignes[i].categorie)}, '
+                              '${_jour(lignes[i].journee)}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AtriumColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          formatAmount(l.montant),
-                          style: _styleValeur.copyWith(
-                            fontWeight: FontWeight.w800,
-                            fontFeatures: tabularFigures,
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatAmount(lignes[i].montant),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AtriumDashColors.title,
+                          fontFeatures: tabularFigures,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ],
               ],
             ),
     );
   }
 }
 
-String _jour(String iso) {
-  final d = parseIsoDate(iso);
-  return d == null ? iso : formatDayMonth(d);
+class _Caracteristiques extends StatelessWidget {
+  const _Caracteristiques({required this.chambre});
+
+  final RoomBoardEntry chambre;
+
+  @override
+  Widget build(BuildContext context) {
+    // Les trois axes, montres separement et non fondus en un seul mot : c'est
+    // ce qui permet a la reception et au housekeeping de lire la meme fiche
+    // sans se contredire.
+    final (occupation, apOccupation) = switch (chambre.occupancy) {
+      OccupancyStatus.OCCUPIED => (
+        'Occupée',
+        apparence(RoomDisplayStatus.OCCUPIED),
+      ),
+      OccupancyStatus.RESERVED => (
+        'Réservée',
+        apparence(RoomDisplayStatus.RESERVED),
+      ),
+      OccupancyStatus.VACANT => (
+        'Libre',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+    };
+    final (proprete, apProprete) = switch (chambre.housekeeping) {
+      HousekeepingStatus.CLEAN => (
+        'Propre',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+      HousekeepingStatus.INSPECTED => (
+        'Inspectée',
+        apparence(RoomDisplayStatus.AVAILABLE),
+      ),
+      HousekeepingStatus.DIRTY => (
+        'À nettoyer',
+        apparence(RoomDisplayStatus.CLEANING),
+      ),
+      HousekeepingStatus.IN_PROGRESS => (
+        'Ménage en cours',
+        apparence(RoomDisplayStatus.CLEANING),
+      ),
+    };
+    final (service, apService) = chambre.isOutOfOrder
+        ? ('Hors service', apparence(RoomDisplayStatus.MAINTENANCE))
+        : ('En service', apparence(RoomDisplayStatus.AVAILABLE));
+
+    return _Carte(
+      titre: 'La chambre',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Ligne(cle: 'Catégorie', valeur: chambre.typeLabel),
+          _Ligne(cle: 'Tarif de référence', valeur: formatAmount(chambre.rate)),
+          _Ligne(cle: 'Étage', valeur: chambre.floorLabel ?? 'Non renseigné'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Axe(nom: 'Occupation', valeur: occupation, vue: apOccupation),
+              _Axe(nom: 'Propreté', valeur: proprete, vue: apProprete),
+              _Axe(nom: 'Service', valeur: service, vue: apService),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un des trois axes de l'etat de la chambre.
+class _Axe extends StatelessWidget {
+  const _Axe({required this.nom, required this.valeur, required this.vue});
+
+  final String nom;
+  final String valeur;
+  final ApparenceEtat vue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+      decoration: BoxDecoration(
+        color: vue.fond,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            nom,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: vue.encre.withValues(alpha: 0.8),
+            ),
+          ),
+          Text(
+            valeur,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: vue.encre,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Historique extends StatelessWidget {
@@ -581,64 +877,104 @@ class _Historique extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return _Bloc(
+    return _Carte(
       titre: 'Historique',
-      compteur: sejours.length,
-      enfant: sejours.isEmpty
-          ? _Vide('Aucun séjour terminé dans cette chambre.')
+      child: sejours.isEmpty
+          ? const Text(
+              'Aucun séjour terminé dans cette chambre.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
+            )
           : Column(
               children: [
-                for (var i = 0; i < sejours.length; i++)
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Une frise : un point par sejour, relies.
-                        SizedBox(
-                          width: 20,
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                margin: const EdgeInsets.only(top: 6),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: p.accent, width: 2),
-                                ),
-                              ),
-                              if (i < sejours.length - 1)
-                                Expanded(
-                                  child: Container(width: 2, color: p.border),
-                                ),
-                            ],
+                for (var i = 0; i < sejours.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 16, color: AtriumDashColors.grid),
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          color: AtriumDashColors.control,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _initiales(sejours[i].guestName),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AtriumDashColors.title,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(sejours[i].guestName, style: _styleValeur),
-                                Text(
-                                  '${_jour(sejours[i].arrival)} → ${_jour(sejours[i].departure)}',
-                                  style: _styleCle,
-                                ),
-                              ],
-                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          sejours[i].guestName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: AtriumDashColors.title,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        'du ${_jour(sejours[i].arrival)} '
+                        'au ${_jour(sejours[i].departure)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AtriumColors.textSecondary,
+                          fontFeatures: tabularFigures,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
               ],
             ),
     );
   }
 }
+
+class _Ligne extends StatelessWidget {
+  const _Ligne({required this.cle, required this.valeur});
+
+  final String cle;
+  final String valeur;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              cle,
+              style: const TextStyle(
+                fontSize: 14.5,
+                color: AtriumColors.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            valeur,
+            style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: AtriumDashColors.title,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Actions -----------------------------------------------------------------
 
 class _Actions extends ConsumerWidget {
   const _Actions({required this.fiche, required this.chambre});
@@ -648,166 +984,165 @@ class _Actions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = AtriumPalette.current;
     final sejour = fiche?.sejour;
     final attendu = fiche?.expected;
 
     // Le check-in n'a de sens que si un sejour attribue attend, et le
     // check-out que si quelqu'un est la. Les deux ne sont jamais proposes
     // ensemble : ce serait offrir une action impossible.
-    final boutons = <Widget>[
-      if (attendu != null)
-        PillButton(
-          label: 'Check-in',
-          icon: PhosphorIconsLight.signIn,
-          tone: PillTone.accent,
-          expand: true,
-          onPressed: () async {
-            final fait = await confirmCheckIn(
-              context,
-              ref,
-              lineId: attendu.lineId,
-              guestName: attendu.guestName,
-              roomNumber: chambre.number,
-            );
-            if (fait && context.mounted) Navigator.of(context).pop();
-          },
-        ),
-      if (sejour != null)
-        PillButton(
-          label: 'Check-out',
-          icon: PhosphorIconsLight.signOut,
-          tone: PillTone.primary,
-          expand: true,
-          onPressed: () async {
-            final fait = await confirmCheckOut(
-              context,
-              ref,
-              lineId: sejour.lineId,
-              guestName: sejour.guestName,
-              roomNumber: chambre.number,
-            );
-            if (fait && context.mounted) Navigator.of(context).pop();
-          },
-        ),
-      // Seulement pendant un sejour : avant l'arrivee, on reattribue depuis
-      // la liste des reservations, et rien n'est encore occupe.
-      if (sejour != null)
-        PillButton(
-          label: 'Changer de chambre',
-          icon: PhosphorIconsLight.arrowsLeftRight,
-          tone: PillTone.quiet,
-          expand: true,
-          onPressed: () async {
-            final fait = await confirmChangeRoom(
-              context,
-              ref,
-              lineId: sejour.lineId,
-              guestName: sejour.guestName,
-              roomNumber: chambre.number,
-            );
-            if (fait && context.mounted) Navigator.of(context).pop();
-          },
-        ),
-      // Une consommation ne se porte que sur une ardoise ouverte, donc
-      // uniquement pendant un sejour en cours.
-      if (sejour != null && sejour.folioId != null)
-        PillButton(
-          label: 'Consommation',
-          icon: PhosphorIconsLight.plus,
-          tone: PillTone.quiet,
-          expand: true,
-          onPressed: () => showAddChargeDialog(
-            context,
-            folioId: sejour.folioId!,
-            guestName: sejour.guestName,
+    final List<Widget> boutons;
+    if (sejour != null) {
+      boutons = [
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              foregroundColor: AtriumDashColors.title,
+              side: BorderSide(color: AtriumDashColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () async {
+              final fait = await confirmCheckOut(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                guestName: sejour.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Check-out'),
           ),
         ),
-    ];
+        // Seulement pendant un sejour : avant l'arrivee, on reattribue depuis
+        // la liste des reservations, et rien n'est encore occupe.
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              foregroundColor: AtriumDashColors.title,
+              side: BorderSide(color: AtriumDashColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () async {
+              final fait = await confirmChangeRoom(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                guestName: sejour.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Changer de chambre'),
+            ),
+          ),
+        ),
+        // Une consommation ne se porte que sur une ardoise ouverte.
+        if (sejour.folioId != null) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 54),
+                backgroundColor: AtriumColors.mintSoft,
+                foregroundColor: AtriumColors.ink,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AtriumRadii.md),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: () => showAddChargeDialog(
+                context,
+                folioId: sejour.folioId!,
+                guestName: sejour.guestName,
+              ),
+              icon: const Icon(Icons.add_shopping_cart_rounded),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('Consommation'),
+              ),
+            ),
+          ),
+        ],
+      ];
+    } else if (attendu != null) {
+      boutons = [
+        Expanded(
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              side: BorderSide(
+                color: AtriumColors.mintStrong,
+                width: 1.5,
+              ),
+            ),
+            onPressed: () async {
+              final fait = await confirmCheckIn(
+                context,
+                ref,
+                lineId: attendu.lineId,
+                guestName: attendu.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.login_rounded),
+            label: Text('Check-in de ${attendu.guestName}'),
+          ),
+        ),
+      ];
+    } else {
+      return const SizedBox.shrink();
+    }
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.paddingOf(context).bottom,
+      ),
       decoration: BoxDecoration(
-        color: p.paper,
-        border: Border(top: BorderSide(color: p.border)),
+        color: AtriumDashColors.card,
+        border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
       ),
-      child: SafeArea(
-        top: false,
-        child: boutons.isEmpty
-            ? Text(
-                fiche == null
-                    ? ' '
-                    : 'Aucune action : personne n’est attendu ni présent.',
-                textAlign: TextAlign.center,
-                style: _styleCle,
-              )
-            : Row(
-                children: [
-                  for (var i = 0; i < boutons.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 10),
-                    Expanded(child: boutons[i]),
-                  ],
-                ],
-              ),
-      ),
+      child: Row(children: boutons),
     );
   }
 }
 
-TextStyle get _styleCle => TextStyle(
-  fontFamily: atriumFontFamily,
-  fontSize: 13,
-  fontWeight: FontWeight.w500,
-  color: AtriumColors.textSecondary,
-  fontFeatures: tabularFigures,
-);
-
-TextStyle get _styleValeur => TextStyle(
-  fontFamily: atriumFontFamily,
-  fontSize: 15,
-  fontWeight: FontWeight.w600,
-  color: AtriumColors.textPrimary,
-);
-
-class _Vide extends StatelessWidget {
-  const _Vide(this.texte);
-
-  final String texte;
-
-  @override
-  Widget build(BuildContext context) =>
-      Text(texte, style: _styleCle.copyWith(fontSize: 14));
+String _initiales(String nom) {
+  final mots = nom.split(' ').where((m) => m.isNotEmpty).toList();
+  if (mots.isEmpty) return '?';
+  return mots.take(2).map((m) => m.characters.first.toUpperCase()).join();
 }
 
-class _Bloc extends StatelessWidget {
-  const _Bloc({required this.titre, required this.enfant, this.compteur});
-
-  final String titre;
-  final Widget enfant;
-  final int? compteur;
-
-  @override
-  Widget build(BuildContext context) {
-    return Bezel(
-      radius: 24,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Eyebrow(
-            titre,
-            trailing: compteur == null
-                ? null
-                : Text(
-                    '$compteur',
-                    style: _styleCle.copyWith(fontWeight: FontWeight.w800),
-                  ),
-          ),
-          const SizedBox(height: 14),
-          enfant,
-        ],
-      ),
-    );
-  }
+/// « 28/09 » a partir d'une date ISO de la base.
+String _jour(String iso) {
+  final d = parseIsoDate(iso);
+  return d == null ? iso : formatShortDate(d).substring(0, 5);
 }

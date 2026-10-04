@@ -28,15 +28,16 @@ const double rayonCarte = 16;
 /// Couleurs des cinq etats de chambre du paragraphe 5.2.
 ///
 /// Elles vivent ici et nulle part ailleurs : la pastille du plan, la legende
-/// et la fiche de chambre doivent etre d'accord, sinon l'ecran ment. Choisies
-/// pour se distinguer sur les deux fonds et entre elles pour un lecteur
-/// daltonien : palmier, corail, mangue, ciel, ardoise.
+/// et la fiche de chambre doivent etre d'accord, sinon l'ecran ment.
+///
+/// Elles pointent vers `AtriumRoomColors`, la palette de la charte : les
+/// ecrans pas encore refondus (le menage) parlent ainsi deja comme le plan.
 abstract final class CouleursEtat {
-  static const disponible = Color(0xFF12A876);
-  static const occupee = Color(0xFFE5484D);
-  static const reservee = Color(0xFFF2A20C);
-  static const nettoyage = Color(0xFF3F7BF2);
-  static const maintenance = Color(0xFF6B7391);
+  static const disponible = AtriumRoomColors.available;
+  static const occupee = AtriumRoomColors.occupied;
+  static const reservee = AtriumRoomColors.reserved;
+  static const nettoyage = AtriumRoomColors.cleaning;
+  static const maintenance = AtriumRoomColors.outOfOrder;
 }
 
 /// Le theme en vigueur, construit depuis la palette courante.

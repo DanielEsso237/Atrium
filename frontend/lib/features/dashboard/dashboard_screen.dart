@@ -25,9 +25,9 @@ import '../../core/theme.dart';
 import '../../core/tokens.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
-import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
-import '../sync/sync_status.dart';
+import '../../core/widgets/atrium_bandeau.dart';
+import '../../core/widgets/atrium_puces.dart';
 import 'dashboard_charts.dart';
 import 'dashboard_sidebar.dart';
 
@@ -451,11 +451,6 @@ class _Bandeau extends ConsumerWidget {
         final uneLigne = c.maxWidth >= 1060;
         final telephone = c.maxWidth < 600;
         final etroit = !uneLigne;
-        // Sur un telephone, la photo se retire a droite : pleine largeur, elle
-        // passait sous le texte d'accueil.
-        final largeurPhoto = telephone
-            ? (c.maxWidth * 0.42).roundToDouble()
-            : (c.maxWidth * 0.55).clamp(360.0, 820.0).roundToDouble();
 
         final salutation = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,7 +495,7 @@ class _Bandeau extends ConsumerWidget {
           ],
         );
 
-        const puces = [_PuceDate(), _PuceEtat(), _PuceEcritures()];
+        const puces = [_PuceDate(), PuceEtatConnexion(), PuceEcritures()];
         final bouton = _BoutonMenu(ouvert: menuOuvert, onTap: onMenu);
 
         final actions = Row(
@@ -533,57 +528,7 @@ class _Bandeau extends ConsumerWidget {
           constraints: BoxConstraints(minHeight: haut + (etroit ? 150 : 172)),
           child: Stack(
             children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AtriumDashColors.headerLight,
-                        AtriumDashColors.page,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: largeurPhoto,
-                // La photo devient transparente vers la gauche au lieu d'etre
-                // recouverte d'un voile de couleur : un voile ne tombe jamais
-                // exactement sur le degrade du fond, et laissait un trait
-                // vertical la ou il commencait.
-                child: ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: (zone) => LinearGradient(
-                    colors: [
-                      AtriumColors.white.withValues(alpha: 0),
-                      AtriumColors.white.withValues(
-                        alpha: telephone ? 0.3 : 0.5,
-                      ),
-                      AtriumColors.white,
-                    ],
-                    stops: telephone ? const [0, 0.6, 1] : const [0, 0.3, 0.62],
-                  ).createShader(zone),
-                  child: Image.asset(
-                    _photoChambre,
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0.55, 0.1),
-                    color: AtriumColors.photoTint,
-                    colorBlendMode: BlendMode.multiply,
-                    filterQuality: FilterQuality.medium,
-                    excludeFromSemantics: true,
-                  ),
-                ),
-              ),
-              const Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(painter: _VoilesBandeau()),
-                ),
-              ),
+              const Positioned.fill(child: AtriumBandeauFond()),
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   telephone ? 12 : 24,
@@ -779,61 +724,6 @@ class _TroisTraits extends CustomPainter {
       ancien.ouverture != ouverture || ancien.survol != survol;
 }
 
-/// Une pastille du bandeau.
-class _Puce extends StatelessWidget {
-  _Puce({
-    required this.icone,
-    required this.child,
-    Color? fond,
-    Color? encre,
-    this.onTap,
-  }) : fond = fond ?? AtriumColors.white,
-       encre = encre ?? AtriumDashColors.title;
-
-  final IconData icone;
-  final Widget child;
-  final Color fond;
-  final Color encre;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: fond,
-        borderRadius: BorderRadius.circular(AtriumRadii.md),
-        boxShadow: fond == AtriumColors.white ? AtriumShadows.soft : null,
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AtriumRadii.md),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 42),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icone, size: 20, color: encre),
-                const SizedBox(width: AtriumSpacing.sm),
-                DefaultTextStyle.merge(
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: encre,
-                  ),
-                  child: child,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// La journee **hoteliere**, celle dont parlent les chiffres, et non la date
 /// du calendrier. Entre minuit et six heures les deux different : afficher le
 /// 25 au-dessus de compteurs qui parlent du 24 fait lire une remise a zero la
@@ -848,7 +738,7 @@ class _PuceDate extends StatelessWidget {
     final journee = businessDayFor(maintenant);
     final decalee = journee.day != maintenant.day;
 
-    final puce = _Puce(
+    final puce = AtriumPuce(
       icone: Icons.calendar_month_outlined,
       child: decalee
           ? Column(
@@ -875,73 +765,6 @@ class _PuceDate extends StatelessWidget {
           "La journée hôtelière court jusqu'à 6 h. Les chiffres sont ceux de "
           'cette journée, pas de la date du calendrier.',
       child: puce,
-    );
-  }
-}
-
-/// Dire honnetement ou en est la tablette. L'etat vient du dernier echange,
-/// pas de la connexion : sinon un agent devrait se deconnecter et se
-/// reconnecter pour que l'application remarque que le serveur est revenu, ce
-/// que personne ne fera en service. Tant qu'aucun echange n'a rien appris, on
-/// retombe sur ce que disait l'authentification.
-class _PuceEtat extends ConsumerWidget {
-  const _PuceEtat();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    final enLigne = ref.watch(syncProvider).joignable ?? session.online;
-
-    return Tooltip(
-      message: enLigne
-          ? 'Dernier échange avec le serveur : réussi'
-          : 'Serveur injoignable : la tablette travaille seule et garde ses '
-                'écritures',
-      child: _Puce(
-        icone: enLigne ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-        fond: AtriumDashColors.chipMint,
-        encre: AtriumDashColors.chipMintInk,
-        child: Text(enLigne ? 'En ligne' : 'Hors ligne'),
-      ),
-    );
-  }
-}
-
-/// Les ecritures qui attendent de remonter. Absente quand tout est remonte :
-/// la pastille d'etat dit deja l'essentiel.
-///
-/// **Et on peut appuyer dessus.** La remontee se fait toute seule, mais quand
-/// elle est bloquee ou que les tentatives se sont espacees, l'agent qui vient
-/// de rebrancher le cable veut pouvoir forcer sans attendre. Le renvoi est
-/// idempotent cote serveur : appuyer dix fois ne cree pas dix lignes.
-class _PuceEcritures extends ConsumerWidget {
-  const _PuceEcritures();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final attente = ref.watch(pendingWritesProvider).value ?? 0;
-    final sync = ref.watch(syncProvider);
-    if (attente == 0) return const SizedBox.shrink();
-
-    final bloque = sync.isBlocked;
-    final message = bloque
-        ? 'Une écriture est refusée et bloque les $attente suivantes. '
-              'Appuyer pour réessayer.'
-        : sync.isOffline
-        ? '$attente écriture(s) en attente, serveur injoignable. '
-              'Elles repartiront toutes seules.'
-        : '$attente écriture(s) en cours de remontée';
-
-    return Tooltip(
-      message: message,
-      child: _Puce(
-        icone: bloque ? Icons.error_outline : Icons.cloud_upload_outlined,
-        encre: bloque ? AtriumColors.error : AtriumDashColors.title,
-        onTap: () => ref.read(syncSchedulerProvider.notifier).maintenant(),
-        // Le nombre seul : le detail est dans l'info-bulle. Longue, la
-        // pastille repoussait le sous-titre de l'accueil sur deux lignes.
-        child: Text('$attente'),
-      ),
     );
   }
 }
@@ -1959,58 +1782,6 @@ class _Erreur extends StatelessWidget {
 }
 
 // --- Decors ------------------------------------------------------------------
-
-/// Les voiles du bandeau : une grande courbe blanche translucide qui passe
-/// sur la photo, et une vague menthe au pied de l'accueil.
-class _VoilesBandeau extends CustomPainter {
-  const _VoilesBandeau();
-
-  @override
-  void paint(Canvas canvas, Size taille) {
-    final w = taille.width;
-    final h = taille.height;
-
-    final voile = Path()
-      ..moveTo(w * 0.38, 0)
-      ..cubicTo(w * 0.5, h * 0.25, w * 0.52, h * 0.85, w * 0.72, h)
-      ..lineTo(w * 0.3, h)
-      ..lineTo(w * 0.3, 0)
-      ..close();
-    canvas.drawPath(
-      voile,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            AtriumColors.white.withValues(alpha: 0),
-            AtriumColors.white.withValues(alpha: 0.55),
-          ],
-        ).createShader(Rect.fromLTWH(w * 0.3, 0, w * 0.42, h)),
-    );
-
-    final menthe = Path()
-      ..moveTo(0, h * 0.62)
-      ..cubicTo(w * 0.1, h * 0.72, w * 0.22, h * 0.95, w * 0.34, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(
-      menthe,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.bottomLeft,
-          end: Alignment.topRight,
-          colors: [
-            AtriumColors.mint.withValues(alpha: 0.7),
-            AtriumColors.mint.withValues(alpha: 0),
-          ],
-        ).createShader(Rect.fromLTWH(0, h * 0.6, w * 0.34, h * 0.4)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_VoilesBandeau ancien) => false;
-}
 
 /// La vague menthe du coin bas droit de la page.
 class _VagueCoin extends CustomPainter {

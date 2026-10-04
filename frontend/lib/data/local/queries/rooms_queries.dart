@@ -7,6 +7,9 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../../core/business_day.dart';
+import '../../../core/formats.dart';
+
 import '../database.dart';
 import '../enums.dart';
 
@@ -203,4 +206,72 @@ extension RoomsQueries on AtriumDatabase {
 
     return rows.map((r) => r.read<String>('number')).toList();
   }
+
+  /// Le client de chaque chambre : celui qui y dort, ou a defaut celui qu'on
+  /// y attend aujourd'hui.
+  ///
+  /// A part de `watchRoomBoard()` et non joint a lui : le plan doit se
+  /// peindre sans attendre les reservations. Les noms arrivent dans la
+  /// foulee, et une chambre sans client n'en a simplement pas.
+  Stream<Map<String, OccupantPlan>> watchOccupantsPlan({DateTime? jour}) {
+    final journee = formatIsoDate(businessDayFor(jour ?? DateTime.now()));
+    return customSelect(
+      '''
+      SELECT rr.room_id, rr.status, rr.arrival_date, rr.departure_date,
+             g.first_name, g.last_name
+        FROM reservation_rooms rr
+        JOIN reservations r ON r.id = rr.reservation_id
+        LEFT JOIN guests g ON g.id = r.guest_id
+       WHERE rr.deleted_at IS NULL
+         AND rr.room_id IS NOT NULL
+         AND (rr.status = 'CHECKED_IN'
+              OR (rr.status IN ('PENDING','CONFIRMED')
+                  AND rr.arrival_date <= ?1
+                  AND rr.departure_date > ?1))
+       ORDER BY CASE rr.status WHEN 'CHECKED_IN' THEN 0 ELSE 1 END,
+                rr.arrival_date
+      ''',
+      variables: [Variable.withString(journee)],
+      readsFrom: {reservationRooms, reservations, guests},
+    ).watch().map((lignes) {
+      final occupants = <String, OccupantPlan>{};
+      for (final l in lignes) {
+        final nom = [
+          l.readNullable<String>('first_name'),
+          l.readNullable<String>('last_name'),
+        ].whereType<String>().map((p) => p.trim()).where((p) => p.isNotEmpty);
+        // Le premier gagne : le client present passe avant celui qu'on
+        // attend, grace au tri.
+        occupants.putIfAbsent(
+          l.read<String>('room_id'),
+          () => OccupantPlan(
+            nom: nom.isEmpty ? 'Client' : nom.join(' '),
+            arrivee: parseIsoDate(l.read<String>('arrival_date'))!,
+            depart: parseIsoDate(l.read<String>('departure_date'))!,
+            present: l.read<String>('status') == 'CHECKED_IN',
+          ),
+        );
+      }
+      return occupants;
+    });
+  }
+}
+
+/// Le client d'une chambre, tel que le plan le montre.
+class OccupantPlan {
+  const OccupantPlan({
+    required this.nom,
+    required this.arrivee,
+    required this.depart,
+    required this.present,
+  });
+
+  final String nom;
+
+  /// Dates d'exploitation, sans heure.
+  final DateTime arrivee;
+  final DateTime depart;
+
+  /// Vrai si le client est dans les murs, faux s'il est attendu.
+  final bool present;
 }
