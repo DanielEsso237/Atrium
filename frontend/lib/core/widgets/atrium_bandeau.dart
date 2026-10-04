@@ -30,7 +30,7 @@ class AtriumBandeauFond extends StatelessWidget {
 
         return Stack(
           children: [
-            const Positioned.fill(
+            Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(

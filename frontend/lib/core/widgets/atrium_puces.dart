@@ -16,14 +16,15 @@ import '../tokens.dart';
 
 /// Une pastille du bandeau.
 class AtriumPuce extends StatelessWidget {
-  const AtriumPuce({
+  AtriumPuce({
     super.key,
     required this.icone,
     this.child,
-    this.fond = AtriumColors.white,
-    this.encre = AtriumDashColors.title,
+    Color? fond,
+    Color? encre,
     this.onTap,
-  });
+  }) : fond = fond ?? AtriumColors.white,
+       encre = encre ?? AtriumDashColors.title;
 
   final IconData icone;
 

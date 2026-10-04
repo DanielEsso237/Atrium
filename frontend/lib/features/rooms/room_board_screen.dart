@@ -89,7 +89,7 @@ class ApparenceEtat {
 }
 
 ApparenceEtat apparence(RoomDisplayStatus etat) => switch (etat) {
-  RoomDisplayStatus.AVAILABLE => const ApparenceEtat(
+  RoomDisplayStatus.AVAILABLE => ApparenceEtat(
     label: 'Disponible',
     pluriel: 'Disponibles',
     icone: Icons.check_circle_outline_rounded,
@@ -242,7 +242,7 @@ class _RoomBoardScreenState extends ConsumerState<RoomBoardScreen>
                 ),
               ),
               ...chambres.when(
-                loading: () => const [
+                loading: () => [
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -552,7 +552,7 @@ class _BoutonSynchroniser extends ConsumerWidget {
                 );
               },
         child: sync.running
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
@@ -797,7 +797,7 @@ class _Segment extends StatelessWidget {
             // menthe comme le selecteur de la connexion.
             decoration: BoxDecoration(
               gradient: choisi
-                  ? const LinearGradient(
+                  ? LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [AtriumColors.purpleBright, AtriumColors.purple],
@@ -884,17 +884,17 @@ class _ChampRecherche extends StatelessWidget {
           maxLines: null,
           textAlignVertical: TextAlignVertical.center,
           textInputAction: TextInputAction.search,
-          style: const TextStyle(fontSize: 15, color: AtriumColors.ink),
+          style: TextStyle(fontSize: 15, color: AtriumColors.ink),
           decoration: InputDecoration(
             hintText: 'Numéro, client ou catégorie',
-            hintStyle: const TextStyle(
+            hintStyle: TextStyle(
               fontSize: 14.5,
               color: AtriumColors.textSecondary,
             ),
             filled: true,
             fillColor: AtriumColors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search_rounded,
               color: AtriumColors.textSecondary,
               size: 22,
@@ -953,7 +953,7 @@ class _EnteteEtage extends StatelessWidget {
         final compte = Text(
           '${chambres.length} chambre${chambres.length > 1 ? 's' : ''}, '
           '$libres libre${libres > 1 ? 's' : ''}',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13.5,
             color: AtriumColors.textSecondary,
           ),
@@ -984,7 +984,7 @@ class _EnteteEtage extends StatelessWidget {
             const SizedBox(width: AtriumSpacing.sm),
             compte,
             const SizedBox(width: AtriumSpacing.lg),
-            const Expanded(
+            Expanded(
               child: SizedBox(
                 height: 1,
                 child: ColoredBox(color: AtriumColors.border),
@@ -1231,7 +1231,7 @@ class _CarteCleState extends State<_CarteCle> {
             // La lumiere accroche le haut de la carte, comme sur une cle
             // plastifiee ; l'ecart reste d'un cran, pour ne pas devenir un
             // degrade.
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
@@ -1281,7 +1281,7 @@ class _CarteCleState extends State<_CarteCle> {
                       children: [
                         Text(
                           chambre.number,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w700,
                             color: AtriumColors.white,
@@ -1455,7 +1455,7 @@ class _LigneSituation extends StatelessWidget {
                 s.titre,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AtriumColors.white,
@@ -1500,13 +1500,13 @@ class _Monogramme extends StatelessWidget {
             width: 29,
             height: 29,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AtriumColors.mint,
               shape: BoxShape.circle,
             ),
             child: Text(
               initiales,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
                 color: AtriumColors.purple,
@@ -1609,7 +1609,7 @@ class _Vide extends StatelessWidget {
             Text(
               texte,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: AtriumColors.ink),
+              style: TextStyle(fontSize: 16, color: AtriumColors.ink),
             ),
             if (action != null) ...[
               const SizedBox(height: AtriumSpacing.sm),
