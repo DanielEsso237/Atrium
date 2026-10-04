@@ -145,6 +145,22 @@ class ApiClient {
     return _asMap(await _send(() => _dio.delete(path)));
   }
 
+  /// Envoie un fichier en `multipart/form-data`.
+  ///
+  /// Dix secondes suffisent a une ligne JSON, pas a une photo sur le Wi-Fi
+  /// d'un couloir : l'envoi a ici une minute.
+  Future<Map<String, dynamic>> putFile(String path, FormData form) async {
+    return _asMap(
+      await _send(
+        () => _dio.put(
+          path,
+          data: form,
+          options: Options(sendTimeout: const Duration(seconds: 60)),
+        ),
+      ),
+    );
+  }
+
   Map<String, dynamic> _asMap(Object? data) =>
       data is Map<String, dynamic> ? data : <String, dynamic>{};
 
@@ -169,7 +185,8 @@ class ApiClient {
       423 => ApiFailure.locked,
       404 => ApiFailure.notFound,
       409 => ApiFailure.conflict,
-      422 => ApiFailure.invalid,
+      // Fichier trop lourd : le renvoyer tel quel n'y changera rien.
+      413 || 422 => ApiFailure.invalid,
       _ => ApiFailure.server,
     };
 

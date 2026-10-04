@@ -63,6 +63,8 @@ class AtriumApp extends ConsumerWidget {
     // et la remontee automatique n'aurait lieu que sur les ecrans qui
     // l'observent -- c'est-a-dire aucun.
     ref.watch(syncSchedulerProvider);
+    // Les photos, sur leur propre file : meme raison.
+    ref.watch(uploadSchedulerProvider);
     final mode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(

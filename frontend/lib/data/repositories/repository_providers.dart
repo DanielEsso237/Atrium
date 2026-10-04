@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database.dart';
 import '../local/database_provider.dart';
+import '../local/files/photo_files.dart';
+import '../remote/file_uploader.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'agent_repository.dart';
@@ -17,6 +19,7 @@ import 'descente.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'housekeeping_repository.dart';
+import 'id_photo_repository.dart';
 import 'invoice_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
@@ -45,6 +48,10 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
 
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),
+);
+
+final idPhotoRepositoryProvider = Provider<IdPhotoRepository>(
+  (ref) => IdPhotoRepository(ref.watch(databaseProvider), platformPhotoFiles()),
 );
 
 final folioRepositoryProvider = Provider<FolioRepository>(
@@ -135,6 +142,30 @@ final outboxSenderProvider = Provider<OutboxSender>(
     api: ref.watch(apiClientProvider),
   ),
 );
+
+/// Montee des photos, sur leur propre file : jamais devant la file d'envoi.
+final fileUploaderProvider = Provider<FileUploader>(
+  (ref) => FileUploader(
+    db: ref.watch(databaseProvider),
+    api: ref.watch(apiClientProvider),
+    files: platformPhotoFiles(),
+  ),
+);
+
+/// Les photos qui attendent de remonter.
+///
+/// A part de `pendingWritesProvider` : une photo en attente n'est pas une
+/// ecriture bloquee, et ne doit ni allumer le bandeau ni relancer la file.
+final pendingUploadsProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db
+      .customSelect(
+        "SELECT COUNT(*) AS n FROM file_uploads WHERE status = 'PENDING'",
+        readsFrom: {db.fileUploads},
+      )
+      .watchSingle()
+      .map((r) => r.read<int>('n'));
+});
 
 final maintenanceRepositoryProvider = Provider<MaintenanceRepository>(
   (ref) => MaintenanceRepository(ref.watch(databaseProvider)),

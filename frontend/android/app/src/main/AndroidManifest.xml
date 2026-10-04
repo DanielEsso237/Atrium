@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Photos de piece d'identite a l'arrivee. Une fois declaree, la
+         permission doit etre accordee pour que l'appareil photo s'ouvre :
+         image_picker la demande lui-meme a la premiere prise de vue. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Facultatif : une tablette sans appareil photo s'installe quand meme,
+         et la saisie de l'arrivee reste possible sans les photos. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="atrium"
         android:name="${applicationName}"

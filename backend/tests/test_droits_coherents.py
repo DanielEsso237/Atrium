@@ -39,6 +39,9 @@ IMPLICATIONS = [
     # reception enregistrait un depart puis se faisait refuser la tache. Le
     # test existait pourtant deja -- il ne couvrait simplement pas ce couple.
     ("reservation.manage", "housekeeping.manage"),
+    # L'arrivee propose de photographier la piece d'identite, qui remonte
+    # par `PUT /attachments` sous le droit d'ecrire la fiche client.
+    ("reservation.manage", "guests.write"),
     # Creer une reservation suppose de pouvoir designer un client.
     ("reservation.create", "guests.read"),
     # On ne nettoie pas une chambre dont on ignore le numero.

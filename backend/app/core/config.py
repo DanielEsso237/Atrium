@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     sync_window_future_days: int = 365
     sync_batch_size: int = 500
 
+    # --- Pieces jointes ---
+    # Dossier ou le serveur range les fichiers recus des tablettes (photos de
+    # piece d'identite). Relatif au dossier de lancement, comme le `.env`.
+    # Les fichiers restent hors de la base : une photo pese des centaines de
+    # kilo-octets, et chaque sauvegarde de PostgreSQL les recopierait.
+    uploads_dir: str = "uploads"
+    # Une photo de tablette reduite a 1600 px pese moins d'un megaoctet ; au-
+    # dela, ce n'est pas une photo prise par l'application.
+    upload_max_bytes: int = 8 * 1024 * 1024
+
     @field_validator("secret_key")
     @classmethod
     def _secret_key_solide(cls, v: str, info) -> str:

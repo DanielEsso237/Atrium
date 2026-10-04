@@ -15,6 +15,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/remote/file_uploader.dart';
 import '../../data/remote/outbox_sender.dart';
 import '../../data/repositories/descente.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -254,4 +255,84 @@ class SyncScheduler extends Notifier<void> {
 
 final syncSchedulerProvider = NotifierProvider<SyncScheduler, void>(
   SyncScheduler.new,
+);
+
+/// Remonte les photos toutes seules, a cote de la file d'envoi.
+///
+/// Distinct de `SyncScheduler` : la file d'envoi ne sait rien des photos, et
+/// une photo refusee ou trop lente ne retarde ni n'arrete jamais une
+/// ecriture. Le moteur des photos ne leve rien ; son resultat ne touche ni
+/// le bandeau ni l'etat de la synchronisation.
+///
+/// Deux signaux le reveillent : une photo vient d'entrer en file, ou la file
+/// d'envoi a bouge -- la creation d'un client vient peut-etre de remonter,
+/// et libere la photo qui l'attendait.
+class UploadScheduler extends Notifier<void> {
+  Timer? _minuteur;
+  int _echecs = 0;
+
+  static const _premierDelai = Duration(seconds: 1);
+
+  // Une photo peut attendre un meilleur reseau : inutile de marteler.
+  static const _delaiMax = Duration(minutes: 5);
+
+  @override
+  void build() {
+    ref.listen<AsyncValue<int>>(pendingUploadsProvider, (_, suivant) {
+      if ((suivant.value ?? 0) > 0) _bientot();
+    }, fireImmediately: true);
+    ref.listen<AsyncValue<int>>(pendingWritesProvider, (_, _) {
+      if ((ref.read(pendingUploadsProvider).value ?? 0) > 0) _bientot();
+    });
+
+    ref.onDispose(_annuler);
+  }
+
+  /// Ne raccourcit pas une attente en cours : apres un echec reseau, une
+  /// nouvelle photo ne justifie pas de reessayer plus tot.
+  void _bientot() {
+    if (_minuteur == null) _planifier(_premierDelai);
+  }
+
+  void _planifier(Duration delai) {
+    _minuteur?.cancel();
+    _minuteur = Timer(delai, () {
+      _minuteur = null;
+      unawaited(_tenter());
+    });
+  }
+
+  void _annuler() {
+    _minuteur?.cancel();
+    _minuteur = null;
+  }
+
+  Future<void> _tenter() async {
+    if ((ref.read(pendingUploadsProvider).value ?? 0) == 0) return;
+
+    final rapport = await ref.read(fileUploaderProvider).drain();
+    switch (rapport.arret) {
+      case UploadStop.termine:
+        _echecs = 0;
+        if (rapport.lotPlein) _planifier(_premierDelai);
+
+      case UploadStop.horsLigne:
+        _echecs++;
+        _planifier(_recul());
+
+      // La prochaine connexion relancera la file d'envoi, donc celle-ci.
+      case UploadStop.sessionInvalide:
+        break;
+    }
+  }
+
+  /// 2s, 4s, 8s… plafonne a cinq minutes.
+  Duration _recul() {
+    final delai = Duration(seconds: 1 << _echecs.clamp(1, 9));
+    return delai > _delaiMax ? _delaiMax : delai;
+  }
+}
+
+final uploadSchedulerProvider = NotifierProvider<UploadScheduler, void>(
+  UploadScheduler.new,
 );

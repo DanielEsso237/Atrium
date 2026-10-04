@@ -450,6 +450,24 @@ class ReservationRepository with OutboxWriter {
     });
   }
 
+  /// Le client du dossier d'une ligne : celui dont on photographie la piece
+  /// a l'arrivee.
+  Future<String?> guestIdOfLine(String lineId) async {
+    final row = await db
+        .customSelect(
+          '''
+      SELECT r.guest_id
+        FROM reservation_rooms rr
+        JOIN reservations r ON r.id = rr.reservation_id
+       WHERE rr.id = ?1
+      ''',
+          variables: [Variable.withString(lineId)],
+          readsFrom: {db.reservations, db.reservationRooms},
+        )
+        .getSingleOrNull();
+    return row?.read<String?>('guest_id');
+  }
+
   /// Enregistre l'arrivee (F1.2) : la chambre devient occupee et l'ardoise
   /// s'ouvre.
   ///

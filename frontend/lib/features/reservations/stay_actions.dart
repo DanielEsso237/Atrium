@@ -19,6 +19,7 @@ import '../../core/tokens.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../billing/payment_dialog.dart';
+import '../guests/id_photos.dart';
 import 'change_room_dialog.dart';
 import '../auth/session.dart';
 
@@ -32,6 +33,11 @@ Future<bool> confirmCheckIn(
   required String guestName,
   required String roomNumber,
 }) async {
+  final guestId = await ref
+      .read(reservationRepositoryProvider)
+      .guestIdOfLine(lineId);
+  if (!context.mounted) return false;
+
   final ok = await _confirm(
     context,
     title: "Enregistrer l'arrivée",
@@ -40,6 +46,10 @@ Future<bool> confirmCheckIn(
         "La chambre passera en occupée sur le plan, et son ardoise s'ouvre "
         'pour recevoir ses consommations.',
     action: "Enregistrer l'arrivée",
+    // Le comptoir est le seul moment ou l'on a la piece en main. Les photos
+    // ne bloquent pas l'arrivee pour autant : un client sans sa piece, ou
+    // une tablette sans appareil photo, doit pouvoir etre installe.
+    extra: guestId == null ? null : _PieceArrivee(guestId: guestId),
   );
   if (!ok) return false;
 
@@ -283,6 +293,7 @@ Future<bool> _confirm(
   required String message,
   required String action,
   bool danger = false,
+  Widget? extra,
 }) async {
   final schema = Theme.of(context).colorScheme;
 
@@ -294,9 +305,19 @@ Future<bool> _confirm(
         size: 32,
       ),
       title: Text(title),
+      scrollable: extra != null,
       content: SizedBox(
         width: 460,
-        child: Text(message, style: const TextStyle(fontSize: 17)),
+        child: extra == null
+            ? Text(message, style: const TextStyle(fontSize: 17))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(message, style: const TextStyle(fontSize: 17)),
+                  extra,
+                ],
+              ),
       ),
       actions: [
         TextButton(
@@ -315,4 +336,39 @@ Future<bool> _confirm(
   );
 
   return answer ?? false;
+}
+
+class _PieceArrivee extends StatelessWidget {
+  const _PieceArrivee({required this.guestId});
+
+  final String guestId;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 22),
+        Text(
+          "Pièce d'identité",
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: p.text,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Photographiez le recto et le verso, maintenant ou plus tard '
+          'depuis la fiche client.',
+          style: TextStyle(fontSize: 14, color: p.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        IdPhotoPair(guestId: guestId),
+      ],
+    );
+  }
 }

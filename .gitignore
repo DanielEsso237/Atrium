@@ -11,6 +11,9 @@ __pycache__/
 .env.*
 !.env.example
 
+# Pieces jointes recues des tablettes : des pieces d'identite de clients
+backend/uploads/
+
 # Flutter / Dart
 frontend/.dart_tool/
 frontend/build/
