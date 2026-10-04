@@ -19,6 +19,7 @@ from app.api.v1.reservations import router as reservations_router
 from app.api.v1.restaurant import router as restaurant_router
 from app.api.v1.room_types import router as room_types_router
 from app.api.v1.rooms import router as rooms_router
+from app.api.v1.settings import router as settings_router
 from app.api.v1.stock import router as stock_router
 from app.api.v1.stock_movements import router as stock_movements_router
 from app.api.v1.users import router as users_router
@@ -39,6 +40,7 @@ router.include_router(reservations_router)
 router.include_router(restaurant_router)
 router.include_router(room_types_router)
 router.include_router(rooms_router)
+router.include_router(settings_router)
 router.include_router(stock_router)
 router.include_router(stock_movements_router)
 router.include_router(users_router)

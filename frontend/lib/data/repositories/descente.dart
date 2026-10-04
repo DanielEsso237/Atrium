@@ -22,18 +22,25 @@
 /// reception des quarante autres. On la saute et on continue.
 library;
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
+import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
+import 'agent_repository.dart';
+import 'settings_repository.dart' show depositRuleKey;
 import 'sync_repository.dart';
 
 /// Ce qu'une descente a rapatrie.
 class PullReport {
   const PullReport({
     this.outlets = 0,
+    this.menuCategories = 0,
+    this.menuItems = 0,
     this.guests = 0,
     this.reservations = 0,
     this.stayLines = 0,
@@ -48,6 +55,8 @@ class PullReport {
   const PullReport.failed(String message) : this(error: message);
 
   final int outlets;
+  final int menuCategories;
+  final int menuItems;
   final int guests;
   final int reservations;
   final int stayLines;
@@ -64,17 +73,30 @@ class PullReport {
   bool get succeeded => error == null && !offline;
 
   int get total =>
-      outlets + guests + reservations + stayLines + folios + items;
+      outlets +
+      menuCategories +
+      menuItems +
+      guests +
+      reservations +
+      stayLines +
+      folios +
+      items;
 
   @override
   String toString() =>
-      'PullReport($guests clients, $reservations reservations, '
+      'PullReport($menuCategories categories de carte, $menuItems articles, '
+      '$guests clients, $reservations reservations, '
       '$stayLines sejours, $folios ardoises, $items lignes, '
       '$skipped ecartees)';
 }
 
 class Descente {
-  Descente(this.db, this._catalog, this._sync, {this.hotelId = _hotelParDefaut});
+  Descente(
+    this.db,
+    this._catalog,
+    this._sync, {
+    this.hotelId = _hotelParDefaut,
+  });
 
   final AtriumDatabase db;
   final CatalogApi _catalog;
@@ -91,16 +113,49 @@ class Descente {
     try {
       // Les points de vente d'abord : une commande s'y accroche, et un
       // point de vente absent ferait ecarter la ligne pour une raison qui
-      // n'a rien a voir avec elle.
-      final pointsDeVente = await _catalog.fetchOutlets();
-      final clients = await _catalog.fetchGuests();
-      final dossiers = await _catalog.fetchReservations();
-      final ardoises = await _catalog.fetchOpenFolios();
+      // n'a rien a voir avec elle. La carte suit : categories, puis articles.
+      //
+      // Chaque ressource n'est lue que si l'agent en a le droit : la
+      // reception ne lit pas le restaurant, le menage ne lit pas les
+      // clients. Un refus (403) passait pour une panne et faisait echouer
+      // toute la descente -- la reception ne recevait plus ni clients, ni
+      // reservations, ni ardoises.
+      final pointsDeVente = await _siPermis(_catalog.fetchOutlets);
+      final categoriesCarte = await _siPermis(_catalog.fetchMenuCategories);
+      final articlesCarte = await _siPermis(_catalog.fetchMenuItems);
+      final clients = await _siPermis(_catalog.fetchGuests);
+      final dossiers = await _siPermis(() => _catalog.fetchReservations());
+      final ardoises = await _siPermis(_catalog.fetchOpenFolios);
+      final regleArrhes = await _catalog.fetchDepositRule();
+      final agents = await _siPermis(_catalog.fetchUsers);
+      final roles = await _siPermis(_catalog.fetchRoles);
+      final permissions = await _siPermis(_catalog.fetchPermissions);
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
+      await _ecrireRegleArrhes(regleArrhes, maintenant);
+      // Les agents : chacun avec ses roles, ses permissions et ses points de
+      // vente. `applyServerAgent` epargne un agent modifie ici et pas encore
+      // remonte.
+      final depotAgents = AgentRepository(db, hotelId: hotelId);
+      // Le catalogue d'abord, puis les roles qui s'y referent, puis les
+      // agents qui portent ces roles.
+      for (final p in permissions) {
+        await depotAgents.applyServerPermission(p);
+      }
+      for (final r in roles) {
+        await depotAgents.applyServerRole(r);
+      }
+      for (final a in agents) {
+        await depotAgents.applyServerAgent(a);
+      }
+      final nCategories = await _ecrireCategoriesCarte(
+        categoriesCarte,
+        maintenant,
+      );
+      final nArticles = await _ecrireArticlesCarte(articlesCarte, maintenant);
       final nClients = await _ecrireClients(clients, maintenant, (n) {
         ecartees += n;
       });
@@ -117,6 +172,8 @@ class Descente {
 
       return PullReport(
         outlets: nPoints,
+        menuCategories: nCategories,
+        menuItems: nArticles,
         guests: nClients,
         reservations: nDossiers,
         stayLines: nLignes,
@@ -133,21 +190,66 @@ class Descente {
     }
   }
 
+  /// La ressource, ou rien si l'agent n'a pas le droit de la lire.
+  ///
+  /// Rien, c'est une liste vide : la descente n'efface jamais, une liste
+  /// vide veut seulement dire « rien a ecrire ». Toute autre erreur remonte
+  /// telle quelle -- hors ligne compris, que `pull` traite a part.
+  Future<List<T>> _siPermis<T>(Future<List<T>> Function() lire) async {
+    try {
+      return await lire();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.forbidden) return <T>[];
+      rethrow;
+    }
+  }
+
+  // --- La regle des arrhes --------------------------------------------------
+
+  /// Ecrit la regle des arrhes, sauf si l'administration de cette tablette en
+  /// a fixe une qui n'est pas encore remontee.
+  Future<void> _ecrireRegleArrhes(Object? regle, DateTime maintenant) async {
+    final existante = await (db.select(db.settings)..where(
+          (s) =>
+              s.key.equals(depositRuleKey) &
+              s.scope.equalsValue(SettingScope.GLOBAL) &
+              s.scopeId.isNull(),
+        ))
+        .getSingleOrNull();
+    if (existante?.syncState == SyncState.pending) return;
+
+    await db
+        .into(db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(
+            id: existante?.id ?? newId(),
+            createdAt: existante?.createdAt ?? maintenant,
+            updatedAt: maintenant,
+            hotelId: hotelId,
+            key: depositRuleKey,
+            value: Value(regle == null ? null : jsonEncode(regle)),
+            label: const Value('Regle des arrhes'),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+  }
+
   // --- Les points de vente ---------------------------------------------------
 
   /// Ecrit les points de vente.
   ///
-  /// Pas de barriere d'ecritures en attente ici : c'est du referentiel, que
-  /// seule l'administration modifie, et jamais depuis la tablette. Le
-  /// serveur fait toujours foi.
+  /// L'ecran d'administration les modifie depuis la tablette : un point de
+  /// vente en attente de remontee n'est pas ecrase, comme partout ailleurs.
   Future<int> _ecrirePointsDeVente(
     List<RemoteOutlet> points,
     DateTime maintenant,
   ) async {
     if (points.isEmpty) return 0;
+    final proteges = await _sync.lignesEnAttente(db.outlets);
 
     await db.transaction(() async {
       for (final o in points) {
+        if (proteges.contains(o.id)) continue;
         await db
             .into(db.outlets)
             .insertOnConflictUpdate(
@@ -162,6 +264,7 @@ class Descente {
                 closesAt: Value(o.closesAt),
                 allowsRoomCharge: Value(o.allowsRoomCharge),
                 sortOrder: Value(o.sortOrder),
+                isActive: Value(o.isActive),
                 syncState: const Value(SyncState.synced),
               ),
             );
@@ -169,6 +272,79 @@ class Descente {
     });
 
     return points.length;
+  }
+
+  // --- La carte du restaurant ------------------------------------------------
+
+  /// Ecrit les categories de la carte.
+  ///
+  /// Referentiel : pas de barriere d'ecritures en attente, le serveur fait foi.
+  /// `outletId` nul = categorie commune a tous les points de vente. Aucune cle
+  /// etrangere cote local : la valeur du serveur est stockee telle quelle.
+  Future<int> _ecrireCategoriesCarte(
+    List<RemoteMenuCategory> categories,
+    DateTime maintenant,
+  ) async {
+    if (categories.isEmpty) return 0;
+
+    await db.transaction(() async {
+      for (final c in categories) {
+        await db
+            .into(db.menuCategories)
+            .insertOnConflictUpdate(
+              MenuCategoriesCompanion.insert(
+                id: c.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                label: c.label,
+                outletId: Value(c.outletId),
+                sortOrder: Value(c.sortOrder),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+
+    return categories.length;
+  }
+
+  /// Ecrit les articles de la carte.
+  ///
+  /// `prepStationId` est stocke tel que le serveur l'envoie, meme si les
+  /// postes de preparation ne descendent pas encore : c'est cette valeur qui
+  /// portera le routage cuisine/bar. `taxRate` est un pourcentage (0 a 100),
+  /// a garder tel quel.
+  Future<int> _ecrireArticlesCarte(
+    List<RemoteMenuItem> articles,
+    DateTime maintenant,
+  ) async {
+    if (articles.isEmpty) return 0;
+
+    await db.transaction(() async {
+      for (final a in articles) {
+        await db
+            .into(db.menuItems)
+            .insertOnConflictUpdate(
+              MenuItemsCompanion.insert(
+                id: a.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                code: a.code,
+                label: a.label,
+                menuCategoryId: a.menuCategoryId,
+                prepStationId: Value(a.prepStationId),
+                price: Value(a.price),
+                taxRate: Value(a.taxRate),
+                isAvailable: Value(a.isAvailable),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+
+    return articles.length;
   }
 
   // --- Les clients -----------------------------------------------------------
@@ -399,11 +575,9 @@ class Descente {
     return lignes.map((l) => l.read<String>('id')).toSet();
   }
 
-  static ReservationStatus _reservationStatus(String v) =>
-      ReservationStatus.values.firstWhere(
-        (s) => s.name == v,
-        orElse: () => ReservationStatus.PENDING,
-      );
+  static ReservationStatus _reservationStatus(String v) => ReservationStatus
+      .values
+      .firstWhere((s) => s.name == v, orElse: () => ReservationStatus.PENDING);
 
   static FolioStatus _folioStatus(String v) => FolioStatus.values.firstWhere(
     (s) => s.name == v,
@@ -415,11 +589,8 @@ class Descente {
     orElse: () => FolioType.GUEST,
   );
 
-  static ChargeCategory _categorie(String v) =>
-      ChargeCategory.values.firstWhere(
-        (s) => s.name == v,
-        orElse: () => ChargeCategory.MISC,
-      );
+  static ChargeCategory _categorie(String v) => ChargeCategory.values
+      .firstWhere((s) => s.name == v, orElse: () => ChargeCategory.MISC);
 
   static IdDocumentType? _document(String? v) {
     if (v == null) return null;

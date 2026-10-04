@@ -7,27 +7,19 @@
 /// que ces ecrans changent.
 library;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/theme_mode.dart';
+import 'core/tokens.dart';
 import 'data/local/database.dart';
 import 'data/local/database_provider.dart';
 import 'data/local/seed.dart';
 import 'data/local/seed_accounts.dart';
-import 'data/repositories/demo_activite.dart';
+import 'data/local/purge_demo.dart';
 import 'features/sync/sync_status.dart';
-
-/// Activite de demonstration (sejours, arrivees, departs) autour de la
-/// journee en cours : active par defaut en developpement, absente d'une
-/// version installee a l'hotel. `--dart-define=ATRIUM_DEMO=false` la coupe en
-/// developpement, `=true` la force pour une presentation.
-const _activiteDemo = bool.fromEnvironment(
-  'ATRIUM_DEMO',
-  defaultValue: kDebugMode,
-);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,14 +30,16 @@ Future<void> main() async {
   // chaque demarrage rafraichit le parametrage sans rien dupliquer.
   await seedDemoData(db);
   await seedAccounts(db);
-  if (_activiteDemo) {
-    // Un jeu de demonstration qui echoue ne doit jamais empecher
-    // l'application de s'ouvrir.
-    try {
-      await seedDemoActivity(db);
-    } catch (e, pile) {
-      debugPrint('Activite de demonstration non installee : $e\n$pile');
+  // Plus de jeu de demonstration : ses clients et sejours n'existaient que
+  // sur la tablette et bloquaient la synchronisation. Une tablette qui en
+  // porte encore la trace repart neuve (voir `purge_demo.dart`). Un echec ne
+  // doit jamais empecher l'application de s'ouvrir.
+  try {
+    if (await purgeDemoActivity(db)) {
+      debugPrint('Tablette remise a neuf : activite de demonstration effacee.');
     }
+  } catch (e, pile) {
+    debugPrint('Remise a neuf impossible : $e\n$pile');
   }
 
   runApp(
@@ -69,12 +63,46 @@ class AtriumApp extends ConsumerWidget {
     // et la remontee automatique n'aurait lieu que sur les ecrans qui
     // l'observent -- c'est-a-dire aucun.
     ref.watch(syncSchedulerProvider);
+    final mode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'Atrium',
       debugShowCheckedModeBanner: false,
-      theme: themeAtrium(),
+      // Clair le jour, sombre le soir : l'appareil decide, sauf si l'agent a
+      // impose l'un ou l'autre.
+      theme: atriumTheme(AtriumPalette.light),
+      darkTheme: atriumTheme(AtriumPalette.dark),
+      themeMode: mode,
+      // Bascule franche : un fondu de couleurs sur toute l'application
+      // melangerait un instant la palette des ecrans et celle du theme.
+      themeAnimationDuration: Duration.zero,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) {
+        // Les ecrans lisent leurs couleurs dans `AtriumPalette.current` : on
+        // la cale sur la luminosite de l'appareil.
+        final sombre = switch (mode) {
+          ThemeMode.dark => true,
+          ThemeMode.light => false,
+          ThemeMode.system =>
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+        };
+        final palette = sombre ? AtriumPalette.dark : AtriumPalette.light;
+        if (!identical(palette, AtriumPalette.current)) {
+          AtriumPalette.current = palette;
+          // Les widgets `const` qui lisent un jeton sans dependre du theme ne
+          // seraient pas redessines : on marque tout l'arbre, une fois, apres
+          // l'image en cours. L'etat et l'ecran ouvert sont conserves.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            void redessiner(Element element) {
+              element.markNeedsBuild();
+              element.visitChildren(redessiner);
+            }
+
+            WidgetsBinding.instance.rootElement?.visitChildren(redessiner);
+          });
+        }
+        return child!;
+      },
     );
   }
 }

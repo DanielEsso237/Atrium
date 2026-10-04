@@ -7,7 +7,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.enums import ReservationSource, ReservationStatus
+from app.models.enums import PaymentMethod, ReservationSource, ReservationStatus
 
 
 class ReservationRoomIn(BaseModel):
@@ -39,7 +39,17 @@ class ReservationIn(BaseModel):
     deposit_amount: int | None = Field(
         default=None,
         ge=0,
-        description="Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+        description=(
+            "Arrhes encaissees maintenant, FCFA (exige deposit_method) ; "
+            "absent = montant du par la regle `reservation.deposit_rule`, rien d'encaisse"
+        ),
+    )
+    deposit_method: PaymentMethod | None = Field(
+        default=None,
+        description="Moyen de paiement des arrhes : seules les especes entrent dans le tiroir",
+    )
+    deposit_reference: str | None = Field(
+        default=None, max_length=80, description="Reference Mobile Money, virement, carte"
     )
     rooms: list[ReservationRoomIn] = Field(min_length=1)
 
@@ -50,6 +60,10 @@ class ReservationIn(BaseModel):
             ids.append(self.id)
         if len(ids) != len(set(ids)):
             raise ValueError("Identifiants en double dans la reservation.")
+        # Des arrhes encaissees sans moyen de paiement ne peuvent pas etre
+        # rapprochees : un virement ne passe pas par le tiroir, des especes si.
+        if self.deposit_amount and self.deposit_method is None:
+            raise ValueError("deposit_method est obligatoire quand des arrhes sont encaissees.")
         return self
 
 
@@ -111,8 +125,40 @@ class CheckInIn(BaseModel):
     key_card_code: str | None = None
 
 
+class CheckInOut(ReservationOut):
+    """Le dossier, plus l'ardoise **retenue** pour la ligne arrivee.
+
+    Elle peut differer de celle que la tablette proposait : si le sejour etait
+    deja arrive (autre tablette, renvoi), le serveur garde la sienne. La
+    tablette doit alors adopter celle-ci, faute de quoi tout ce qu'elle
+    porterait sur la sienne serait refuse en 404 et bloquerait sa file.
+    """
+
+    folio_id: uuid.UUID | None = None
+
+
+class ChangeRoomIn(BaseModel):
+    room_id: uuid.UUID = Field(description="La chambre ou le client s'installe desormais")
+
+
 class CancelIn(BaseModel):
     reason: str | None = None
+    folio_id: uuid.UUID | None = Field(
+        default=None,
+        description="Id de l'ardoise d'indemnite ouverte par la tablette si des arrhes "
+        "sont conservees ; absent = genere",
+    )
+
+
+class PendingDepositsOut(BaseModel):
+    """Arrhes encaissees et encore rattachees a une reservation.
+
+    Ni sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des
+    clients pas encore arrives.
+    """
+
+    count: int
+    total: int
 
 
 class ReservationRoomUpdate(BaseModel):

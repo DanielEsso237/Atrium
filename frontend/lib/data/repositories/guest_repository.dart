@@ -144,6 +144,112 @@ class GuestRepository with OutboxWriter {
     );
   }
 
+  /// Modifie la fiche d'un client.
+  ///
+  /// Aucune des regles de creation ici (`guest_rules.dart`) : un client
+  /// ancien, sans telephone ni piece, doit pouvoir etre corrige tel quel.
+  /// Seuls nom et prenom restent exiges -- le serveur les refuse vides.
+  ///
+  /// L'entree de file porte les six champs de l'ecran, **vides compris** : un
+  /// telephone efface doit s'effacer aussi sur le serveur. Ce sont exactement
+  /// ceux que la descente rapatrie ; tout le reste de la fiche (adresse, date
+  /// de naissance, plafond) n'est pas envoye, et le `PATCH` n'y touche pas.
+  Future<GuestRow> update({
+    required String id,
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? email,
+    String? nationality,
+    IdDocumentType? documentType,
+    String? documentNumber,
+    String? updatedBy,
+  }) {
+    if (firstName.trim().isEmpty || lastName.trim().isEmpty) {
+      throw StateError('Le nom et le prenom sont obligatoires.');
+    }
+    final now = DateTime.now().toUtc();
+
+    return writeAndEnqueue(
+      table: 'guests',
+      id: id,
+      operation: SyncOp.UPDATE,
+      payload: {
+        'id': id,
+        'first_name': firstName.trim(),
+        'last_name': lastName.trim(),
+        'phone': phone,
+        'email': email,
+        'nationality': nationality,
+        'id_document_type': documentType?.name,
+        'id_document_number': documentNumber,
+        'updated_by': updatedBy,
+      },
+      action: () async {
+        await (db.update(db.guests)..where((g) => g.id.equals(id))).write(
+          GuestsCompanion(
+            firstName: Value(firstName.trim()),
+            lastName: Value(lastName.trim()),
+            phone: Value(phone),
+            email: Value(email),
+            nationality: Value(nationality),
+            idDocumentType: Value(documentType),
+            idDocumentNumber: Value(documentNumber),
+            updatedAt: Value(now),
+            updatedBy: Value(updatedBy),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        return (await byId(id))!;
+      },
+    );
+  }
+
+  /// Fixe le plafond de consommation a credit d'un client.
+  ///
+  /// C'est l'administration qui le fixe (decision du 29 septembre), et le
+  /// serveur le refuse a tout autre agent. `0` veut dire **pas de limite**.
+  /// La verification du seuil, elle, lit ce champ avant chaque consommation
+  /// (`FolioRepository._verifierSeuil`).
+  Future<GuestRow> setCreditLimit({
+    required String id,
+    required int creditLimit,
+    String? updatedBy,
+  }) async {
+    if (creditLimit < 0) {
+      throw StateError('Le plafond ne peut pas être négatif.');
+    }
+    final client = (await byId(id))!;
+    final now = DateTime.now().toUtc();
+
+    return writeAndEnqueue(
+      table: 'guests',
+      id: id,
+      operation: SyncOp.UPDATE,
+      // `action` : l'envoyeur n'envoie que le plafond, et pas les six
+      // champs de la fiche -- ce n'est pas une modification de fiche.
+      payload: {
+        'id': id,
+        'action': 'CREDIT_LIMIT',
+        'first_name': client.firstName,
+        'last_name': client.lastName,
+        'credit_limit': creditLimit,
+        'updated_by': updatedBy,
+      },
+      action: () async {
+        await (db.update(db.guests)..where((g) => g.id.equals(id))).write(
+          GuestsCompanion(
+            creditLimit: Value(creditLimit),
+            updatedAt: Value(now),
+            updatedBy: Value(updatedBy),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        return (await byId(id))!;
+      },
+    );
+  }
+
   /// Les sejours d'un client, du plus recent au plus ancien.
   Future<List<GuestStay>> stays(String guestId) async {
     final rows = await db

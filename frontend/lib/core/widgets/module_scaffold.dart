@@ -13,13 +13,15 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/repositories/repository_providers.dart';
 // L'ossature commune porte l'etat des echanges : c'est le seul endroit vu de
 // tous les modules, donc le seul ou l'indicateur soit reellement permanent.
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
+import '../tokens.dart';
+import '../ui/atrium_ui.dart';
+import '../ui/icons.dart';
 
 class ModuleScaffold extends ConsumerWidget {
   const ModuleScaffold({
@@ -27,10 +29,15 @@ class ModuleScaffold extends ConsumerWidget {
     required this.title,
     required this.body,
     this.action,
+    this.subtitle,
   });
 
   final String title;
   final Widget body;
+
+  /// Une ligne sous le titre : ce que l'ecran compte ou resume (« 12 en
+  /// cours, 3 attendues »). Le titre dit ou l'on est, elle dit ou l'on en est.
+  final String? subtitle;
 
   /// Action principale du module, a droite du titre : « Nouveau client »,
   /// « Nouvelle reservation »…
@@ -44,18 +51,55 @@ class ModuleScaffold extends ConsumerWidget {
     final accueil = ref.watch(sessionProvider).acces.homeRoute;
     final ecranUnique = accueil != null && accueil != '/';
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: ecranUnique
-            ? null
-            : IconButton(
-                iconSize: 28,
-                tooltip: 'Tableau de bord',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.go('/'),
+    // Sur telephone, l'action principale descend en bas, pleine largeur,
+    // sous le pouce : dans l'en-tete elle ecrasait le titre.
+    final largeur = MediaQuery.sizeOf(context).width;
+    final etroit = largeur < 600;
+    final marge = etroit ? 18.0 : 32.0;
+
+    final entete = Padding(
+      padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 30, marge, 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: FadeUp(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: etroit ? 30 : 40,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: etroit ? -1 : -1.6,
+                      height: 1.05,
+                      color: AtriumColors.textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AtriumColors.textSecondary,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-        title: Text(title),
-        actions: [
+            ),
+          ),
           const PendingWritesBadge(),
           // Un metier a ecran unique ne passe jamais par le tableau de bord,
           // ou vit le bouton de deconnexion : sans celui-ci, la femme de
@@ -65,20 +109,39 @@ class ModuleScaffold extends ConsumerWidget {
           if (ecranUnique) ...[
             const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Se deconnecter',
-              iconSize: 26,
-              icon: const Icon(Icons.logout),
+              tooltip: 'Se déconnecter',
+              iconSize: 24,
+              icon: const Icon(PhosphorIconsLight.signOut),
               onPressed: () => ref.read(sessionProvider.notifier).deconnecter(),
             ),
           ],
-          if (action != null) ...[
-            const SizedBox(width: 12),
-            action!,
+          if (action != null && !etroit) ...[
+            const SizedBox(width: 14),
+            FadeUp(index: 1, child: action!),
           ],
-          const SizedBox(width: 16),
         ],
       ),
-      body: body,
+    );
+
+    return Scaffold(
+      // Le fond ambiant de la coque doit transparaitre.
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            entete,
+            Expanded(child: body),
+          ],
+        ),
+      ),
+      bottomNavigationBar: action != null && etroit
+          ? SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: SizedBox(width: double.infinity, child: action),
+            )
+          : null,
     );
   }
 }
@@ -101,6 +164,11 @@ class PendingWritesBadge extends ConsumerWidget {
     final pending = ref.watch(pendingWritesProvider).value ?? 0;
     final sync = ref.watch(syncProvider);
     final schema = Theme.of(context).colorScheme;
+    // L'etat vient du dernier echange, pas de la connexion : sans quoi il
+    // faudrait se reconnecter pour voir que le serveur est revenu. Tant
+    // qu'aucun echange n'a rien appris, on retombe sur la connexion.
+    final enLigne = sync.joignable ?? ref.watch(sessionProvider).online;
+    final raison = sync.push?.detail;
 
     final (IconData icone, Color couleur, String message) = switch ((
       pending,
@@ -108,29 +176,29 @@ class PendingWritesBadge extends ConsumerWidget {
       sync.isOffline,
     )) {
       (0, _, true) => (
-        Icons.cloud_off_outlined,
-        schema.outline,
+        PhosphorIconsLight.cloudSlash,
+        schema.onSurfaceVariant,
         'Serveur injoignable, mais rien n\'attend de remonter',
       ),
       (0, _, _) => (
-        Icons.cloud_done_outlined,
-        schema.outline,
+        PhosphorIconsLight.cloudCheck,
+        schema.onSurfaceVariant,
         'Tout est remonte au serveur',
       ),
       (_, true, _) => (
-        Icons.error_outline,
+        PhosphorIconsLight.warningCircle,
         schema.error,
-        'Une ecriture est refusee et bloque les $pending suivantes. '
-            'Appuyer pour reessayer.',
+        'Une ecriture est refusee et bloque les $pending suivantes'
+            '${raison == null ? '' : ' : $raison'}. Appuyer pour reessayer.',
       ),
       (_, _, true) => (
-        Icons.cloud_off_outlined,
+        PhosphorIconsLight.cloudSlash,
         schema.tertiary,
         '$pending ecriture(s) en attente — serveur injoignable. '
             'Elles repartiront toutes seules.',
       ),
       _ => (
-        Icons.cloud_upload_outlined,
+        PhosphorIconsLight.cloudArrowUp,
         schema.tertiary,
         '$pending ecriture(s) en cours de remontee',
       ),
@@ -145,23 +213,29 @@ class PendingWritesBadge extends ConsumerWidget {
         borderRadius: BorderRadius.circular(24),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: pending == 0
-              ? Icon(icone, size: 24, color: couleur)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icone, size: 22, color: couleur),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$pending',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: couleur,
-                      ),
-                    ),
-                  ],
+          // L'etat en toutes lettres : une icone seule ne dit pas a l'agent
+          // s'il travaille en ligne ou non.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icone, size: 22, color: couleur),
+              const SizedBox(width: 6),
+              Text(
+                sync.isBlocked && pending > 0
+                    ? 'Bloqué · $pending'
+                    : pending > 0
+                    ? '${enLigne ? 'En ligne' : 'Hors ligne'} · $pending'
+                    : enLigne
+                    ? 'En ligne'
+                    : 'Hors ligne',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: couleur,
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );

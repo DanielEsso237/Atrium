@@ -229,6 +229,19 @@
       },
       "CancelIn": {
         "properties": {
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id de l'ardoise d'indemnite ouverte par la tablette si des arrhes sont conservees ; absent = genere",
+            "title": "Folio Id"
+          },
           "reason": {
             "anyOf": [
               {
@@ -418,6 +431,21 @@
         "title": "CashSessionStatus",
         "type": "string"
       },
+      "ChangeRoomIn": {
+        "properties": {
+          "room_id": {
+            "description": "La chambre ou le client s'installe desormais",
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id"
+        ],
+        "title": "ChangeRoomIn",
+        "type": "object"
+      },
       "ChargeCategory": {
         "enum": [
           "ROOM",
@@ -477,6 +505,154 @@
         "title": "CheckInIn",
         "type": "object"
       },
+      "CheckInOut": {
+        "description": "Le dossier, plus l'ardoise **retenue** pour la ligne arrivee.\n\nElle peut differer de celle que la tablette proposait : si le sejour etait\ndeja arrive (autre tablette, renvoi), le serveur garde la sienne. La\ntablette doit alors adopter celle-ci, faute de quoi tout ce qu'elle\nporterait sur la sienne serait refuse en 404 et bloquerait sa file.",
+        "properties": {
+          "adults": {
+            "title": "Adults",
+            "type": "integer"
+          },
+          "arrival_date": {
+            "format": "date",
+            "title": "Arrival Date",
+            "type": "string"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "children": {
+            "title": "Children",
+            "type": "integer"
+          },
+          "departure_date": {
+            "format": "date",
+            "title": "Departure Date",
+            "type": "string"
+          },
+          "deposit_amount": {
+            "title": "Deposit Amount",
+            "type": "integer"
+          },
+          "deposit_paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deposit Paid At"
+          },
+          "estimated_total": {
+            "title": "Estimated Total",
+            "type": "integer"
+          },
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio Id"
+          },
+          "guest_id": {
+            "format": "uuid",
+            "title": "Guest Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationRoomOut"
+            },
+            "title": "Rooms",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReservationSource"
+          },
+          "special_requests": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Requests"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "guest_id",
+          "source",
+          "status",
+          "arrival_date",
+          "departure_date",
+          "adults",
+          "children",
+          "estimated_total",
+          "deposit_amount",
+          "deposit_paid_at",
+          "special_requests",
+          "internal_notes",
+          "cancelled_at",
+          "cancel_reason",
+          "rooms"
+        ],
+        "title": "CheckInOut",
+        "type": "object"
+      },
       "DashboardSummary": {
         "properties": {
           "active_reservations": {
@@ -526,6 +702,70 @@
           "rooms_to_clean"
         ],
         "title": "DashboardSummary",
+        "type": "object"
+      },
+      "DepositRule": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FCFA, mode FIXED",
+            "title": "Amount"
+          },
+          "mode": {
+            "enum": [
+              "FIXED",
+              "PERCENT"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "rate_bp": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 10000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Points de base, mode PERCENT (3000 = 30 %)",
+            "title": "Rate Bp"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "DepositRule",
+        "type": "object"
+      },
+      "DepositRuleOut": {
+        "properties": {
+          "rule": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "title": "DepositRuleOut",
         "type": "object"
       },
       "DocumentTemplateIn": {
@@ -745,6 +985,19 @@
             "minLength": 1,
             "title": "Label",
             "type": "string"
+          },
+          "night_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nuitee : la nuit facturee. Une nuit deja portee au sejour n'est pas portee deux fois -- la reponse (200) designe la charge existante.",
+            "title": "Night Date"
           },
           "override_by": {
             "anyOf": [
@@ -2255,6 +2508,19 @@
             ],
             "title": "Equipment Id"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "location": {
             "anyOf": [
               {
@@ -2454,6 +2720,19 @@
       },
       "MenuCategoryIn": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -2540,6 +2819,19 @@
               }
             ],
             "title": "Description"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
           },
           "is_available": {
             "default": true,
@@ -3124,6 +3416,19 @@
             "title": "Code",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
+            "title": "Id"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -3182,6 +3487,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -3210,9 +3519,100 @@
           "opens_at",
           "closes_at",
           "allows_room_charge",
-          "sort_order"
+          "sort_order",
+          "is_active"
         ],
         "title": "OutletOut",
+        "type": "object"
+      },
+      "OutletUpdate": {
+        "description": "Modification partielle : seuls les champs envoyes changent.\n\nUn point de vente ne se supprime pas -- les commandes passees y renvoient.\n`is_active: false` le retire des onglets de l'ecran Commande.",
+        "properties": {
+          "allows_room_charge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allows Room Charge"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "OutletUpdate",
         "type": "object"
       },
       "PasswordReset": {
@@ -3294,6 +3694,63 @@
         ],
         "title": "PaymentMethod",
         "type": "string"
+      },
+      "PendingDepositsOut": {
+        "description": "Arrhes encaissees et encore rattachees a une reservation.\n\nNi sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des\nclients pas encore arrives.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "total"
+        ],
+        "title": "PendingDepositsOut",
+        "type": "object"
+      },
+      "PermissionOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "module": {
+            "title": "Module",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "module"
+        ],
+        "title": "PermissionOut",
+        "type": "object"
+      },
+      "PinReset": {
+        "description": "Nouveau PIN choisi par l'administration, pour un agent qui l'a oublie.",
+        "properties": {
+          "new_pin": {
+            "pattern": "^\\d{4,8}$",
+            "title": "New Pin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_pin"
+        ],
+        "title": "PinReset",
+        "type": "object"
       },
       "PrepStationIn": {
         "properties": {
@@ -4231,8 +4688,32 @@
                 "type": "null"
               }
             ],
-            "description": "Arrhes encaissees, FCFA ; absent = regle `reservation.deposit_rule`",
+            "description": "Arrhes encaissees maintenant, FCFA (exige deposit_method) ; absent = montant du par la regle `reservation.deposit_rule`, rien d'encaisse",
             "title": "Deposit Amount"
+          },
+          "deposit_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Moyen de paiement des arrhes : seules les especes entrent dans le tiroir"
+          },
+          "deposit_reference": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reference Mobile Money, virement, carte",
+            "title": "Deposit Reference"
           },
           "guest_id": {
             "format": "uuid",
@@ -4930,6 +5411,7 @@
         "type": "object"
       },
       "RoleOut": {
+        "description": "Un role et ses permissions.\n\nLes permissions voyagent avec le role : c'est ce qui permet a une tablette\nd'enregistrer, a la connexion en ligne, les droits d'un agent qu'elle ne\nconnaissait pas -- les ecrans et le routeur les lisent en local.",
         "properties": {
           "code": {
             "title": "Code",
@@ -4938,6 +5420,14 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "permissions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
           }
         },
         "required": [
@@ -4945,6 +5435,23 @@
           "label"
         ],
         "title": "RoleOut",
+        "type": "object"
+      },
+      "RolePermissionsIn": {
+        "description": "Les permissions d'un role, en entier : celles-ci et aucune autre.",
+        "properties": {
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "title": "RolePermissionsIn",
         "type": "object"
       },
       "RoomChargeOut": {
@@ -5988,7 +6495,7 @@
         "type": "object"
       },
       "UserIn": {
-        "description": "Creation d'un membre du personnel (admin).",
+        "description": "Creation d'un membre du personnel (admin).\n\nUn PIN ou un mot de passe, au moins l'un des deux : la reception se\nconnecte au PIN sur la tablette, l'administration au mot de passe.",
         "properties": {
           "email": {
             "anyOf": [
@@ -6013,17 +6520,46 @@
             "title": "First Name",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette",
+            "title": "Id"
+          },
           "last_name": {
             "maxLength": 80,
             "minLength": 1,
             "title": "Last Name",
             "type": "string"
           },
+          "outlet_ids": {
+            "description": "Points de vente de l'agent ; vide = tous",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
+          },
           "password": {
+            "anyOf": [
+              {
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Mot de passe initial (hache avant stockage)",
-            "minLength": 8,
-            "title": "Password",
-            "type": "string"
+            "title": "Password"
           },
           "phone": {
             "anyOf": [
@@ -6035,6 +6571,19 @@
               }
             ],
             "title": "Phone"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4,8}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PIN de 4 a 8 chiffres (hache avant stockage)",
+            "title": "Pin"
           },
           "role_codes": {
             "description": "Codes des roles a attribuer, ex. [\"RECEPTION\"]",
@@ -6048,8 +6597,7 @@
         "required": [
           "employee_code",
           "first_name",
-          "last_name",
-          "password"
+          "last_name"
         ],
         "title": "UserIn",
         "type": "object"
@@ -6084,6 +6632,22 @@
             "minLength": 1,
             "title": "Last Name",
             "type": "string"
+          },
+          "outlet_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Remplace les points de vente de l'agent ; absent = inchanges, [] = tous",
+            "title": "Outlet Ids"
           },
           "phone": {
             "anyOf": [
@@ -6181,6 +6745,15 @@
           "must_change_password": {
             "title": "Must Change Password",
             "type": "boolean"
+          },
+          "outlet_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
           },
           "roles": {
             "items": {
@@ -6326,6 +6899,14 @@
             "title": "Must Change Password",
             "type": "boolean"
           },
+          "outlet_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
+          },
           "phone": {
             "anyOf": [
               {
@@ -6354,7 +6935,8 @@
           "phone",
           "is_active",
           "must_change_password",
-          "roles"
+          "roles",
+          "outlet_ids"
         ],
         "title": "UserOut",
         "type": "object"
@@ -7384,6 +7966,7 @@
         ]
       },
       "patch": {
+        "description": "Modifie **seulement les champs envoyes**.\n\nLa tablette n'envoie que ceux de son ecran. Ecrire le schema entier,\ncomme avant, remettait a vide tout le reste -- adresse, date de\nnaissance, notes -- a chaque modification. Un champ envoye a `null`,\nlui, s'efface : c'est ainsi qu'on retire un telephone.",
         "operationId": "update_guest_api_v1_guests__guest_id__patch",
         "parameters": [
           {
@@ -7942,6 +8525,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Ticket deja cree (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -8276,6 +8862,7 @@
         ]
       },
       "post": {
+        "description": "Cree une categorie ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_menu_category_api_v1_menu_categories_post",
         "requestBody": {
           "content": {
@@ -8350,6 +8937,7 @@
         ]
       },
       "post": {
+        "description": "Cree un article ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_menu_item_api_v1_menu_items_post",
         "requestBody": {
           "content": {
@@ -8768,6 +9356,7 @@
     },
     "/api/v1/outlets": {
       "get": {
+        "description": "Les points de vente de l'agent, tous s'il n'est rattache a aucun.",
         "operationId": "list_outlets_api_v1_outlets_get",
         "responses": {
           "200": {
@@ -8796,6 +9385,7 @@
         ]
       },
       "post": {
+        "description": "Cree un point de vente ; un renvoi du meme `id` repond 200 sans rien creer.",
         "operationId": "create_outlet_api_v1_outlets_post",
         "requestBody": {
           "content": {
@@ -8837,6 +9427,96 @@
         "summary": "Create Outlet",
         "tags": [
           "restauration"
+        ]
+      }
+    },
+    "/api/v1/outlets/{outlet_id}": {
+      "patch": {
+        "description": "Modifie ou desactive un point de vente -- jamais de suppression.",
+        "operationId": "update_outlet_api_v1_outlets__outlet_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outlet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Outlet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutletOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Outlet",
+        "tags": [
+          "restauration"
+        ]
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "description": "Le catalogue des permissions, pour cocher celles d'un role.",
+        "operationId": "list_permissions_api_v1_permissions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOut"
+                  },
+                  "title": "Response List Permissions Api V1 Permissions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Permissions",
+        "tags": [
+          "personnel"
         ]
       }
     },
@@ -9981,6 +10661,33 @@
         ]
       }
     },
+    "/api/v1/reservations/deposits/pending": {
+      "get": {
+        "description": "Ce que l'hotel detient en arrhes pour des clients pas encore arrives.\n\nUn paiement rattache a une reservation n'est ni sur une ardoise ni\nreconnu : c'est exactement l'argent en attente. Declaree avant\n`/{reservation_id}`, sinon \"deposits\" serait lu comme un identifiant.",
+        "operationId": "pending_deposits_api_v1_reservations_deposits_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingDepositsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Pending Deposits",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
     "/api/v1/reservations/{reservation_id}": {
       "get": {
         "operationId": "get_reservation_api_v1_reservations__reservation_id__get",
@@ -10088,7 +10795,7 @@
     },
     "/api/v1/reservations/{reservation_id}/cancel": {
       "post": {
-        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, aucun remboursement n'est emis. C'est leur raison d'etre --\nune annulation tardive ne coute pas la chambre a l'hotel.",
+        "description": "Annule tout le dossier.\n\nLes arrhes restent acquises : `deposit_amount` et `deposit_paid_at` ne\nbougent pas, le paiement reste dans la caisse qui l'a recu, aucun\nremboursement n'est emis. C'est leur raison d'etre -- une annulation\ntardive ne coute pas la chambre a l'hotel. Elles sont soldees sur une\nardoise d'indemnite (`_forfeit_deposit`).",
         "operationId": "cancel_reservation_api_v1_reservations__reservation_id__cancel_post",
         "parameters": [
           {
@@ -10145,6 +10852,75 @@
         ]
       }
     },
+    "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/change-room": {
+      "post": {
+        "description": "Un client deja arrive change de chambre sans refaire sa reservation.\n\nL'ancienne redevient vacante **sans** devenir sale, a l'inverse du\ndepart : le client n'y a pas dormi, la faire nettoyer serait une tache\npour rien. Le folio est rattache a la ligne et non a la chambre, il suit\ndonc le client sans qu'on y touche.\n\nNe sont refuses ici que les conflits physiques -- autre categorie, hors\nservice, deja occupee. Une chambre sale n'est pas refusee : la tablette ne\nla propose pas, mais son etat de menage peut etre en retard sur le notre,\net un refus bloquerait sa file d'envoi pour une question de proprete.",
+        "operationId": "change_room_api_v1_reservations__reservation_id__rooms__room_line_id__change_room_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "room_line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Change Room",
+        "tags": [
+          "reservations"
+        ]
+      }
+    },
     "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/check-in": {
       "post": {
         "description": "F1.2 -- attribution de la chambre physique si elle n'a pas deja ete\n\nfaite, puis bascule de la chambre en occupee (voir docs/01, \"trois axes\nd'etat\" : ce champ est independant du statut menage).\n\nLa ligne et la chambre sont verrouillees (`FOR UPDATE`) : deux tablettes\nqui installent deux clients dans la meme chambre au meme moment passent\nl'une apres l'autre, et la seconde voit la chambre occupee.",
@@ -10186,7 +10962,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReservationOut"
+                  "$ref": "#/components/schemas/CheckInOut"
                 }
               }
             },
@@ -10299,6 +11075,64 @@
           }
         ],
         "summary": "List Roles",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_code}/permissions": {
+      "put": {
+        "description": "Remplace les permissions d'un role. Rejouable : meme corps, meme etat.\n\nRefuse (409) ce qui laisserait l'hotel sans aucun agent actif portant\n`users.write` : un hotel sans administrateur ne se repare pas depuis\nl'application.\n\nLes roles ne sont pas propres a un hotel dans le modele : un changement\nvaut pour tous. Le controle, lui, porte sur l'hotel de l'appelant.",
+        "operationId": "set_role_permissions_api_v1_roles__role_code__permissions_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_code",
+            "required": true,
+            "schema": {
+              "title": "Role Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Set Role Permissions",
         "tags": [
           "personnel"
         ]
@@ -10616,6 +11450,96 @@
         "summary": "Update Room",
         "tags": [
           "chambres"
+        ]
+      }
+    },
+    "/api/v1/settings/deposit-rule": {
+      "delete": {
+        "description": "Plus d'arrhes par defaut. Sans regle, rien n'est exige (voir deposit.py).",
+        "operationId": "delete_deposit_rule_api_v1_settings_deposit_rule_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "get": {
+        "description": "Ouverte a tout agent : la reception en a besoin pour calculer les arrhes.\n\nUn droit dedie ferait echouer la descente des agents qui ne l'ont pas.",
+        "operationId": "get_deposit_rule_api_v1_settings_deposit_rule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Deposit Rule",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "put": {
+        "description": "Fixe la regle. Rejouable : renvoyer la meme regle ne change rien.",
+        "operationId": "put_deposit_rule_api_v1_settings_deposit_rule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositRule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Deposit Rule",
+        "tags": [
+          "reglages"
         ]
       }
     },
@@ -11384,6 +12308,65 @@
           }
         ],
         "summary": "Reset Password",
+        "tags": [
+          "personnel"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/reset-pin": {
+      "post": {
+        "description": "Un agent a oublie son PIN : l'administration lui en donne un nouveau.\n\nRejouable : renvoyer le meme PIN laisse le meme etat. Le compte est\ndeverrouille, comme pour un mot de passe.",
+        "operationId": "reset_pin_api_v1_users__user_id__reset_pin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__users__UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reset Pin",
         "tags": [
           "personnel"
         ]

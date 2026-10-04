@@ -39,7 +39,6 @@ const _housekeeper = '01920000-0000-7000-8000-000000050003';
 ///
 /// Quatrieme metier, quatrieme interface : il prend les commandes au bar, au
 /// restaurant ou a la boite de nuit, et les porte sur l'ardoise de la chambre.
-const _restaurateur = '01920000-0000-7000-8000-000000050004';
 
 /// Code PIN du jeu de demonstration.
 ///
@@ -85,7 +84,7 @@ const _roles = <_RoleDemo>[
   // housekeeping le jour ou il existera.
   (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
-  (_roleRestaurant, 'RESTAURANT', 'Restauration', '/commandes'),
+  (_roleRestaurant, 'RESTAURANT', 'Commandes', '/commandes'),
   (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
   ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
   (
@@ -139,6 +138,24 @@ const _permissions = <_PermissionDemo>[
     'Consulter les tickets de maintenance',
     'maintenance',
   ),
+  (
+    '01920000-0000-7000-8000-000000004129',
+    'maintenance.manage',
+    'Creer, assigner, resoudre un ticket de maintenance',
+    'maintenance',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004131',
+    'reservation.read',
+    'Consulter les reservations',
+    'reservation',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004130',
+    'users.write',
+    'Administrer : agents, roles, points de vente, parametres',
+    'users',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -150,9 +167,15 @@ const _droits = <(String role, String permission)>[
   (_roleAdmin, '01920000-0000-7000-8000-000000004123'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004126'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004128'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004129'),
+  // L'administration, comme cote serveur : l'administrateur seul.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004130'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004131'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
+  // Le plan et les reservations : l'ecran de la reception, pas du menage.
+  (_roleReception, '01920000-0000-7000-8000-000000004131'),
   // La reception suit l'avancement du menage : c'est ce que compte deja sa
   // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
   (_roleReception, '01920000-0000-7000-8000-000000004126'),
@@ -225,24 +248,6 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           ),
         );
 
-    await db
-        .into(db.users)
-        .insertOnConflictUpdate(
-          UsersCompanion.insert(
-            id: _restaurateur,
-            createdAt: maintenant,
-            updatedAt: maintenant,
-            hotelId: _hotel,
-            employeeCode: 'RESTAU01',
-            firstName: 'Kofi',
-            lastName: 'Mensah',
-            pinHash: const Value(_pinStocke),
-            passwordHash: const Value(_motDePasseStocke),
-            mustChangePassword: const Value(false),
-            syncState: const Value(SyncState.synced),
-          ),
-        );
-
     // --- Roles, permissions, rattachements -------------------------------
     for (final (id, code, label, accueil) in _roles) {
       await db
@@ -293,7 +298,6 @@ Future<void> seedAccounts(AtriumDatabase db) async {
       (utilisateurDemo, _roleAdmin),
       (_receptionniste, _roleReception),
       (_housekeeper, _roleHousekeeping),
-      (_restaurateur, _roleRestaurant),
     ]) {
       await db
           .into(db.userRoles)

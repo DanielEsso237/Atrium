@@ -27,6 +27,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../repositories/folio_repository.dart';
 import '../repositories/invoice_repository.dart';
 import 'api_client.dart';
 
@@ -51,6 +52,11 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'housekeeping_tasks' => db.housekeepingTasks,
     'invoices' => db.invoices,
     'cash_sessions' => db.cashSessions,
+    'maintenance_tickets' => db.maintenanceTickets,
+    'outlets' => db.outlets,
+    'settings' => db.settings,
+    'users' => db.users,
+    'roles' => db.roles,
     _ => null,
   };
 }
@@ -61,10 +67,17 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
 /// du client. L'ajouter ici donnait `/api/v1/api/v1/guests`, donc un 404 sur
 /// la premiere entree, donc toute la file bloquee derriere elle.
 class _Envoi {
-  const _Envoi(this.chemin, this.corps);
+  const _Envoi(this.chemin, this.corps, {this.methode = _Methode.post});
   final String chemin;
   final Map<String, Object?> corps;
+
+  /// `POST` le plus souvent. `PATCH` pour une modification partielle, ou le
+  /// serveur ne touche qu'aux champs presents dans le corps ; `PUT` et
+  /// `DELETE` pour un reglage qu'on remplace ou qu'on retire.
+  final _Methode methode;
 }
+
+enum _Methode { post, patch, put, delete }
 
 /// Pourquoi le moteur s'est arrete.
 enum DrainStop {
@@ -175,7 +188,12 @@ class OutboxSender {
 
       final Map<String, dynamic> reponse;
       try {
-        reponse = await api.post(envoi.chemin, body: envoi.corps);
+        reponse = switch (envoi.methode) {
+          _Methode.post => await api.post(envoi.chemin, body: envoi.corps),
+          _Methode.patch => await api.patch(envoi.chemin, body: envoi.corps),
+          _Methode.put => await api.put(envoi.chemin, body: envoi.corps),
+          _Methode.delete => await api.delete(envoi.chemin),
+        };
       } on ApiException catch (e) {
         return _apresEchec(entree, e, envoyees);
       }
@@ -197,7 +215,15 @@ class OutboxSender {
 
   /// Recopie ce que seule la reponse du serveur pouvait apprendre.
   ///
-  /// Aujourd'hui un seul cas : le **numero legal** d'une facture. La tablette
+  /// L'**ardoise retenue** a un check-in : si le sejour etait deja arrive sur
+  /// le serveur, il a garde la sienne et ignore celle de la tablette, qui
+  /// l'adopte (voir `FolioRepository.adoptServerFolio`).
+  ///
+  /// La **nuitee deja portee** : deux tablettes ont porte la meme nuit, le
+  /// serveur a garde la premiere et designe la sienne ; la tablette remplace
+  /// la sienne (voir `FolioRepository.adoptServerCharge`).
+  ///
+  /// Le **numero legal** d'une facture : la tablette
   /// hors ligne pose un numero provisoire -- elle ne peut pas connaitre la
   /// suite legale, qui n'a qu'une seule autorite. Sans cette recopie, la
   /// facture garderait son numero provisoire jusqu'a une descente qui
@@ -207,6 +233,38 @@ class OutboxSender {
     OutboxEntryRow entree,
     Map<String, dynamic> reponse,
   ) async {
+    if (entree.entityTable == 'reservation_rooms') {
+      final p = jsonDecode(entree.payload) as Map<String, dynamic>;
+      final local = p['folio_id'] as String?;
+      final serveur = reponse['folio_id'] as String?;
+      if (p['status'] == 'CHECKED_IN' && local != null && serveur != null) {
+        await FolioRepository(
+          db,
+        ).adoptServerFolio(localId: local, serverId: serveur);
+      }
+      return;
+    }
+    if (entree.entityTable == 'users') {
+      // Le serveur a le PIN, hache : la tablette n'en garde aucune copie,
+      // pas meme dans l'historique de sa file.
+      await db.customUpdate(
+        "UPDATE outbox_entries SET payload = json_remove(payload, '\$.pin') "
+        'WHERE id = ?',
+        variables: [Variable.withInt(entree.id)],
+        updates: {db.outboxEntries},
+      );
+      return;
+    }
+    if (entree.entityTable == 'folio_items') {
+      // Une autre charge que la notre : le serveur avait deja cette nuit.
+      final serveur = reponse['id'] as String?;
+      if (serveur != null && serveur != entree.entityId) {
+        await FolioRepository(
+          db,
+        ).adoptServerCharge(localId: entree.entityId, serverId: serveur);
+      }
+      return;
+    }
     if (entree.entityTable != 'invoices') return;
     await InvoiceRepository(db).applyServerNumber(entree.entityId, reponse);
   }
@@ -322,27 +380,29 @@ class OutboxSender {
   }
 
   Future<void> _marquerEchouee(OutboxEntryRow entree, String raison) {
-    return (db.update(db.outboxEntries)..where((e) => e.id.equals(entree.id)))
-        .write(
-          OutboxEntriesCompanion(
-            status: const Value(OutboxStatus.FAILED),
-            attempts: Value(entree.attempts + 1),
-            lastError: Value(raison),
-            lastAttemptAt: Value(DateTime.now().toUtc()),
-          ),
-        );
+    return (db.update(
+      db.outboxEntries,
+    )..where((e) => e.id.equals(entree.id))).write(
+      OutboxEntriesCompanion(
+        status: const Value(OutboxStatus.FAILED),
+        attempts: Value(entree.attempts + 1),
+        lastError: Value(raison),
+        lastAttemptAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   /// Compte la tentative sans condamner l'entree : elle reste `PENDING`.
   Future<void> _compterTentative(OutboxEntryRow entree, String raison) {
-    return (db.update(db.outboxEntries)..where((e) => e.id.equals(entree.id)))
-        .write(
-          OutboxEntriesCompanion(
-            attempts: Value(entree.attempts + 1),
-            lastError: Value(raison),
-            lastAttemptAt: Value(DateTime.now().toUtc()),
-          ),
-        );
+    return (db.update(
+      db.outboxEntries,
+    )..where((e) => e.id.equals(entree.id))).write(
+      OutboxEntriesCompanion(
+        attempts: Value(entree.attempts + 1),
+        lastError: Value(raison),
+        lastAttemptAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   // --- De la file au contrat -------------------------------------------------
@@ -361,25 +421,65 @@ class OutboxSender {
 
     switch (entree.entityTable) {
       case 'guests':
-        return _Envoi('/guests', _sansNuls({
-          'id': p['id'],
-          'first_name': p['first_name'],
-          'last_name': p['last_name'],
-          'phone': p['phone'],
-          'email': p['email'],
-          'nationality': p['nationality'],
-          'id_document_type': p['id_document_type'],
-          'id_document_number': p['id_document_number'],
-        }));
+        // Modification : `PATCH` avec les champs vides **gardes**. Ici une
+        // cle a `null` veut dire « efface-le » -- un telephone retire de la
+        // fiche doit l'etre aussi sur le serveur. Les champs absents
+        // (adresse, naissance, plafond) ne sont pas touches.
+        // Le plafond, fixe par l'administration : lui seul, avec les noms
+        // que le schema du serveur exige.
+        if (p['action'] == 'CREDIT_LIMIT') {
+          return _Envoi(
+            '/guests/${p['id']}',
+            {
+              'first_name': p['first_name'],
+              'last_name': p['last_name'],
+              'credit_limit': p['credit_limit'],
+            },
+            methode: _Methode.patch,
+          );
+        }
+        if (entree.op == SyncOp.UPDATE) {
+          return _Envoi(
+            '/guests/${p['id']}',
+            {
+              'first_name': p['first_name'],
+              'last_name': p['last_name'],
+              'phone': p['phone'],
+              'email': p['email'],
+              'nationality': p['nationality'],
+              'id_document_type': p['id_document_type'],
+              'id_document_number': p['id_document_number'],
+            },
+            methode: _Methode.patch,
+          );
+        }
+        return _Envoi(
+          '/guests',
+          _sansNuls({
+            'id': p['id'],
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'phone': p['phone'],
+            'email': p['email'],
+            'nationality': p['nationality'],
+            'id_document_type': p['id_document_type'],
+            'id_document_number': p['id_document_number'],
+          }),
+        );
 
       case 'reservations':
-        return _Envoi('/reservations', _sansNuls({
-          'id': p['id'],
-          'guest_id': p['guest_id'],
-          'adults': p['adults'],
-          'children': p['children'],
-          'rooms': _lignes(p),
-        }));
+        return _Envoi(
+          '/reservations',
+          _sansNuls({
+            'id': p['id'],
+            'guest_id': p['guest_id'],
+            'adults': p['adults'],
+            'children': p['children'],
+            'deposit_amount': p['deposit_amount'],
+            'deposit_method': p['deposit_method'],
+            'rooms': _lignes(p),
+          }),
+        );
 
       case 'reservation_rooms':
         return _ligneDeSejour(p);
@@ -387,24 +487,35 @@ class OutboxSender {
       case 'folio_items':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('/folios/$folioId/items', _sansNuls({
-          'id': p['id'],
-          'category': p['category'],
-          'label': p['label'],
-          'quantity': p['quantity'],
-          'unit_price': p['unit_price'],
-          'override_by': p['override_by'],
-        }));
+        return _Envoi(
+          '/folios/$folioId/items',
+          _sansNuls({
+            'id': p['id'],
+            'category': p['category'],
+            'label': p['label'],
+            'quantity': p['quantity'],
+            'unit_price': p['unit_price'],
+            'override_by': p['override_by'],
+            // Une nuitee dit quelle nuit elle facture : le serveur la
+            // reconnait si une autre tablette l'a deja portee.
+            'night_date': p['source_table'] == 'stay_nights'
+                ? p['business_date']
+                : null,
+          }),
+        );
 
       case 'payments':
         final folioId = p['folio_id'];
         if (folioId == null) return null;
-        return _Envoi('/folios/$folioId/payments', _sansNuls({
-          'id': p['id'],
-          'method': p['method'],
-          'amount': p['amount'],
-          'reference': p['reference'],
-        }));
+        return _Envoi(
+          '/folios/$folioId/payments',
+          _sansNuls({
+            'id': p['id'],
+            'method': p['method'],
+            'amount': p['amount'],
+            'reference': p['reference'],
+          }),
+        );
 
       case 'folios':
         // Seule fermeture pour l'instant ; le folio nait au check-in.
@@ -427,6 +538,100 @@ class OutboxSender {
         return _Envoi('/cash-sessions/${p['id']}/close', {
           'counted_amount': p['counted_amount'],
         });
+
+      case 'maintenance_tickets':
+        return _maintenance(entree, p);
+
+      case 'outlets':
+        // Creation : l'id de la tablette rend le renvoi sans danger.
+        // Modification : `PATCH`, horaires vides compris -- un horaire retire
+        // doit l'etre aussi sur le serveur.
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi(
+            '/outlets',
+            _sansNuls({
+              'id': p['id'],
+              'code': p['code'],
+              'label': p['label'],
+              'opens_at': p['opens_at'],
+              'closes_at': p['closes_at'],
+              'allows_room_charge': p['allows_room_charge'],
+              'sort_order': p['sort_order'],
+            }),
+          );
+        }
+        return _Envoi(
+          '/outlets/${p['id']}',
+          {
+            'code': p['code'],
+            'label': p['label'],
+            'opens_at': p['opens_at'],
+            'closes_at': p['closes_at'],
+            'allows_room_charge': p['allows_room_charge'],
+            'sort_order': p['sort_order'],
+            'is_active': p['is_active'],
+          },
+          methode: _Methode.patch,
+        );
+
+      case 'users':
+        // Creation : l'id de la tablette rend le renvoi sans danger, et le
+        // PIN part une seule fois -- il est efface de l'entree des que le
+        // serveur l'a recu (`_appliquerReponse`).
+        if (p['action'] == 'RESET_PIN') {
+          return _Envoi('/users/${p['id']}/reset-pin', {'new_pin': p['pin']});
+        }
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi('/users', {
+            'id': p['id'],
+            'employee_code': p['employee_code'],
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'pin': p['pin'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
+          });
+        }
+        // `PATCH` remplace les roles et, s'ils sont envoyes, les points de
+        // vente : on envoie toujours les deux.
+        return _Envoi(
+          '/users/${p['id']}',
+          {
+            'first_name': p['first_name'],
+            'last_name': p['last_name'],
+            'is_active': p['is_active'],
+            'role_codes': p['role_codes'],
+            'outlet_ids': p['outlet_ids'],
+          },
+          methode: _Methode.patch,
+        );
+
+      case 'roles':
+        // Les permissions du role en entier : le serveur remplace, et un
+        // renvoi du meme corps ne change rien.
+        return _Envoi(
+          '/roles/${p['code']}/permissions',
+          {'permissions': p['permissions']},
+          methode: _Methode.put,
+        );
+
+      case 'settings':
+        // Un seul reglage remonte aujourd'hui : la regle des arrhes. Une
+        // valeur vide la retire.
+        if (p['key'] != 'reservation.deposit_rule') return null;
+        final regle = p['value'];
+        if (regle == null) {
+          return const _Envoi(
+            '/settings/deposit-rule',
+            {},
+            methode: _Methode.delete,
+          );
+        }
+        return _Envoi(
+          '/settings/deposit-rule',
+          (regle as Map).cast<String, Object?>(),
+          methode: _Methode.put,
+        );
 
       case 'invoices':
         // Pas de corps : le serveur gele le folio lui-meme, a partir de ses
@@ -469,13 +674,16 @@ class OutboxSender {
   /// `/finish`. C'est ce qui permet a sa duree de nettoyage de faire foi.
   _Envoi? _menage(OutboxEntryRow entree, Map<String, dynamic> p) {
     if (entree.op == SyncOp.INSERT) {
-      return _Envoi('/housekeeping-tasks', _sansNuls({
-        'id': p['id'],
-        'room_id': p['room_id'],
-        'type': p['type'],
-        'priority': p['priority'],
-        'business_date': p['business_date'],
-      }));
+      return _Envoi(
+        '/housekeeping-tasks',
+        _sansNuls({
+          'id': p['id'],
+          'room_id': p['room_id'],
+          'type': p['type'],
+          'priority': p['priority'],
+          'business_date': p['business_date'],
+        }),
+      );
     }
 
     final verbe = switch (p['status']) {
@@ -489,9 +697,39 @@ class OutboxSender {
     return _Envoi('/housekeeping-tasks/${p['id']}/$verbe', const {});
   }
 
-  /// Arrivee, depart, ou attribution de chambre.
+  /// Un ticket de maintenance : creation, puis un verbe par transition,
+  /// comme pour le menage. Toutes ces routes sont rejouables cote serveur.
+  _Envoi? _maintenance(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (entree.op == SyncOp.INSERT) {
+      return _Envoi(
+        '/maintenance-tickets',
+        _sansNuls({
+          'id': p['id'],
+          'room_id': p['room_id'],
+          'location': p['location'],
+          'title': p['title'],
+          'description': p['description'],
+          'priority': p['priority'],
+          'blocks_room': p['blocks_room'],
+        }),
+      );
+    }
+    final base = '/maintenance-tickets/${p['id']}';
+    return switch (p['status']) {
+      'ASSIGNED' when p['assigned_to'] != null => _Envoi('$base/assign', {
+        'user_id': p['assigned_to'],
+      }),
+      'RESOLVED' => _Envoi('$base/resolve', {
+        'resolution': p['resolution'] ?? 'Résolu',
+      }),
+      'CLOSED' => _Envoi('$base/close', const {}),
+      _ => null,
+    };
+  }
+
+  /// Arrivee, depart, changement ou attribution de chambre.
   ///
-  /// Les deux premieres ont un endpoint, qui veut l'identifiant du dossier en
+  /// Les trois premiers ont un endpoint, qui veut l'identifiant du dossier en
   /// plus de celui de la ligne -- la file ne garde que le second, on va
   /// chercher le premier dans la base.
   Future<_Envoi?> _ligneDeSejour(Map<String, dynamic> p) async {
@@ -510,15 +748,25 @@ class OutboxSender {
     final resId = ligne.read<String>('reservation_id');
     final chemin = '/reservations/$resId/rooms/$lineId';
 
+    // Le changement de chambre laisse le statut a CHECKED_IN : lu avant le
+    // statut, sinon il repartirait comme un second check-in, que le serveur
+    // refuse et qui bloquerait la file.
+    if (p['action'] == 'CHANGE_ROOM') {
+      return _Envoi('$chemin/change-room', {'room_id': p['room_id']});
+    }
+
     switch (p['status']) {
       case 'CHECKED_IN':
-        return _Envoi('$chemin/check-in', _sansNuls({
-          'folio_id': p['folio_id'],
-          // L'attribution de chambre n'a pas d'endpoint a elle ; c'est ici
-          // qu'elle remonte, ce qui suffit puisque le serveur n'a besoin de
-          // connaitre la chambre qu'a l'arrivee.
-          'room_id': p['room_id'] ?? ligne.read<String?>('room_id'),
-        }));
+        return _Envoi(
+          '$chemin/check-in',
+          _sansNuls({
+            'folio_id': p['folio_id'],
+            // L'attribution de chambre n'a pas d'endpoint a elle ; c'est ici
+            // qu'elle remonte, ce qui suffit puisque le serveur n'a besoin de
+            // connaitre la chambre qu'a l'arrivee.
+            'room_id': p['room_id'] ?? ligne.read<String?>('room_id'),
+          }),
+        );
 
       case 'CHECKED_OUT':
         return _Envoi('$chemin/check-out', const {});

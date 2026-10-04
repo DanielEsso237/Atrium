@@ -9,7 +9,7 @@ from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import permission_codes, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import Guest, User
@@ -17,6 +17,18 @@ from app.schemas.guests import GuestIn, GuestOut
 from app.services.numbering import Scope, next_number
 
 router = APIRouter(prefix="/guests", tags=["clients"])
+
+
+def _plafond_autorise(fields: dict, user: User) -> None:
+    """Le plafond d'un client est fixe par l'administration (decision du 29/09).
+
+    Seul un agent portant `users.write` peut l'ecrire. La fiche client de la
+    reception ne l'envoie jamais : ce refus ne peut pas bloquer sa file.
+    """
+    if "credit_limit" in fields and "users.write" not in permission_codes(user):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Le plafond d'un client est fixe par l'administration."
+        )
 
 
 def _guest_fields(payload: GuestIn) -> dict:
@@ -76,6 +88,7 @@ async def create_guest(
     """
     guest_id = payload.id or uuid7()
     fields = _guest_fields(payload)
+    _plafond_autorise(fields, user)
 
     existing = (
         await session.execute(
@@ -128,10 +141,22 @@ async def update_guest(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("guests.write")),
 ) -> Guest:
+    """Modifie **seulement les champs envoyes**.
+
+    La tablette n'envoie que ceux de son ecran. Ecrire le schema entier,
+    comme avant, remettait a vide tout le reste -- adresse, date de
+    naissance, notes -- a chaque modification. Un champ envoye a `null`,
+    lui, s'efface : c'est ainsi qu'on retire un telephone.
+    """
     guest = await session.get(Guest, guest_id)
     if guest is None or guest.hotel_id != user.hotel_id or guest.deleted_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client introuvable.")
-    for field, value in _guest_fields(payload).items():
+    fields = payload.model_dump(exclude={"id"}, exclude_unset=True)
+    # Le seuil est regle par la direction : un `null` ne l'efface pas.
+    if fields.get("credit_limit", 0) is None:
+        del fields["credit_limit"]
+    _plafond_autorise(fields, user)
+    for field, value in fields.items():
         setattr(guest, field, value)
     await session.commit()
     await session.refresh(guest)

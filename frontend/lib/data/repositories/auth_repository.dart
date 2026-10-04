@@ -21,6 +21,7 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/auth_api.dart';
+import 'agent_repository.dart';
 
 /// Ce qui a echoue, du point de vue de l'ecran de connexion.
 enum LoginFailure {
@@ -68,7 +69,11 @@ class AuthRepository {
         employeeCode: employeeCode,
         secret: secret,
       );
-      final user = await _upsertFromServer(session.userId, employeeCode);
+      final user = await _upsertFromServer(
+        session.userId,
+        employeeCode,
+        session.me,
+      );
       return LoginResult.success(user, online: true);
     } on ApiException catch (e) {
       if (!e.isOffline) {
@@ -97,8 +102,23 @@ class AuthRepository {
   /// synchronisation de la table `users` n'existe pas, un agent authentifie
   /// en ligne ne pourra donc pas se reconnecter hors ligne. C'est une limite
   /// connue, pas un oubli -- voir le ticket « moteur de synchronisation ».
-  Future<UserRow?> _upsertFromServer(String userId, String employeeCode) async {
+  Future<UserRow?> _upsertFromServer(
+    String userId,
+    String employeeCode,
+    Map<String, dynamic> me,
+  ) async {
     if (userId.isEmpty) return null;
+
+    // Le serveur a decrit l'agent : identite, roles avec leurs permissions,
+    // points de vente. C'est lui qui fait foi sur les droits -- un agent cree
+    // depuis l'administration d'un autre poste les recoit ici.
+    if (me['id'] == userId) {
+      await AgentRepository(db).applyServerAgent(me);
+      final applique = await (db.select(
+        db.users,
+      )..where((u) => u.id.equals(userId))).getSingleOrNull();
+      if (applique != null) return applique;
+    }
 
     final existing = await (db.select(
       db.users,

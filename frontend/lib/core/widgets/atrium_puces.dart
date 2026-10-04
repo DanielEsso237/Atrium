@@ -118,9 +118,12 @@ class PuceEcritures extends ConsumerWidget {
     if (attente == 0) return const SizedBox.shrink();
 
     final bloque = sync.isBlocked;
+    // La raison du refus : sans elle, l'agent sait que ca bloque mais pas
+    // quoi corriger.
+    final raison = sync.push?.detail;
     final message = bloque
-        ? 'Une écriture est refusée et bloque les $attente suivantes. '
-              'Appuyer pour réessayer.'
+        ? 'Une écriture est refusée et bloque les $attente suivantes'
+              '${raison == null ? '' : ' : $raison'}. Appuyer pour réessayer.'
         : sync.isOffline
         ? '$attente écriture(s) en attente, serveur injoignable. '
               'Elles repartiront toutes seules.'
@@ -134,7 +137,7 @@ class PuceEcritures extends ConsumerWidget {
         onTap: () => ref.read(syncSchedulerProvider.notifier).maintenant(),
         // Le nombre seul : le detail est dans l'info-bulle. Longue, la
         // pastille repoussait le sous-titre de l'accueil sur deux lignes.
-        child: Text('$attente'),
+        child: Text(bloque ? 'Bloqué · $attente' : '$attente'),
       ),
     );
   }

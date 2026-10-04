@@ -170,4 +170,100 @@ void main() {
       expect(f.balance, 0);
     });
   });
+
+  group('une categorie de la carte', () {
+    test('sans point de vente, elle est commune a tous', () {
+      final c = RemoteMenuCategory.fromJson({
+        'id': 'c1',
+        'outlet_id': null,
+        'label': 'Plats',
+        'sort_order': 0,
+      });
+
+      expect(c, isNotNull);
+      expect(c!.outletId, isNull);
+      expect(c.outletId, isNot('null'));
+      expect(c.label, 'Plats');
+    });
+
+    test('avec un point de vente, elle lui est rattachee', () {
+      final c = RemoteMenuCategory.fromJson({
+        'id': 'c2',
+        'outlet_id': 'o1',
+        'label': 'Cocktails',
+        'sort_order': 2,
+      });
+
+      expect(c!.outletId, 'o1');
+      expect(c.sortOrder, 2);
+    });
+
+    test('sans identifiant ou sans libelle, la ligne est ecartee', () {
+      expect(RemoteMenuCategory.fromJson({'label': 'Plats'}), isNull);
+      expect(RemoteMenuCategory.fromJson({'id': 'c1'}), isNull);
+      expect(RemoteMenuCategory.fromJson('pas un objet'), isNull);
+    });
+  });
+
+  group('un article de la carte', () {
+    Map<String, Object?> article({Map<String, Object?>? changes}) => {
+      'id': 'a1',
+      'code': 'PLAT1',
+      'label': 'Poulet DG',
+      'menu_category_id': 'c1',
+      'price': 5000,
+      'tax_rate': 0,
+      'is_available': true,
+      'prep_station_id': 'p1',
+      ...?changes,
+    };
+
+    test('se lit avec tous ses champs', () {
+      final a = RemoteMenuItem.fromJson(article());
+
+      expect(a!.label, 'Poulet DG');
+      expect(a.menuCategoryId, 'c1');
+      expect(a.price, 5000);
+      expect(a.prepStationId, 'p1');
+      expect(a.isAvailable, isTrue);
+    });
+
+    test('sans poste de preparation, le champ reste nul', () {
+      final a = RemoteMenuItem.fromJson(
+        article(changes: {'prep_station_id': null}),
+      );
+
+      expect(a!.prepStationId, isNull);
+      expect(a.prepStationId, isNot('null'));
+    });
+
+    test('un article en rupture reste lisible', () {
+      final a = RemoteMenuItem.fromJson(
+        article(changes: {'is_available': false}),
+      );
+
+      expect(a!.isAvailable, isFalse);
+    });
+
+    test('le prix reste un entier', () {
+      final a = RemoteMenuItem.fromJson(article(changes: {'price': 5000.0}));
+
+      expect(a!.price, isA<int>());
+      expect(a.price, 5000);
+    });
+
+    test('le taux de taxe est un pourcentage, garde tel quel', () {
+      final a = RemoteMenuItem.fromJson(article(changes: {'tax_rate': 19}));
+
+      expect(a!.taxRate, 19);
+    });
+
+    test('sans identifiant ou sans categorie, la ligne est ecartee', () {
+      expect(RemoteMenuItem.fromJson({'label': 'Poulet DG'}), isNull);
+      expect(
+        RemoteMenuItem.fromJson({'id': 'a1', 'label': 'Poulet DG'}),
+        isNull,
+      );
+    });
+  });
 }

@@ -77,8 +77,9 @@ TextPainter _texte(
   String texte, {
   double taille = 12,
   FontWeight poids = FontWeight.w500,
-  Color couleur = AtriumColors.textSecondary,
+  Color? couleur,
 }) {
+  couleur ??= AtriumColors.textSecondary;
   return TextPainter(
     text: TextSpan(
       text: texte,
@@ -133,7 +134,7 @@ class Legende extends StatelessWidget {
         const SizedBox(width: AtriumSpacing.xs),
         Text(
           libelle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AtriumColors.textSecondary,
@@ -676,7 +677,7 @@ class _RepartitionDonutState extends State<RepartitionDonut> {
                               survole == null
                                   ? '${widget.occupees}'
                                   : '${survole.$3} / ${survole.$2}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w700,
                                 color: AtriumDashColors.title,
@@ -689,7 +690,7 @@ class _RepartitionDonutState extends State<RepartitionDonut> {
                                   ? 'chambres\noccupées'
                                   : '${survole.$1}\noccupées',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 height: 1.35,
                                 color: AtriumColors.textSecondary,
@@ -739,7 +740,7 @@ class _RepartitionDonutState extends State<RepartitionDonut> {
                           segments[i].$1,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                             color: AtriumColors.ink,
@@ -748,7 +749,7 @@ class _RepartitionDonutState extends State<RepartitionDonut> {
                       ),
                       Text(
                         '${segments[i].$3} / ${segments[i].$2}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AtriumColors.ink,
@@ -765,7 +766,7 @@ class _RepartitionDonutState extends State<RepartitionDonut> {
     );
 
     if (segments.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Aucune chambre paramétrée pour le moment.',
           style: TextStyle(fontSize: 14, color: AtriumColors.textSecondary),
@@ -948,7 +949,7 @@ class _ActiviteBarresState extends State<ActiviteBarres> {
                     ),
                   ),
                   if (a.estVide)
-                    const Positioned.fill(
+                    Positioned.fill(
                       left: _gauche,
                       bottom: 28,
                       child: Center(

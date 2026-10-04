@@ -96,19 +96,45 @@ void main() {
     expect(acces.peut('rooms.read'), isFalse);
   });
 
+  test("seul l'administrateur atteint l'administration", () async {
+    // Le routeur la garde sous users.write : la reception et le menage ne
+    // l'ont pas, meme en tapant l'adresse.
+    expect(permissionPour('/administration'), 'users.write');
+    final admin = await accessProfileFor(db, await idDe('ADMIN01'));
+    final reception = await accessProfileFor(db, await idDe('RECEP01'));
+    final menage = await accessProfileFor(db, await idDe('MENAGE01'));
+
+    expect(admin.peut('users.write'), isTrue);
+    expect(reception.peut('users.write'), isFalse);
+    expect(menage.peut('users.write'), isFalse);
+  });
+
+  test("le menage ne voit que son ecran", () async {
+    // Vecu : la femme de chambre voyait arrivees, departs, reservations et
+    // plan -- gardes par rooms.read, qu'elle porte pour lire les numeros.
+    final menage = await accessProfileFor(db, await idDe('MENAGE01'));
+    final reception = await accessProfileFor(db, await idDe('RECEP01'));
+
+    expect(menage.peut('housekeeping.read'), isTrue);
+    expect(menage.peut(permissionPour('/chambres')!), isFalse);
+    expect(menage.peut(permissionPour('/reservations')!), isFalse);
+    expect(reception.peut(permissionPour('/chambres')!), isTrue);
+    expect(reception.peut(permissionPour('/reservations')!), isTrue);
+  });
+
   group('la barriere du routeur', () {
     test('chaque zone protegee exige sa permission', () {
-      expect(permissionPour('/chambres'), 'rooms.read');
+      expect(permissionPour('/chambres'), 'reservation.read');
       expect(permissionPour('/clients'), 'guests.read');
       expect(permissionPour('/factures'), 'folio.read');
-      expect(permissionPour('/reservations'), 'rooms.read');
+      expect(permissionPour('/reservations'), 'reservation.read');
     });
 
     test('une sous-route est protegee comme sa zone', () {
       // Sans quoi `/reservations/nouvelle` serait ouvert a tous alors que
       // `/reservations` ne l'est pas -- exactement le genre de porte qu'on
       // ne remarque qu'une fois en service.
-      expect(permissionPour('/reservations/nouvelle'), 'rooms.read');
+      expect(permissionPour('/reservations/nouvelle'), 'reservation.read');
     });
 
     test('le tableau de bord et la connexion restent ouverts', () {

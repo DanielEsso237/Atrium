@@ -3,14 +3,17 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'housekeeping_repository.dart';
 import 'outbox.dart';
+import 'settings_repository.dart';
 
 /// Une reservation telle qu'affichee dans la liste de la reception.
 class ReservationSummary {
@@ -178,6 +181,59 @@ class ReservationRepository with OutboxWriter {
         .toList();
   }
 
+  /// Les chambres ou installer un client deja arrive qui veut changer.
+  ///
+  /// Plus strict que l'attribution : le client est au comptoir, il entre dans
+  /// la chambre dans la minute. Elle doit donc etre **propre** maintenant, pas
+  /// seulement libre sur la periode -- lui tendre la cle d'une chambre sale,
+  /// c'est le renvoyer au comptoir une deuxieme fois.
+  ///
+  /// Meme categorie que la chambre vendue : le surclassement depend d'une
+  /// politique que l'hotel n'a pas encore donnee, et le serveur refuse de toute
+  /// facon une chambre d'une autre categorie.
+  ///
+  /// La ligne elle-meme est exclue du test de chevauchement : sans ca, sa
+  /// propre occupation la ferait paraitre en conflit avec toutes les chambres.
+  Future<List<AvailableRoom>> roomsForChange(String lineId) async {
+    final rows = await db
+        .customSelect(
+          '''
+      SELECT r.id, r.number
+        FROM reservation_rooms l
+        JOIN rooms r ON r.room_type_id = l.room_type_id
+       WHERE l.id = ?1
+         AND r.id <> COALESCE(l.room_id, '')
+         AND r.deleted_at IS NULL
+         AND r.is_active = 1
+         AND r.is_out_of_order = 0
+         AND r.occupancy_status <> 'OCCUPIED'
+         AND r.housekeeping_status IN ('CLEAN','INSPECTED')
+         AND NOT EXISTS (
+               SELECT 1 FROM reservation_rooms rr
+                WHERE rr.room_id = r.id
+                  AND rr.id <> l.id
+                  AND rr.deleted_at IS NULL
+                  AND rr.status IN ('PENDING','CONFIRMED','CHECKED_IN')
+                  AND rr.arrival_date   < l.departure_date
+                  AND rr.departure_date > l.arrival_date
+             )
+       ORDER BY r.number
+      ''',
+          variables: [Variable.withString(lineId)],
+          readsFrom: {db.rooms, db.reservationRooms},
+        )
+        .get();
+
+    return rows
+        .map(
+          (r) => AvailableRoom(
+            id: r.read<String>('id'),
+            number: r.read<String>('number'),
+          ),
+        )
+        .toList();
+  }
+
   /// Cree une reservation et sa ligne de sejour.
   ///
   /// Une reservation sans ligne n'aurait pas de sens : c'est la ligne qui
@@ -194,12 +250,34 @@ class ReservationRepository with OutboxWriter {
     String? roomId,
     String? notes,
     String? createdBy,
+    int? depositCollected,
+    PaymentMethod? depositMethod,
   }) async {
     final reservationId = newId();
     final lineId = newId();
     final now = DateTime.now().toUtc();
     final reference = codeFromId(reservationId, 'RES');
     final nights = departure.difference(arrival).inDays;
+    final total = nightlyRate * (nights < 1 ? 1 : nights);
+
+    // Les arrhes. Encaissees : le montant saisi, refuse ici dans les deux
+    // cas ou le serveur le refuserait (422), sinon la file se bloquerait.
+    // Seulement dues : la regle de l'hotel, calculee comme le serveur.
+    final collectees = depositCollected != null && depositCollected > 0;
+    if (collectees) {
+      if (depositCollected > total) {
+        throw StateError(
+          'Les arrhes (${formatAmount(depositCollected)}) dépassent le prix '
+          'du séjour (${formatAmount(total)}).',
+        );
+      }
+      if (depositMethod == null) {
+        throw StateError('Choisissez comment les arrhes sont payées.');
+      }
+    }
+    final arrhes = collectees
+        ? depositCollected
+        : (await SettingsRepository(db).depositRule())?.depositFor(total) ?? 0;
 
     // Une chambre choisie des la reservation vaut attribution : le statut
     // passe a CONFIRMED, sinon la ligne reste PENDING jusqu'a l'attribution.
@@ -224,7 +302,9 @@ class ReservationRepository with OutboxWriter {
               departureDate: formatIsoDate(departure),
               adults: Value(adults),
               children: Value(children),
-              estimatedTotal: Value(nightlyRate * (nights < 1 ? 1 : nights)),
+              estimatedTotal: Value(total),
+              depositAmount: Value(arrhes),
+              depositPaidAt: Value(collectees ? now : null),
               internalNotes: Value(notes),
               createdBy: Value(createdBy),
               syncState: const Value(SyncState.pending),
@@ -254,6 +334,36 @@ class ReservationRepository with OutboxWriter {
 
       if (roomId != null) await _markReserved(roomId, now);
 
+      // Les arrhes encaissees : un vrai paiement, dans la caisse ouverte de
+      // celui qui encaisse, comme cote serveur -- sinon l'attendu du tiroir
+      // ne les compterait pas. Pas encore d'ardoise : elles y passeront a
+      // l'arrivee. Pas enfile : le serveur cree son propre paiement a partir
+      // de la reservation ci-dessous.
+      if (collectees) {
+        await db
+            .into(db.payments)
+            .insert(
+              PaymentsCompanion.insert(
+                id: newId(),
+                createdAt: now,
+                updatedAt: now,
+                hotelId: hotelId,
+                method: depositMethod!,
+                amount: depositCollected,
+                receivedBy: Value(createdBy),
+                cashSessionId: Value(
+                  createdBy == null
+                      ? null
+                      : await CashRepository(db).openSessionId(createdBy),
+                ),
+                receivedAt: Value(now),
+                businessDate: Value(formatIsoDate(businessDayFor(now))),
+                notes: Value(depositNote(reference)),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+
       // CORRIGE (traçabilité, exigence 6.2) : 'created_by' est desormais
       // transmis dans le payload, a la fois pour la reservation et pour la
       // ligne de sejour. Auparavant la valeur etait bien ecrite en local
@@ -274,6 +384,10 @@ class ReservationRepository with OutboxWriter {
           'adults': adults,
           'children': children,
           'created_by': createdBy,
+          // Absentes : le serveur applique la regle de l'hotel, rien
+          // d'encaisse. Presentes : des arrhes reellement recues.
+          'deposit_amount': collectees ? depositCollected : null,
+          'deposit_method': collectees ? depositMethod!.name : null,
           'rooms': [
             {
               'id': lineId,
@@ -297,6 +411,9 @@ class ReservationRepository with OutboxWriter {
     String? by,
   }) async {
     final now = DateTime.now().toUtc();
+    final previous = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingleOrNull();
 
     await db.transaction(() async {
       await (db.update(
@@ -311,6 +428,12 @@ class ReservationRepository with OutboxWriter {
         ),
       );
       await _markReserved(roomId, now);
+      // Une reattribution laissait l'ancienne chambre « reservee » sur le
+      // plan, pour un client qui n'y viendra plus.
+      final previousRoom = previous?.roomId;
+      if (previousRoom != null && previousRoom != roomId) {
+        await _releaseReserved(previousRoom, lineId, now);
+      }
       // CORRIGE : 'updated_by' ajoute au payload — la colonne locale
       // updatedBy etait deja remplie, seul l'envoi au serveur manquait.
       await enqueue(
@@ -348,6 +471,13 @@ class ReservationRepository with OutboxWriter {
 
     final folioId = newId();
     final folioNumber = codeFromId(folioId, 'FOL');
+    // Le client de l'ardoise, comme le serveur le pose au check-in : c'est
+    // par lui que se lit le plafond de consommation. Sans lui, la tablette
+    // laissait passer un depassement que le serveur refusait ensuite -- et
+    // la file se bloquait.
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(line.reservationId))).getSingle();
 
     await db.transaction(() async {
       await (db.update(
@@ -394,9 +524,24 @@ class ReservationRepository with OutboxWriter {
               type: const Value(FolioType.GUEST),
               status: const Value(FolioStatus.OPEN),
               reservationRoomId: Value(lineId),
+              guestId: Value(dossier.guestId),
               syncState: const Value(SyncState.pending),
             ),
           );
+
+      // Les arrhes passent sur l'ardoise, comme le serveur le fait au
+      // check-in : le client ne doit plus que le reste. Sans cela la tablette
+      // affichait le sejour entier ; un encaissement du tout aurait ete
+      // refuse en trop-percu par le serveur, et la file bloquee.
+      await db.customUpdate(
+        'UPDATE payments SET folio_id = ?1 '
+        'WHERE folio_id IS NULL AND notes = ?2 AND deleted_at IS NULL',
+        variables: [
+          Variable.withString(folioId),
+          Variable.withString(depositNote(dossier.reference)),
+        ],
+        updates: {db.payments},
+      );
 
       // CORRIGE : 'checked_in_by' ajoute au payload — checkedInBy etait deja
       // ecrit en local (ci-dessus) mais absent de l'envoi au serveur.
@@ -501,6 +646,134 @@ class ReservationRepository with OutboxWriter {
     }
   }
 
+  /// Installe un client deja arrive dans une autre chambre.
+  ///
+  /// L'ancienne redevient libre **sans** devenir sale : personne n'y a dormi.
+  /// C'est toute la difference avec le depart, qui la rend a nettoyer. Son
+  /// etat de menage n'est donc pas touche.
+  ///
+  /// L'ardoise n'a rien a faire : elle est rattachee a la ligne de sejour, pas
+  /// a la chambre, et suit le client d'elle-meme.
+  ///
+  /// Chaque refus du serveur est verifie ici **avant** d'ecrire : un refus qui
+  /// arriverait par la file la bloquerait, avec tout ce qui attend derriere.
+  /// La proprete, elle, n'est verifiee que par la liste proposee
+  /// (`roomsForChange`) : le serveur ne la refuse pas.
+  Future<void> changeRoom({
+    required String lineId,
+    required String roomId,
+    String? by,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final line = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingle();
+    final room = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingle();
+
+    if (line.status != ReservationStatus.CHECKED_IN) {
+      throw StateError('Seul un client arrive change de chambre.');
+    }
+    if (line.roomId == roomId) return;
+    if (room.roomTypeId != line.roomTypeId) {
+      throw StateError(
+        'Cette chambre n\'appartient pas a la categorie reservee.',
+      );
+    }
+    if (room.isOutOfOrder || !room.isActive) {
+      throw StateError('Cette chambre est hors service.');
+    }
+    if (room.occupancyStatus == OccupancyStatus.OCCUPIED) {
+      throw StateError('Cette chambre est deja occupee.');
+    }
+
+    await db.transaction(() async {
+      await (db.update(
+        db.reservationRooms,
+      )..where((rr) => rr.id.equals(lineId))).write(
+        ReservationRoomsCompanion(
+          roomId: Value(roomId),
+          updatedAt: Value(now),
+          updatedBy: Value(by),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+
+      await (db.update(db.rooms)..where((r) => r.id.equals(roomId))).write(
+        RoomsCompanion(
+          occupancyStatus: const Value(OccupancyStatus.OCCUPIED),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+
+      if (line.roomId != null) {
+        await (db.update(
+          db.rooms,
+        )..where((r) => r.id.equals(line.roomId!))).write(
+          RoomsCompanion(
+            occupancyStatus: const Value(OccupancyStatus.VACANT),
+            updatedAt: Value(now),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+      }
+
+      // `action` et non `status` : le statut reste CHECKED_IN, et l'envoyeur
+      // prendrait l'entree pour un second check-in.
+      await enqueue(
+        table: 'reservation_rooms',
+        id: lineId,
+        operation: SyncOp.UPDATE,
+        payload: {
+          'id': lineId,
+          'action': 'CHANGE_ROOM',
+          'room_id': roomId,
+          'updated_by': by,
+        },
+      );
+    });
+  }
+
+  /// Rend libre la chambre qu'une ligne vient de quitter avant l'arrivee.
+  ///
+  /// Seulement si aucun autre sejour a venir ne la retient : elle reste
+  /// « reservee » tant que quelqu'un d'autre l'attend.
+  Future<void> _releaseReserved(
+    String roomId,
+    String leavingLineId,
+    DateTime now,
+  ) async {
+    final room = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingleOrNull();
+    if (room == null || room.occupancyStatus != OccupancyStatus.RESERVED) {
+      return;
+    }
+
+    final others = await (db.select(db.reservationRooms)..where(
+          (rr) =>
+              rr.roomId.equals(roomId) &
+              rr.id.equals(leavingLineId).not() &
+              rr.deletedAt.isNull() &
+              rr.status.isInValues([
+                ReservationStatus.PENDING,
+                ReservationStatus.CONFIRMED,
+              ]),
+        ))
+        .get();
+    if (others.isNotEmpty) return;
+
+    await (db.update(db.rooms)..where((r) => r.id.equals(roomId))).write(
+      RoomsCompanion(
+        occupancyStatus: const Value(OccupancyStatus.VACANT),
+        updatedAt: Value(now),
+        syncState: const Value(SyncState.pending),
+      ),
+    );
+  }
+
   Future<void> _markReserved(String roomId, DateTime now) async {
     final room = await (db.select(
       db.rooms,
@@ -518,3 +791,7 @@ class ReservationRepository with OutboxWriter {
     );
   }
 }
+
+/// La note qui rattache des arrhes a leur dossier, le temps qu'elles
+/// attendent l'ardoise ouverte a l'arrivee.
+String depositNote(String reference) => 'Arrhes $reference';

@@ -8,9 +8,12 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
@@ -55,7 +58,6 @@ class _PaymentDialog extends ConsumerStatefulWidget {
 
 class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   late final TextEditingController _amount;
-  final _reference = TextEditingController();
   PaymentMethod _method = PaymentMethod.CASH;
   bool _busy = false;
 
@@ -69,7 +71,6 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   @override
   void dispose() {
     _amount.dispose();
-    _reference.dispose();
     super.dispose();
   }
 
@@ -88,9 +89,10 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
             folioId: widget.folioId,
             method: _method,
             amount: montant,
-            reference: _reference.text.trim().isEmpty
-                ? null
-                : _reference.text.trim(),
+            // Plus de reference saisie : le patron l'a retiree, elle
+            // ralentissait le comptoir sans rien apporter. Le depot et la
+            // colonne la gardent -- les encaissements deja saisis la portent,
+            // et le serveur l'accepte toujours.
             receivedBy: ref.read(sessionProvider).agent?.id,
           );
     } on StateError catch (e) {
@@ -115,50 +117,62 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
     if (!mounted) return;
     Navigator.of(context).pop(montant);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${formatAmount(montant)} encaisse.')),
+      SnackBar(content: Text('${formatAmount(montant)} encaissés.')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Encaisser — ${widget.guestName}'),
+      icon: const Icon(PhosphorIconsLight.coins, size: 32),
+      title: Text('Encaisser · ${widget.guestName}'),
       content: SizedBox(
-        width: 460,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<PaymentMethod>(
-              initialValue: _method,
-              decoration: const InputDecoration(labelText: 'Moyen'),
-              items: [
-                for (final m in PaymentMethod.values)
-                  DropdownMenuItem(
-                    value: m,
-                    child: Text(paymentMethodLabel(m)),
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ChoiceTiles<PaymentMethod>(
+                selected: _method,
+                tileWidth: 148,
+                onChanged: (m) => setState(() => _method = m),
+                options: [
+                  for (final m in PaymentMethod.values)
+                    (m, iconePaiement(m), paymentMethodLabel(m)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: _amount,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: montantSaisieStyle,
+                decoration: InputDecoration(
+                  labelText: 'Montant',
+                  suffixText: 'FCFA',
+                  helperText: 'Reste dû : ${formatAmount(widget.balance)}',
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('Tout le solde'),
+                    onPressed: () =>
+                        setState(() => _amount.text = '${widget.balance}'),
                   ),
-              ],
-              onChanged: (v) =>
-                  setState(() => _method = v ?? PaymentMethod.CASH),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amount,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Montant (FCFA)',
-                helperText: 'Reste du : ${formatAmount(widget.balance)}',
+                  ActionChip(
+                    label: const Text('La moitié'),
+                    onPressed: () => setState(
+                      () => _amount.text = '${widget.balance ~/ 2}',
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _reference,
-              decoration: const InputDecoration(
-                labelText: 'Reference',
-                helperText: 'Numero de transaction, facultatif',
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [
@@ -168,9 +182,18 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: const Text('Encaisser'),
+          child: Text(_busy ? 'Encaissement…' : 'Encaisser'),
         ),
       ],
     );
   }
 }
+
+IconData iconePaiement(PaymentMethod m) => switch (m) {
+  PaymentMethod.CASH => PhosphorIconsLight.money,
+  PaymentMethod.CARD => PhosphorIconsLight.creditCard,
+  PaymentMethod.TRANSFER => PhosphorIconsLight.bank,
+  PaymentMethod.MOBILE_MONEY => PhosphorIconsLight.deviceMobile,
+  PaymentMethod.CITY_LEDGER => PhosphorIconsLight.buildings,
+  PaymentMethod.VOUCHER => PhosphorIconsLight.ticket,
+};

@@ -50,6 +50,14 @@ IMPLICATIONS = [
     # Autoriser un depassement de seuil, c'est accepter un solde : il faut
     # pouvoir le lire avant de le laisser filer.
     ("folio.override_limit", "folio.read"),
+    # L'ecran d'administration, garde par users.write, cree et desactive les
+    # points de vente, lit la liste des agents, et ecrit le plafond d'un
+    # client par la route des fiches.
+    ("users.write", "restaurant.write"),
+    ("users.write", "users.read"),
+    ("users.write", "guests.write"),
+    # Une commande portee a une chambre ecrit sur son ardoise.
+    ("order.create", "folio.charge"),
 ]
 
 
@@ -68,7 +76,7 @@ def test_qui_peut_agir_peut_en_assumer_la_consequence(action, consequence):
 def test_seul_l_encadrement_autorise_un_depassement_de_seuil():
     """Le seuil ne sert a rien si ceux qu'il arrete peuvent le lever seuls."""
     for role_id, libelle in LIBELLE_PAR_ID.items():
-        if libelle in ("Reception", "Caisse", "Restauration"):
+        if libelle in ("Reception", "Caisse", "Commandes"):
             assert "folio.override_limit" not in droits(role_id), libelle
     manager = next(r for r, lab in LIBELLE_PAR_ID.items() if lab.startswith("Manager"))
     assert "folio.override_limit" in droits(manager)

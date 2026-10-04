@@ -14,6 +14,7 @@ from app.models import (
     DocumentType,
     Floor,
     Hotel,
+    Outlet,
     Permission,
     PrintRoute,
     Printer,
@@ -36,6 +37,12 @@ FLOORS = [
     (uuid.UUID("01920000-0000-7000-8000-000000000105"), "E5", "Quatrieme etage", 5),
 ]
 F1, F2, F3, F4, F5 = (f[0] for f in FLOORS)
+
+# Le point de vente « Restaurant » que possede d'office chaque hotel. Meme
+# identifiant que dans la migration 0008 : le seed et la migration doivent
+# designer la meme ligne pour l'hotel de demonstration.
+OUTLET_RESTO = uuid.UUID("01920000-0000-7000-8000-000000007001")
+OUTLET_RESTO_CODE = "RESTO"
 
 STANDARD = uuid.UUID("01920000-0000-7000-8000-000000000201")
 CLASSIC = uuid.UUID("01920000-0000-7000-8000-000000000202")
@@ -61,7 +68,7 @@ ROLES = [
     (uuid.UUID("01920000-0000-7000-8000-000000004001"), "ADMIN", "Administrateur"),
     (uuid.UUID("01920000-0000-7000-8000-000000004002"), "RECEPTION", "Reception"),
     (uuid.UUID("01920000-0000-7000-8000-000000004003"), "CAISSE", "Caisse"),
-    (uuid.UUID("01920000-0000-7000-8000-000000004004"), "RESTAURANT", "Restauration"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004004"), "RESTAURANT", "Commandes"),
     (uuid.UUID("01920000-0000-7000-8000-000000004005"), "HOUSEKEEPING", "Housekeeping"),
     (uuid.UUID("01920000-0000-7000-8000-000000004006"), "MAINTENANCE", "Maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004007"), "MANAGER", "Manager / Direction"),
@@ -106,6 +113,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004130"), "stock.movement", "Enregistrer un mouvement de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004131"), "cash.session", "Ouvrir et fermer sa session de caisse", "cash"),
     (uuid.UUID("01920000-0000-7000-8000-000000004132"), "folio.override_limit", "Autoriser une consommation au-dela du seuil du client", "folio"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004133"), "folio.charge", "Porter une consommation sur une ardoise (sans encaisser)", "folio"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -130,6 +138,7 @@ MAINTENANCE_MANAGE = PERMISSIONS[28][0]
 STOCK_MOVEMENT = PERMISSIONS[29][0]
 CASH_SESSION = PERMISSIONS[30][0]
 FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
+FOLIO_CHARGE = PERMISSIONS[32][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -177,6 +186,11 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RESTAURANT_ROLE, ORDER_READ),
     (RESTAURANT_ROLE, ORDER_CREATE),
     (RESTAURANT_ROLE, ORDER_MANAGE),
+    # Porter une commande sur une chambre ecrit sur l'ardoise : sans ce droit,
+    # chaque consommation etait refusee et bloquait la file du comptoir.
+    # folio.charge et non folio.write : le comptoir porte, il n'encaisse pas,
+    # ne clot rien et ne voit pas les factures.
+    (RESTAURANT_ROLE, FOLIO_CHARGE),
     (RESTAURANT_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, FOLIO_READ),
     (CAISSE_ROLE, FOLIO_WRITE),
@@ -210,7 +224,6 @@ DEMO_HOUSEKEEPING = uuid.UUID("01920000-0000-7000-8000-000000050003")
 # Le restaurant : quatrieme metier, quatrieme interface. C'est lui qui prend
 # les commandes au bar, au restaurant ou a la boite de nuit, et les porte sur
 # l'ardoise de la chambre.
-DEMO_RESTAURANT = uuid.UUID("01920000-0000-7000-8000-000000050004")
 
 # Le PIN sert aux releves de poste ; le mot de passe reste pour une premiere
 # connexion et pour l'administration.
@@ -254,6 +267,14 @@ async def seed(session: AsyncSession) -> None:
         await session.execute(stmt.on_conflict_do_nothing(index_elements=index_elements))
 
     await upsert(Hotel, [{"id": HOTEL, "code": "ATR", "name": "Hotel Atrium", "city": "Abidjan", "country": "Cote d'Ivoire", "currency": "XOF"}])
+    # `do nothing`, pas `upsert` : le libelle se change a l'administration,
+    # et rejouer le seed ne doit pas le remettre a « Restaurant ». Sans cible
+    # de conflit, le code deja pris par une autre ligne est ignore lui aussi.
+    await session.execute(
+        insert(Outlet)
+        .values([{"id": OUTLET_RESTO, "hotel_id": HOTEL, "code": OUTLET_RESTO_CODE, "label": "Restaurant", "allows_room_charge": True, "sort_order": 0}])
+        .on_conflict_do_nothing()
+    )
     await upsert(Floor, [{"id": fid, "hotel_id": HOTEL, "code": code, "label": label, "sort_order": order} for fid, code, label, order in FLOORS])
     await upsert(RoomType, [{"id": tid, "hotel_id": HOTEL, "code": code, "label": label, "base_capacity": base, "max_capacity": maxi, "default_rate": rate, "sort_order": i} for i, (tid, code, label, base, maxi, rate) in enumerate(ROOM_TYPES)])
     await upsert(Room, [{"id": room_id(number), "hotel_id": HOTEL, "number": number, "room_type_id": type_id, "floor_id": floor_id} for number, type_id, floor_id in ROOMS])
@@ -266,13 +287,11 @@ async def seed(session: AsyncSession) -> None:
         # plusieurs valeurs refuse des lignes de formes differentes.
         {"id": DEMO_RECEPTION, "hotel_id": HOTEL, "employee_code": "RECEP01", "first_name": "Awa", "last_name": "Traore", "email": "reception@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
         {"id": DEMO_HOUSEKEEPING, "hotel_id": HOTEL, "employee_code": "MENAGE01", "first_name": "Fatou", "last_name": "Sow", "email": "menage@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
-        {"id": DEMO_RESTAURANT, "hotel_id": HOTEL, "employee_code": "RESTAU01", "first_name": "Kofi", "last_name": "Mensah", "email": "restaurant@atrium.local", "password_hash": hash_secret(DEMO_ADMIN_PASSWORD), "pin_hash": hash_secret(DEMO_PIN), "is_active": True, "must_change_password": False},
     ])
     await upsert_link(UserRole, [
         {"user_id": DEMO_ADMIN, "role_id": ADMIN_ROLE},
         {"user_id": DEMO_RECEPTION, "role_id": RECEPTION_ROLE},
         {"user_id": DEMO_HOUSEKEEPING, "role_id": HOUSEKEEPING_ROLE},
-        {"user_id": DEMO_RESTAURANT, "role_id": RESTAURANT_ROLE},
     ], index_elements=["user_id", "role_id"])
     await upsert(Printer, [{"id": DEFAULT_PRINTER, "hotel_id": HOTEL, "logical_name": "IMP_DEFAUT_01", "label": "Imprimante par defaut", "kind": PrinterKind.LASER, "protocol": PrinterProtocol.IPP}])
     await upsert(DocumentType, [{"id": did, "hotel_id": HOTEL, "code": code, "label": label, "default_kind": kind} for did, code, label, kind in DOCUMENT_TYPES])
@@ -288,7 +307,7 @@ async def main() -> None:
         await seed(session)
     await engine.dispose()
     print(f"{len(ROOM_TYPES)} categories, {len(ROOMS)} chambres, {len(ROLES)} roles, {len(PERMISSIONS)} permissions.")
-    print(f"Comptes demo : ADMIN01, RECEP01, MENAGE01, RESTAU01 — mot de passe {DEMO_ADMIN_PASSWORD}, code PIN {DEMO_PIN}.")
+    print(f"Comptes demo : ADMIN01, RECEP01, MENAGE01 — mot de passe {DEMO_ADMIN_PASSWORD}, code PIN {DEMO_PIN}.")
 
 
 if __name__ == "__main__":

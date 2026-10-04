@@ -11,12 +11,31 @@ from app.models.enums import TableStatus
 
 
 class OutletIn(BaseModel):
+    # Cle generee hors ligne par la tablette : un renvoi du meme id ne cree
+    # pas un second point de vente.
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     code: str = Field(min_length=1, max_length=32)
     label: str = Field(min_length=1, max_length=80)
     opens_at: dt.time | None = None
     closes_at: dt.time | None = None
     allows_room_charge: bool = True
     sort_order: int = 0
+
+
+class OutletUpdate(BaseModel):
+    """Modification partielle : seuls les champs envoyes changent.
+
+    Un point de vente ne se supprime pas -- les commandes passees y renvoient.
+    `is_active: false` le retire des onglets de l'ecran Commande.
+    """
+
+    code: str | None = Field(default=None, min_length=1, max_length=32)
+    label: str | None = Field(default=None, min_length=1, max_length=80)
+    opens_at: dt.time | None = None
+    closes_at: dt.time | None = None
+    allows_room_charge: bool | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
 
 
 class OutletOut(BaseModel):
@@ -29,6 +48,7 @@ class OutletOut(BaseModel):
     closes_at: dt.time | None
     allows_room_charge: bool
     sort_order: int
+    is_active: bool
 
 
 class PrepStationIn(BaseModel):
@@ -69,6 +89,9 @@ class RestaurantTableOut(BaseModel):
 
 
 class MenuCategoryIn(BaseModel):
+    # Meme cle generee hors ligne que pour les points de vente : un renvoi du
+    # meme id ne cree pas une seconde categorie.
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     outlet_id: uuid.UUID | None = None
     label: str = Field(min_length=1, max_length=80)
     sort_order: int = 0
@@ -90,6 +113,7 @@ class MenuItemIn(BaseModel):
     modele `MenuItem` pour la regle R1 que ce champ met en oeuvre.
     """
 
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette ; absent = genere par le serveur")
     code: str = Field(min_length=1, max_length=32)
     label: str = Field(min_length=1, max_length=160)
     description: str | None = None

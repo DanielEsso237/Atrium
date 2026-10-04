@@ -17,6 +17,13 @@ import 'api_client.dart';
 /// cette chaine-la passerait ensuite pour une vraie valeur jusque dans la base.
 String? _texte(Object? v) => v == null ? null : '$v';
 
+/// Une heure en HH:MM. Le serveur ecrit `08:00:00` ; la colonne locale n'en
+/// garde que cinq caracteres, et refuserait le reste.
+String? _heure(Object? v) {
+  final t = _texte(v);
+  return t == null || t.length <= 5 ? t : t.substring(0, 5);
+}
+
 DateTime? _instant(Object? v) =>
     v == null ? null : DateTime.tryParse('$v')?.toUtc();
 
@@ -98,11 +105,16 @@ class RemoteOutlet {
     required this.sortOrder,
     this.opensAt,
     this.closesAt,
+    this.isActive = true,
   });
 
   final String id;
   final String code;
   final String label;
+
+  /// Desactive par l'administration : il sort des onglets de l'ecran
+  /// Commande, mais reste en base -- les commandes passees y renvoient.
+  final bool isActive;
 
   /// Ce point de vente peut-il porter une consommation sur la chambre.
   ///
@@ -122,8 +134,90 @@ class RemoteOutlet {
       label: '${raw['label'] ?? raw['code']}',
       allowsRoomCharge: raw['allows_room_charge'] != false,
       sortOrder: _entier(raw['sort_order']),
-      opensAt: _texte(raw['opens_at']),
-      closesAt: _texte(raw['closes_at']),
+      opensAt: _heure(raw['opens_at']),
+      closesAt: _heure(raw['closes_at']),
+      isActive: raw['is_active'] != false,
+    );
+  }
+}
+
+/// Une categorie de la carte (`MenuCategoryOut`) : Plats, Boissons, Desserts...
+///
+/// `outletId` nul veut dire une categorie commune a tous les points de vente.
+/// Le serveur ne filtre pas la carte par point de vente : c'est la tablette
+/// qui le fait, en lisant ce champ.
+class RemoteMenuCategory {
+  const RemoteMenuCategory({
+    required this.id,
+    required this.label,
+    required this.sortOrder,
+    this.outletId,
+  });
+
+  final String id;
+  final String label;
+  final int sortOrder;
+  final String? outletId;
+
+  static RemoteMenuCategory? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['label'] == null) return null;
+    return RemoteMenuCategory(
+      id: '${raw['id']}',
+      label: '${raw['label']}',
+      sortOrder: _entier(raw['sort_order']),
+      outletId: _texte(raw['outlet_id']),
+    );
+  }
+}
+
+/// Un article de la carte (`MenuItemOut`).
+class RemoteMenuItem {
+  const RemoteMenuItem({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.menuCategoryId,
+    required this.price,
+    required this.taxRate,
+    required this.isAvailable,
+    this.prepStationId,
+  });
+
+  final String id;
+  final String code;
+  final String label;
+  final String menuCategoryId;
+
+  /// Entier en francs CFA, conformement au contrat. Jamais de double.
+  final int price;
+
+  /// Un pourcentage de 0 a 100 (et non des points de base : c'est ce que
+  /// valide le serveur et ce que `orders.py` divise par 100). A stocker tel
+  /// quel, sans conversion.
+  final int taxRate;
+
+  /// `false` = rupture : l'article reste dans la carte mais ne se vend plus.
+  final bool isAvailable;
+
+  /// Nul pour un article sans preparation (un droit d'entree, par exemple).
+  final String? prepStationId;
+
+  static RemoteMenuItem? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['menu_category_id'] == null ||
+        raw['label'] == null) {
+      return null;
+    }
+    return RemoteMenuItem(
+      id: '${raw['id']}',
+      code: '${raw['code'] ?? ''}',
+      label: '${raw['label']}',
+      menuCategoryId: '${raw['menu_category_id']}',
+      price: _entier(raw['price']),
+      taxRate: _entier(raw['tax_rate']),
+      isAvailable: raw['is_available'] != false,
+      prepStationId: _texte(raw['prep_station_id']),
     );
   }
 }
@@ -388,8 +482,44 @@ class CatalogApi {
   /// considere actif. Le jour ou l'administration permettra d'en desactiver
   /// un, il faudra que le schema l'expose — sans quoi l'onglet resterait
   /// visible sur les tablettes.
+  /// Les agents, bruts (`UserOut`) : roles avec permissions, points de vente.
+  ///
+  /// Reserve a qui porte `users.read` -- l'administration. Les autres postes
+  /// apprennent chaque agent a sa connexion (`/auth/me`).
+  Future<List<Map<String, dynamic>>> fetchUsers() async => [
+    for (final u in await _client.getList('/users'))
+      if (u is Map<String, dynamic>) u,
+  ];
+
+  /// Les roles avec leurs permissions, et le catalogue des permissions.
+  /// Reserves a `users.read`, comme la liste des agents.
+  Future<List<Map<String, dynamic>>> fetchRoles() async => [
+    for (final r in await _client.getList('/roles'))
+      if (r is Map<String, dynamic>) r,
+  ];
+
+  Future<List<Map<String, dynamic>>> fetchPermissions() async => [
+    for (final p in await _client.getList('/permissions'))
+      if (p is Map<String, dynamic>) p,
+  ];
+
+  /// La regle des arrhes, telle que le serveur la tient (`null` : aucune).
+  ///
+  /// Brute, en JSON : c'est `DepositRule.fromJson` qui la lit, la meme
+  /// lecture que pour ce que la tablette ecrit elle-meme.
+  Future<Object?> fetchDepositRule() async =>
+      (await _client.get('/settings/deposit-rule'))['rule'];
+
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
+
+  /// Les categories de la carte, dans leur ordre d'affichage.
+  Future<List<RemoteMenuCategory>> fetchMenuCategories() =>
+      _lire('/menu-categories', RemoteMenuCategory.fromJson);
+
+  /// Les articles de la carte.
+  Future<List<RemoteMenuItem>> fetchMenuItems() =>
+      _lire('/menu-items', RemoteMenuItem.fromJson);
 
   /// Les clients de l'hotel.
   ///
@@ -415,10 +545,11 @@ class CatalogApi {
     final debut = from ?? aujourdhui.subtract(Duration(days: joursAvant));
     final fin = to ?? aujourdhui.add(Duration(days: joursApres));
 
-    return _lire('/reservations', RemoteReservation.fromJson, query: {
-      'arrival_from': _jour(debut),
-      'arrival_to': _jour(fin),
-    });
+    return _lire(
+      '/reservations',
+      RemoteReservation.fromJson,
+      query: {'arrival_from': _jour(debut), 'arrival_to': _jour(fin)},
+    );
   }
 
   /// Les ardoises ouvertes, avec leurs lignes.

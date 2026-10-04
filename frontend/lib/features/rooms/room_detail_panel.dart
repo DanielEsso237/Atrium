@@ -22,7 +22,9 @@ import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../billing/add_charge_dialog.dart';
+import '../auth/session.dart';
 import '../billing/charge_labels.dart';
+import '../maintenance/maintenance_screen.dart' show showReportIssueDialog;
 import '../reservations/stay_actions.dart';
 import 'room_board_screen.dart';
 
@@ -176,7 +178,7 @@ class _Fiche extends ConsumerWidget {
 // --- En-tete -----------------------------------------------------------------
 
 /// La chambre de nuit en fond, le numero comme sur la plaque de la porte.
-class _EnTete extends StatelessWidget {
+class _EnTete extends ConsumerWidget {
   const _EnTete({
     required this.chambre,
     required this.vue,
@@ -188,7 +190,11 @@ class _EnTete extends StatelessWidget {
   final bool panneau;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final peutSignaler = ref
+        .watch(sessionProvider)
+        .acces
+        .peut('maintenance.manage');
     final haut = panneau ? MediaQuery.paddingOf(context).top : 0.0;
     final lieu = [
       chambre.typeLabel,
@@ -246,6 +252,34 @@ class _EnTete extends StatelessWidget {
                   children: [
                     PastilleEtat(apparence: vue, surFonce: true),
                     const Spacer(),
+                    // Signaler un probleme la ou on le decouvre : un client
+                    // appelle, la reception a la fiche sous les yeux.
+                    if (peutSignaler)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Material(
+                          color: AtriumColors.white.withValues(alpha: 0.16),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => showReportIssueDialog(
+                              context,
+                              roomId: chambre.roomId,
+                              roomNumber: chambre.number,
+                            ),
+                            child: Tooltip(
+                              message: 'Signaler un problème',
+                              child: SizedBox.square(
+                                dimension: 44,
+                                child: Icon(
+                                  Icons.build_outlined,
+                                  color: AtriumColors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     Semantics(
                       button: true,
                       label: 'Fermer la fiche',
@@ -964,7 +998,7 @@ class _Actions extends ConsumerWidget {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 54),
               foregroundColor: AtriumDashColors.title,
-              side: const BorderSide(color: AtriumDashColors.cardBorder),
+              side: BorderSide(color: AtriumDashColors.cardBorder),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AtriumRadii.md),
               ),
@@ -986,6 +1020,41 @@ class _Actions extends ConsumerWidget {
             },
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Check-out'),
+          ),
+        ),
+        // Seulement pendant un sejour : avant l'arrivee, on reattribue depuis
+        // la liste des reservations, et rien n'est encore occupe.
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              foregroundColor: AtriumDashColors.title,
+              side: BorderSide(color: AtriumDashColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () async {
+              final fait = await confirmChangeRoom(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                guestName: sejour.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Changer de chambre'),
+            ),
           ),
         ),
         // Une consommation ne se porte que sur une ardoise ouverte.
@@ -1026,7 +1095,7 @@ class _Actions extends ConsumerWidget {
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 54),
-              side: const BorderSide(
+              side: BorderSide(
                 color: AtriumColors.mintStrong,
                 width: 1.5,
               ),
@@ -1057,7 +1126,7 @@ class _Actions extends ConsumerWidget {
         20,
         14 + MediaQuery.paddingOf(context).bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AtriumDashColors.card,
         border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
       ),

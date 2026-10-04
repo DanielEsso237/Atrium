@@ -40,6 +40,28 @@ class ChargeableRoom {
   final int balance;
 }
 
+/// Un article de la carte, tel que l'ecran le propose.
+class MenuEntry {
+  const MenuEntry({
+    required this.id,
+    required this.label,
+    required this.price,
+    required this.isAvailable,
+    required this.categoryLabel,
+  });
+
+  final String id;
+  final String label;
+
+  /// Prix en francs CFA entiers.
+  final int price;
+
+  /// `false` = rupture : visible dans la carte, mais on ne peut pas le choisir.
+  final bool isAvailable;
+
+  final String categoryLabel;
+}
+
 class OrderRepository {
   OrderRepository(this.db);
 
@@ -70,7 +92,13 @@ class OrderRepository {
          AND rr.deleted_at IS NULL
     ORDER BY r.number
       ''',
-          readsFrom: {db.reservationRooms, db.rooms, db.reservations, db.guests, db.folios},
+          readsFrom: {
+            db.reservationRooms,
+            db.rooms,
+            db.reservations,
+            db.guests,
+            db.folios,
+          },
         )
         .watch()
         .map(
@@ -91,14 +119,72 @@ class OrderRepository {
   }
 
   /// Les points de vente ouverts, dans l'ordre de leurs onglets.
-  Stream<List<OutletRow>> watchOutlets() {
+  ///
+  /// Avec `agentId`, seulement les siens : le barman rattache au bar ne voit
+  /// que le bar. Un agent sans rattachement les voit tous, comme cote
+  /// serveur. La tablette est partagee -- elle ne peut pas se contenter de
+  /// ce que le serveur a renvoye au dernier agent connecte.
+  Stream<List<OutletRow>> watchOutlets({String? agentId}) {
     return (db.select(db.outlets)
-          ..where((o) => o.isActive.equals(true) & o.deletedAt.isNull())
+          ..where(
+            (o) =>
+                o.isActive.equals(true) &
+                o.deletedAt.isNull() &
+                (agentId == null
+                    ? const Constant(true)
+                    : CustomExpression<bool>(
+                        '(NOT EXISTS (SELECT 1 FROM user_outlets uo '
+                        "WHERE uo.user_id = '${_sql(agentId)}') "
+                        'OR outlets.id IN (SELECT uo.outlet_id FROM '
+                        "user_outlets uo WHERE uo.user_id = '${_sql(agentId)}'))",
+                        watchedTables: [db.userOutlets],
+                      )),
+          )
           ..orderBy([
             (o) => OrderingTerm(expression: o.sortOrder),
             (o) => OrderingTerm(expression: o.label),
           ]))
         .watch();
+  }
+
+  /// La carte d'un point de vente, groupee par categorie.
+  ///
+  /// Le serveur ne filtre pas la carte : c'est ici qu'on garde les categories
+  /// du point de vente courant et les categories communes (`outlet_id` nul).
+  /// Les articles en rupture restent dans la liste : l'ecran les grise.
+  Stream<List<MenuEntry>> watchMenu(String outletId) {
+    return db
+        .customSelect(
+          '''
+      SELECT i.id            AS id,
+             i.label         AS label,
+             i.price         AS price,
+             i.is_available  AS is_available,
+             c.label         AS category_label
+        FROM menu_items i
+        JOIN menu_categories c ON c.id = i.menu_category_id
+       WHERE i.deleted_at IS NULL AND i.is_active = 1
+         AND c.deleted_at IS NULL AND c.is_active = 1
+         AND (c.outlet_id IS NULL OR c.outlet_id = ?)
+    ORDER BY c.sort_order, c.label, i.sort_order, i.label
+      ''',
+          variables: [Variable.withString(outletId)],
+          readsFrom: {db.menuItems, db.menuCategories},
+        )
+        .watch()
+        .map(
+          (lignes) => lignes
+              .map(
+                (l) => MenuEntry(
+                  id: l.read<String>('id'),
+                  label: l.read<String>('label'),
+                  price: l.read<int>('price'),
+                  isAvailable: l.read<bool>('is_available'),
+                  categoryLabel: l.read<String>('category_label'),
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Porte une consommation sur l'ardoise d'une chambre.
@@ -163,3 +249,7 @@ class OrderRepository {
     return ChargeCategory.MISC;
   }
 }
+
+/// Un identifiant pour une expression SQL : un UUID ne contient pas
+/// d'apostrophe, mais rien ne coute de le garantir.
+String _sql(String id) => id.replaceAll("'", "''");
