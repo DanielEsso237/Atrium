@@ -122,7 +122,7 @@ class _Fiche extends ConsumerWidget {
           _EnTete(chambre: actuelle, vue: vue, panneau: panneau),
           Expanded(
             child: fiche.when(
-              loading: () => const Center(
+              loading: () => Center(
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   color: AtriumColors.mintStrong,
@@ -148,7 +148,7 @@ class _Fiche extends ConsumerWidget {
                             encre: vue.encre,
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Aucun client dans cette chambre.',
                               style: TextStyle(
@@ -290,7 +290,7 @@ class _EnTete extends ConsumerWidget {
                         child: InkWell(
                           customBorder: const CircleBorder(),
                           onTap: () => Navigator.of(context).pop(),
-                          child: const SizedBox.square(
+                          child: SizedBox.square(
                             dimension: 44,
                             child: Icon(
                               Icons.close_rounded,
@@ -312,7 +312,7 @@ class _EnTete extends ConsumerWidget {
                         children: [
                           Text(
                             'Chambre ${chambre.number}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                               color: AtriumColors.white,
@@ -322,7 +322,7 @@ class _EnTete extends ConsumerWidget {
                           const SizedBox(height: 4),
                           Text(
                             lieu,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               color: AtriumColors.onPurpleSoft,
                             ),
@@ -335,13 +335,13 @@ class _EnTete extends ConsumerWidget {
                       children: [
                         Text(
                           formatAmount(chambre.rate),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: AtriumColors.white,
                           ),
                         ),
-                        const Text(
+                        Text(
                           'la nuit',
                           style: TextStyle(
                             fontSize: 13,
@@ -385,7 +385,7 @@ class _Carte extends StatelessWidget {
           if (titre != null) ...[
             Text(
               titre!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AtriumDashColors.title,
@@ -461,7 +461,7 @@ class _Sejour extends StatelessWidget {
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -472,7 +472,7 @@ class _Sejour extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   _initiales(sejour.guestName),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AtriumColors.white,
@@ -486,7 +486,7 @@ class _Sejour extends StatelessWidget {
                   children: [
                     Text(
                       sejour.guestName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: AtriumDashColors.title,
@@ -494,7 +494,7 @@ class _Sejour extends StatelessWidget {
                     ),
                     Text(
                       personnes,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13.5,
                         color: AtriumColors.textSecondary,
                       ),
@@ -514,7 +514,7 @@ class _Sejour extends StatelessWidget {
                   brut: sejour.arrival,
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.east_rounded,
                 size: 20,
                 color: AtriumColors.textSecondary,
@@ -549,7 +549,7 @@ class _Sejour extends StatelessWidget {
                   nuitEnCours <= 0
                       ? '$nuits nuit${nuits > 1 ? 's' : ''}'
                       : 'Nuit ${nuitEnCours.clamp(1, nuits)} sur $nuits',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AtriumColors.textSecondary,
@@ -593,7 +593,7 @@ class _Date extends StatelessWidget {
       children: [
         Text(
           libelle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             color: AtriumColors.textSecondary,
           ),
@@ -601,7 +601,7 @@ class _Date extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           date == null ? brut : formatShortDate(date!),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AtriumDashColors.title,
@@ -697,7 +697,7 @@ class _Consommations extends StatelessWidget {
     return _Carte(
       titre: 'Consommations',
       child: lignes.isEmpty
-          ? const Text(
+          ? Text(
               'Aucune consommation portée à l’ardoise.',
               style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
             )
@@ -705,7 +705,7 @@ class _Consommations extends StatelessWidget {
               children: [
                 for (var i = 0; i < lignes.length; i++) ...[
                   if (i > 0)
-                    const Divider(height: 18, color: AtriumDashColors.grid),
+                    Divider(height: 18, color: AtriumDashColors.grid),
                   Row(
                     children: [
                       _Tuile(
@@ -723,7 +723,7 @@ class _Consommations extends StatelessWidget {
                               lignes[i].libelle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w600,
                                 color: AtriumDashColors.title,
@@ -732,7 +732,7 @@ class _Consommations extends StatelessWidget {
                             Text(
                               '${chargeCategoryLabel(lignes[i].categorie)}, '
                               '${_jour(lignes[i].journee)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
                                 color: AtriumColors.textSecondary,
                               ),
@@ -743,7 +743,7 @@ class _Consommations extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         formatAmount(lignes[i].montant),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           color: AtriumDashColors.title,
@@ -880,7 +880,7 @@ class _Historique extends StatelessWidget {
     return _Carte(
       titre: 'Historique',
       child: sejours.isEmpty
-          ? const Text(
+          ? Text(
               'Aucun séjour terminé dans cette chambre.',
               style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
             )
@@ -888,20 +888,20 @@ class _Historique extends StatelessWidget {
               children: [
                 for (var i = 0; i < sejours.length; i++) ...[
                   if (i > 0)
-                    const Divider(height: 16, color: AtriumDashColors.grid),
+                    Divider(height: 16, color: AtriumDashColors.grid),
                   Row(
                     children: [
                       Container(
                         width: 34,
                         height: 34,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AtriumDashColors.control,
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           _initiales(sejours[i].guestName),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: AtriumDashColors.title,
@@ -914,7 +914,7 @@ class _Historique extends StatelessWidget {
                           sejours[i].guestName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w600,
                             color: AtriumDashColors.title,
@@ -924,7 +924,7 @@ class _Historique extends StatelessWidget {
                       Text(
                         'du ${_jour(sejours[i].arrival)} '
                         'au ${_jour(sejours[i].departure)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: AtriumColors.textSecondary,
                           fontFeatures: tabularFigures,
@@ -954,7 +954,7 @@ class _Ligne extends StatelessWidget {
           Expanded(
             child: Text(
               cle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14.5,
                 color: AtriumColors.textSecondary,
               ),
@@ -962,7 +962,7 @@ class _Ligne extends StatelessWidget {
           ),
           Text(
             valeur,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14.5,
               fontWeight: FontWeight.w600,
               color: AtriumDashColors.title,
