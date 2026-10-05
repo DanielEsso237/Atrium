@@ -25,6 +25,7 @@ abstract final class PhosphorIconsLight {
   static const calendarCheck = IconData(0xe712, fontFamily: 'PhosphorLight');
   static const calendarDots = IconData(0xe7b4, fontFamily: 'PhosphorLight');
   static const calendarPlus = IconData(0xe714, fontFamily: 'PhosphorLight');
+  static const camera = IconData(0xe10e, fontFamily: 'PhosphorLight');
   static const caretRight = IconData(0xe13a, fontFamily: 'PhosphorLight');
   static const cashRegister = IconData(0xed80, fontFamily: 'PhosphorLight');
   static const chartDonut = IconData(0xeaa6, fontFamily: 'PhosphorLight');

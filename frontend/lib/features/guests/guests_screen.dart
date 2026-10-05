@@ -22,6 +22,7 @@ import '../../data/repositories/guest_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'guest_rules.dart';
+import 'id_photos.dart';
 
 /// Texte saisi dans la barre de recherche.
 ///
@@ -534,6 +535,11 @@ class _FicheClient extends ConsumerWidget {
                     ? null
                     : '${guest.idDocumentType == null ? '' : '${libellePiece(guest.idDocumentType!)} '}'
                           '${guest.idDocumentNumber}',
+              ),
+              // Alignees sur le texte des lignes, pas sur leurs icones.
+              Padding(
+                padding: const EdgeInsets.only(left: 50, top: 4, bottom: 4),
+                child: IdPhotoPair(guestId: guest.id),
               ),
               const SizedBox(height: 18),
               FutureBuilder<List<GuestStay>>(

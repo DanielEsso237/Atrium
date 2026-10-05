@@ -351,6 +351,29 @@ l'état de tout compte neuf, et l'aveugler d'office ferait d'un oubli de
 configuration une panne au service. Rattaché, `GET /outlets` ne renvoie que
 les siens, et `POST /orders` sur un autre point de vente répond 403.
 
+## Les photos de pièce d'identité
+
+La file d'envoi ne porte que du JSON : une photo remonte par sa propre route,
+`PUT /attachments/{id}`, en `multipart/form-data` — champs `entity_table`
+(`guests` seulement pour l'instant), `entity_id`, `kind` (`ID_FRONT`,
+`ID_BACK`), `captured_at`, `captured_by`, et le fichier dans `file` (JPEG ou
+PNG, 8 Mo au plus, `413` au-delà). La ligne `attachments` naît avec le
+fichier : il n'y a pas de `POST` séparé pour la décrire.
+
+L'`id` est celui de la tablette : **201** à la création, **200** sur un
+renvoi ou une reprise, qui remplace le fichier. Une photo dont `captured_at`
+est plus ancien que celle déjà tenue répond 200 sans rien remplacer — la
+dernière prise l'emporte, quel que soit l'ordre d'arrivée.
+
+Droit `guests.write` pour déposer, `guests.read` pour relire le fichier
+(`GET /attachments/{id}/file`, l'adresse renvoyée dans `file_url`). Un client
+d'un autre hôtel répond 404.
+
+Côté tablette, ces envois passent par `file_uploads`, une file distincte de
+`outbox_entries` : **une photo refusée ne bloque jamais la file d'envoi**, ni
+les autres photos. Une photo attend que la création de son client soit
+remontée, sinon le serveur répondrait 404.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

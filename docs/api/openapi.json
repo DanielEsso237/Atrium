@@ -15,6 +15,109 @@
         "title": "AssignIn",
         "type": "object"
       },
+      "AttachmentOut": {
+        "description": "Une piece jointe telle que le serveur la tient.\n\nLe fichier lui-meme n'y est pas : `file_url` dit ou le lire.",
+        "properties": {
+          "captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          },
+          "captured_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured By"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_table": {
+            "title": "Entity Table",
+            "type": "string"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upload_state": {
+            "$ref": "#/components/schemas/UploadState"
+          }
+        },
+        "required": [
+          "id",
+          "entity_table",
+          "entity_id",
+          "kind",
+          "file_url",
+          "mime_type",
+          "size_bytes",
+          "upload_state",
+          "captured_at",
+          "captured_by",
+          "updated_at"
+        ],
+        "title": "AttachmentOut",
+        "type": "object"
+      },
       "AvailabilityOut": {
         "properties": {
           "arrival_date": {
@@ -54,6 +157,62 @@
           "available_rooms"
         ],
         "title": "AvailabilityOut",
+        "type": "object"
+      },
+      "Body_put_attachment_api_v1_attachments__attachment_id__put": {
+        "properties": {
+          "captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          },
+          "captured_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured By"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_table": {
+            "maxLength": 64,
+            "title": "Entity Table",
+            "type": "string"
+          },
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 32,
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_table",
+          "entity_id",
+          "kind",
+          "file"
+        ],
+        "title": "Body_put_attachment_api_v1_attachments__attachment_id__put",
         "type": "object"
       },
       "CalendarCell": {
@@ -6494,6 +6653,16 @@
         "title": "TokenOut",
         "type": "object"
       },
+      "UploadState": {
+        "enum": [
+          "PENDING",
+          "UPLOADING",
+          "UPLOADED",
+          "FAILED"
+        ],
+        "title": "UploadState",
+        "type": "string"
+      },
       "UserIn": {
         "description": "Creation d'un membre du personnel (admin).\n\nUn PIN ou un mot de passe, au moins l'un des deux : la reception se\nconnecte au PIN sur la tablette, l'administration au mot de passe.",
         "properties": {
@@ -6960,6 +7129,117 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/attachments/{attachment_id}": {
+      "put": {
+        "description": "Recoit une piece jointe et son fichier, ou remplace le fichier.\n\n201 a la creation, 200 sur un renvoi ou une reprise. Une photo **plus\nancienne** que celle deja tenue ne remplace rien et repond 200 : deux\ntablettes qui photographient le meme client, la derniere prise l'emporte,\nquel que soit l'ordre d'arrivee.",
+        "operationId": "put_attachment_api_v1_attachments__attachment_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_put_attachment_api_v1_attachments__attachment_id__put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Piece deja connue (meme id) : fichier remplace"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "description": "Fichier trop lourd"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Attachment",
+        "tags": [
+          "pieces jointes"
+        ]
+      }
+    },
+    "/api/v1/attachments/{attachment_id}/file": {
+      "get": {
+        "description": "Le fichier d'une piece jointe, avec les droits de lecture de sa fiche.",
+        "operationId": "get_attachment_file_api_v1_attachments__attachment_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Attachment File",
+        "tags": [
+          "pieces jointes"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login_api_v1_auth_login_post",

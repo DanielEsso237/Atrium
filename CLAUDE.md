@@ -220,8 +220,11 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
   serveur et effacé de la file. `auth_locale.dart` ne vérifie que les
   empreintes `DEMO:` ; il faudrait bcrypt côté tablette et la descente des
   empreintes.
-- **Photos de CNI** (carte de Neo) et **impression des factures**, les deux
-  briques rouvertes.
+- **Impression des factures**, brique rouverte.
+- **Photos de CNI** : prises à l'arrivée, rangées sur la tablette, remontées
+  par `PUT /attachments/{id}` via leur propre file (`file_uploads`,
+  `FileUploader`) — jamais par la file d'envoi. Reste la **descente** : un
+  second poste ne voit pas les photos prises sur le premier.
 - **Créer la carte du restaurant** (menus et prix) depuis l'écran Commandes :
   elle descend déjà et se choisit à la commande, mais ne se crée pas encore
   depuis la tablette.
