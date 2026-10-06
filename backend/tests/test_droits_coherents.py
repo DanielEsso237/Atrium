@@ -61,6 +61,9 @@ IMPLICATIONS = [
     ("users.write", "guests.write"),
     # Une commande portee a une chambre ecrit sur son ardoise.
     ("order.create", "folio.charge"),
+    # Le client de passage paie au comptoir : la vente y est encaissee, dans
+    # la caisse ouverte de l'agent (POST /folios/walk-in).
+    ("order.create", "cash.session"),
 ]
 
 

@@ -72,6 +72,29 @@ class PaymentIn(BaseModel):
     notes: str | None = None
 
 
+class WalkInItemIn(BaseModel):
+    id: uuid.UUID | None = Field(default=None, description="UUID v7 genere par la tablette")
+    category: ChargeCategory
+    label: str = Field(min_length=1, max_length=160)
+    quantity: int = Field(default=1, ge=1)
+    unit_price: int = Field(gt=0, description="FCFA, TTC")
+
+
+class WalkInSaleIn(BaseModel):
+    """Vente au comptoir a un client sans chambre : tout en une requete.
+
+    Ardoise, consommations, encaissement et cloture arrivent ensemble. Une
+    requete par geste aurait laisse, au premier refus, une ardoise ouverte et
+    a moitie payee -- et une file d'envoi bloquee derriere.
+    """
+
+    id: uuid.UUID = Field(description="Id de l'ardoise, genere par la tablette (rejeu)")
+    outlet_id: uuid.UUID
+    items: list[WalkInItemIn] = Field(min_length=1)
+    payment: PaymentIn
+    notes: str | None = Field(default=None, max_length=255)
+
+
 class PaymentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

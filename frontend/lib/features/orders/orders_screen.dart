@@ -20,9 +20,13 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
+import '../../data/local/enums.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../billing/cash_dialog.dart' show CashButton;
+import '../billing/charge_labels.dart';
+import '../billing/payment_dialog.dart' show iconePaiement;
 
 /// Le point de vente choisi, et la chambre cherchee.
 class _PointChoisi extends Notifier<String?> {
@@ -83,8 +87,15 @@ class OrdersScreen extends ConsumerWidget {
                   'à ${outlet.closesAt!.substring(0, 5)}'
             : '';
 
+        // Le comptoir encaisse le client de passage : il tient sa caisse.
+        final caisse = ref
+            .watch(sessionProvider)
+            .acces
+            .peut('cash.session');
+
         return ModuleScaffold(
           title: 'Commandes',
+          action: caisse ? const CashButton() : null,
           subtitle: outlet.allowsRoomCharge
               ? '${outlet.label} porte sur la chambre$horaires'
               : '${outlet.label} encaisse sur place$horaires',
@@ -172,8 +183,23 @@ class _Onglet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chambres = ref.watch(chargeableRoomsProvider);
     final recherche = ref.watch(_rechercheProvider).trim().toLowerCase();
+    // Le client de passage paie sur place : il faut une caisse a tenir.
+    final passage = ref.watch(sessionProvider).acces.peut('cash.session');
 
     if (!outlet.allowsRoomCharge) {
+      if (passage) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+            child: SizedBox(
+              width: 250,
+              height: 150,
+              child: _Passage(outlet: outlet),
+            ),
+          ),
+        );
+      }
       return EmptyState(
         icon: PhosphorIconsLight.money,
         title: '${outlet.label} encaisse sur place',
@@ -198,14 +224,14 @@ class _Onglet extends ConsumerWidget {
                         c.guestName.toLowerCase().contains(recherche),
                   )
                   .toList();
-        if (liste.isEmpty) {
+        if (liste.isEmpty && !passage) {
           return const EmptyState(
             icon: PhosphorIconsLight.bed,
             title: 'Aucun client en chambre',
             message: 'Une consommation ne se porte que sur un séjour en cours.',
           );
         }
-        if (visibles.isEmpty) {
+        if (visibles.isEmpty && recherche.isNotEmpty) {
           return EmptyState(
             icon: PhosphorIconsLight.magnifyingGlass,
             title: 'Aucune chambre ne correspond',
@@ -220,10 +246,15 @@ class _Onglet extends ConsumerWidget {
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
           ),
-          itemCount: visibles.length,
+          itemCount: visibles.length + (passage ? 1 : 0),
           itemBuilder: (_, i) => FadeUp(
             index: i.clamp(0, 8),
-            child: _Chambre(outlet: outlet, chambre: visibles[i]),
+            child: passage && i == 0
+                ? _Passage(outlet: outlet)
+                : _Chambre(
+                    outlet: outlet,
+                    chambre: visibles[passage ? i - 1 : i],
+                  ),
           ),
         );
       },
@@ -352,6 +383,157 @@ class _Chambre extends ConsumerWidget {
   }
 }
 
+/// Le client de passage : il consomme, paie sur place et s'en va, sans
+/// chambre ni fiche. Premiere tuile de l'onglet, avant les chambres.
+class _Passage extends ConsumerWidget {
+  const _Passage({required this.outlet});
+
+  final OutletRow outlet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    return Bezel(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      onTap: () => _vendre(context, ref),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(PhosphorIconsLight.storefront, size: 32, color: p.text),
+              const Spacer(),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: p.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  PhosphorIconsLight.plus,
+                  size: 18,
+                  color: p.onAccent,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            'Client de passage',
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: p.text,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Sans chambre, paie sur place',
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              color: p.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _vendre(BuildContext context, WidgetRef ref) async {
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    final lignes = await showDialog<List<(String, int, int)>>(
+      context: context,
+      builder: (_) => _Saisie(outlet: outlet, chambre: null),
+    );
+    if (lignes == null || lignes.isEmpty || !context.mounted) return;
+
+    final total = lignes.fold(0, (t, l) => t + l.$2 * l.$3);
+    final moyen = await showDialog<PaymentMethod>(
+      context: context,
+      builder: (_) => _MoyenPassage(total: total),
+    );
+    if (moyen == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(orderRepositoryProvider)
+          .sellWalkIn(outlet: outlet, lines: lignes, method: moyen, by: agent);
+    } on StateError catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${formatAmount(total)} encaissés (${paymentMethodLabel(moyen)}).',
+        ),
+      ),
+    );
+  }
+}
+
+/// Le moyen de paiement du client de passage. Le total, paye en entier :
+/// la monnaie rendue se fait au tiroir, elle n'est pas une ligne d'ardoise.
+class _MoyenPassage extends StatefulWidget {
+  const _MoyenPassage({required this.total});
+
+  final int total;
+
+  @override
+  State<_MoyenPassage> createState() => _MoyenPassageState();
+}
+
+class _MoyenPassageState extends State<_MoyenPassage> {
+  PaymentMethod _moyen = PaymentMethod.CASH;
+
+  static const _moyens = [
+    PaymentMethod.CASH,
+    PaymentMethod.MOBILE_MONEY,
+    PaymentMethod.CARD,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      scrollable: true,
+      icon: const Icon(PhosphorIconsLight.coins, size: 30),
+      title: Text('Encaisser ${formatAmount(widget.total)}'),
+      content: SizedBox(
+        width: 480,
+        child: ChoiceTiles<PaymentMethod>(
+          selected: _moyen,
+          tileWidth: 148,
+          onChanged: (m) => setState(() => _moyen = m),
+          options: [
+            for (final m in _moyens)
+              (m, iconePaiement(m), paymentMethodLabel(m)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_moyen),
+          child: const Text('Encaisser'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Une ligne de la saisie : ce qui ira sur l'ardoise.
 class _Ligne {
   final libelle = TextEditingController();
@@ -381,7 +563,9 @@ class _Saisie extends ConsumerStatefulWidget {
   const _Saisie({required this.outlet, required this.chambre});
 
   final OutletRow outlet;
-  final ChargeableRoom chambre;
+
+  /// `null` : client de passage, qui paie sur place.
+  final ChargeableRoom? chambre;
 
   @override
   ConsumerState<_Saisie> createState() => _SaisieState();
@@ -424,6 +608,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
   Widget build(BuildContext context) {
     final schema = Theme.of(context).colorScheme;
     final p = AtriumPalette.current;
+    final chambre = widget.chambre;
 
     return AlertDialog(
       // La carte, les lignes et le recapitulatif depassent vite un ecran de
@@ -431,7 +616,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
       scrollable: true,
       icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
       title: Text(
-        '${widget.outlet.label} · chambre ${widget.chambre.roomNumber}',
+        chambre == null
+            ? '${widget.outlet.label} · client de passage'
+            : '${widget.outlet.label} · chambre ${chambre.roomNumber}',
       ),
       content: SizedBox(
         width: 520,
@@ -440,7 +627,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.chambre.guestName,
+              chambre?.guestName ?? 'Il paie sur place, avant de partir.',
               style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
@@ -524,9 +711,8 @@ class _SaisieState extends ConsumerState<_Saisie> {
                   Row(
                     children: [
                       Text(
-                        _lignes.length > 1
-                            ? 'À porter (${_lignes.length} lignes)'
-                            : 'À porter',
+                        '${chambre == null ? 'À encaisser' : 'À porter'}'
+                        '${_lignes.length > 1 ? ' (${_lignes.length} lignes)' : ''}',
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
@@ -547,10 +733,11 @@ class _SaisieState extends ConsumerState<_Saisie> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
                   // L'ardoise apres coup : le comptoir voit ou il emmene le
                   // client avant de valider, pas apres.
-                  Row(
+                  if (chambre != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
                     children: [
                       Text(
                         'Ardoise après',
@@ -562,7 +749,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
                       ),
                       const Spacer(),
                       Text(
-                        formatAmount(widget.chambre.balance + _total),
+                        formatAmount(chambre.balance + _total),
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 15,
@@ -573,6 +760,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
                       ),
                     ],
                   ),
+                  ],
                 ],
               ),
             ),
@@ -595,7 +783,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
                       l.quantite,
                     ),
                 ]),
-          child: const Text('Porter à la chambre'),
+          child: Text(
+            chambre == null ? 'Choisir le paiement' : 'Porter à la chambre',
+          ),
         ),
       ],
     );

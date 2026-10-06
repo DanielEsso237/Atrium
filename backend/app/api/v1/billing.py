@@ -23,13 +23,21 @@ from app.models import (
     StayNight,
     User,
 )
-from app.models.enums import CashSessionStatus, ChargeCategory, FolioStatus, InvoiceStatus
+from app.models.enums import (
+    CashSessionStatus,
+    ChargeCategory,
+    FolioStatus,
+    FolioType,
+    InvoiceStatus,
+)
+from app.models.restaurant import Outlet
 from app.schemas.billing import (
     FolioItemIn,
     FolioItemOut,
     FolioOut,
     InvoiceOut,
     PaymentIn,
+    WalkInSaleIn,
 )
 from app.services.business_day import current_business_date
 from app.services import folios as folio_service
@@ -381,6 +389,118 @@ async def record_payment(
     session.add(payment)
     await session.flush()
     await recompute_totals(session, folio)
+    await session.commit()
+    await session.refresh(folio, attribute_names=["items"])
+    return folio
+
+
+@router.post(
+    "/folios/walk-in",
+    response_model=FolioOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Vente deja enregistree (meme id) : etat de l'ardoise"}},
+)
+async def walk_in_sale(
+    payload: WalkInSaleIn,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_any_permission("folio.write", "folio.charge")),
+) -> Folio:
+    """Client de passage : il consomme au bar ou au restaurant, paie et s'en va.
+
+    Une ardoise WALK_IN sans sejour ni client, ses consommations, le paiement
+    du total dans la caisse ouverte de l'agent, puis la cloture -- en une
+    seule transaction. Le paiement doit couvrir le total exactement : la
+    monnaie rendue est de la manipulation d'especes, pas une ligne d'ardoise.
+    """
+    if "cash.session" not in permission_codes(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Permission manquante : cash.session")
+
+    # Rejeu : la vente a deja ete enregistree, on rend l'ardoise telle quelle.
+    existing = await session.get(Folio, payload.id)
+    if existing is not None:
+        if existing.hotel_id != user.hotel_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Identifiant inconnu.")
+        response.status_code = status.HTTP_200_OK
+        await session.refresh(existing, attribute_names=["items"])
+        return existing
+
+    outlet = await session.get(Outlet, payload.outlet_id)
+    if outlet is None or outlet.hotel_id != user.hotel_id or outlet.deleted_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Point de vente introuvable.")
+    if any(i.category == ChargeCategory.DISCOUNT for i in payload.items):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Une remise ne se fait pas au comptoir."
+        )
+    total = sum(i.unit_price * i.quantity for i in payload.items)
+    if payload.payment.amount != total:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Le paiement ({payload.payment.amount}) doit couvrir le total ({total}).",
+        )
+
+    now = dt.datetime.now(dt.timezone.utc)
+    business_date = await current_business_date(session, user.hotel_id)
+    folio = Folio(
+        id=payload.id,
+        hotel_id=user.hotel_id,
+        number=await next_number(session, user.hotel_id, Scope.FOLIO),
+        type=FolioType.WALK_IN,
+        status=FolioStatus.OPEN,
+        opened_at=now,
+        notes=payload.notes or f"Client de passage - {outlet.label}",
+    )
+    session.add(folio)
+    await session.flush()
+    for i in payload.items:
+        session.add(
+            FolioItem(
+                id=i.id or uuid7(),
+                folio_id=folio.id,
+                category=i.category,
+                label=i.label,
+                quantity=i.quantity,
+                unit_price=i.unit_price,
+                amount=i.unit_price * i.quantity,
+                tax_amount=0,
+                tax_rate=0,
+                business_date=business_date,
+                posted_by=user.id,
+                posted_at=now,
+                # D'ou vient la vente : c'est ce qui ventile le chiffre
+                # d'affaires par point de vente.
+                source_table="outlets",
+                source_id=outlet.id,
+            )
+        )
+    cash_session_id = await session.scalar(
+        select(CashSession.id)
+        .where(
+            CashSession.user_id == user.id,
+            CashSession.status == CashSessionStatus.OPEN,
+            CashSession.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    session.add(
+        Payment(
+            id=payload.payment.id or uuid7(),
+            hotel_id=user.hotel_id,
+            folio_id=folio.id,
+            cash_session_id=cash_session_id,
+            method=payload.payment.method,
+            amount=payload.payment.amount,
+            reference=payload.payment.reference,
+            notes=payload.payment.notes,
+            received_by=user.id,
+            received_at=now,
+            business_date=business_date,
+        )
+    )
+    await session.flush()
+    await recompute_totals(session, folio)
+    folio.status = FolioStatus.CLOSED
+    folio.closed_at = now
     await session.commit()
     await session.refresh(folio, attribute_names=["items"])
     return folio

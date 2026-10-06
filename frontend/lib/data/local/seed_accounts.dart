@@ -126,6 +126,14 @@ const _permissions = <_PermissionDemo>[
     'Consulter les commandes restaurant',
     'order',
   ),
+  // Identifiant local : cote serveur, ...4131 est cash.session, mais ici il
+  // designe deja reservation.read. Seul le code compte pour les droits.
+  (
+    '01920000-0000-7000-8000-000000004150',
+    'cash.session',
+    'Ouvrir et fermer sa session de caisse',
+    'cash',
+  ),
   (
     '01920000-0000-7000-8000-000000004126',
     'housekeeping.read',
@@ -186,6 +194,11 @@ const _droits = <(String role, String permission)>[
   // Le restaurant ne voit que ses commandes. Pas le plan, pas les clients,
   // pas les factures -- il porte a l'ardoise sans avoir a la consulter.
   (_roleRestaurant, '01920000-0000-7000-8000-000000004123'),
+  // Le client de passage paie au comptoir (decision du 4 octobre) : le
+  // comptoir ouvre une caisse, comme la reception et l'administration.
+  (_roleRestaurant, '01920000-0000-7000-8000-000000004150'),
+  (_roleReception, '01920000-0000-7000-8000-000000004150'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004150'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {
