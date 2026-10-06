@@ -754,6 +754,160 @@ class ReservationRepository with OutboxWriter {
     });
   }
 
+  /// Les arrhes encaissees qu'une annulation ferait conserver, `null` s'il
+  /// n'y en a pas. Le dialogue d'annulation le dit avant qu'on confirme.
+  Future<int?> keptDeposit(String reservationId) async {
+    final paiement = await _depositPayment(reservationId);
+    return paiement?.amount;
+  }
+
+  /// Le paiement d'arrhes encore rattache au dossier : ni passe sur l'ardoise
+  /// d'arrivee, ni deja conserve.
+  Future<PaymentRow?> _depositPayment(String reservationId) async {
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(reservationId))).getSingleOrNull();
+    if (dossier == null) return null;
+    return (db.select(db.payments)..where(
+          (p) =>
+              p.folioId.isNull() &
+              p.deletedAt.isNull() &
+              p.notes.equals(depositNote(dossier.reference)),
+        ))
+        .getSingleOrNull();
+  }
+
+  /// Annule tout le dossier.
+  ///
+  /// Les arrhes encaissees restent acquises a l'hotel, comme cote serveur :
+  /// elles deviennent une indemnite d'annulation sur une ardoise au nom du
+  /// client, soldee et close aussitot. L'argent ne bouge pas de la caisse qui
+  /// l'a recu ; il cesse seulement d'etre « en attente ».
+  ///
+  /// Le refus du serveur est verifie ici **avant** d'ecrire : un client deja
+  /// arrive ne s'annule pas, il part (check-out).
+  Future<void> cancel({
+    required String reservationId,
+    String? reason,
+    String? by,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(reservationId))).getSingle();
+    if (dossier.status == ReservationStatus.CANCELLED) return;
+
+    final lignes = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.reservationId.equals(reservationId))).get();
+    if (lignes.any((l) => l.status == ReservationStatus.CHECKED_IN)) {
+      throw StateError(
+        'Le client est déjà arrivé : enregistrez son départ plutôt que '
+        "d'annuler.",
+      );
+    }
+
+    final motif = reason?.trim();
+    final arrhes = await _depositPayment(reservationId);
+    final folioId = arrhes == null ? null : newId();
+
+    await db.transaction(() async {
+      await (db.update(
+        db.reservations,
+      )..where((r) => r.id.equals(reservationId))).write(
+        ReservationsCompanion(
+          status: const Value(ReservationStatus.CANCELLED),
+          cancelledAt: Value(now),
+          cancelReason: Value(motif == null || motif.isEmpty ? null : motif),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+
+      for (final l in lignes) {
+        if (l.status == ReservationStatus.CHECKED_OUT) continue;
+        await (db.update(
+          db.reservationRooms,
+        )..where((rr) => rr.id.equals(l.id))).write(
+          ReservationRoomsCompanion(
+            status: const Value(ReservationStatus.CANCELLED),
+            updatedAt: Value(now),
+            updatedBy: Value(by),
+          ),
+        );
+        // La chambre retenue redevient libre, sauf si un autre sejour
+        // l'attend.
+        if (l.roomId != null) await _releaseReserved(l.roomId!, l.id, now);
+      }
+
+      // L'indemnite, comme le serveur la pose : meme id d'ardoise, envoye
+      // avec l'annulation. Pas enfilee a part : le serveur la cree lui-meme.
+      if (arrhes != null) {
+        await db
+            .into(db.folios)
+            .insert(
+              FoliosCompanion.insert(
+                id: folioId!,
+                createdAt: now,
+                updatedAt: now,
+                hotelId: hotelId,
+                number: codeFromId(folioId, 'FOL'),
+                type: const Value(FolioType.GUEST),
+                status: const Value(FolioStatus.CLOSED),
+                closedAt: Value(now),
+                guestId: Value(dossier.guestId),
+                chargesTotal: Value(arrhes.amount),
+                paymentsTotal: Value(arrhes.amount),
+                balance: const Value(0),
+                notes: Value(
+                  'Arrhes conservées - dossier ${dossier.reference} annulé',
+                ),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+        await db
+            .into(db.folioItems)
+            .insert(
+              FolioItemsCompanion.insert(
+                id: newId(),
+                createdAt: now,
+                updatedAt: now,
+                folioId: folioId,
+                category: ChargeCategory.MISC,
+                label: "Indemnité d'annulation - dossier ${dossier.reference}",
+                unitPrice: Value(arrhes.amount),
+                amount: Value(arrhes.amount),
+                businessDate: businessDateNow(),
+                sourceTable: const Value('reservations'),
+                sourceId: Value(reservationId),
+                postedBy: Value(by),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+        await (db.update(
+          db.payments,
+        )..where((p) => p.id.equals(arrhes.id))).write(
+          PaymentsCompanion(folioId: Value(folioId), updatedAt: Value(now)),
+        );
+      }
+
+      // `action` : le statut seul ne dit pas au serveur quel endpoint
+      // appeler, et l'envoyeur prendrait l'entree pour une creation.
+      await enqueue(
+        table: 'reservations',
+        id: reservationId,
+        operation: SyncOp.UPDATE,
+        payload: {
+          'id': reservationId,
+          'action': 'CANCEL',
+          'reason': motif == null || motif.isEmpty ? null : motif,
+          'folio_id': folioId,
+          'updated_by': by,
+        },
+      );
+    });
+  }
+
   /// Rend libre la chambre qu'une ligne vient de quitter avant l'arrivee.
   ///
   /// Seulement si aucun autre sejour a venir ne la retient : elle reste

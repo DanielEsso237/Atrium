@@ -468,6 +468,14 @@ class OutboxSender {
         );
 
       case 'reservations':
+        // L'annulation a son endpoint ; le serveur y conserve les arrhes sur
+        // l'ardoise d'indemnite dont la tablette a choisi l'id.
+        if (p['action'] == 'CANCEL') {
+          return _Envoi(
+            '/reservations/${p['id']}/cancel',
+            _sansNuls({'reason': p['reason'], 'folio_id': p['folio_id']}),
+          );
+        }
         return _Envoi(
           '/reservations',
           _sansNuls({
