@@ -157,7 +157,12 @@ class ModuleScaffold extends ConsumerWidget {
 /// de rebrancher le cable veut pouvoir forcer sans attendre. L'objet qui
 /// montre le probleme est celui sur lequel on appuie pour le regler.
 class PendingWritesBadge extends ConsumerWidget {
-  const PendingWritesBadge({super.key});
+  const PendingWritesBadge({super.key, this.compact = false});
+
+  /// Dans le rail d'une tablette en portrait (92 points de large), le libelle
+  /// passe sous l'icone, en petit, sur deux lignes au besoin : sur une seule
+  /// ligne, « Hors ligne · 3 » debordait du rail.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -212,14 +217,18 @@ class PendingWritesBadge extends ConsumerWidget {
         onTap: () => ref.read(syncSchedulerProvider.notifier).maintenant(),
         borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 4 : 10,
+            vertical: 8,
+          ),
           // L'etat en toutes lettres : une icone seule ne dit pas a l'agent
           // s'il travaille en ligne ou non.
-          child: Row(
+          child: Flex(
+            direction: compact ? Axis.vertical : Axis.horizontal,
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icone, size: 22, color: couleur),
-              const SizedBox(width: 6),
+              SizedBox(width: compact ? 0 : 6, height: compact ? 3 : 0),
               Text(
                 sync.isBlocked && pending > 0
                     ? 'Bloqué · $pending'
@@ -228,9 +237,12 @@ class PendingWritesBadge extends ConsumerWidget {
                     : enLigne
                     ? 'En ligne'
                     : 'Hors ligne',
+                textAlign: TextAlign.center,
+                maxLines: compact ? 2 : 1,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: compact ? 11 : 14,
                   fontWeight: FontWeight.w700,
+                  height: compact ? 1.15 : null,
                   color: couleur,
                 ),
               ),
