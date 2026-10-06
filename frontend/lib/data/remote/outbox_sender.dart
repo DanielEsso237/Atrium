@@ -526,7 +526,17 @@ class OutboxSender {
         );
 
       case 'folios':
-        // Seule fermeture pour l'instant ; le folio nait au check-in.
+        // La vente a un client de passage : ardoise, lignes, paiement et
+        // cloture en une requete, que le serveur rejoue sans doublon.
+        if (p['action'] == 'WALK_IN') {
+          return _Envoi('/folios/walk-in', {
+            'id': p['id'],
+            'outlet_id': p['outlet_id'],
+            'items': p['items'],
+            'payment': p['payment'],
+          });
+        }
+        // Sinon, la fermeture ; le folio d'un sejour nait au check-in.
         if (p['status'] != 'CLOSED') return null;
         return _Envoi('/folios/${p['id']}/close', const {});
 

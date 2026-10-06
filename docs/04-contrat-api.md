@@ -374,6 +374,20 @@ Côté tablette, ces envois passent par `file_uploads`, une file distincte de
 les autres photos. Une photo attend que la création de son client soit
 remontée, sinon le serveur répondrait 404.
 
+## Le client de passage
+
+`POST /folios/walk-in` : un client sans chambre consomme au bar ou au
+restaurant, paie et s'en va. Une seule requête crée l'ardoise `WALK_IN`
+(son `id` vient de la tablette), porte les `items`, enregistre le `payment`
+dans la caisse ouverte de l'agent et clôt l'ardoise.
+
+- Le paiement doit égaler le total : **409** sinon. La monnaie rendue se
+  fait au tiroir, elle n'est pas une ligne d'ardoise.
+- Exige `folio.charge` (ou `folio.write`) **et** `cash.session` : **403**
+  sinon. Le rôle Commandes a les deux depuis la migration `0011`.
+- Rejouée avec le même `id`, la vente rend l'ardoise existante (**200**),
+  sans rien réécrire.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

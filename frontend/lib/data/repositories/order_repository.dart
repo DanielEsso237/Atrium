@@ -14,9 +14,14 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../core/business_day.dart';
+import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import 'cash_repository.dart';
 import 'folio_repository.dart';
+import 'guest_repository.dart' show codeFromId;
+import 'outbox.dart';
 
 /// Une chambre a qui l'on peut porter une consommation.
 class ChargeableRoom {
@@ -62,10 +67,12 @@ class MenuEntry {
   final String categoryLabel;
 }
 
-class OrderRepository {
-  OrderRepository(this.db);
+class OrderRepository with OutboxWriter {
+  OrderRepository(this.db, {this.hotelId = FolioRepository.defaultHotelId});
 
+  @override
   final AtriumDatabase db;
+  final String hotelId;
 
   /// Les chambres occupees dont l'ardoise est ouverte.
   ///
@@ -229,6 +236,141 @@ class OrderRepository {
       sourceTable: 'outlets',
       sourceId: outlet.id,
     );
+  }
+
+  /// Vend a un client de passage : il consomme au comptoir, paie le tout et
+  /// s'en va, sans chambre ni fiche.
+  ///
+  /// Une ardoise `WALK_IN` nait, recoit les lignes, est payee et close dans
+  /// la meme transaction ; une seule entree de file la remonte
+  /// (`POST /folios/walk-in`). Une requete par geste aurait laisse, au
+  /// premier refus, une ardoise ouverte a moitie payee.
+  ///
+  /// L'argent va dans la caisse ouverte de l'agent : sans caisse, la vente
+  /// est refusee ici, sinon elle ne serait dans aucun tiroir a la fin du
+  /// service. Leve une [StateError] dont le message est fait pour etre
+  /// montre tel quel.
+  Future<String> sellWalkIn({
+    required OutletRow outlet,
+    required List<(String label, int unitPrice, int quantity)> lines,
+    required PaymentMethod method,
+    required String by,
+  }) async {
+    if (lines.isEmpty) throw StateError('Indiquez ce qui a été consommé.');
+    for (final (label, prix, quantite) in lines) {
+      if (label.trim().isEmpty) {
+        throw StateError('Indiquez ce qui a été consommé.');
+      }
+      if (prix <= 0 || quantite <= 0) {
+        throw StateError('Le montant doit être supérieur à zéro.');
+      }
+    }
+    final caisse = await CashRepository(db).openSessionId(by);
+    if (caisse == null) {
+      throw StateError(
+        "Ouvrez votre caisse avant d'encaisser : la vente doit tomber dans "
+        'un tiroir.',
+      );
+    }
+
+    final now = DateTime.now().toUtc();
+    final journee = businessDateNow();
+    final folioId = newId();
+    final paiementId = newId();
+    final categorie = _categoriePour(outlet.code);
+    final total = lines.fold(0, (t, l) => t + l.$2 * l.$3);
+    final articles = [
+      for (final (label, prix, quantite) in lines)
+        (id: newId(), label: label.trim(), prix: prix, quantite: quantite),
+    ];
+
+    await db.transaction(() async {
+      await db
+          .into(db.folios)
+          .insert(
+            FoliosCompanion.insert(
+              id: folioId,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotelId,
+              number: codeFromId(folioId, 'FOL'),
+              type: const Value(FolioType.WALK_IN),
+              status: const Value(FolioStatus.CLOSED),
+              chargesTotal: Value(total),
+              paymentsTotal: Value(total),
+              balance: const Value(0),
+              openedAt: Value(now),
+              closedAt: Value(now),
+              notes: Value('Client de passage - ${outlet.label}'),
+              syncState: const Value(SyncState.pending),
+            ),
+          );
+      for (final a in articles) {
+        await db
+            .into(db.folioItems)
+            .insert(
+              FolioItemsCompanion.insert(
+                id: a.id,
+                createdAt: now,
+                updatedAt: now,
+                folioId: folioId,
+                category: categorie,
+                label: a.label,
+                quantity: Value(a.quantite),
+                unitPrice: Value(a.prix),
+                amount: Value(a.prix * a.quantite),
+                businessDate: journee,
+                sourceTable: const Value('outlets'),
+                sourceId: Value(outlet.id),
+                postedBy: Value(by),
+                // Remontee avec l'ardoise, pas a part.
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+      await db
+          .into(db.payments)
+          .insert(
+            PaymentsCompanion.insert(
+              id: paiementId,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotelId,
+              method: method,
+              amount: total,
+              folioId: Value(folioId),
+              receivedBy: Value(by),
+              cashSessionId: Value(caisse),
+              receivedAt: Value(now),
+              businessDate: Value(journee),
+              syncState: const Value(SyncState.synced),
+            ),
+          );
+
+      // `action` : l'envoyeur des ardoises ne connaissait que la cloture.
+      await enqueue(
+        table: 'folios',
+        id: folioId,
+        operation: SyncOp.INSERT,
+        payload: {
+          'id': folioId,
+          'action': 'WALK_IN',
+          'outlet_id': outlet.id,
+          'items': [
+            for (final a in articles)
+              {
+                'id': a.id,
+                'category': categorie.name,
+                'label': a.label,
+                'quantity': a.quantite,
+                'unit_price': a.prix,
+              },
+          ],
+          'payment': {'id': paiementId, 'method': method.name, 'amount': total},
+        },
+      );
+    });
+    return folioId;
   }
 
   /// La categorie comptable d'une consommation, deduite du point de vente.

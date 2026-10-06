@@ -191,6 +191,10 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # folio.charge et non folio.write : le comptoir porte, il n'encaisse pas,
     # ne clot rien et ne voit pas les factures.
     (RESTAURANT_ROLE, FOLIO_CHARGE),
+    # Le client de passage paie au comptoir (decision du 4 octobre) : le
+    # comptoir encaisse, donc ouvre une caisse. Sans elle, ses ventes
+    # n'etaient dans aucun tiroir.
+    (RESTAURANT_ROLE, CASH_SESSION),
     (RESTAURANT_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, FOLIO_READ),
     (CAISSE_ROLE, FOLIO_WRITE),
