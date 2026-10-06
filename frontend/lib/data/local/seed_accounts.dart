@@ -177,13 +177,13 @@ const _droits = <(String role, String permission)>[
   // L'administration, comme cote serveur : l'administrateur seul.
   (_roleAdmin, '01920000-0000-7000-8000-000000004130'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004131'),
+  (_roleReception, '01920000-0000-7000-8000-000000004104'),
+  (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les
   // photos de piece d'identite. Sans lui, apres une connexion hors ligne,
   // les cases Recto et Verso restaient grisees sans rien dire.
   (_roleAdmin, '01920000-0000-7000-8000-000000004106'),
   (_roleReception, '01920000-0000-7000-8000-000000004106'),
-  (_roleReception, '01920000-0000-7000-8000-000000004104'),
-  (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
   // Le plan et les reservations : l'ecran de la reception, pas du menage.
   (_roleReception, '01920000-0000-7000-8000-000000004131'),
