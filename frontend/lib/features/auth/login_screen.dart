@@ -793,7 +793,7 @@ class _PanneauMarque extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const FadeUp(
-                  child: AtriumLockup(markSize: 46, hotelName: 'Hôtel Atrium'),
+                  child: AtriumLockup(markSize: 46),
                 ),
                 const Spacer(),
                 if (!compact) ...[

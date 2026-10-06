@@ -144,7 +144,7 @@ class AtriumLockup extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Atrium',
+                'Edge Hotel',
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: markSize * 0.52,

@@ -414,7 +414,6 @@ class _Barre extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8),
             child: AtriumLockup(
               markSize: 40,
-              hotelName: 'Hôtel Atrium',
               onNight: _Nav.sombre,
             ),
           ),
