@@ -21,6 +21,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
+import '../auth/session.dart';
 import 'assign_room_dialog.dart';
 import 'stay_actions.dart';
 
@@ -425,6 +426,7 @@ class _LigneLarge extends ConsumerWidget {
               child: _Action(reservation: r),
             ),
           ),
+          SizedBox(width: 48, child: _MenuDossier(reservation: r)),
         ],
       ),
     );
@@ -467,6 +469,7 @@ class _LigneEtroite extends ConsumerWidget {
                 ),
               ),
               _Statut(label: look.label, couleur: look.color),
+              _MenuDossier(reservation: r),
             ],
           ),
           const SizedBox(height: 12),
@@ -660,6 +663,52 @@ class _Statut extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Les gestes rares sur un dossier, rangés derrière les trois points :
+/// l'annulation n'a pas sa place à côté du check-in, ou un doigt pressé la
+/// prendrait pour lui.
+class _MenuDossier extends ConsumerWidget {
+  const _MenuDossier({required this.reservation});
+
+  final ReservationSummary reservation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = reservation;
+    // Seulement avant l'arrivee : un client arrive part par le check-out, et
+    // le serveur refuserait l'annulation.
+    final annulable =
+        r.status == ReservationStatus.PENDING ||
+        r.status == ReservationStatus.CONFIRMED;
+    final autorise = ref
+        .watch(sessionProvider)
+        .acces
+        .peut('reservation.manage');
+    if (!annulable || !autorise) return const SizedBox.shrink();
+
+    return PopupMenuButton<String>(
+      tooltip: 'Autres actions',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (_) => confirmCancelReservation(
+        context,
+        ref,
+        reservationId: r.id,
+        guestName: r.guestName,
+        reference: r.reference,
+      ),
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'annuler',
+          child: ListTile(
+            leading: Icon(Icons.event_busy_rounded),
+            title: Text('Annuler la réservation'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
     );
   }
 }

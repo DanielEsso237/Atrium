@@ -145,6 +145,12 @@ const _permissions = <_PermissionDemo>[
     'maintenance',
   ),
   (
+    '01920000-0000-7000-8000-000000004120',
+    'reservation.manage',
+    'Enregistrer arrivee/depart, annuler une reservation',
+    'reservation',
+  ),
+  (
     '01920000-0000-7000-8000-000000004131',
     'reservation.read',
     'Consulter les reservations',
@@ -171,6 +177,11 @@ const _droits = <(String role, String permission)>[
   // L'administration, comme cote serveur : l'administrateur seul.
   (_roleAdmin, '01920000-0000-7000-8000-000000004130'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004131'),
+  // Annuler un dossier, comme cote serveur : administration et reception.
+  // Sans lui, le bouton d'annulation restait cache apres une connexion hors
+  // ligne, faute des droits que le serveur aurait donnes.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004120'),
+  (_roleReception, '01920000-0000-7000-8000-000000004120'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
