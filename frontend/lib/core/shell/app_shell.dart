@@ -894,7 +894,7 @@ class _Compte extends StatelessWidget {
           tertiary: AtriumColors.mintStrong,
         ),
       ),
-      child: const PendingWritesBadge(),
+      child: PendingWritesBadge(compact: !etendu),
     );
 
     if (!etendu) {
