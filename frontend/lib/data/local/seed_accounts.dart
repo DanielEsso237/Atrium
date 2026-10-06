@@ -277,7 +277,21 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           );
     }
 
+    // Une permission deja connue sous un autre id -- creee par une connexion
+    // en ligne, qui range les droits du serveur par leur code -- est reprise
+    // telle quelle. La semer une seconde fois aurait fait deux lignes pour un
+    // meme code, et la connexion suivante, qui cherche par code, aurait
+    // echoue.
+    final idReel = <String, String>{};
     for (final (id, code, label, module) in _permissions) {
+      final connue = await (db.select(db.permissions)
+            ..where((p) => p.code.equals(code) & p.id.equals(id).not())
+            ..limit(1))
+          .getSingleOrNull();
+      if (connue != null) {
+        idReel[id] = connue.id;
+        continue;
+      }
       await db
           .into(db.permissions)
           .insertOnConflictUpdate(
@@ -298,7 +312,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           .insertOnConflictUpdate(
             RolePermissionsCompanion.insert(
               roleId: roleId,
-              permissionId: permissionId,
+              permissionId: idReel[permissionId] ?? permissionId,
             ),
           );
     }
