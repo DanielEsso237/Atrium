@@ -68,7 +68,7 @@ class AtriumApp extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'Atrium',
+      title: 'Edge Hotel',
       debugShowCheckedModeBanner: false,
       // Clair le jour, sombre le soir : l'appareil decide, sauf si l'agent a
       // impose l'un ou l'autre.

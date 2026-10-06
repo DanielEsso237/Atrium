@@ -7,7 +7,7 @@
          et la saisie de l'arrivee reste possible sans les photos. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
-        android:label="atrium"
+        android:label="Edge Hotel"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

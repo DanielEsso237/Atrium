@@ -144,7 +144,6 @@ class _Corps extends StatelessWidget {
               children: [
                 const AtriumLockup(
                   markSize: 38,
-                  hotelName: 'Hôtel Atrium',
                   onNight: false,
                   ink: _encre,
                 ),

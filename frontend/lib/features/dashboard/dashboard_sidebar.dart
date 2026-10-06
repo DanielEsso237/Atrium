@@ -226,7 +226,7 @@ class _Logo extends StatelessWidget {
         size: compacte ? 26 : 32,
       ),
     );
-    if (compacte) return Semantics(label: 'Atrium', child: tuile);
+    if (compacte) return Semantics(label: 'Edge Hotel', child: tuile);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -239,7 +239,7 @@ class _Logo extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Atrium',
+                  'Edge Hotel',
                   style: TextStyle(
                     fontSize: 28,
                     height: 1.1,
@@ -249,7 +249,7 @@ class _Logo extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Hotel Atrium',
+                  'Gestion hôtelière',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
