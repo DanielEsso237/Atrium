@@ -130,6 +130,15 @@ class _IdPhotoPairState extends ConsumerState<IdPhotoPair> {
             ],
           ],
         ),
+        // Une case grisee sans explication se lit comme une panne.
+        if (disponible && !autorise) ...[
+          const SizedBox(height: 8),
+          Text(
+            "Votre profil ne permet pas de photographier la pièce : il faut "
+            'le droit de modifier les fiches clients.',
+            style: TextStyle(fontSize: 13.5, color: p.textSecondary),
+          ),
+        ],
         if (!disponible) ...[
           const SizedBox(height: 8),
           Text(
