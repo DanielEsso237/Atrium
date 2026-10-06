@@ -115,6 +115,12 @@ const _permissions = <_PermissionDemo>[
     'guests',
   ),
   (
+    '01920000-0000-7000-8000-000000004106',
+    'guests.write',
+    'Creer ou modifier une fiche client',
+    'guests',
+  ),
+  (
     '01920000-0000-7000-8000-000000004121',
     'folio.read',
     'Consulter les folios',
@@ -184,6 +190,11 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004120'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
+  // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les
+  // photos de piece d'identite. Sans lui, apres une connexion hors ligne,
+  // les cases Recto et Verso restaient grisees sans rien dire.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004106'),
+  (_roleReception, '01920000-0000-7000-8000-000000004106'),
   (_roleReception, '01920000-0000-7000-8000-000000004121'),
   // Le plan et les reservations : l'ecran de la reception, pas du menage.
   (_roleReception, '01920000-0000-7000-8000-000000004131'),
@@ -277,7 +288,21 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           );
     }
 
+    // Une permission deja connue sous un autre id -- creee par une connexion
+    // en ligne, qui range les droits du serveur par leur code -- est reprise
+    // telle quelle. La semer une seconde fois aurait fait deux lignes pour un
+    // meme code, et la connexion suivante, qui cherche par code, aurait
+    // echoue.
+    final idReel = <String, String>{};
     for (final (id, code, label, module) in _permissions) {
+      final connue = await (db.select(db.permissions)
+            ..where((p) => p.code.equals(code) & p.id.equals(id).not())
+            ..limit(1))
+          .getSingleOrNull();
+      if (connue != null) {
+        idReel[id] = connue.id;
+        continue;
+      }
       await db
           .into(db.permissions)
           .insertOnConflictUpdate(
@@ -298,7 +323,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           .insertOnConflictUpdate(
             RolePermissionsCompanion.insert(
               roleId: roleId,
-              permissionId: permissionId,
+              permissionId: idReel[permissionId] ?? permissionId,
             ),
           );
     }
