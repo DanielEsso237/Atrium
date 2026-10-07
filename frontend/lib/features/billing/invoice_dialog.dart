@@ -90,8 +90,8 @@ class _Corps extends StatelessWidget {
   final InvoiceView vue;
   final String guestName;
 
-  static const _encre = Color(0xFF0D1330);
-  static const _gris = Color(0xFF5B6386);
+  static const _encre = Color(0xFF1C2333);
+  static const _gris = Color(0xFF5E6880);
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +113,7 @@ class _Corps extends StatelessWidget {
                 width: 4,
                 height: 1.4,
                 margin: const EdgeInsets.only(right: 4),
-                color: const Color(0xFFCBD0E2),
+                color: const Color(0xFFD5DBE7),
               ),
           ],
         ),
@@ -124,11 +124,11 @@ class _Corps extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFDF8),
-          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x33000000),
+              color: Color(0x2414244F),
               blurRadius: 30,
               spreadRadius: -12,
               offset: Offset(0, 16),
@@ -142,24 +142,23 @@ class _Corps extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const AtriumLockup(
-                  markSize: 38,
-                  onNight: false,
-                  ink: _encre,
-                ),
+                const AtriumLockup(markSize: 38, onNight: false, ink: _encre),
                 const Spacer(),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('FACTURE', style: st(11, FontWeight.w800, _gris)),
-                    Text(vue.displayNumber, style: st(16, FontWeight.w800)),
+                    Text('Facture', style: st(12.5, FontWeight.w600, _gris)),
+                    Text(
+                      vue.displayNumber,
+                      style: atriumCode(15, color: _encre),
+                    ),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 20),
             Text('Client', style: st(12, FontWeight.w600, _gris)),
-            Text(guestName, style: st(17, FontWeight.w800)),
+            Text(guestName, style: st(17, FontWeight.w700)),
             if (vue.provisional) ...[
               const SizedBox(height: 14),
               Container(
@@ -215,7 +214,7 @@ class _Corps extends StatelessWidget {
                 const Spacer(),
                 Text(
                   formatAmount(vue.invoice.total),
-                  style: st(30, FontWeight.w800).copyWith(letterSpacing: -1),
+                  style: st(30, FontWeight.w700).copyWith(letterSpacing: -1),
                 ),
               ],
             ),

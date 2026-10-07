@@ -58,7 +58,7 @@ class ModuleScaffold extends ConsumerWidget {
     final marge = etroit ? 18.0 : 32.0;
 
     final entete = Padding(
-      padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 30, marge, 18),
+      padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 28, marge, 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -68,21 +68,19 @@ class ModuleScaffold extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: etroit ? 30 : 40,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: etroit ? -1 : -1.6,
-                      height: 1.05,
-                      color: AtriumColors.textPrimary,
+                  // Le titre en serif, comme une enseigne : c'est lui qui
+                  // dit ou l'on est, le reste de la page est en lineale.
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: atriumDisplay(etroit ? 32 : 42),
                     ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle!,
                       maxLines: 2,
@@ -199,7 +197,7 @@ class PendingWritesBadge extends ConsumerWidget {
       (_, _, true) => (
         PhosphorIconsLight.cloudSlash,
         schema.tertiary,
-        '$pending ecriture(s) en attente — serveur injoignable. '
+        '$pending ecriture(s) en attente, serveur injoignable. '
             'Elles repartiront toutes seules.',
       ),
       _ => (
@@ -231,9 +229,9 @@ class PendingWritesBadge extends ConsumerWidget {
               SizedBox(width: compact ? 0 : 6, height: compact ? 3 : 0),
               Text(
                 sync.isBlocked && pending > 0
-                    ? 'Bloqué · $pending'
+                    ? 'Bloqué ($pending)'
                     : pending > 0
-                    ? '${enLigne ? 'En ligne' : 'Hors ligne'} · $pending'
+                    ? '${enLigne ? 'En ligne' : 'Hors ligne'} ($pending)'
                     : enLigne
                     ? 'En ligne'
                     : 'Hors ligne',

@@ -169,3 +169,13 @@ Dans Swagger, teste `POST /api/v1/auth/login` ("Try it out") avec :
 ```
 
 Tu dois recevoir un `access_token`.
+
+### Ajouter des données de test
+
+Le serveur démarré, dans un second terminal :
+
+```powershell
+python -m app.db.seed_demo
+```
+
+Une journée d'hôtel en cours, autour de la journée hôtelière du jour : douze clients, six séjours en cours (dont deux départs du jour), deux départs déjà faits avec leur ménage à faire, trois arrivées attendues, deux réservations à venir, la 203 hors service, des consommations et des encaissements. Le script passe par l'API comme une tablette : les tablettes reçoivent ces données par la synchronisation et peuvent les modifier sans bloquer leur file d'envoi. Le relancer ne crée rien en double ; pour une journée neuve, repartir d'une base neuve. Autre serveur : `--url http://<adresse>:8000/api/v1`.

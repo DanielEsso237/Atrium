@@ -150,7 +150,7 @@ class _PlafondDialogState extends ConsumerState<_PlafondDialog> {
     final g = widget.client;
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.scales, size: 30),
-      title: Text('Plafond · ${g.firstName} ${g.lastName}'.trim()),
+      title: Text('Plafond de ${g.firstName} ${g.lastName}'.trim()),
       content: SizedBox(
         width: 420,
         child: TextField(

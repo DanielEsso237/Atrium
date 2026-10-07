@@ -195,23 +195,11 @@ class _EnTete extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: '$salut${prenom.isEmpty ? '' : ','} '),
-                  TextSpan(
-                    text: prenom,
-                    style: TextStyle(color: AtriumColors.mintStrong),
-                  ),
-                ],
-              ),
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: etroit ? 32 : 46,
-                fontWeight: FontWeight.w800,
-                letterSpacing: etroit ? -1 : -1.8,
-                height: 1.02,
-                color: AtriumColors.textPrimary,
+            Semantics(
+              header: true,
+              child: Text(
+                prenom.isEmpty ? salut : '$salut, $prenom',
+                style: atriumDisplay(etroit ? 34 : 46),
               ),
             ),
           ],
@@ -271,19 +259,17 @@ class _Occupation extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: p.onHero.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  PhosphorIconsLight.arrowUpRight,
-                  size: 17,
+              Text(
+                'Ouvrir le plan',
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: p.onHero,
                 ),
               ),
+              const SizedBox(width: 4),
+              Icon(PhosphorIconsLight.caretRight, size: 16, color: p.onHero),
             ],
           ),
           const SizedBox(height: 18),
@@ -293,13 +279,12 @@ class _Occupation extends ConsumerWidget {
               _Compteur(
                 valeur: occupees,
                 style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 84,
-                  height: 0.9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -4,
+                  fontFamily: atriumDisplayFamily,
+                  fontSize: 104,
+                  height: 0.85,
+                  fontWeight: FontWeight.w600,
                   color: p.onHero,
-                  fontFeatures: tabularFigures,
+                  fontFeatures: const [FontFeature.liningFigures()],
                 ),
               ),
               const SizedBox(width: 10),
@@ -348,8 +333,8 @@ class _Occupation extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: apparence(etat).couleur,
                         borderRadius: BorderRadius.circular(3),
-                        // Un liseré d'encre : la pastille « réservée »
-                        // disparaissait sur la carte mangue du mode clair.
+                        // Un liseré clair : les pastilles « nettoyage » et
+                        // « hors service » se perdaient sur le bleu.
                         border: Border.all(
                           color: p.onHero.withValues(alpha: 0.35),
                         ),
@@ -526,16 +511,16 @@ class _Chiffre extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AtriumColors.mintStrong.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(11),
+                  color: AtriumPalette.current.accentTint,
+                  shape: BoxShape.circle,
                 ),
                 child: Icon(icone, size: 18, color: AtriumColors.mintStrong),
               ),
               const Spacer(),
               Icon(
-                PhosphorIconsLight.arrowUpRight,
-                size: 15,
-                color: AtriumColors.textSecondary,
+                PhosphorIconsLight.caretRight,
+                size: 16,
+                color: AtriumColors.placeholder,
               ),
             ],
           ),
@@ -547,8 +532,8 @@ class _Chiffre extends StatelessWidget {
               fontFamily: atriumFontFamily,
               fontSize: 30,
               height: 1,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
               color: AtriumColors.textPrimary,
               fontFeatures: tabularFigures,
             ),
@@ -609,9 +594,9 @@ class _BlocSejours extends ConsumerWidget {
                 titre,
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                   color: AtriumColors.textPrimary,
                 ),
               ),
@@ -747,8 +732,8 @@ class _LigneSejour extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   sejour.hasRoom
-                      ? 'Chambre ${sejour.roomNumber}  ·  ${sejour.roomTypeLabel}'
-                      : '${sejour.roomTypeLabel}  ·  sans chambre',
+                      ? 'Chambre ${sejour.roomNumber}, ${sejour.roomTypeLabel}'
+                      : '${sejour.roomTypeLabel}, sans chambre',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -806,7 +791,7 @@ class _BlocHotel extends ConsumerWidget {
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 19,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.4,
                     color: p.text,
                   ),
@@ -886,7 +871,7 @@ class _BlocHotel extends ConsumerWidget {
                             style: TextStyle(
                               fontFamily: atriumFontFamily,
                               fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: 0.4,
                               color: p.textSecondary,
                             ),
@@ -948,7 +933,7 @@ class _FenetreState extends State<_Fenetre> {
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     final vue = apparence(widget.chambre.displayStatus);
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 380));
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 140));
     final fenetre = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _survol = true),
@@ -956,67 +941,47 @@ class _FenetreState extends State<_Fenetre> {
       child: GestureDetector(
         onTap: () => afficherFicheChambre(context, widget.chambre),
         child: Tooltip(
-          message: 'Chambre ${widget.chambre.number} · ${vue.label}',
-          child: AnimatedScale(
-            scale: _survol ? 1.06 : 1,
+          message: 'Chambre ${widget.chambre.number}, ${vue.label}',
+          child: AnimatedContainer(
             duration: duree,
-            curve: atriumSpring,
-            child: AnimatedContainer(
-              duration: duree,
-              curve: atriumSpring,
-              width: 66,
-              height: 50,
-              padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                // Une fenetre eclairee de l'interieur, par le bas.
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    vue.couleur.withValues(alpha: p.isDark ? 0.42 : 0.30),
-                    vue.couleur.withValues(alpha: p.isDark ? 0.10 : 0.08),
-                  ],
-                ),
-                border: Border.all(
-                  color: vue.couleur.withValues(alpha: _survol ? 0.9 : 0.45),
-                  width: _survol ? 1.6 : 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: vue.couleur.withValues(alpha: _survol ? 0.45 : 0.15),
-                    blurRadius: _survol ? 18 : 10,
-                    spreadRadius: -4,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+            curve: Curves.easeOut,
+            width: 66,
+            height: 50,
+            padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
+            // Toutes les tuiles sont blanches : l'etat se lit a la
+            // pastille, comme sur le plan des chambres.
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
+              color: p.paper,
+              border: Border.all(
+                color: _survol ? p.accent.withValues(alpha: 0.6) : p.border,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: vue.couleur,
-                      shape: BoxShape.circle,
-                    ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: vue.couleur,
+                    shape: BoxShape.circle,
                   ),
-                  const Spacer(),
-                  Text(
-                    widget.chambre.number,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                      height: 1,
-                      letterSpacing: -0.3,
-                      color: p.text,
-                      fontFeatures: tabularFigures,
-                    ),
+                ),
+                const Spacer(),
+                Text(
+                  widget.chambre.number,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    height: 1,
+                    letterSpacing: -0.3,
+                    color: p.text,
+                    fontFeatures: tabularFigures,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

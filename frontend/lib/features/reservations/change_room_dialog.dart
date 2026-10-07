@@ -61,7 +61,7 @@ class _ChangeRoomDialogState extends ConsumerState<_ChangeRoomDialog> {
     final schema = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: Text('Changer de chambre — ${widget.guestName}'),
+      title: Text('Changer la chambre de ${widget.guestName}'),
       content: SizedBox(
         width: 480,
         child: Column(

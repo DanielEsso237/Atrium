@@ -1,5 +1,6 @@
 /// Theme tactile d'Atrium (cahier des charges, paragraphe 6.4), charte
-/// **Nuit & mangue**, en clair et en sombre.
+/// **Livree** (bleu royal et blanc, reprise de ChronoFS), en clair et en
+/// sombre.
 ///
 /// Trois contraintes gouvernent tout ce fichier :
 ///
@@ -50,7 +51,9 @@ ThemeData themeAtrium() => atriumTheme(AtriumPalette.current);
 ThemeData atriumBrandTheme() => atriumTheme(AtriumPalette.current);
 
 ThemeData atriumTheme(AtriumPalette p) {
-  final onPrimary = p.isDark ? p.paper : p.onAccent;
+  // Du blanc sur le bleu, dans les deux modes : le bleu de nuit est assez
+  // sature pour le porter (5:1).
+  const onPrimary = Colors.white;
   final schema = ColorScheme(
     brightness: p.brightness,
     primary: p.primary,
@@ -85,7 +88,12 @@ ThemeData atriumTheme(AtriumPalette p) {
   );
 
   final texte = p.text;
-  final radius12 = BorderRadius.circular(16);
+  final radius12 = BorderRadius.circular(AtriumRadii.md);
+  const formeBouton = WidgetStatePropertyAll(
+    RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AtriumRadii.md)),
+    ),
+  );
 
   TextStyle ts(double size, FontWeight w, {Color? color, double? height}) =>
       TextStyle(
@@ -158,13 +166,13 @@ ThemeData atriumTheme(AtriumPalette p) {
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(
-          Size(cibleTactile * 2, cibleTactile + 8),
+          Size(cibleTactile * 2, cibleTactile + 4),
         ),
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: AtriumSpacing.xl),
+          EdgeInsets.symmetric(horizontal: AtriumSpacing.lg),
         ),
-        shape: const WidgetStatePropertyAll(StadiumBorder()),
-        textStyle: WidgetStatePropertyAll(ts(17, FontWeight.w700)),
+        shape: formeBouton,
+        textStyle: WidgetStatePropertyAll(ts(16, FontWeight.w600)),
         elevation: const WidgetStatePropertyAll(0),
         backgroundColor: WidgetStateProperty.resolveWith((etats) {
           if (etats.contains(WidgetState.disabled)) return p.surfaceMuted;
@@ -179,7 +187,7 @@ ThemeData atriumTheme(AtriumPalette p) {
           (etats) =>
               etats.contains(WidgetState.hovered) ||
                   etats.contains(WidgetState.focused)
-              ? p.accent.withValues(alpha: 0.14)
+              ? Colors.white.withValues(alpha: 0.10)
               : null,
         ),
       ),
@@ -188,25 +196,26 @@ ThemeData atriumTheme(AtriumPalette p) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(
-          Size(cibleTactile * 2, cibleTactile + 8),
+          Size(cibleTactile * 2, cibleTactile + 4),
         ),
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: AtriumSpacing.xl),
+          EdgeInsets.symmetric(horizontal: AtriumSpacing.lg),
         ),
-        shape: const WidgetStatePropertyAll(StadiumBorder()),
-        textStyle: WidgetStatePropertyAll(ts(17, FontWeight.w600)),
+        shape: formeBouton,
+        textStyle: WidgetStatePropertyAll(ts(16, FontWeight.w600)),
         foregroundColor: WidgetStatePropertyAll(p.text),
+        backgroundColor: WidgetStatePropertyAll(p.paper),
         side: WidgetStateProperty.resolveWith(
           (etats) => BorderSide(
             color:
                 etats.contains(WidgetState.focused) ||
                     etats.contains(WidgetState.hovered)
-                ? p.accent
+                ? p.accent.withValues(alpha: 0.5)
                 : p.border,
-            width: 1.5,
+            width: 1,
           ),
         ),
-        overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.10)),
+        overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.06)),
       ),
     ),
 
@@ -215,50 +224,55 @@ ThemeData atriumTheme(AtriumPalette p) {
         minimumSize: const WidgetStatePropertyAll(
           Size(cibleTactile, cibleTactile),
         ),
-        textStyle: WidgetStatePropertyAll(ts(16, FontWeight.w700)),
+        textStyle: WidgetStatePropertyAll(ts(15.5, FontWeight.w600)),
         foregroundColor: WidgetStatePropertyAll(p.accent),
-        shape: const WidgetStatePropertyAll(StadiumBorder()),
-        overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.12)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: AtriumSpacing.sm),
+        ),
+        shape: formeBouton,
+        overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.08)),
       ),
     ),
 
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: p.accent,
-      foregroundColor: p.onAccent,
-      elevation: 2,
-      highlightElevation: 4,
-      extendedTextStyle: ts(17, FontWeight.w700, color: p.onAccent),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      backgroundColor: p.primary,
+      foregroundColor: onPrimary,
+      elevation: 1,
+      highlightElevation: 2,
+      extendedTextStyle: ts(16, FontWeight.w600, color: onPrimary),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AtriumRadii.lg),
+      ),
     ),
 
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: p.paper,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       labelStyle: ts(16, FontWeight.w500, color: p.textSecondary),
-      floatingLabelStyle: ts(15, FontWeight.w700, color: p.accent),
+      floatingLabelStyle: ts(15, FontWeight.w600, color: p.accent),
       hintStyle: ts(16, FontWeight.w400, color: p.placeholder),
       prefixIconColor: p.textSecondary,
       suffixIconColor: p.textSecondary,
       border: OutlineInputBorder(
         borderRadius: radius12,
-        borderSide: BorderSide(color: p.border, width: 1.5),
+        borderSide: BorderSide(color: p.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius12,
-        borderSide: BorderSide(color: p.border, width: 1.5),
+        borderSide: BorderSide(color: p.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius12,
-        borderSide: BorderSide(color: p.accent, width: 2),
+        borderSide: BorderSide(color: p.accent, width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: radius12,
-        borderSide: BorderSide(color: p.error, width: 1.5),
+        borderSide: BorderSide(color: p.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: radius12,
-        borderSide: BorderSide(color: p.error, width: 2),
+        borderSide: BorderSide(color: p.error, width: 1.6),
       ),
     ),
 
@@ -270,39 +284,43 @@ ThemeData atriumTheme(AtriumPalette p) {
       scrolledUnderElevation: 0,
       centerTitle: false,
       toolbarHeight: 72,
-      titleTextStyle: ts(22, FontWeight.w700).copyWith(letterSpacing: -0.3),
+      titleTextStyle: ts(20, FontWeight.w700).copyWith(letterSpacing: -0.2),
       iconTheme: IconThemeData(color: p.text),
     ),
 
     tabBarTheme: TabBarThemeData(
       labelColor: p.text,
       unselectedLabelColor: p.textSecondary,
-      labelStyle: ts(16, FontWeight.w700),
+      labelStyle: ts(16, FontWeight.w600),
       unselectedLabelStyle: ts(16, FontWeight.w500),
       indicatorColor: p.accent,
-      indicatorSize: TabBarIndicatorSize.label,
+      indicatorSize: TabBarIndicatorSize.tab,
       dividerColor: p.border,
       overlayColor: WidgetStatePropertyAll(p.accent.withValues(alpha: 0.10)),
     ),
 
     chipTheme: ChipThemeData(
       backgroundColor: p.paper,
-      selectedColor: p.accentSoft,
+      selectedColor: p.selected,
       disabledColor: p.surfaceMuted,
       side: BorderSide(color: p.border),
       labelStyle: ts(15, FontWeight.w600),
       secondaryLabelStyle: ts(15, FontWeight.w700),
-      checkmarkColor: p.accent,
+      checkmarkColor: p.onSelected,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
+      ),
     ),
 
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(0, cibleTactile)),
-        textStyle: WidgetStatePropertyAll(ts(15, FontWeight.w700)),
+        textStyle: WidgetStatePropertyAll(ts(15, FontWeight.w600)),
+        shape: formeBouton,
         backgroundColor: WidgetStateProperty.resolveWith(
-          (etats) => etats.contains(WidgetState.selected) ? p.primary : p.paper,
+          (etats) =>
+              etats.contains(WidgetState.selected) ? p.selected : p.paper,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (etats) => etats.contains(WidgetState.selected) ? onPrimary : p.text,
@@ -314,7 +332,7 @@ ThemeData atriumTheme(AtriumPalette p) {
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: p.night,
       indicatorColor: p.nightBright,
-      selectedIconTheme: IconThemeData(color: p.accent),
+      selectedIconTheme: IconThemeData(color: p.onNight),
       unselectedIconTheme: IconThemeData(color: p.onNightSoft),
       selectedLabelTextStyle: ts(13, FontWeight.w700, color: p.onNight),
       unselectedLabelTextStyle: ts(13, FontWeight.w500, color: p.onNightSoft),
@@ -327,7 +345,7 @@ ThemeData atriumTheme(AtriumPalette p) {
       iconTheme: WidgetStateProperty.resolveWith(
         (etats) => IconThemeData(
           color: etats.contains(WidgetState.selected)
-              ? p.accent
+              ? p.onNight
               : p.onNightSoft,
         ),
       ),
@@ -358,19 +376,21 @@ ThemeData atriumTheme(AtriumPalette p) {
     dialogTheme: DialogThemeData(
       backgroundColor: p.paper,
       surfaceTintColor: Colors.transparent,
-      elevation: 24,
-      shadowColor: p.shadow.withValues(alpha: p.isDark ? 0.6 : 0.18),
-      barrierColor: p.night.withValues(alpha: p.isDark ? 0.7 : 0.45),
+      elevation: 16,
+      shadowColor: p.shadow.withValues(alpha: p.isDark ? 0.6 : 0.14),
+      barrierColor: p.isDark
+          ? Colors.black.withValues(alpha: 0.6)
+          : const Color(0xFF0B1636).withValues(alpha: 0.38),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(AtriumRadii.xl),
         side: BorderSide(
           color: p.isDark
               ? Colors.white.withValues(alpha: 0.08)
               : p.border.withValues(alpha: 0.6),
         ),
       ),
-      titleTextStyle: ts(22, FontWeight.w700).copyWith(letterSpacing: -0.3),
+      titleTextStyle: ts(20, FontWeight.w700).copyWith(letterSpacing: -0.2),
       contentTextStyle: ts(16, FontWeight.w400, height: 1.45),
     ),
 
@@ -380,7 +400,7 @@ ThemeData atriumTheme(AtriumPalette p) {
       showDragHandle: true,
       dragHandleColor: p.border,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
     ),
 
@@ -396,7 +416,7 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: p.isDark ? p.onNight : p.onAccent,
+        color: p.isDark ? p.onNight : p.text,
         borderRadius: BorderRadius.circular(AtriumRadii.sm),
       ),
       textStyle: ts(13, FontWeight.w600, color: p.isDark ? p.night : p.paper),
@@ -404,13 +424,14 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: p.isDark ? p.onNight : p.onAccent,
+      backgroundColor: p.isDark ? p.onNight : p.text,
       contentTextStyle: ts(
         16,
         FontWeight.w500,
         color: p.isDark ? p.night : p.paper,
       ),
-      actionTextColor: p.accent,
+      // Le bleu royal ne se lit pas sur l'encre de la barre : un bleu pale.
+      actionTextColor: p.isDark ? p.nightBright : const Color(0xFFA9BEFF),
       shape: RoundedRectangleBorder(borderRadius: radius12),
     ),
 
@@ -461,7 +482,7 @@ ThemeData atriumTheme(AtriumPalette p) {
 
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: p.accent,
-      selectionColor: p.accent.withValues(alpha: 0.30),
+      selectionColor: p.accent.withValues(alpha: 0.22),
       selectionHandleColor: p.accent,
     ),
 

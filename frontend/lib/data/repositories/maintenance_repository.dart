@@ -245,6 +245,81 @@ class MaintenanceRepository with OutboxWriter {
     by: by,
   );
 
+  /// Ramene un ticket a une etape precedente apres une erreur de saisie.
+  Future<void> revert(
+    String ticketId, {
+    required TicketStatus to,
+    required String by,
+  }) => db.transaction(() async {
+    final t = await (db.select(
+      db.maintenanceTickets,
+    )..where((t) => t.id.equals(ticketId))).getSingleOrNull();
+    if (t == null || t.deletedAt != null) {
+      throw StateError('Ticket introuvable.');
+    }
+    final autorise = switch ((t.status, to)) {
+      (TicketStatus.ASSIGNED || TicketStatus.IN_PROGRESS, TicketStatus.OPEN) =>
+        true,
+      (TicketStatus.RESOLVED, TicketStatus.OPEN || TicketStatus.ASSIGNED) =>
+        true,
+      (TicketStatus.CLOSED, TicketStatus.RESOLVED) => true,
+      _ => false,
+    };
+    if (!autorise) {
+      throw StateError('Ce retour n’est plus possible. Actualisez le tableau.');
+    }
+    final now = DateTime.now().toUtc();
+    await writeAndEnqueue(
+      table: 'maintenance_tickets',
+      id: ticketId,
+      operation: SyncOp.UPDATE,
+      payload: {
+        'id': ticketId,
+        'action': 'REVERT',
+        'from_status': t.status.name,
+        'status': to.name,
+      },
+      action: () async {
+        await (db.update(
+          db.maintenanceTickets,
+        )..where((t) => t.id.equals(ticketId))).write(
+          MaintenanceTicketsCompanion(
+            status: Value(to),
+            assignedTo: to == TicketStatus.OPEN
+                ? const Value(null)
+                : const Value.absent(),
+            assignedAt: to == TicketStatus.OPEN
+                ? const Value(null)
+                : const Value.absent(),
+            resolvedAt: to == TicketStatus.RESOLVED
+                ? const Value.absent()
+                : const Value(null),
+            resolution: to == TicketStatus.RESOLVED
+                ? const Value.absent()
+                : const Value(null),
+            closedAt: const Value(null),
+            updatedBy: Value(by),
+            updatedAt: Value(now),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        if (t.status == TicketStatus.CLOSED &&
+            t.blocksRoom &&
+            t.roomId != null) {
+          await (db.update(
+            db.rooms,
+          )..where((r) => r.id.equals(t.roomId!))).write(
+            RoomsCompanion(
+              isOutOfOrder: const Value(true),
+              updatedAt: Value(now),
+              syncState: const Value(SyncState.pending),
+            ),
+          );
+        }
+      },
+    );
+  });
+
   Future<void> _transition(
     String ticketId,
     TicketStatus vers, {

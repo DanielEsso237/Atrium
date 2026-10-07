@@ -147,6 +147,12 @@ const _permissions = <_PermissionDemo>[
     'housekeeping',
   ),
   (
+    '01920000-0000-7000-8000-000000004127',
+    'housekeeping.manage',
+    'Creer, assigner, executer une tache de nettoyage',
+    'housekeeping',
+  ),
+  (
     '01920000-0000-7000-8000-000000004128',
     'maintenance.read',
     'Consulter les tickets de maintenance',
@@ -186,6 +192,7 @@ const _droits = <(String role, String permission)>[
   (_roleAdmin, '01920000-0000-7000-8000-000000004121'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004123'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004126'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004127'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004128'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004129'),
   // L'administration, comme cote serveur : l'administrateur seul.
@@ -209,8 +216,10 @@ const _droits = <(String role, String permission)>[
   // La reception suit l'avancement du menage : c'est ce que compte deja sa
   // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
   (_roleReception, '01920000-0000-7000-8000-000000004126'),
+  (_roleReception, '01920000-0000-7000-8000-000000004127'),
   // Un seul droit metier, un seul ecran. C'est tout le travail.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
+  (_roleHousekeeping, '01920000-0000-7000-8000-000000004127'),
   // Plus la lecture des chambres : on ne nettoie pas un numero qu'on ignore.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004104'),
   // Le restaurant ne voit que ses commandes. Pas le plan, pas les clients,

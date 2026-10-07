@@ -22,6 +22,7 @@ import '../../core/business_day.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../local/queries/rooms_queries.dart';
 import 'outbox.dart';
 
 /// Une chambre a faire, telle que la femme de chambre la voit.
@@ -85,6 +86,18 @@ class HousekeepingRepository with OutboxWriter {
 
   static const hotelId = '01920000-0000-7000-8000-000000000001';
 
+  /// Les chambres vacantes qui peuvent demarrer un menage.
+  Stream<List<RoomBoardEntry>> watchVacantRooms() => db.watchRoomBoard().map(
+    (rooms) => rooms
+        .where(
+          (room) =>
+              room.occupancy == OccupancyStatus.VACANT &&
+              !room.isOutOfOrder &&
+              room.housekeeping != HousekeepingStatus.IN_PROGRESS,
+        )
+        .toList(),
+  );
+
   /// Les chambres a faire aujourd'hui, les urgentes d'abord.
   ///
   /// **Pilotee par l'etat des chambres, pas par les taches.** Une chambre
@@ -97,6 +110,8 @@ class HousekeepingRepository with OutboxWriter {
   /// une femme de chambre qui vient de finir la 201 doit la voir barree, pas
   /// la voir disparaitre -- sinon elle se demande si son geste a ete pris en
   /// compte.
+  /// Un nouveau menage le meme jour remplace la tache terminee a l'affichage
+  /// pour conserver une seule carte par chambre et garder son historique.
   Stream<List<CleaningJob>> watchJobs() {
     final jour = businessDateNow();
 
@@ -120,6 +135,19 @@ class HousekeepingRepository with OutboxWriter {
                 AND t.business_date = ?
                 AND t.deleted_at IS NULL
                 AND t.status <> 'CANCELLED'
+                AND t.id = (
+                      SELECT latest.id
+                        FROM housekeeping_tasks latest
+                       WHERE latest.room_id = r.id
+                         AND latest.business_date = ?
+                         AND latest.deleted_at IS NULL
+                         AND latest.status <> 'CANCELLED'
+                    ORDER BY CASE WHEN latest.status IN
+                             ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+                             THEN 0 ELSE 1 END,
+                             latest.created_at DESC, latest.id DESC
+                       LIMIT 1
+                    )
            WHERE r.deleted_at IS NULL
              AND (r.housekeeping_status IN ('DIRTY', 'IN_PROGRESS')
                   OR t.id IS NOT NULL)
@@ -136,7 +164,7 @@ class HousekeepingRepository with OutboxWriter {
                  END,
                  r.number
           """,
-          variables: [Variable.withString(jour)],
+          variables: [Variable.withString(jour), Variable.withString(jour)],
           readsFrom: {db.housekeepingTasks, db.rooms, db.floors},
         )
         .watch()
@@ -276,6 +304,46 @@ class HousekeepingRepository with OutboxWriter {
     return taskId;
   }
 
+  /// Lance ensemble le menage des chambres vacantes selectionnees.
+  ///
+  /// Revérifie toutes les chambres avant d'ecrire. Si une chambre n'est plus
+  /// libre, aucune chambre du groupe ne change et aucune action n'est enfilee.
+  Future<int> startVacantRooms(
+    Iterable<String> roomIds, {
+    required String by,
+  }) async {
+    final ids = roomIds.toSet();
+    if (ids.isEmpty) throw StateError('Sélectionnez au moins une chambre.');
+    return db.transaction(() async {
+      final rooms = await (db.select(
+        db.rooms,
+      )..where((r) => r.id.isIn(ids))).get();
+      if (rooms.length != ids.length) {
+        throw StateError('Une chambre sélectionnée est introuvable.');
+      }
+      for (final room in rooms) {
+        if (room.deletedAt != null ||
+            !room.isActive ||
+            room.occupancyStatus != OccupancyStatus.VACANT ||
+            room.isOutOfOrder ||
+            room.housekeepingStatus == HousekeepingStatus.IN_PROGRESS) {
+          throw StateError(
+            'La chambre ${room.number} ne peut plus démarrer un ménage. Actualisez votre sélection.',
+          );
+        }
+      }
+      for (final room in rooms) {
+        final taskId = await openTask(
+          roomId: room.id,
+          type: HousekeepingTaskType.REFRESH,
+          by: by,
+        );
+        await _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
+      }
+      return rooms.length;
+    });
+  }
+
   /// La femme de chambre a fini : la chambre redevient disponible.
   Future<void> finish(String taskId, {String? by}) =>
       _transition(taskId, TaskStatus.DONE, by: by);
@@ -283,6 +351,97 @@ class HousekeepingRepository with OutboxWriter {
   /// Demarre une tache deja ouverte. Utilise par les tests et le rejeu.
   Future<void> start(String taskId, {String? by}) =>
       _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
+
+  /// Corrige un avancement saisi par erreur, sans supprimer la tache.
+  Future<void> revertRoom(
+    String roomId, {
+    required HousekeepingStatus to,
+    required String by,
+  }) => db.transaction(() async {
+    final room = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingleOrNull();
+    if (room == null || room.deletedAt != null) {
+      throw StateError('Chambre introuvable.');
+    }
+    final autorise = switch ((room.housekeepingStatus, to)) {
+      (HousekeepingStatus.IN_PROGRESS, HousekeepingStatus.DIRTY) => true,
+      (
+        HousekeepingStatus.CLEAN || HousekeepingStatus.INSPECTED,
+        HousekeepingStatus.DIRTY || HousekeepingStatus.IN_PROGRESS,
+      ) =>
+        true,
+      _ => false,
+    };
+    if (!autorise) {
+      throw StateError('Ce retour n’est plus possible. Actualisez le tableau.');
+    }
+    final tasks =
+        await (db.select(db.housekeepingTasks)
+              ..where(
+                (t) =>
+                    t.roomId.equals(roomId) &
+                    t.deletedAt.isNull() &
+                    t.businessDate.equals(businessDateNow()) &
+                    t.status.isNotInValues([TaskStatus.CANCELLED]),
+              )
+              ..orderBy([
+                (t) => OrderingTerm.desc(t.createdAt),
+                (t) => OrderingTerm.desc(t.id),
+              ])
+              ..limit(1))
+            .get();
+    if (tasks.isEmpty) {
+      throw StateError('Aucune tâche à corriger pour cette chambre.');
+    }
+    final task = tasks.single;
+    final status = to == HousekeepingStatus.DIRTY
+        ? TaskStatus.PENDING
+        : TaskStatus.IN_PROGRESS;
+    final now = DateTime.now().toUtc();
+    await writeAndEnqueue(
+      table: 'housekeeping_tasks',
+      id: task.id,
+      operation: SyncOp.UPDATE,
+      payload: {
+        'id': task.id,
+        'action': 'REVERT',
+        'from_status': task.status.name,
+        'status': status.name,
+        'assigned_to': by,
+      },
+      action: () async {
+        await (db.update(
+          db.housekeepingTasks,
+        )..where((t) => t.id.equals(task.id))).write(
+          HousekeepingTasksCompanion(
+            status: Value(status),
+            assignedTo: Value(to == HousekeepingStatus.DIRTY ? null : by),
+            assignedAt: to == HousekeepingStatus.DIRTY
+                ? const Value(null)
+                : const Value.absent(),
+            startedAt: Value(
+              to == HousekeepingStatus.DIRTY ? null : task.startedAt ?? now,
+            ),
+            finishedAt: const Value(null),
+            durationMinutes: const Value(null),
+            inspectedBy: const Value(null),
+            inspectedAt: const Value(null),
+            updatedBy: Value(by),
+            updatedAt: Value(now),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+        await (db.update(db.rooms)..where((r) => r.id.equals(roomId))).write(
+          RoomsCompanion(
+            housekeepingStatus: Value(to),
+            updatedAt: Value(now),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+      },
+    );
+  });
 
   Future<void> _transition(String taskId, TaskStatus vers, {String? by}) async {
     final tache = await (db.select(

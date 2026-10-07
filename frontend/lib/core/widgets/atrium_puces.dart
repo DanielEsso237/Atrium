@@ -138,7 +138,7 @@ class PuceEcritures extends ConsumerWidget {
         onTap: () => ref.read(syncSchedulerProvider.notifier).maintenant(),
         // Le nombre seul : le detail est dans l'info-bulle. Longue, la
         // pastille repoussait le sous-titre de l'accueil sur deux lignes.
-        child: Text(bloque ? 'Bloqué · $attente' : '$attente'),
+        child: Text(bloque ? 'Bloqué ($attente)' : '$attente'),
       ),
     );
   }

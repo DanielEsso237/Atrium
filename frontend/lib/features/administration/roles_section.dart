@@ -110,7 +110,7 @@ class _CarteRoleState extends ConsumerState<_CarteRole> {
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
-            '${widget.vue.role.code} · ${widget.vue.permissions.length} '
+            '${widget.vue.role.code}, ${widget.vue.permissions.length} '
             'permission${widget.vue.permissions.length > 1 ? 's' : ''}',
             style: TextStyle(fontSize: 13.5, color: p.textSecondary),
           ),

@@ -116,4 +116,5 @@ abstract final class PhosphorIconsFill {
   static const sun = IconData(0xe472, fontFamily: 'PhosphorFill');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorFill');
+  static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorFill');
 }

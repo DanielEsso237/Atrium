@@ -1,12 +1,18 @@
-/// La coque de l'application : une ile de navigation flottante.
+/// La coque de l'application : un panneau de navigation bleu royal.
 ///
-/// La navigation reste visible sur chaque ecran, detachee des bords comme un
-/// objet pose sur la page :
+/// La navigation reste visible sur chaque ecran, dans le bleu de la charte,
+/// collee au bord gauche : c'est le repere fixe de l'application, la page
+/// blanche a cote est le plan de travail.
 ///
-/// - **PC et tablette paysage** (>= 1100) : une ile verticale de nuit, avec
-///   les entrees rangees par metier (reception, operations, gestion) ;
-/// - **tablette portrait** (>= 600) : un rail d'icones, meme ile en plus fin ;
-/// - **telephone** : une pilule flottante en bas, « Plus » pour le reste.
+/// - **PC et tablette paysage** (>= 1100) : un panneau, les entrees rangees
+///   comme on lit un hotel -- le pilotage, puis les sejours, les services et
+///   l'argent ; l'administration a part, en bas, pres du compte ;
+/// - **tablette portrait** (>= 600) : un rail d'icones, meme bleu en plus fin ;
+/// - **telephone** : une barre d'onglets en bas, « Plus » pour le reste.
+///
+/// L'entree courante est marquee par une seule pastille qui glisse d'une
+/// ligne a l'autre : on voit d'ou l'on vient et ou l'on arrive, au lieu
+/// d'un surlignage qui saute.
 ///
 /// Les entrees sont filtrees par les droits de l'agent (3.4) ; la vraie
 /// barriere reste dans le routeur. Rien n'a disparu du menu d'origine : les
@@ -33,13 +39,20 @@ import '../tokens.dart';
 import '../ui/atrium_ui.dart';
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
 
-enum Groupe { reception, operations, gestion }
+/// Les familles du menu, dans l'ordre ou un hotel se lit : d'abord la vue
+/// d'ensemble, puis le client (de la reservation au depart), puis ce qui
+/// fait tourner la maison, puis l'argent. Les reglages vivent a part.
+enum Groupe { pilotage, sejours, services, finances, reglages }
 
 extension on Groupe {
-  String get libelle => switch (this) {
-    Groupe.reception => 'Réception',
-    Groupe.operations => 'Opérations',
-    Groupe.gestion => 'Gestion',
+  /// `null` : le groupe n'a pas de titre (le pilotage ouvre le menu, les
+  /// reglages sont poses en bas, a part).
+  String? get libelle => switch (this) {
+    Groupe.pilotage => null,
+    Groupe.sejours => 'Séjours',
+    Groupe.services => 'Services',
+    Groupe.finances => 'Finances',
+    Groupe.reglages => null,
   };
 }
 
@@ -58,10 +71,10 @@ class Destination {
 
   /// Le nom sous l'icone du rail, ou la place manque.
   String get court => switch (label) {
-    'Plan des chambres' => 'Chambres',
     'Caisse du jour' => 'Caisse',
-    'Statistiques' => 'Stats',
     'Réservations' => 'Résas',
+    'Maintenance' => 'Entretien',
+    'Administration' => 'Admin',
     _ => label,
   };
 
@@ -79,7 +92,7 @@ class Destination {
   /// Pour « Arrivees » et « Departs » : le filtre pose sur les reservations.
   final ReservationFilter? filtre;
 
-  /// Un raccourci vers un ecran deja au menu : jamais surligne comme actif.
+  /// Une vue du module Reservations, rangee sous son entree principale.
   final bool raccourci;
 
   /// Un chiffre du jour en bout de ligne.
@@ -93,27 +106,15 @@ final destinations = <Destination>[
     PhosphorIconsFill.sun,
     '/',
     null,
-    Groupe.reception,
+    Groupe.pilotage,
   ),
   const Destination(
-    'Arrivées',
-    PhosphorIconsLight.signIn,
-    PhosphorIconsFill.signIn,
-    '/reservations',
-    'reservation.read',
-    Groupe.reception,
-    filtre: ReservationFilter.arrivalsToday,
-    raccourci: true,
-  ),
-  const Destination(
-    'Départs',
-    PhosphorIconsLight.signOut,
-    PhosphorIconsFill.signOut,
-    '/reservations',
-    'reservation.read',
-    Groupe.reception,
-    filtre: ReservationFilter.departuresToday,
-    raccourci: true,
+    'Statistiques',
+    PhosphorIconsLight.squaresFour,
+    PhosphorIconsFill.squaresFour,
+    '/statistiques',
+    null,
+    Groupe.pilotage,
   ),
   const Destination(
     'Réservations',
@@ -121,15 +122,51 @@ final destinations = <Destination>[
     PhosphorIconsFill.calendarDots,
     '/reservations',
     'reservation.read',
-    Groupe.reception,
+    Groupe.sejours,
   ),
-  const Destination(
-    'Plan des chambres',
+  // Ce qui reste a faire, pas le total : le chiffre descend a mesure que la
+  // reception avance, et disparait quand la journee est bouclee.
+  Destination(
+    'Arrivées',
+    PhosphorIconsLight.signIn,
+    PhosphorIconsFill.signIn,
+    '/reservations',
+    'reservation.read',
+    Groupe.sejours,
+    filtre: ReservationFilter.arrivalsToday,
+    raccourci: true,
+    indicateur: (r) =>
+        r.arriveesRestantes == 0 ? null : '${r.arriveesRestantes}',
+  ),
+  Destination(
+    'Départs',
+    PhosphorIconsLight.signOut,
+    PhosphorIconsFill.signOut,
+    '/reservations',
+    'reservation.read',
+    Groupe.sejours,
+    filtre: ReservationFilter.departuresToday,
+    raccourci: true,
+    indicateur: (r) => r.departsRestants == 0 ? null : '${r.departsRestants}',
+  ),
+  Destination(
+    'Chambres',
     PhosphorIconsLight.bed,
     PhosphorIconsFill.bed,
     '/chambres',
     'reservation.read',
-    Groupe.reception,
+    Groupe.sejours,
+    indicateur: (r) => r.chambresTotal == 0
+        ? null
+        : '${r.chambresOccupees}/${r.chambresTotal}',
+  ),
+  const Destination(
+    'Clients',
+    PhosphorIconsLight.users,
+    PhosphorIconsFill.users,
+    '/clients',
+    'guests.read',
+    Groupe.sejours,
   ),
   Destination(
     'Ménage',
@@ -137,7 +174,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.broom,
     '/menage',
     'housekeeping.read',
-    Groupe.operations,
+    Groupe.services,
     indicateur: (r) =>
         r.chambresANettoyer == 0 ? null : '${r.chambresANettoyer}',
   ),
@@ -147,7 +184,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.wrench,
     '/maintenance',
     'maintenance.read',
-    Groupe.operations,
+    Groupe.services,
   ),
   const Destination(
     'Commandes',
@@ -155,15 +192,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.shoppingBagOpen,
     '/commandes',
     'order.read',
-    Groupe.operations,
-  ),
-  const Destination(
-    'Clients',
-    PhosphorIconsLight.users,
-    PhosphorIconsFill.users,
-    '/clients',
-    'guests.read',
-    Groupe.gestion,
+    Groupe.services,
   ),
   const Destination(
     'Factures',
@@ -171,7 +200,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.receipt,
     '/factures',
     'folio.read',
-    Groupe.gestion,
+    Groupe.finances,
   ),
   Destination(
     'Caisse du jour',
@@ -179,7 +208,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.coins,
     '/caisse',
     'folio.read',
-    Groupe.gestion,
+    Groupe.finances,
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
   const Destination(
@@ -188,15 +217,7 @@ final destinations = <Destination>[
     PhosphorIconsFill.lockSimple,
     '/administration',
     'users.write',
-    Groupe.gestion,
-  ),
-  const Destination(
-    'Statistiques',
-    PhosphorIconsLight.chartLineUp,
-    PhosphorIconsFill.chartLineUp,
-    '/statistiques',
-    null,
-    Groupe.gestion,
+    Groupe.reglages,
   ),
 ];
 
@@ -214,7 +235,17 @@ List<Destination> destinationsPour(SessionState session) {
   ];
 }
 
-int _indexActif(List<Destination> liste, String chemin) {
+int _indexActif(
+  List<Destination> liste,
+  String chemin,
+  ReservationFilter filtre,
+) {
+  if (chemin == '/reservations') {
+    final vue = liste.indexWhere(
+      (d) => d.route == chemin && d.filtre == filtre,
+    );
+    if (vue >= 0) return vue;
+  }
   var meilleur = -1;
   var longueur = -1;
   for (var i = 0; i < liste.length; i++) {
@@ -242,7 +273,11 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final liste = destinationsPour(session);
-    final actif = _indexActif(liste, location);
+    final actif = _indexActif(
+      liste,
+      location,
+      ref.watch(reservationFilterProvider),
+    );
     final largeur = MediaQuery.sizeOf(context).width;
     final resume = ref.watch(dashboardProvider).value;
 
@@ -266,17 +301,14 @@ class AppShell extends ConsumerWidget {
         color: AtriumColors.background,
         child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 0, 14),
-              child: _Ile(
-                largeur: 262,
-                child: _Barre(
-                  liste: liste,
-                  actif: actif,
-                  onSelect: aller,
-                  session: session,
-                  resume: resume,
-                ),
+            _Ile(
+              largeur: 256,
+              child: _Barre(
+                liste: liste,
+                actif: actif,
+                onSelect: aller,
+                session: session,
+                resume: resume,
               ),
             ),
             Expanded(child: page),
@@ -289,16 +321,13 @@ class AppShell extends ConsumerWidget {
         color: AtriumColors.background,
         child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
-              child: _Ile(
-                largeur: 92,
-                child: _Rail(
-                  liste: liste,
-                  actif: actif,
-                  onSelect: aller,
-                  session: session,
-                ),
+            _Ile(
+              largeur: 92,
+              child: _Rail(
+                liste: liste,
+                actif: actif,
+                onSelect: aller,
+                session: session,
               ),
             ),
             Expanded(child: page),
@@ -316,7 +345,8 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-/// L'ile : une plaque de nuit detachee des bords, filet clair, ombre teintee.
+/// Le panneau : un aplat bleu, pleine hauteur, colle au bord. Le nom vient
+/// d'une version flottante a coins ronds, retiree.
 class _Ile extends StatelessWidget {
   const _Ile({required this.largeur, required this.child});
 
@@ -327,34 +357,27 @@ class _Ile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: largeur,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color.alphaBlend(_Nav.teinteHaut, _Nav.fond), _Nav.fond],
-        ),
-        border: Border.all(color: _Nav.voile(0.07)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(
-              0xFF05081A,
-            ).withValues(alpha: _Nav.sombre ? 0.28 : 0.08),
-            blurRadius: 40,
-            spreadRadius: -10,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+      color: _Nav.fond,
+      child: SafeArea(
+        right: false,
         child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }
 }
 
-class _Barre extends StatelessWidget {
+// --- Barre etendue -----------------------------------------------------------
+
+/// Les mesures de la barre. Fixes, parce que la pastille active se place par
+/// calcul : une ligne qui changerait de hauteur la ferait glisser a cote.
+abstract final class _Mesures {
+  static const ligne = 38.0;
+  static const pas = ligne + 2;
+  static const titre = 26.0;
+  static const premierTitre = 22.0;
+}
+
+class _Barre extends StatefulWidget {
   const _Barre({
     required this.liste,
     required this.actif,
@@ -370,60 +393,264 @@ class _Barre extends StatelessWidget {
   final DashboardSummary? resume;
 
   @override
+  State<_Barre> createState() => _BarreState();
+}
+
+class _BarreState extends State<_Barre> {
+  late bool _reservationsOuvertes;
+
+  bool get _surReservations =>
+      widget.actif >= 0 && widget.liste[widget.actif].route == '/reservations';
+
+  @override
+  void initState() {
+    super.initState();
+    _reservationsOuvertes = _surReservations;
+  }
+
+  @override
+  void didUpdateWidget(covariant _Barre oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.actif != widget.actif && _surReservations) {
+      _reservationsOuvertes = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final liste = widget.liste;
+    final actif = widget.actif;
+    final resume = widget.resume;
     final lignes = <Widget>[];
+    final reglages = <int>[];
+    // La hauteur de chaque ligne au-dessus de l'entree courante : c'est la
+    // que la pastille doit se poser.
+    double? hautActif;
+    var hauteurActif = _Mesures.ligne;
+    var retraitActif = 0.0;
+    var y = 0.0;
     Groupe? groupe;
+
     for (var i = 0; i < liste.length; i++) {
       final d = liste[i];
+      final sousEntree = d.route == '/reservations' && d.filtre != null;
+      if (sousEntree && !_reservationsOuvertes) continue;
+      if (d.groupe == Groupe.reglages) {
+        reglages.add(i);
+        continue;
+      }
       if (d.groupe != groupe) {
         groupe = d.groupe;
-        lignes.add(
-          Padding(
-            padding: EdgeInsets.fromLTRB(14, lignes.isEmpty ? 2 : 14, 0, 6),
+        final titre = groupe.libelle;
+        if (titre != null) {
+          final hauteur = y == 0 ? _Mesures.premierTitre : _Mesures.titre;
+          lignes.add(_TitreGroupe(titre: titre, hauteur: hauteur));
+          y += hauteur;
+        } else if (y > 0) {
+          lignes.add(const SizedBox(height: _Mesures.titre / 2));
+          y += _Mesures.titre / 2;
+        }
+      }
+      final reservations = d.route == '/reservations' && d.filtre == null;
+      final hauteur = reservations || sousEntree ? 48.0 : _Mesures.ligne;
+      final selectionne =
+          i == actif ||
+          (reservations && _surReservations && !_reservationsOuvertes);
+      if (selectionne) {
+        hautActif = y;
+        hauteurActif = hauteur;
+        retraitActif = sousEntree ? 16 : 0;
+      }
+      final ligne = _LigneNav(
+        destination: d,
+        actif: selectionne,
+        hauteur: hauteur,
+        indicateur: resume == null ? null : d.indicateur?.call(resume),
+        onTap: () {
+          if (reservations) setState(() => _reservationsOuvertes = true);
+          widget.onSelect(i);
+        },
+      );
+      lignes.add(
+        Padding(
+          padding: EdgeInsets.only(
+            left: sousEntree ? 16 : 0,
+            bottom: _Mesures.pas - _Mesures.ligne,
+          ),
+          child: reservations
+              ? Row(
+                  children: [
+                    Expanded(child: ligne),
+                    Semantics(
+                      expanded: _reservationsOuvertes,
+                      child: IconButton(
+                        tooltip: _reservationsOuvertes
+                            ? 'Replier les réservations'
+                            : 'Déplier les réservations',
+                        constraints: const BoxConstraints.tightFor(
+                          width: 48,
+                          height: 48,
+                        ),
+                        onPressed: () => setState(
+                          () => _reservationsOuvertes = !_reservationsOuvertes,
+                        ),
+                        icon: AnimatedRotation(
+                          turns: _reservationsOuvertes ? 0.25 : 0,
+                          duration: AtriumMotion.of(context, AtriumMotion.base),
+                          child: Icon(
+                            PhosphorIconsLight.caretRight,
+                            size: 18,
+                            color: selectionne ? _Nav.iconePastille : _Nav.doux,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : ligne,
+        ),
+      );
+      y += hauteur + _Mesures.pas - _Mesures.ligne;
+    }
+
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 520));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 18, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AtriumMark(size: 58, onNight: true),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            // Un fondu au bas de la liste, seulement quand elle deborde : une
+            // entree coupee net se lit comme un bug, une entree qui s'efface
+            // se lit comme une liste qui continue. Quand tout tient, aucun
+            // fondu : il estompait la derniere entree pour rien.
+            child: LayoutBuilder(
+              builder: (context, zone) {
+                final menu = SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Stack(
+                    children: [
+                      // Une seule pastille pour tout le menu : elle glisse vers
+                      // l'entree choisie au lieu de s'eteindre ici et de
+                      // s'allumer la-bas.
+                      AnimatedPositioned(
+                        duration: duree,
+                        curve: atriumSpring,
+                        top: hautActif ?? 0,
+                        left: retraitActif,
+                        right: 0,
+                        height: hauteurActif,
+                        child: AnimatedOpacity(
+                          duration: AtriumMotion.of(context, AtriumMotion.base),
+                          opacity: hautActif == null ? 0 : 1,
+                          child: const _Pastille(),
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: lignes,
+                      ),
+                    ],
+                  ),
+                );
+                if (y + 12 <= zone.maxHeight) return menu;
+                return ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (r) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.white, Colors.white, Colors.transparent],
+                    stops: [0, 0.94, 1],
+                  ).createShader(r),
+                  child: menu,
+                );
+              },
+            ),
+          ),
+          if (reglages.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            for (final i in reglages)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: AnimatedOpacity(
+                        duration: duree,
+                        curve: atriumSpring,
+                        opacity: i == actif ? 1 : 0,
+                        child: const _Pastille(),
+                      ),
+                    ),
+                    _LigneNav(
+                      destination: liste[i],
+                      actif: i == actif,
+                      onTap: () => widget.onSelect(i),
+                    ),
+                  ],
+                ),
+              ),
+          ] else
+            const SizedBox(height: 8),
+          _Compte(session: widget.session, etendu: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _TitreGroupe extends StatelessWidget {
+  const _TitreGroupe({required this.titre, required this.hauteur});
+
+  final String titre;
+  final double hauteur;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: hauteur,
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 0, 7),
+          child: Semantics(
+            header: true,
             child: Text(
-              groupe.libelle,
+              titre,
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: _Nav.doux.withValues(alpha: 0.7),
+                color: _Nav.doux.withValues(alpha: 0.8),
               ),
             ),
           ),
-        );
-      }
-      lignes.add(
-        FadeUp(
-          index: i,
-          child: _LigneNav(
-            destination: d,
-            actif: i == actif,
-            indicateur: resume == null ? null : d.indicateur?.call(resume!),
-            onTap: () => onSelect(i),
-          ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: AtriumLockup(
-              markSize: 40,
-              onNight: _Nav.sombre,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(padding: EdgeInsets.zero, children: lignes),
-          ),
-          const SizedBox(height: 8),
-          _Compte(session: session, etendu: true),
-        ],
+/// La pastille de l'entree courante : un aplat blanc sur le bleu, la ou se
+/// pose l'oeil.
+class _Pastille extends StatelessWidget {
+  const _Pastille();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: _Nav.pastille,
       ),
     );
   }
@@ -435,12 +662,14 @@ class _LigneNav extends StatefulWidget {
     required this.actif,
     required this.onTap,
     this.indicateur,
+    this.hauteur = _Mesures.ligne,
   });
 
   final Destination destination;
   final bool actif;
   final VoidCallback onTap;
   final String? indicateur;
+  final double hauteur;
 
   @override
   State<_LigneNav> createState() => _LigneNavState();
@@ -454,34 +683,34 @@ class _LigneNavState extends State<_LigneNav> {
     final d = widget.destination;
     final actif = widget.actif;
     final bientot = d.route == null;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 360));
     final encre = actif
-        ? _Nav.encre
-        : _Nav.doux.withValues(alpha: bientot ? 0.45 : 1);
+        ? _Nav.surPastille
+        : _Nav.encre.withValues(alpha: bientot ? 0.45 : 0.82);
 
-    return MouseRegion(
-      cursor: bientot ? SystemMouseCursors.basic : SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _survol = true),
-      onExit: (_) => setState(() => _survol = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+    return Semantics(
+      button: true,
+      selected: actif,
+      child: InkWell(
         onTap: bientot ? null : widget.onTap,
+        onHover: (v) => setState(() => _survol = v),
+        borderRadius: BorderRadius.circular(10),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: _Nav.voile(0.10),
         child: AnimatedContainer(
           duration: duree,
           curve: atriumSpring,
-          height: 40,
-          margin: const EdgeInsets.only(bottom: 1),
+          height: widget.hauteur,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: actif
-                ? _Nav.voile(0.09)
-                : (_survol && !bientot
-                      ? _Nav.voile(0.045)
-                      : Colors.transparent),
-            border: Border.all(
-              color: actif ? _Nav.voile(0.08) : Colors.transparent,
-            ),
+            borderRadius: BorderRadius.circular(10),
+            // L'aplat de l'entree courante est la pastille, posee dessous ;
+            // la ligne n'apporte que le survol.
+            color: _survol && !actif && !bientot
+                ? _Nav.voile(0.07)
+                : Colors.transparent,
           ),
           child: Row(
             children: [
@@ -490,28 +719,25 @@ class _LigneNavState extends State<_LigneNav> {
                 child: Icon(
                   actif ? d.iconActive : d.icon,
                   key: ValueKey(actif),
-                  size: 21,
-                  color: actif ? AtriumColors.mintStrong : encre,
+                  size: 20,
+                  color: actif ? _Nav.iconePastille : encre,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: AnimatedSlide(
+                child: AnimatedDefaultTextStyle(
                   duration: duree,
                   curve: atriumSpring,
-                  offset: _survol && !actif && !bientot
-                      ? const Offset(0.03, 0)
-                      : Offset.zero,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 14.5,
+                    fontWeight: actif ? FontWeight.w600 : FontWeight.w500,
+                    color: encre,
+                  ),
                   child: Text(
                     d.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 14.5,
-                      fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-                      color: encre,
-                    ),
                   ),
                 ),
               ),
@@ -526,28 +752,7 @@ class _LigneNavState extends State<_LigneNav> {
                   ),
                 )
               else if (widget.indicateur != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AtriumColors.mintStrong.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Text(
-                    widget.indicateur!,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: _Nav.sombre
-                          ? const Color(0xFFFFC65A)
-                          : AtriumPalette.current.tileMangoInk,
-                      fontFeatures: tabularFigures,
-                    ),
-                  ),
-                ),
+                _Compteur(texte: widget.indicateur!, surPastille: actif),
             ],
           ),
         ),
@@ -555,6 +760,41 @@ class _LigneNavState extends State<_LigneNav> {
     );
   }
 }
+
+/// Le chiffre du jour en bout de ligne, en chiffres a chasse fixe : il change
+/// dans la journee, il ne doit pas faire danser la ligne.
+class _Compteur extends StatelessWidget {
+  const _Compteur({required this.texte, required this.surPastille});
+
+  final String texte;
+  final bool surPastille;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: AtriumMotion.of(context, AtriumMotion.base),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: surPastille
+            ? _Nav.surPastille.withValues(alpha: 0.10)
+            : _Nav.voile(0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        texte,
+        style: TextStyle(
+          fontFamily: atriumFontFamily,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: surPastille ? _Nav.surPastille : _Nav.encre,
+          fontFeatures: tabularFigures,
+        ),
+      ),
+    );
+  }
+}
+
+// --- Rail --------------------------------------------------------------------
 
 class _Rail extends StatelessWidget {
   const _Rail({
@@ -571,25 +811,49 @@ class _Rail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final entrees = <Widget>[];
+    Groupe? groupe;
+    for (var i = 0; i < liste.length; i++) {
+      final d = liste[i];
+      if (d.route == null || d.raccourci) continue;
+      // Un trait court entre deux familles : le rail n'a pas la place des
+      // titres, mais garde le meme rangement que la barre.
+      if (groupe != null && d.groupe != groupe) {
+        entrees.add(
+          Center(
+            child: Container(
+              width: 22,
+              height: 1,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              color: _Nav.voile(0.12),
+            ),
+          ),
+        );
+      }
+      groupe = d.groupe;
+      entrees.add(
+        _EntreeRail(
+          destination: d,
+          actif:
+              i == actif ||
+              (d.route == '/reservations' &&
+                  actif >= 0 &&
+                  liste[actif].filtre != null),
+          onTap: () => d.route == '/reservations'
+              ? _choisirVueReservations(context, liste, actif, onSelect)
+              : onSelect(i),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         children: [
-          const AtriumMark(size: 42),
+          const AtriumMark(size: 40, onNight: true),
           const SizedBox(height: 14),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < liste.length; i++)
-                  if (liste[i].route != null)
-                    _EntreeRail(
-                      destination: liste[i],
-                      actif: i == actif,
-                      onTap: () => onSelect(i),
-                    ),
-              ],
-            ),
+            child: ListView(padding: EdgeInsets.zero, children: entrees),
           ),
           _Compte(session: session, etendu: false),
         ],
@@ -633,15 +897,13 @@ class _EntreeRail extends StatelessWidget {
                   width: 52,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: actif
-                        ? AtriumColors.mintStrong.withValues(alpha: 0.16)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(17),
+                    color: actif ? _Nav.pastille : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     actif ? destination.iconActive : destination.icon,
                     size: 21,
-                    color: actif ? AtriumColors.mintStrong : _Nav.doux,
+                    color: actif ? _Nav.iconePastille : _Nav.doux,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -655,7 +917,7 @@ class _EntreeRail extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 10.5,
-                    fontWeight: actif ? FontWeight.w800 : FontWeight.w600,
+                    fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
                     color: actif ? _Nav.encre : _Nav.doux,
                   ),
                 ),
@@ -666,6 +928,64 @@ class _EntreeRail extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Dans le rail et sur telephone, les vues restent regroupees dans un menu
+/// lisible, avec les memes droits et filtres que le panneau etendu.
+void _choisirVueReservations(
+  BuildContext context,
+  List<Destination> liste,
+  int actif,
+  ValueChanged<int> onSelect,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+    ),
+    builder: (feuille) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Semantics(
+                header: true,
+                child: Text('Réservations', style: atriumDisplay(28)),
+              ),
+            ),
+            for (var i = 0; i < liste.length; i++)
+              if (liste[i].route == '/reservations')
+                ListTile(
+                  leading: Icon(
+                    i == actif ? liste[i].iconActive : liste[i].icon,
+                  ),
+                  title: Text(
+                    liste[i].filtre == null
+                        ? 'Toutes les réservations'
+                        : liste[i].label,
+                  ),
+                  selected: i == actif,
+                  selectedTileColor: AtriumPalette.current.accentSoft,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  onTap: () {
+                    Navigator.pop(feuille);
+                    onSelect(i);
+                  },
+                ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Telephone : la page plein ecran, la navigation dans une pilule flottante.
@@ -696,49 +1016,56 @@ class _CadreTelephone extends StatelessWidget {
 
     final onglets = navigables.take(_visibles).toList();
     final reste = navigables.skip(_visibles).toList();
-    final actifDansPlus = reste.contains(actif);
+    final principal = actif >= 0 && liste[actif].filtre != null
+        ? liste.indexWhere(
+            (d) => d.route == '/reservations' && d.filtre == null,
+          )
+        : actif;
+    final actifDansPlus = reste.contains(principal);
 
     return Scaffold(
       body: child,
       extendBody: true,
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        child: Container(
-          height: 66,
-          decoration: BoxDecoration(
-            color: _Nav.fond,
-            borderRadius: BorderRadius.circular(33),
-            border: Border.all(color: _Nav.voile(0.07)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF05081A).withValues(alpha: 0.35),
-                blurRadius: 30,
-                spreadRadius: -8,
-                offset: const Offset(0, 14),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              for (final i in onglets)
-                Expanded(
-                  child: _OngletTelephone(
-                    label: liste[i].label,
-                    icon: i == actif ? liste[i].iconActive : liste[i].icon,
-                    actif: i == actif,
-                    onTap: () => onSelect(i),
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AtriumColors.white,
+          border: Border(top: BorderSide(color: AtriumColors.border)),
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: (MediaQuery.textScalerOf(context).scale(11) * 1.5 + 40)
+                .clamp(64.0, double.infinity),
+            child: Row(
+              children: [
+                for (final i in onglets)
+                  Expanded(
+                    child: _OngletTelephone(
+                      label: liste[i].label,
+                      icon: i == principal
+                          ? liste[i].iconActive
+                          : liste[i].icon,
+                      actif: i == principal,
+                      onTap: () => liste[i].route == '/reservations'
+                          ? _choisirVueReservations(
+                              context,
+                              liste,
+                              actif,
+                              onSelect,
+                            )
+                          : onSelect(i),
+                    ),
                   ),
-                ),
-              if (reste.isNotEmpty)
-                Expanded(
-                  child: _OngletTelephone(
-                    label: 'Plus',
-                    icon: PhosphorIconsLight.squaresFour,
-                    actif: actifDansPlus,
-                    onTap: () => _ouvrirPlus(context, reste),
+                if (reste.isNotEmpty)
+                  Expanded(
+                    child: _OngletTelephone(
+                      label: 'Plus',
+                      icon: PhosphorIconsLight.dotsThree,
+                      actif: actifDansPlus,
+                      onTap: () => _ouvrirPlus(context, reste),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -843,16 +1170,20 @@ class _OngletTelephone extends StatelessWidget {
             AnimatedContainer(
               duration: duree,
               curve: atriumSpring,
-              width: actif ? 50 : 38,
+              width: 52,
               height: 30,
               decoration: BoxDecoration(
-                color: actif ? _Nav.voile(0.10) : Colors.transparent,
-                borderRadius: BorderRadius.circular(15),
+                color: actif
+                    ? AtriumPalette.current.accentSoft
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
                 size: 21,
-                color: actif ? AtriumColors.mintStrong : _Nav.doux,
+                color: actif
+                    ? AtriumColors.mintStrong
+                    : AtriumColors.textSecondary,
               ),
             ),
             const SizedBox(height: 3),
@@ -864,7 +1195,9 @@ class _OngletTelephone extends StatelessWidget {
                 fontFamily: atriumFontFamily,
                 fontSize: 11,
                 fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-                color: actif ? _Nav.encre : _Nav.doux,
+                color: actif
+                    ? AtriumColors.textPrimary
+                    : AtriumColors.textSecondary,
               ),
             ),
           ],
@@ -890,7 +1223,8 @@ class _Compte extends StatelessWidget {
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
           onSurfaceVariant: _Nav.doux,
-          tertiary: AtriumColors.mintStrong,
+          tertiary: _Nav.encre,
+          error: const Color(0xFFFFB4AE),
         ),
       ),
       child: PendingWritesBadge(compact: !etendu),
@@ -910,61 +1244,71 @@ class _Compte extends StatelessWidget {
       );
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+      padding: const EdgeInsets.fromLTRB(6, 10, 0, 0),
       decoration: BoxDecoration(
-        color: _Nav.voile(0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _Nav.voile(0.06)),
+        border: Border(top: BorderSide(color: _Nav.voile(0.14))),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: MenuCompte(
-              session: session,
-              child: Row(
-                children: [
-                  Avatar(session: session, taille: 36),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          session.nomAffiche,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: atriumFontFamily,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: _Nav.encre,
-                          ),
+          Row(
+            children: [
+              Expanded(
+                child: MenuCompte(
+                  session: session,
+                  child: Row(
+                    children: [
+                      Avatar(session: session, taille: 36),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              session.nomAffiche,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: atriumFontFamily,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: _Nav.encre,
+                              ),
+                            ),
+                            Text(
+                              role,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: atriumFontFamily,
+                                fontSize: 12,
+                                color: _Nav.doux,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          role,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: atriumFontFamily,
-                            fontSize: 12,
-                            color: _Nav.doux,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ),
+              const BoutonTheme(),
+            ],
+          ),
+          // L'etat de la synchro sur sa propre ligne, toute la largeur : a
+          // cote du nom, il le tronquait des la premiere ecriture en attente.
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: _Nav.voile(0.10))),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Align(alignment: Alignment.centerLeft, child: synchro),
               ),
             ),
-          ),
-          // Les deux petits boutons l'un sur l'autre : cote a cote, ils
-          // mangeaient le nom de l'agent.
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 36, child: BoutonTheme()),
-              SizedBox(height: 36, child: synchro),
-            ],
           ),
         ],
       ),
@@ -1003,21 +1347,20 @@ class BoutonTheme extends ConsumerWidget {
   }
 }
 
-/// Les couleurs de la navigation. La nuit, une ile bleu-nuit ; le jour, une
-/// ile de papier : un bloc violet sature sur une page claire ecrasait le
-/// contenu et faisait deux applications en une.
+/// Les couleurs de la navigation : le panneau est bleu royal le jour, bleu
+/// d'encre la nuit ; le texte y est blanc, l'entree courante est un aplat
+/// blanc ou s'ecrit le bleu.
 abstract final class _Nav {
   static bool get sombre => AtriumPalette.current.isDark;
   static Color get fond =>
-      sombre ? AtriumColors.purpleNight : AtriumPalette.current.paper;
-  static Color get teinteHaut => sombre
-      ? const Color(0xFF263178).withValues(alpha: 0.55)
-      : AtriumPalette.current.accent.withValues(alpha: 0.05);
-  static Color get encre =>
-      sombre ? AtriumColors.onNight : AtriumPalette.current.text;
+      sombre ? const Color(0xFF0E1636) : AtriumPalette.current.primary;
+  static Color get encre => Colors.white;
   static Color get doux =>
-      sombre ? AtriumColors.onPurpleSoft : AtriumPalette.current.textSecondary;
-  static Color voile(double a) => sombre
-      ? Colors.white.withValues(alpha: a)
-      : AtriumPalette.current.night.withValues(alpha: a * 0.8);
+      sombre ? const Color(0xFFA9B6DA) : const Color(0xFFC3CFEF);
+  static Color voile(double a) => Colors.white.withValues(alpha: a);
+
+  static Color get pastille => sombre ? const Color(0xFF2A4BB0) : Colors.white;
+  static Color get surPastille =>
+      sombre ? Colors.white : AtriumPalette.current.primary;
+  static Color get iconePastille => surPastille;
 }

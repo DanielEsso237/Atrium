@@ -43,3 +43,8 @@ class HousekeepingTaskOut(BaseModel):
 
 class AssignIn(BaseModel):
     user_id: uuid.UUID
+
+
+class RevertIn(BaseModel):
+    from_status: TaskStatus
+    status: TaskStatus

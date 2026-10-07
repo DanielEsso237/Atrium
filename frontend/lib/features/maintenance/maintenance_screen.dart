@@ -17,6 +17,7 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import '../../core/widgets/kanban_drag.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -71,7 +72,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
       title: 'Maintenance',
       subtitle: liste.isEmpty
           ? null
-          : '${ouverts.length + pris.length} en cours  ·  '
+          : '${ouverts.length + pris.length} en cours, '
                 '$bloquees chambre${bloquees > 1 ? 's' : ''} '
                 'hors service',
       action: peutGerer
@@ -138,7 +139,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                           padding: EdgeInsets.fromLTRB(marge, 0, marge, 32),
                           children: [
                             for (final t in clos)
-                              _CarteTicket(ticket: t, peutGerer: false),
+                              _CarteTicket(ticket: t, peutGerer: peutGerer),
                           ],
                         ),
                 ),
@@ -162,6 +163,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                             Expanded(
                               child: _Colonne(
                                 titre: 'Signalés',
+                                statut: TicketStatus.OPEN,
                                 couleur: CouleursEtat.occupee,
                                 tickets: ouverts,
                                 peutGerer: peutGerer,
@@ -172,6 +174,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                             Expanded(
                               child: _Colonne(
                                 titre: 'Pris en charge',
+                                statut: TicketStatus.ASSIGNED,
                                 couleur: CouleursEtat.nettoyage,
                                 tickets: pris,
                                 peutGerer: peutGerer,
@@ -182,6 +185,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                             Expanded(
                               child: _Colonne(
                                 titre: 'Résolus',
+                                statut: TicketStatus.RESOLVED,
                                 couleur: CouleursEtat.disponible,
                                 tickets: resolus,
                                 peutGerer: peutGerer,
@@ -217,7 +221,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                                 top: 8,
                                 bottom: 10,
                               ),
-                              child: Eyebrow('$titre · ${groupe.length}'),
+                              child: Eyebrow('$titre (${groupe.length})'),
                             ),
                             for (final t in groupe)
                               _CarteTicket(ticket: t, peutGerer: peutGerer),
@@ -238,6 +242,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
 class _Colonne extends StatelessWidget {
   const _Colonne({
     required this.titre,
+    required this.statut,
     required this.couleur,
     required this.tickets,
     required this.peutGerer,
@@ -245,6 +250,7 @@ class _Colonne extends StatelessWidget {
   });
 
   final String titre;
+  final TicketStatus statut;
   final Color couleur;
   final List<TicketSummary> tickets;
   final bool peutGerer;
@@ -253,76 +259,114 @@ class _Colonne extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    return Container(
-      decoration: BoxDecoration(
-        color: p.isDark
-            ? Colors.white.withValues(alpha: 0.025)
-            : p.accent.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: p.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: couleur,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Text(
-                  titre,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: p.text,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tag('${tickets.length}'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: tickets.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Text(
-                      vide,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 13.5,
-                        color: p.textSecondary,
-                      ),
+    return DragTarget<_TicketDrag>(
+      key: ValueKey('maintenance-column-${statut.name}'),
+      onWillAcceptWithDetails: (details) =>
+          peutGerer &&
+          switch ((details.data.ticket.status, statut)) {
+            (TicketStatus.OPEN, TicketStatus.ASSIGNED) => true,
+            (
+              TicketStatus.ASSIGNED || TicketStatus.IN_PROGRESS,
+              TicketStatus.RESOLVED,
+            ) =>
+              true,
+            (
+              TicketStatus.ASSIGNED || TicketStatus.IN_PROGRESS,
+              TicketStatus.OPEN,
+            ) =>
+              true,
+            (
+              TicketStatus.RESOLVED,
+              TicketStatus.OPEN || TicketStatus.ASSIGNED,
+            ) =>
+              true,
+            _ => false,
+          },
+      // Le depot appelle exactement l'action du bouton de la carte : meme
+      // compte rendu obligatoire, memes controles et meme file d'envoi.
+      onAcceptWithDetails: (details) => details.data.deplacer(statut),
+      builder: (context, candidats, refuses) => Container(
+        decoration: BoxDecoration(
+          color: candidats.isNotEmpty
+              ? couleur.withValues(alpha: 0.1)
+              : p.isDark
+              ? Colors.white.withValues(alpha: 0.025)
+              : p.accent.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: candidats.isNotEmpty ? couleur : p.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: couleur,
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    children: [
-                      for (var i = 0; i < tickets.length; i++)
-                        FadeUp(
-                          index: i.clamp(0, 6),
-                          child: _CarteTicket(
-                            ticket: tickets[i],
-                            peutGerer: peutGerer,
-                          ),
-                        ),
-                    ],
                   ),
-          ),
-        ],
+                  const SizedBox(width: 9),
+                  Text(
+                    titre,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tag('${tickets.length}'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: tickets.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Text(
+                        vide,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 13.5,
+                          color: p.textSecondary,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      children: [
+                        for (var i = 0; i < tickets.length; i++)
+                          FadeUp(
+                            key: ValueKey(tickets[i].id),
+                            index: i.clamp(0, 6),
+                            child: _CarteTicket(
+                              ticket: tickets[i],
+                              peutGerer: peutGerer,
+                              draggable: true,
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _TicketDrag {
+  const _TicketDrag(this.ticket, this.deplacer);
+
+  final TicketSummary ticket;
+  final void Function(TicketStatus) deplacer;
 }
 
 String _libellePriorite(Priority p) => switch (p) {
@@ -333,10 +377,15 @@ String _libellePriorite(Priority p) => switch (p) {
 };
 
 class _CarteTicket extends ConsumerStatefulWidget {
-  const _CarteTicket({required this.ticket, required this.peutGerer});
+  const _CarteTicket({
+    required this.ticket,
+    required this.peutGerer,
+    this.draggable = false,
+  });
 
   final TicketSummary ticket;
   final bool peutGerer;
+  final bool draggable;
 
   @override
   ConsumerState<_CarteTicket> createState() => _CarteTicketState();
@@ -345,21 +394,27 @@ class _CarteTicket extends ConsumerStatefulWidget {
 class _CarteTicketState extends ConsumerState<_CarteTicket> {
   bool _occupe = false;
 
-  Future<void> _agir() async {
+  Future<void> _agir({TicketStatus? to}) async {
+    if (_occupe || !mounted || !widget.peutGerer) return;
     final t = widget.ticket;
     final depot = ref.read(maintenanceRepositoryProvider);
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
 
-    String? resolution;
-    if (t.status == TicketStatus.ASSIGNED ||
-        t.status == TicketStatus.IN_PROGRESS) {
-      resolution = await _demanderResolution(context, t);
-      if (resolution == null) return;
-    }
-
     setState(() => _occupe = true);
     try {
+      if (to == TicketStatus.OPEN ||
+          (t.status == TicketStatus.RESOLVED && to == TicketStatus.ASSIGNED) ||
+          (t.status == TicketStatus.CLOSED && to == TicketStatus.RESOLVED)) {
+        await depot.revert(t.id, to: to!, by: agent);
+        return;
+      }
+      String? resolution;
+      if (t.status == TicketStatus.ASSIGNED ||
+          t.status == TicketStatus.IN_PROGRESS) {
+        resolution = await _demanderResolution(context, t);
+        if (resolution == null || !mounted) return;
+      }
       switch (t.status) {
         case TicketStatus.OPEN:
           await depot.take(t.id, by: agent);
@@ -384,6 +439,12 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La modification a échoué. Réessayez.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _occupe = false);
@@ -427,7 +488,7 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
               '${t.reportedAt!.toLocal().hour.toString().padLeft(2, '0')}:'
               '${t.reportedAt!.toLocal().minute.toString().padLeft(2, '0')}';
 
-    return Padding(
+    final carte = Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -459,7 +520,7 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.2,
                 color: p.text,
               ),
@@ -485,7 +546,7 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    [ou, if (quand.isNotEmpty) quand].join('  ·  '),
+                    [ou, if (quand.isNotEmpty) quand].join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -548,9 +609,45 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
                 onPressed: _occupe ? null : _agir,
               ),
             ],
+            if (widget.peutGerer &&
+                t.status != TicketStatus.OPEN &&
+                t.status != TicketStatus.CANCELLED)
+              TextButton.icon(
+                icon: const Icon(PhosphorIconsLight.arrowLeft, size: 16),
+                label: Text(switch (t.status) {
+                  TicketStatus.CLOSED => 'Rouvrir le ticket',
+                  TicketStatus.RESOLVED => 'Reprendre la réparation',
+                  _ => 'Remettre dans Signalés',
+                }),
+                onPressed: _occupe
+                    ? null
+                    : () => _agir(
+                        to: switch (t.status) {
+                          TicketStatus.CLOSED => TicketStatus.RESOLVED,
+                          TicketStatus.RESOLVED => TicketStatus.ASSIGNED,
+                          _ => TicketStatus.OPEN,
+                        },
+                      ),
+              ),
           ],
         ),
       ),
+    );
+
+    final peutDeplacer =
+        widget.draggable &&
+        widget.peutGerer &&
+        !_occupe &&
+        (t.status == TicketStatus.OPEN ||
+            t.status == TicketStatus.ASSIGNED ||
+            t.status == TicketStatus.IN_PROGRESS ||
+            t.status == TicketStatus.RESOLVED);
+    if (!peutDeplacer) return carte;
+
+    return KanbanDragCard<_TicketDrag>(
+      data: _TicketDrag(t, (to) => _agir(to: to)),
+      feedbackChild: carte.child,
+      child: carte,
     );
   }
 }
@@ -564,7 +661,7 @@ Future<String?> _demanderResolution(BuildContext context, TicketSummary t) {
     builder: (dialogue) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         icon: const Icon(PhosphorIconsLight.check, size: 30),
-        title: Text('Résolu · ${t.title}'),
+        title: Text('Résolu : ${t.title}'),
         content: SizedBox(
           width: 460,
           child: TextField(

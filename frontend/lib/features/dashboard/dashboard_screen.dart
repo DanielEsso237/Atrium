@@ -1663,7 +1663,7 @@ class _LigneActivite extends StatelessWidget {
     final lieu = a.chambre != null
         ? 'Chambre ${a.chambre}'
         : (a.typeChambre != null ? 'Chambre ${a.typeChambre}' : null);
-    final detail = [lieu, a.client].whereType<String>().join(' · ');
+    final detail = [lieu, a.client].whereType<String>().join(', ');
 
     return SizedBox(
       height: 52,

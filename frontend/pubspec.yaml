@@ -93,6 +93,23 @@ flutter:
           weight: 700
         - asset: assets/fonts/jakarta/PlusJakartaSans-800.ttf
           weight: 800
+    # Les titres : Cormorant Garamond, la serif de la charte ChronoFS.
+    - family: CormorantGaramond
+      fonts:
+        - asset: assets/fonts/cormorant/CormorantGaramond-500.ttf
+          weight: 500
+        - asset: assets/fonts/cormorant/CormorantGaramond-600.ttf
+          weight: 600
+        - asset: assets/fonts/cormorant/CormorantGaramond-700.ttf
+          weight: 700
+    # Les codes et references (client, ardoise, facture, agent) : JetBrains
+    # Mono, la chasse fixe de ChronoFS.
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/jetbrains/JetBrainsMono-500.ttf
+          weight: 500
+        - asset: assets/fonts/jetbrains/JetBrainsMono-600.ttf
+          weight: 600
     - family: Montserrat
       fonts:
         - asset: assets/fonts/montserrat/Montserrat-Regular.ttf
@@ -107,6 +124,7 @@ flutter:
   # La chambre du bandeau de connexion.
   assets:
     - assets/images/chambre.jpg
+    - assets/images/edge-hotel-logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

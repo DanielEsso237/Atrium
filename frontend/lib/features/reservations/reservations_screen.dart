@@ -170,7 +170,7 @@ class ReservationsScreen extends ConsumerWidget {
     return ModuleScaffold(
       title: 'Réservations',
       subtitle:
-          '$enCours séjour${enCours > 1 ? 's' : ''} en cours  ·  '
+          '$enCours séjour${enCours > 1 ? 's' : ''} en cours, '
           '$arriventAujourdhui arrivée${arriventAujourdhui > 1 ? 's' : ''} '
           "attendue${arriventAujourdhui > 1 ? 's' : ''} aujourd'hui",
       action: PillButton(
@@ -297,7 +297,7 @@ class _Registre extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: atriumFontFamily,
                             fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: AtriumColors.textSecondary,
                           ),
                         ),
@@ -341,9 +341,9 @@ String _libelleJour(String iso, String aujourdhui) {
   final ecart = d.difference(a).inDays;
   final date = '${formatWeekdayShort(d)} ${formatDayMonth(d)}';
   return switch (ecart) {
-    0 => "Arrivée aujourd'hui · $date",
-    1 => 'Arrivée demain · $date',
-    -1 => 'Arrivée hier · $date',
+    0 => "Arrivée aujourd'hui, $date",
+    1 => 'Arrivée demain, $date',
+    -1 => 'Arrivée hier, $date',
     _ => 'Arrivée $date',
   };
 }
@@ -357,7 +357,7 @@ int _nuits(ReservationSummary r) {
 String _sejour(ReservationSummary r) {
   final a = parseIsoDate(r.arrival);
   final d = parseIsoDate(r.departure);
-  return '${a == null ? r.arrival : formatDayMonth(a)}  →  '
+  return 'du ${a == null ? r.arrival : formatDayMonth(a)} au '
       '${d == null ? r.departure : formatDayMonth(d)}';
 }
 
@@ -506,12 +506,12 @@ TextStyle get _styleNom => TextStyle(
   color: AtriumColors.textPrimary,
 );
 
-TextStyle get _styleDiscret => TextStyle(
-  fontFamily: atriumFontFamily,
-  fontSize: 13,
-  fontWeight: FontWeight.w500,
+/// La reference d'une reservation, en chasse fixe : elle se dicte au
+/// telephone.
+TextStyle get _styleDiscret => atriumCode(
+  12.5,
   color: AtriumColors.textSecondary,
-  fontFeatures: tabularFigures,
+  weight: FontWeight.w500,
 );
 
 TextStyle get _styleDates => TextStyle(
@@ -576,7 +576,7 @@ class _Chambre extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.6,
                   height: 1.1,
                   color: AtriumColors.textPrimary,
@@ -586,7 +586,7 @@ class _Chambre extends StatelessWidget {
             : Tag('À attribuer', color: AtriumColors.warning),
         const SizedBox(height: 3),
         Text(
-          '${r.roomTypeLabel} · ${formatAmount(r.nightlyRate)}',
+          '${r.roomTypeLabel}, ${formatAmount(r.nightlyRate)} la nuit',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: _styleDiscret.copyWith(fontSize: 12.5),

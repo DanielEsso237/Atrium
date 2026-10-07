@@ -199,16 +199,9 @@ class _Results extends ConsumerWidget {
                                   color: AtriumColors.textPrimary,
                                 ),
                               ),
-                              Text(
-                                [
-                                  g.code,
-                                  if (g.phone != null) g.phone!,
-                                ].join(' · '),
-                                style: TextStyle(
-                                  fontFamily: atriumFontFamily,
-                                  fontSize: 13,
-                                  color: AtriumColors.textSecondary,
-                                ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: LigneCode(g.code, detail: g.phone),
                               ),
                             ],
                           ),
@@ -279,20 +272,13 @@ class _SelectedGuest extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: p.text,
                     ),
                   ),
-                  Text(
-                    [
-                      guest.code,
-                      if (guest.phone != null) guest.phone!,
-                    ].join(' · '),
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 13.5,
-                      color: p.textSecondary,
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: LigneCode(guest.code, detail: guest.phone),
                   ),
                 ],
               ),

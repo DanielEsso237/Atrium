@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database.dart';
 import '../local/database_provider.dart';
+import '../local/queries/rooms_queries.dart';
 import '../local/files/photo_files.dart';
 import '../remote/file_uploader.dart';
 import '../remote/outbox_sender.dart';
@@ -65,6 +66,10 @@ final housekeepingRepositoryProvider = Provider<HousekeepingRepository>(
 /// Les chambres a faire aujourd'hui, en direct.
 final cleaningJobsProvider = StreamProvider<List<CleaningJob>>(
   (ref) => ref.watch(housekeepingRepositoryProvider).watchJobs(),
+);
+
+final vacantRoomsForCleaningProvider = StreamProvider<List<RoomBoardEntry>>(
+  (ref) => ref.watch(housekeepingRepositoryProvider).watchVacantRooms(),
 );
 
 final cashRepositoryProvider = Provider<CashRepository>(

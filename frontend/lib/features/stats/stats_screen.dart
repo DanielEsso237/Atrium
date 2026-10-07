@@ -1,4 +1,4 @@
-/// Statistiques : la tendance, la ou l'accueil donne l'instant.
+/// Dashboard : la tendance, la ou l'accueil donne l'instant.
 ///
 /// L'accueil repond a « que dois-je faire maintenant ? ». Ici on regarde la
 /// semaine : l'occupation qui monte ou baisse, la repartition par categorie,
@@ -90,7 +90,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     final jour = businessDayFor(DateTime.now());
 
     return ModuleScaffold(
-      title: 'Statistiques',
+      title: 'Dashboard',
       subtitle: 'Journée du ${formatLongDate(jour)}',
       action: const NotificationBell(),
       body: LayoutBuilder(
@@ -303,7 +303,7 @@ class _Kpi extends ConsumerWidget {
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 30,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: -1.2,
               height: 1,
               color: p.text,
@@ -376,7 +376,7 @@ class _Carte extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.3,
                       color: p.text,
                     ),
@@ -648,7 +648,7 @@ class _LigneActivite extends StatelessWidget {
     final lieu = a.chambre != null
         ? 'Chambre ${a.chambre}'
         : (a.typeChambre != null ? 'Chambre ${a.typeChambre}' : null);
-    final detail = [lieu, a.client].whereType<String>().join(' · ');
+    final detail = [lieu, a.client].whereType<String>().join(', ');
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -769,7 +769,7 @@ class NotificationBell extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: p.onAccent,
                       ),
                     ),

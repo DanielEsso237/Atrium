@@ -90,8 +90,8 @@ class _AssignRoomDialogState extends ConsumerState<_AssignRoomDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${r.roomTypeLabel}  ·  '
-              '${a == null ? r.arrival : formatDayMonth(a)} → '
+              '${r.roomTypeLabel}, du '
+              '${a == null ? r.arrival : formatDayMonth(a)} au '
               '${d == null ? r.departure : formatDayMonth(d)}',
               textAlign: TextAlign.center,
               style: TextStyle(

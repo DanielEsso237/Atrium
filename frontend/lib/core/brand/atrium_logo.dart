@@ -1,114 +1,116 @@
-/// Le logo d'Atrium : une arche.
-///
-/// Un atrium est la cour ouverte au coeur d'une maison, celle sur laquelle
-/// donnent toutes les pieces. L'embleme en garde la forme : une arche mangue,
-/// posee sur une tuile de nuit, avec le soleil qui entre par l'ouverture.
-/// Dessine en vectoriel : net sur une tablette, une icone d'onglet ou un
-/// ecran de PC.
+/// Le logo Edge Hotel fourni pour l'application.
 library;
-
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../tokens.dart';
 
+const _logoAsset = 'assets/images/edge-hotel-logo.png';
+const _logoSize = 1254.0;
+const _markBounds = Rect.fromLTRB(355, 232, 900, 816);
+const _nameBounds = Rect.fromLTRB(127, 864, 1122, 1055);
+const _completeBounds = Rect.fromLTRB(127, 232, 1122, 1055);
+
+// Le fichier original reste intact. Ces fenetres affichent le symbole et
+// le nom a leur taille utile, sans les marges blanches de l'image fournie.
+class _LogoFragment extends StatelessWidget {
+  const _LogoFragment(this.bounds);
+
+  final Rect bounds;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.contain,
+    child: SizedBox(
+      width: bounds.width,
+      height: bounds.height,
+      child: ClipRect(
+        child: Stack(
+          children: [
+            Positioned(
+              left: -bounds.left,
+              top: -bounds.top,
+              width: _logoSize,
+              height: _logoSize,
+              child: Image.asset(
+                _logoAsset,
+                fit: BoxFit.fill,
+                excludeFromSemantics: true,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Le symbole du logo, pour le rail de navigation.
 class AtriumMark extends StatelessWidget {
-  const AtriumMark({super.key, this.size = 44});
+  const AtriumMark({super.key, this.size = 44, this.onNight = false});
 
   final double size;
+  final bool onNight;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: size,
-      child: CustomPaint(
-        painter: _ArchePainter(sombre: AtriumPalette.current.isDark),
+  Widget build(BuildContext context) => Semantics(
+    image: true,
+    label: 'Edge Hotel',
+    child: Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(onNight ? 8 : 4),
       ),
-    );
-  }
+      child: const _LogoFragment(_markBounds),
+    ),
+  );
 }
 
-class _ArchePainter extends CustomPainter {
-  _ArchePainter({required this.sombre});
+/// Le logo complet dans sa composition officielle, symbole au-dessus du nom.
+///
+/// Son support evoque une porte d'hotel sans deformer l'image fournie.
+class EdgeHotelLogo extends StatelessWidget {
+  const EdgeHotelLogo({super.key, this.width = 232});
 
-  /// La nuit, une tuile bleu-nuit et une arche mangue ; le jour, une tuile
-  /// mangue et une arche d'encre brune : pas de bleu-nuit sur une page claire.
-  final bool sombre;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    final tuile = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(s * 0.28),
-    );
-
-    // La tuile : nuit profonde, un voile plus clair vers le haut.
-    canvas.drawRRect(
-      tuile,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: sombre
-              ? const [Color(0xFF263178), Color(0xFF0A0F2E)]
-              : const [Color(0xFFFFCB5C), Color(0xFFFFA91A)],
-        ).createShader(Offset.zero & size),
-    );
-
-    // L'arche : un U renverse, trait epais aux extremites arrondies.
-    final epaisseur = s * 0.115;
-    final gauche = s * 0.29;
-    final droite = s * 0.71;
-    final bas = s * 0.78;
-    final rayon = (droite - gauche) / 2;
-    final centreArc = Offset(s / 2, s * 0.30 + rayon);
-    final arche = Path()
-      ..moveTo(gauche, bas)
-      ..lineTo(gauche, centreArc.dy)
-      ..arcTo(
-        Rect.fromCircle(center: centreArc, radius: rayon),
-        math.pi,
-        math.pi,
-        false,
-      )
-      ..lineTo(droite, bas);
-    canvas.drawPath(
-      arche,
-      Paint()
-        ..color = sombre ? const Color(0xFFFFB020) : const Color(0xFF2B1B04)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = epaisseur
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-
-    // Le soleil dans l'ouverture.
-    canvas.drawCircle(
-      Offset(s / 2, centreArc.dy + rayon * 0.05),
-      s * 0.075,
-      Paint()
-        ..color = sombre ? const Color(0xFFFBF6EC) : const Color(0xFFFFF8EA),
-    );
-
-    // Le seuil : une ligne claire sous l'arche.
-    canvas.drawLine(
-      Offset(s * 0.2, bas + epaisseur * 0.95),
-      Offset(s * 0.8, bas + epaisseur * 0.95),
-      Paint()
-        ..color = (sombre ? const Color(0xFFFBF6EC) : const Color(0xFF2B1B04))
-            .withValues(alpha: 0.55)
-        ..strokeWidth = s * 0.035
-        ..strokeCap = StrokeCap.round,
-    );
-  }
+  final double width;
 
   @override
-  bool shouldRepaint(covariant _ArchePainter old) => old.sombre != sombre;
+  Widget build(BuildContext context) => Semantics(
+    image: true,
+    label: 'Edge Hotel',
+    child: Container(
+      width: width,
+      clipBehavior: Clip.antiAlias,
+      padding: EdgeInsets.all(width * 0.12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(width / 2),
+          topRight: Radius.circular(width / 2),
+          bottomLeft: const Radius.circular(28),
+          bottomRight: const Radius.circular(28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AtriumPalette.current.night.withValues(alpha: 0.16),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: AspectRatio(
+        aspectRatio: _completeBounds.width / _completeBounds.height,
+        child: const _LogoFragment(_completeBounds),
+      ),
+    ),
+  );
 }
 
-/// Le logo et le nom, pour la barre laterale et la connexion.
+/// Le symbole et le nom officiels, pour la navigation et la connexion.
 class AtriumLockup extends StatelessWidget {
   const AtriumLockup({
     super.key,
@@ -118,58 +120,58 @@ class AtriumLockup extends StatelessWidget {
     this.ink,
   });
 
-  /// Encre imposee, quel que soit le theme (une facture reste sur papier).
   final Color? ink;
-
   final double markSize;
   final String? hotelName;
-
-  /// Pose sur un fond de nuit (texte clair) ou sur le papier.
   final bool onNight;
 
   @override
-  Widget build(BuildContext context) {
-    final encre = onNight ? AtriumColors.onNight : AtriumColors.textPrimary;
-    final doux = onNight
-        ? AtriumColors.onPurpleSoft
-        : AtriumColors.textSecondary;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AtriumMark(size: markSize),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Semantics(
+        image: true,
+        label: 'Edge Hotel',
+        child: Container(
+          padding: EdgeInsets.all(onNight ? 6 : 0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Edge Hotel',
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: markSize * 0.52,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.6,
-                  height: 1.05,
-                  color: encre,
+              SizedBox.square(
+                dimension: markSize,
+                child: const _LogoFragment(_markBounds),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: SizedBox(
+                  width: markSize * 4,
+                  height: markSize * 0.8,
+                  child: const _LogoFragment(_nameBounds),
                 ),
               ),
-              if (hotelName != null)
-                Text(
-                  hotelName!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: doux,
-                  ),
-                ),
             ],
           ),
         ),
+      ),
+      if (hotelName != null) ...[
+        const SizedBox(height: 4),
+        Text(
+          hotelName!,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: ink ?? (onNight ? Colors.white : AtriumColors.textSecondary),
+          ),
+        ),
       ],
-    );
-  }
+    ],
+  );
 }

@@ -23,10 +23,11 @@ final _regleArrhes = StreamProvider<DepositRule?>(
 /// Le prix d'une nuit dans la premiere categorie : la base de l'exemple.
 final _prixDeReference = FutureProvider<int>((ref) async {
   final db = ref.watch(databaseProvider);
-  final types = await (db.select(db.roomTypes)
-        ..where((t) => t.deletedAt.isNull())
-        ..orderBy([(t) => OrderingTerm(expression: t.sortOrder)]))
-      .get();
+  final types =
+      await (db.select(db.roomTypes)
+            ..where((t) => t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm(expression: t.sortOrder)]))
+          .get();
   final avecPrix = types.where((t) => t.defaultRate > 0);
   return avecPrix.isEmpty ? 25000 : avecPrix.first.defaultRate;
 });
@@ -36,7 +37,9 @@ String formatRate(int rateBp) {
   final entier = rateBp ~/ 100;
   final reste = rateBp % 100;
   if (reste == 0) return '$entier %';
-  final decimales = reste % 10 == 0 ? '${reste ~/ 10}' : '$reste'.padLeft(2, '0');
+  final decimales = reste % 10 == 0
+      ? '${reste ~/ 10}'
+      : '$reste'.padLeft(2, '0');
   return '$entier,$decimales %';
 }
 
@@ -55,8 +58,10 @@ int? parseRateBp(String saisie) {
 String describeRule(DepositRule? regle, int prixNuit) {
   if (regle == null) return 'Aucune arrhe n’est demandée par défaut.';
   final du = regle.depositFor(prixNuit);
-  final quoi = regle.isFixed ? formatAmount(regle.amount!) : formatRate(regle.rateBp!);
-  return '$quoi — soit ${formatAmount(du)} sur une chambre à '
+  final quoi = regle.isFixed
+      ? formatAmount(regle.amount!)
+      : formatRate(regle.rateBp!);
+  return '$quoi, soit ${formatAmount(du)} sur une chambre à '
       '${formatAmount(prixNuit)} la nuit.';
 }
 
@@ -103,7 +108,9 @@ class _DepositSectionState extends ConsumerState<DepositSection> {
         return null;
       case _Mode.fixe:
         final montant = int.tryParse(_valeur.text.trim());
-        return montant == null || montant <= 0 ? null : DepositRule.fixed(montant);
+        return montant == null || montant <= 0
+            ? null
+            : DepositRule.fixed(montant);
       case _Mode.pourcentage:
         final bp = parseRateBp(_valeur.text);
         return bp == null ? null : DepositRule.percent(bp);
@@ -117,9 +124,9 @@ class _DepositSectionState extends ConsumerState<DepositSection> {
     await ref.read(settingsRepositoryProvider).setDepositRule(_regleSaisie);
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Règle des arrhes enregistrée.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Règle des arrhes enregistrée.')),
+    );
   }
 
   @override
@@ -150,13 +157,17 @@ class _DepositSectionState extends ConsumerState<DepositSection> {
             width: 260,
             child: TextField(
               controller: _valeur,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 if (_mode == _Mode.fixe) FilteringTextInputFormatter.digitsOnly,
               ],
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                labelText: _mode == _Mode.fixe ? 'Montant' : 'Pourcentage du séjour',
+                labelText: _mode == _Mode.fixe
+                    ? 'Montant'
+                    : 'Pourcentage du séjour',
                 suffixText: _mode == _Mode.fixe ? 'FCFA' : '%',
                 errorText: _saisieValide || _valeur.text.isEmpty
                     ? null

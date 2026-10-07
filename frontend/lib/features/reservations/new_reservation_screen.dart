@@ -433,7 +433,7 @@ class _Etape extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: atriumFontFamily,
                             fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: p.textSecondary,
                           ),
                         ),
@@ -445,7 +445,7 @@ class _Etape extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 19,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.4,
                   color: p.text,
                 ),
@@ -494,7 +494,7 @@ class _Dates extends StatelessWidget {
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
               color: p.text,
             ),
@@ -611,7 +611,7 @@ class _CarteCategorie extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: p.text,
                         ),
                       ),
@@ -631,14 +631,14 @@ class _CarteCategorie extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.4,
                     color: p.text,
                     fontFeatures: tabularFigures,
                   ),
                 ),
                 Text(
-                  'par nuit · ${type.roomCount} chambre${type.roomCount > 1 ? 's' : ''}',
+                  'par nuit, ${type.roomCount} chambre${type.roomCount > 1 ? 's' : ''}',
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 12.5,
@@ -729,16 +729,7 @@ class _Ticket extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'RÉCAPITULATIF',
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.6,
-              color: doux,
-            ),
-          ),
+          Text('Récapitulatif', style: atriumDisplay(26, color: p.onHero)),
           const SizedBox(height: 14),
           FutureBuilder(
             key: ValueKey(guestId),
@@ -759,7 +750,7 @@ class _Ticket extends ConsumerWidget {
             'Séjour',
             dates == null
                 ? null
-                : '${formatDayMonth(dates!.start)} → ${formatDayMonth(dates!.end)}',
+                : 'du ${formatDayMonth(dates!.start)} au ${formatDayMonth(dates!.end)}',
           ),
           ligne(
             PhosphorIconsLight.usersThree,
@@ -786,7 +777,7 @@ class _Ticket extends ConsumerWidget {
             ),
           ),
           Text(
-            'Total estimé · $nuits nuit${nuits > 1 ? 's' : ''}',
+            'Total estimé pour $nuits nuit${nuits > 1 ? 's' : ''}',
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 13.5,
@@ -806,7 +797,7 @@ class _Ticket extends ConsumerWidget {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 34,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -1.2,
                 color: p.heroAccent,
                 fontFeatures: tabularFigures,
@@ -984,7 +975,7 @@ class _Compteur extends StatelessWidget {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 20,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: p.text,
                 fontFeatures: tabularFigures,
               ),

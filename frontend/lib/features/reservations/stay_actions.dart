@@ -106,7 +106,9 @@ Future<bool> confirmChangeRoom(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$guestName est maintenant en chambre ${nouvelle.number}.'),
+        content: Text(
+          '$guestName est maintenant en chambre ${nouvelle.number}.',
+        ),
       ),
     );
   }
@@ -245,7 +247,7 @@ Future<_Depart> _confirmerDepartNonSolde(
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 32,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -1,
                       color: schema.error,
                       fontFeatures: tabularFigures,
@@ -460,9 +462,9 @@ Future<bool> confirmCancelReservation(
     return false;
   }
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Réservation $reference annulée.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Réservation $reference annulée.')));
   }
   return true;
 }

@@ -126,7 +126,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
 
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.shoppingBagOpen, size: 32),
-      title: Text('Consommation · ${widget.guestName}'),
+      title: Text('Consommation de ${widget.guestName}'),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -223,7 +223,7 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 26,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -0.8,
                           color: p.heroAccent,
                           fontFeatures: tabularFigures,
@@ -347,7 +347,7 @@ class _Quantity extends StatelessWidget {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 20,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: p.text,
                 fontFeatures: tabularFigures,
               ),
