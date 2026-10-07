@@ -125,7 +125,7 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.coins, size: 32),
-      title: Text('Encaisser · ${widget.guestName}'),
+      title: Text('Paiement de ${widget.guestName}'),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -165,9 +165,8 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
                   ),
                   ActionChip(
                     label: const Text('La moitié'),
-                    onPressed: () => setState(
-                      () => _amount.text = '${widget.balance ~/ 2}',
-                    ),
+                    onPressed: () =>
+                        setState(() => _amount.text = '${widget.balance ~/ 2}'),
                   ),
                 ],
               ),

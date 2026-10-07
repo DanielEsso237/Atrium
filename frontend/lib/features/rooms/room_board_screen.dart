@@ -11,11 +11,11 @@
 /// colonnes qui le porteraient (`rooms.map_x`, `map_y`) sont nullables.
 ///
 /// Le plan se lit comme le tableau des cles derriere un comptoir : chaque
-/// chambre est sa carte-cle, et toutes sont taillees dans le meme violet,
-/// comme les cles d'un meme hotel. L'etat ne teint jamais la carte, il vit
-/// dans un badge colore, le voyant de la serrure. Cinq fonds de couleur se
-/// disputeraient l'ecran ; cinq voyants sur un meme violet se lisent d'un
-/// coup d'oeil, meme de loin.
+/// chambre est sa carte-cle, et toutes sont de la meme carte blanche, comme
+/// les cles d'un meme hotel. L'etat ne teint jamais la carte, il vit dans un
+/// badge colore, le voyant de la serrure. Cinq fonds de couleur se
+/// disputeraient l'ecran ; cinq badges sur un meme blanc se lisent d'un coup
+/// d'oeil, meme de loin.
 library;
 
 import 'dart:math' as math;
@@ -23,19 +23,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/theme.dart';
 import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
 import '../../core/widgets/atrium_bandeau.dart';
 import '../../core/widgets/atrium_puces.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/remote/outbox_sender.dart';
+import '../auth/session.dart';
 import '../sync/sync_status.dart';
+import 'room_cleaning_dialog.dart';
 import 'room_detail_panel.dart';
 
 final roomBoardProvider = StreamProvider<List<RoomBoardEntry>>(
@@ -316,14 +319,6 @@ class _RoomBoardScreenState extends ConsumerState<RoomBoardScreen>
     }
 
     final espace = largeur < 600 ? 12.0 : 16.0;
-    // Autant de cles par rangee qu'il en tient a 220 points au moins : en
-    // dessous, le nom du client et le prix se tronquent, et ce sont eux qu'on
-    // vient lire. Cinq sur une tablette couchee, trois debout, une sur un
-    // telephone.
-    final colonnes = math.max(
-      1,
-      ((largeur - 2 * marge + espace) / (220 + espace)).floor(),
-    );
     final sections = <Widget>[];
     // Le rang de chaque carte dans tout le plan, pas dans son etage : la
     // distribution descend l'ecran d'un seul mouvement.
@@ -350,23 +345,35 @@ class _RoomBoardScreenState extends ConsumerState<RoomBoardScreen>
         ..add(
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: marge),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: colonnes,
-                mainAxisExtent: 172,
-                mainAxisSpacing: espace,
-                crossAxisSpacing: espace,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => _Distribuee(
-                  distribution: _distribution,
-                  rang: premier + i,
-                  child: _CarteCle(
-                    chambre: visibles[i],
-                    occupant: occupants[visibles[i].roomId],
+            // La largeur reellement offerte a la grille, et non celle de
+            // l'ecran : la navigation en prend sa part, et les cartes
+            // tombaient sous leur minimum.
+            sliver: SliverLayoutBuilder(
+              builder: (context, contraintes) => SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  // Autant de cles par rangee qu'il en tient a 220 points au
+                  // moins : en dessous, le nom du client et le prix se
+                  // tronquent, et ce sont eux qu'on vient lire.
+                  crossAxisCount: math.max(
+                    1,
+                    ((contraintes.crossAxisExtent + espace) / (220 + espace))
+                        .floor(),
                   ),
+                  mainAxisExtent: 172,
+                  mainAxisSpacing: espace,
+                  crossAxisSpacing: espace,
                 ),
-                childCount: visibles.length,
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _Distribuee(
+                    distribution: _distribution,
+                    rang: premier + i,
+                    child: _CarteCle(
+                      chambre: visibles[i],
+                      occupant: occupants[visibles[i].roomId],
+                    ),
+                  ),
+                  childCount: visibles.length,
+                ),
               ),
             ),
           ),
@@ -397,13 +404,13 @@ class _RoomBoardScreenState extends ConsumerState<RoomBoardScreen>
 
 // --- Bandeau -----------------------------------------------------------------
 
-class _Bandeau extends StatelessWidget {
+class _Bandeau extends ConsumerWidget {
   const _Bandeau({required this.chambres});
 
   final List<RoomBoardEntry> chambres;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final haut = MediaQuery.paddingOf(context).top;
     final etages = chambres.map((c) => c.floorLabel).toSet().length;
     final libres = chambres
@@ -427,31 +434,36 @@ class _Bandeau extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Plan des chambres',
-              style: TextStyle(
-                fontSize: telephone ? 24 : 30,
-                fontWeight: FontWeight.w700,
-                color: AtriumDashColors.title,
-                height: 1.15,
+            Semantics(
+              header: true,
+              child: Text(
+                'Plan des chambres',
+                style: atriumDisplay(telephone ? 32 : 42),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               sousTitre,
               style: TextStyle(
-                fontSize: telephone ? 14 : 15.5,
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
                 color: AtriumColors.textSecondary,
                 height: 1.4,
               ),
             ),
+            if (ref
+                .watch(sessionProvider)
+                .acces
+                .peut('housekeeping.manage')) ...[
+              const SizedBox(height: 12),
+              PillButton(
+                label: 'Ménage d’une chambre',
+                icon: PhosphorIconsLight.broom,
+                onPressed: () => showRoomCleaningDialog(context),
+              ),
+            ],
           ],
-        );
-
-        final retour = AtriumBoutonCarre(
-          icone: Icons.arrow_back_rounded,
-          libelle: 'Retour au tableau de bord',
-          onTap: () => context.go('/'),
         );
 
         final actions = Wrap(
@@ -466,29 +478,22 @@ class _Bandeau extends StatelessWidget {
         );
 
         return ConstrainedBox(
-          constraints: BoxConstraints(minHeight: haut + 150),
+          constraints: BoxConstraints(minHeight: haut + 120),
           child: Stack(
             children: [
               const Positioned.fill(child: AtriumBandeauFond()),
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                  telephone ? 12 : 24,
+                  telephone ? 18 : 32,
                   haut + (telephone ? 16 : 28),
-                  telephone ? 16 : 28,
-                  26,
+                  telephone ? 18 : 32,
+                  20,
                 ),
                 child: uneLigne
                     ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          retour,
-                          const SizedBox(width: AtriumSpacing.lg),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: titre,
-                            ),
-                          ),
+                          Expanded(child: titre),
                           const SizedBox(width: AtriumSpacing.md),
                           actions,
                         ],
@@ -496,12 +501,12 @@ class _Bandeau extends StatelessWidget {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(children: [retour, const Spacer(), actions]),
-                          const SizedBox(height: AtriumSpacing.md),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: titre,
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: actions,
                           ),
+                          const SizedBox(height: AtriumSpacing.sm),
+                          titre,
                         ],
                       ),
               ),
@@ -735,7 +740,7 @@ class _Capsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rayon = BorderRadius.circular(18);
+    final rayon = BorderRadius.circular(AtriumRadii.md + 2);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AtriumColors.white,
@@ -747,7 +752,7 @@ class _Capsule extends StatelessWidget {
         borderRadius: rayon,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.all(5),
+          padding: const EdgeInsets.all(4),
           child: Row(children: segments),
         ),
       ),
@@ -774,8 +779,12 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rayon = BorderRadius.circular(AtriumRadii.md);
-    final encre = choisi ? AtriumColors.white : AtriumDashColors.title;
+    final rayon = BorderRadius.circular(AtriumRadii.md - 2);
+    final p = AtriumPalette.current;
+    // Le segment retenu prend le bleu de la navigation : sur ce fond, les
+    // voyants vifs des etats ressortent.
+    final fondChoisi = p.selected;
+    final encre = choisi ? p.onSelected : AtriumDashColors.title;
 
     return Semantics(
       button: true,
@@ -793,21 +802,9 @@ class _Segment extends StatelessWidget {
             curve: AtriumMotion.standard,
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            // Le segment retenu prend le violet des cartes-cles, cercle de
-            // menthe comme le selecteur de la connexion.
             decoration: BoxDecoration(
-              gradient: choisi
-                  ? LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [AtriumColors.purpleBright, AtriumColors.purple],
-                    )
-                  : null,
+              color: choisi ? fondChoisi : Colors.transparent,
               borderRadius: rayon,
-              border: Border.all(
-                color: choisi ? AtriumColors.mintStrong : Colors.transparent,
-                width: 1.5,
-              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -816,7 +813,7 @@ class _Segment extends StatelessWidget {
                   Icon(
                     Icons.grid_view_rounded,
                     size: 16,
-                    color: choisi ? AtriumColors.mint : AtriumDashColors.title,
+                    color: choisi ? p.onSelected : AtriumDashColors.title,
                   )
                 else
                   _Voyant(
@@ -840,7 +837,7 @@ class _Segment extends StatelessWidget {
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: choisi
-                        ? AtriumColors.mint
+                        ? p.onSelected.withValues(alpha: 0.78)
                         : AtriumColors.textSecondary,
                     fontFeatures: tabularFigures,
                   ),
@@ -953,10 +950,7 @@ class _EnteteEtage extends StatelessWidget {
         final compte = Text(
           '${chambres.length} chambre${chambres.length > 1 ? 's' : ''}, '
           '$libres libre${libres > 1 ? 's' : ''}',
-          style: TextStyle(
-            fontSize: 13.5,
-            color: AtriumColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 13.5, color: AtriumColors.textSecondary),
         );
 
         if (etroit) {
@@ -1228,20 +1222,8 @@ class _CarteCleState extends State<_CarteCle> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: rayon,
-            // La lumiere accroche le haut de la carte, comme sur une cle
-            // plastifiee ; l'ecart reste d'un cran, pour ne pas devenir un
-            // degrade.
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AtriumKeyCardColors.light,
-                AtriumKeyCardColors.base,
-                AtriumKeyCardColors.deep,
-              ],
-              stops: [0, 0.5, 1],
-            ),
-            boxShadow: AtriumShadows.keyCard,
+            color: AtriumColors.white,
+            boxShadow: AtriumShadows.soft,
           ),
           child: Material(
             type: MaterialType.transparency,
@@ -1250,13 +1232,20 @@ class _CarteCleState extends State<_CarteCle> {
             child: InkWell(
               onTap: () => afficherFicheChambre(context, chambre),
               onHighlightChanged: (v) => setState(() => _enfoncee = v),
-              splashColor: AtriumColors.white.withValues(alpha: 0.08),
-              highlightColor: AtriumColors.white.withValues(alpha: 0.04),
-              focusColor: AtriumColors.mint.withValues(alpha: 0.18),
-              child: Container(
+              splashColor: AtriumColors.ink.withValues(alpha: 0.05),
+              highlightColor: AtriumColors.ink.withValues(alpha: 0.03),
+              focusColor: AtriumColors.mintStrong.withValues(alpha: 0.12),
+              child: AnimatedContainer(
+                duration: AtriumMotion.of(context, AtriumMotion.fast),
                 decoration: BoxDecoration(
                   borderRadius: rayon,
-                  border: Border.all(color: AtriumKeyCardColors.edge),
+                  // Le filet fonce sous le doigt : la carte prise se detache
+                  // des autres avant que la fiche ne s'ouvre.
+                  border: Border.all(
+                    color: _enfoncee
+                        ? AtriumColors.textSecondary.withValues(alpha: 0.45)
+                        : AtriumDashColors.cardBorder,
+                  ),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
                 child: Column(
@@ -1267,11 +1256,14 @@ class _CarteCleState extends State<_CarteCle> {
                         Expanded(
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: PastilleEtat(apparence: vue, surFonce: true),
+                            // La nuit, la carte devient sombre : le badge
+                            // prend alors sa pose allumee.
+                            child: PastilleEtat(
+                              apparence: vue,
+                              surFonce: AtriumPalette.current.isDark,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: AtriumSpacing.xs),
-                        const _SigneSansContact(),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -1284,7 +1276,7 @@ class _CarteCleState extends State<_CarteCle> {
                           style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w700,
-                            color: AtriumColors.white,
+                            color: AtriumColors.ink,
                             height: 1,
                             fontFeatures: tabularFigures,
                           ),
@@ -1295,10 +1287,10 @@ class _CarteCleState extends State<_CarteCle> {
                             chambre.typeLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w500,
-                              color: AtriumKeyCardColors.muted,
+                              color: AtriumColors.textSecondary,
                             ),
                           ),
                         ),
@@ -1307,10 +1299,10 @@ class _CarteCleState extends State<_CarteCle> {
                     const Spacer(),
                     // L'identite de la chambre au-dessus du filet, ce qui s'y
                     // passe en dessous.
-                    const SizedBox(
+                    SizedBox(
                       height: 1,
                       width: double.infinity,
-                      child: ColoredBox(color: AtriumKeyCardColors.divider),
+                      child: ColoredBox(color: AtriumDashColors.grid),
                     ),
                     const SizedBox(height: 11),
                     _LigneSituation(situation: situation),
@@ -1319,29 +1311,6 @@ class _CarteCleState extends State<_CarteCle> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Le signe sans contact des cartes-cles, a peine grave. Il ne dit rien de la
-/// chambre : il dit « ceci est une cle », et c'est ce qui fait lire la grille
-/// comme un tableau de cles plutot que comme un tableur.
-class _SigneSansContact extends StatelessWidget {
-  const _SigneSansContact();
-
-  @override
-  Widget build(BuildContext context) {
-    // L'icone du wifi couchee d'un quart de tour : le voyant a gauche, les
-    // ondes vers la droite, le dessin du sans contact.
-    return const ExcludeSemantics(
-      child: RotatedBox(
-        quarterTurns: 1,
-        child: Icon(
-          Icons.wifi_rounded,
-          size: 18,
-          color: AtriumKeyCardColors.glyph,
         ),
       ),
     );
@@ -1428,9 +1397,9 @@ String _initiales(String nom) {
   return mots.take(2).map((m) => m.characters.first.toUpperCase()).join();
 }
 
-/// Le pied de la carte. Tout y est blanc et menthe, quel que soit l'etat :
-/// seul le badge porte la couleur, sinon les cartes cesseraient d'etre les
-/// memes.
+/// Le pied de la carte. Tout y est dans l'encre de la page, quel que soit
+/// l'etat : seul le badge porte la couleur, sinon les cartes cesseraient
+/// d'etre les memes.
 class _LigneSituation extends StatelessWidget {
   const _LigneSituation({required this.situation});
 
@@ -1458,7 +1427,7 @@ class _LigneSituation extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AtriumColors.white,
+                  color: AtriumColors.ink,
                   height: 1.25,
                 ),
               ),
@@ -1467,9 +1436,9 @@ class _LigneSituation extends StatelessWidget {
                   s.detail!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
-                    color: AtriumKeyCardColors.muted,
+                    color: AtriumColors.textSecondary,
                     height: 1.3,
                   ),
                 ),
@@ -1501,7 +1470,7 @@ class _Monogramme extends StatelessWidget {
             height: 29,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AtriumColors.mint,
+              color: AtriumPalette.current.tileMango,
               shape: BoxShape.circle,
             ),
             child: Text(
@@ -1509,7 +1478,7 @@ class _Monogramme extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
-                color: AtriumColors.purple,
+                color: AtriumPalette.current.tileMangoInk,
                 height: 1,
               ),
             ),
@@ -1538,7 +1507,7 @@ class _AnneauSejour extends CustomPainter {
       0,
       2 * math.pi,
       false,
-      trait..color = AtriumKeyCardColors.edge,
+      trait..color = AtriumDashColors.grid,
     );
     if (progression > 0) {
       canvas.drawArc(
@@ -1546,7 +1515,7 @@ class _AnneauSejour extends CustomPainter {
         -math.pi / 2,
         2 * math.pi * progression,
         false,
-        trait..color = AtriumColors.mintStrong,
+        trait..color = AtriumColors.purple,
       );
     }
   }
@@ -1566,11 +1535,11 @@ class _Pictogramme extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AtriumKeyCardColors.well,
+        color: AtriumColors.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: AtriumKeyCardColors.edge),
+        border: Border.all(color: AtriumDashColors.grid),
       ),
-      child: Icon(icone, size: 18, color: AtriumColors.mint),
+      child: Icon(icone, size: 18, color: AtriumColors.textSecondary),
     );
   }
 }
@@ -1590,20 +1559,17 @@ class _Vide extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Une cle vierge : le violet des cartes, sans numero.
+            // Une cle vierge : la carte blanche du plan, sans numero.
             Container(
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AtriumKeyCardColors.light, AtriumKeyCardColors.deep],
-                ),
+                color: AtriumColors.white,
                 borderRadius: BorderRadius.circular(AtriumRadii.md),
-                boxShadow: AtriumShadows.keyCard,
+                border: Border.all(color: AtriumDashColors.cardBorder),
+                boxShadow: AtriumShadows.soft,
               ),
-              child: Icon(icone, size: 28, color: AtriumColors.mint),
+              child: Icon(icone, size: 28, color: AtriumColors.mintStrong),
             ),
             const SizedBox(height: AtriumSpacing.md),
             Text(

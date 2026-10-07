@@ -50,7 +50,7 @@ class CashScreen extends ConsumerWidget {
     return ModuleScaffold(
       title: 'Caisse du jour',
       subtitle:
-          '${formatLongDate(jour)}  ·  ${liste.length} '
+          '${formatLongDate(jour)}, ${liste.length} '
           'encaissement${liste.length > 1 ? 's' : ''}',
       action: const CashButton(),
       body: LayoutBuilder(
@@ -151,7 +151,7 @@ class _Total extends StatelessWidget {
                 formatAmount(v.round()),
                 style: _st(
                   38,
-                  FontWeight.w800,
+                  FontWeight.w700,
                   p.heroAccent,
                 ).copyWith(letterSpacing: -1.4),
               ),
@@ -221,7 +221,7 @@ class _ParMoyen extends StatelessWidget {
                         ),
                         Text(
                           formatAmount(e.value),
-                          style: _st(14, FontWeight.w800, p.text),
+                          style: _st(14, FontWeight.w700, p.text),
                         ),
                       ],
                     ),
@@ -336,7 +336,7 @@ class _Encaissements extends StatelessWidget {
             'Encaissements',
             trailing: Text(
               '${paiements.value?.length ?? 0}',
-              style: _st(12.5, FontWeight.w800, p.textSecondary),
+              style: _st(12.5, FontWeight.w700, p.textSecondary),
             ),
           ),
           const SizedBox(height: 6),
@@ -380,13 +380,13 @@ class _LigneEncaissement extends StatelessWidget {
     final x = paiement;
     final qui = [
       x.guestName ?? 'Client de passage',
-      if (x.roomNumber != null) 'ch. ${x.roomNumber}',
-    ].join(' · ');
+      if (x.roomNumber != null) 'chambre ${x.roomNumber}',
+    ].join(', ');
     final detail = [
       paymentMethodLabel(x.method),
       if (x.agentName != null) 'par ${x.agentName}',
       if (x.reference != null && x.reference!.isNotEmpty) x.reference!,
-    ].join(' · ');
+    ].join(', ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -429,7 +429,7 @@ class _LigneEncaissement extends StatelessWidget {
           ),
           Text(
             '${x.amount < 0 ? '' : '+'}${formatAmount(x.amount)}',
-            style: _st(15, FontWeight.w800, x.amount < 0 ? p.error : p.success),
+            style: _st(15, FontWeight.w700, x.amount < 0 ? p.error : p.success),
           ),
         ],
       ),
@@ -518,7 +518,7 @@ class _LigneCaisse extends StatelessWidget {
                 Text(
                   ouverte
                       ? 'depuis ${quand(debut)}'
-                      : '${quand(debut)} → ${quand(fin)}',
+                      : 'de ${quand(debut)} à ${quand(fin)}',
                   style: _st(12.5, FontWeight.w500, p.textSecondary),
                 ),
               ],

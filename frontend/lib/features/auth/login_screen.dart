@@ -9,9 +9,10 @@
 ///   injoignable et agent inconnu de cette tablette) ;
 /// - la connexion marche hors ligne comme en ligne (voir `session.dart`).
 ///
-/// Mise en page : sur tablette et PC, un panneau de marque a gauche (la
-/// chambre, voilee de nuit, l'arche, l'heure) et le formulaire a droite ; sur
-/// telephone, un bandeau de marque puis le formulaire.
+/// Mise en page : sur tablette et PC, un panneau de marque a gauche, pleine
+/// hauteur (la chambre sous un voile bleu royal, le logo, l'heure) et le
+/// formulaire a droite ; sur telephone, un bandeau de marque puis le
+/// formulaire.
 library;
 
 import 'dart:async';
@@ -151,13 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             if (c.maxWidth >= 900) {
               return Row(
                 children: [
-                  const Expanded(
-                    flex: 11,
-                    child: Padding(
-                      padding: EdgeInsets.all(14),
-                      child: _PanneauMarque(),
-                    ),
-                  ),
+                  const Expanded(flex: 11, child: _PanneauMarque()),
                   Expanded(
                     flex: 9,
                     child: AmbientBackground(
@@ -185,13 +180,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 child: Column(
                   children: [
-                    const SizedBox(
-                      height: 250,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(10, 10, 10, 0),
-                        child: _PanneauMarque(compact: true),
-                      ),
-                    ),
+                    const _PanneauMarque(compact: true),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(18, 24, 18, 0),
                       child: ConstrainedBox(
@@ -223,19 +212,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         FadeUp(
-          child: Text(
-            'Prendre son service',
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.2,
-              height: 1.05,
-              color: AtriumColors.textPrimary,
-            ),
+          child: Semantics(
+            header: true,
+            child: Text('Prendre son service', style: atriumDisplay(42)),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         FadeUp(
           index: 1,
           child: Text(
@@ -249,11 +231,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 28),
         FadeUp(
           index: 2,
-          child: Bezel(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+          child: _FormulaireSurface(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -268,39 +249,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 _Bascule(voie: _voie, onChanged: _changerDeVoie),
                 const SizedBox(height: 20),
-                AnimatedSize(
-                  duration: AtriumMotion.of(
-                    context,
-                    const Duration(milliseconds: 420),
-                  ),
-                  curve: atriumSpring,
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSwitcher(
-                    duration: AtriumMotion.of(
-                      context,
-                      const Duration(milliseconds: 320),
-                    ),
-                    switchInCurve: atriumSpring,
-                    layoutBuilder: (actuel, precedents) => Stack(
-                      alignment: Alignment.topCenter,
-                      children: [...precedents, ?actuel],
-                    ),
-                    child: _voie == _Voie.pin
-                        ? KeyedSubtree(
-                            key: const ValueKey(_Voie.pin),
-                            child: _saisiePin(session, echecSecret),
-                          )
-                        : KeyedSubtree(
-                            key: const ValueKey(_Voie.motDePasse),
-                            child: _saisieMotDePasse(session, echecSecret),
-                          ),
-                  ),
-                ),
+                _saisie(session, echecSecret),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _saisie(SessionState session, String? echecSecret) {
+    final saisie = _voie == _Voie.pin
+        ? KeyedSubtree(
+            key: const ValueKey(_Voie.pin),
+            child: _saisiePin(session, echecSecret),
+          )
+        : KeyedSubtree(
+            key: const ValueKey(_Voie.motDePasse),
+            child: _saisieMotDePasse(session, echecSecret),
+          );
+    if (MediaQuery.disableAnimationsOf(context)) return saisie;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 420),
+      curve: atriumSpring,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        switchInCurve: atriumSpring,
+        layoutBuilder: (actuel, precedents) => Stack(
+          alignment: Alignment.topCenter,
+          children: [...precedents, ?actuel],
+        ),
+        child: saisie,
+      ),
     );
   }
 
@@ -462,7 +443,7 @@ class _Bascule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 480));
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 260));
     Widget option(_Voie v, IconData icone, String libelle) {
       final actif = v == voie;
       return Expanded(
@@ -481,16 +462,19 @@ class _Bascule extends StatelessWidget {
                   color: actif ? p.onSelected : p.textSecondary,
                 ),
                 const SizedBox(width: 8),
-                AnimatedDefaultTextStyle(
-                  duration: duree,
-                  curve: atriumSpring,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: actif ? p.onSelected : p.textSecondary,
+                Flexible(
+                  child: AnimatedDefaultTextStyle(
+                    duration: duree,
+                    curve: atriumSpring,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 14.5,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: actif ? p.onSelected : p.textSecondary,
+                    ),
+                    child: Text(libelle, textAlign: TextAlign.center),
                   ),
-                  child: Text(libelle),
                 ),
               ],
             ),
@@ -500,11 +484,14 @@ class _Bascule extends StatelessWidget {
     }
 
     return Container(
-      height: 50,
+      height: (MediaQuery.textScalerOf(context).scale(14.5) * 2.4 + 12).clamp(
+        48.0,
+        double.infinity,
+      ),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: p.surfaceMuted,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
       ),
       child: Stack(
         children: [
@@ -520,15 +507,7 @@ class _Bascule extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: p.selected,
-                  borderRadius: BorderRadius.circular(21),
-                  boxShadow: [
-                    BoxShadow(
-                      color: p.selected.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      spreadRadius: -4,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(AtriumRadii.md - 4),
                 ),
               ),
             ),
@@ -551,8 +530,8 @@ class _Bascule extends StatelessWidget {
   }
 }
 
-/// Les quatre points du PIN : un point mangue par chiffre tape, qui gonfle a
-/// son arrivee ; corail en cas de refus.
+/// Les quatre points du PIN : un point bleu par chiffre tape, qui gonfle a
+/// son arrivee ; rouge en cas de refus.
 class _Points extends StatelessWidget {
   const _Points({
     required this.rempli,
@@ -569,7 +548,7 @@ class _Points extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 380));
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 220));
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -579,8 +558,8 @@ class _Points extends StatelessWidget {
             child: AnimatedContainer(
               duration: duree,
               curve: atriumSpring,
-              width: i < rempli ? 18 : 14,
-              height: i < rempli ? 18 : 14,
+              width: 14,
+              height: 14,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: erreur
@@ -594,15 +573,6 @@ class _Points extends StatelessWidget {
                       : (i < rempli ? Colors.transparent : p.placeholder),
                   width: 1.6,
                 ),
-                boxShadow: i < rempli && !erreur
-                    ? [
-                        BoxShadow(
-                          color: p.accent.withValues(alpha: 0.45),
-                          blurRadius: 12,
-                          spreadRadius: -2,
-                        ),
-                      ]
-                    : null,
               ),
             ),
           ),
@@ -611,7 +581,7 @@ class _Points extends StatelessWidget {
   }
 }
 
-/// Le pave : douze touches en squircle, qui s'enfoncent sous le doigt.
+/// Le pave : douze touches qui s'enfoncent sous le doigt.
 class _Pave extends StatelessWidget {
   const _Pave({
     required this.actif,
@@ -643,8 +613,8 @@ class _Pave extends StatelessWidget {
         c,
         style: TextStyle(
           fontFamily: atriumFontFamily,
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
+          fontSize: 23,
+          fontWeight: FontWeight.w600,
           color: AtriumColors.textPrimary,
           fontFeatures: tabularFigures,
         ),
@@ -699,12 +669,10 @@ class _ToucheState extends State<_Touche> {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 220));
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 120));
     final fond = widget.discrete
         ? Colors.transparent
-        : (_presse
-              ? p.accent.withValues(alpha: 0.22)
-              : (_survol ? p.surfaceMuted : p.surface));
+        : (_presse ? p.accentSoft : (_survol ? p.surfaceMuted : p.paper));
     return Semantics(
       button: true,
       label: widget.semantique,
@@ -722,20 +690,20 @@ class _ToucheState extends State<_Touche> {
           onTapUp: (_) => setState(() => _presse = false),
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: _presse ? 0.94 : 1,
+            scale: _presse ? 0.96 : 1,
             duration: duree,
-            curve: atriumSpring,
+            curve: Curves.easeOut,
             child: AnimatedContainer(
               duration: duree,
-              curve: atriumSpring,
-              height: 60,
+              curve: Curves.easeOut,
+              height: 58,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: fond,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
                 border: widget.discrete
                     ? null
-                    : Border.all(color: p.border.withValues(alpha: 0.7)),
+                    : Border.all(color: _presse ? p.accentBorder : p.border),
               ),
               child: Opacity(
                 opacity: widget.onTap == null ? 0.4 : 1,
@@ -749,7 +717,8 @@ class _ToucheState extends State<_Touche> {
   }
 }
 
-/// Le panneau de marque : la chambre voilee de nuit, l'arche, l'heure.
+/// Le panneau de marque : la chambre sous un voile bleu royal, l'arche,
+/// l'heure, et la promesse en serif.
 class _PanneauMarque extends StatelessWidget {
   const _PanneauMarque({this.compact = false});
 
@@ -757,68 +726,151 @@ class _PanneauMarque extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(compact ? 26 : 32),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const _PhotoLente(),
-          // Le voile : nuit en bas et a gauche, ou se pose le texte ; la
-          // chambre reste visible en haut a droite.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                // La nuit, un voile bleu-nuit ; le jour, un voile d'encre
-                // brune et chaude, qui laisse la mangue seule couleur forte.
-                colors: AtriumPalette.current.isDark
-                    ? const [
-                        Color(0x330A0F2E),
-                        Color(0xE60A0F2E),
-                        Color(0xFA05081A),
-                      ]
-                    : const [
-                        Color(0x222B1B04),
-                        Color(0xD92B1B04),
-                        Color(0xF21A1003),
-                      ],
-                stops: const [0, 0.55, 1],
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(compact ? 22 : 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const FadeUp(
-                  child: AtriumLockup(markSize: 46),
-                ),
-                const Spacer(),
-                if (!compact) ...[
-                  const FadeUp(index: 2, child: _Horloge()),
-                  const SizedBox(height: 18),
-                ],
-                FadeUp(
-                  index: 3,
-                  child: Text(
-                    'Chaque chambre,\nchaque client,\nsous la main.',
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: compact ? 24 : 40,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: compact ? -0.8 : -1.6,
-                      height: 1.08,
-                      color: const Color(0xFFFBF6EC),
-                    ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        final contenu = Padding(
+          padding: compact
+              ? EdgeInsets.fromLTRB(
+                  24,
+                  MediaQuery.paddingOf(context).top + 24,
+                  24,
+                  64,
+                )
+              : const EdgeInsets.fromLTRB(48, 40, 88, 48),
+          child: Column(
+            mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FadeUp(child: EdgeHotelLogo(width: compact ? 180 : 232)),
+              if (compact) const SizedBox(height: 24) else const Spacer(),
+              if (!compact) ...[
+                const FadeUp(index: 2, child: _Horloge()),
+                const SizedBox(height: 18),
+              ],
+              FadeUp(
+                index: 3,
+                child: Text(
+                  'Chaque chambre,\nchaque client,\nsous la main.',
+                  style: atriumDisplay(
+                    compact
+                        ? 30
+                        : c.maxWidth < 580
+                        ? 44
+                        : 56,
+                    color: Colors.white,
+                    height: 1.02,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        );
+        final clipper = _CourbeMarque(compact: compact);
+        return SizedBox(
+          width: c.maxWidth,
+          child: Stack(
+            fit: compact ? StackFit.loose : StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: ClipPath(
+                  clipper: clipper,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const _PhotoLente(),
+                      // Le voile : bleu royal en bas et a gauche, ou se pose le texte ;
+                      // la chambre reste visible en haut a droite. La nuit, un bleu
+                      // d'encre plus dense.
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomLeft,
+                            colors: AtriumPalette.current.isDark
+                                ? const [
+                                    Color(0x400A1028),
+                                    Color(0xE60A1028),
+                                    Color(0xFA060A1A),
+                                  ]
+                                : const [
+                                    Color(0x26143894),
+                                    Color(0xD9102A73),
+                                    Color(0xF50B1F5C),
+                                  ],
+                            stops: const [0, 0.55, 1],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (compact)
+                contenu
+              else
+                CustomScrollView(
+                  slivers: [
+                    SliverFillRemaining(hasScrollBody: false, child: contenu),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Une courbe fixe, adaptee a la hauteur du panneau et a sa disposition.
+class _CourbeMarque extends CustomClipper<Path> {
+  const _CourbeMarque({required this.compact});
+
+  final bool compact;
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    if (compact) {
+      return Path()
+        ..lineTo(w, 0)
+        ..lineTo(w, h - 48)
+        ..cubicTo(w * 0.66, h + 20, w * 0.36, h - 80, 0, h - 32)
+        ..close();
+    }
+    return Path()
+      ..lineTo(w - 44, 0)
+      ..cubicTo(w - 8, h * 0.2, w - 108, h * 0.42, w - 46, h * 0.66)
+      ..cubicTo(w - 4, h * 0.82, w - 40, h * 0.94, w - 88, h)
+      ..lineTo(0, h)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(_CourbeMarque oldClipper) => oldClipper.compact != compact;
+}
+
+class _FormulaireSurface extends StatelessWidget {
+  const _FormulaireSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: p.paper,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(44),
+          topRight: Radius.circular(28),
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(44),
+        ),
+        border: Border.all(color: p.border),
+        boxShadow: p.isDark ? null : AtriumShadows.soft,
       ),
+      child: Padding(padding: const EdgeInsets.all(24), child: child),
     );
   }
 }
@@ -842,6 +894,7 @@ class _PhotoLenteState extends State<_PhotoLente>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (MediaQuery.disableAnimationsOf(context)) {
+      _ctrl.stop();
       _ctrl.value = 0;
     } else if (!_ctrl.isAnimating) {
       _ctrl.repeat(reverse: true);
@@ -905,11 +958,11 @@ class _HorlogeState extends State<_Horloge> {
           '$h:$m',
           style: const TextStyle(
             fontFamily: atriumFontFamily,
-            fontSize: 72,
-            height: 0.95,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -3,
-            color: Color(0xFFFFB020),
+            fontSize: 44,
+            height: 1,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -1,
+            color: Colors.white,
             fontFeatures: tabularFigures,
           ),
         ),
@@ -918,9 +971,9 @@ class _HorlogeState extends State<_Horloge> {
           formatLongDate(_maintenant),
           style: const TextStyle(
             fontFamily: atriumFontFamily,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFC9CEE6),
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFFC3CFEF),
           ),
         ),
       ],

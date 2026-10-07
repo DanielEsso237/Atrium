@@ -187,7 +187,7 @@ class _Resultat extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 32,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -1,
                         color: couleur,
                         fontFeatures: tabularFigures,
@@ -283,7 +283,7 @@ Future<int?> _demanderMontant(
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 26,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.6,
                 color: AtriumColors.textPrimary,
                 fontFeatures: tabularFigures,

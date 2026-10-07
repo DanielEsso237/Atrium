@@ -83,15 +83,12 @@ class OrdersScreen extends ConsumerWidget {
         final etroit = MediaQuery.sizeOf(context).width < 600;
         final marge = etroit ? 18.0 : 32.0;
         final horaires = outlet.opensAt != null && outlet.closesAt != null
-            ? '  ·  ouvert de ${outlet.opensAt!.substring(0, 5)} '
+            ? ', ouvert de ${outlet.opensAt!.substring(0, 5)} '
                   'à ${outlet.closesAt!.substring(0, 5)}'
             : '';
 
         // Le comptoir encaisse le client de passage : il tient sa caisse.
-        final caisse = ref
-            .watch(sessionProvider)
-            .acces
-            .peut('cash.session');
+        final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
 
         return ModuleScaffold(
           title: 'Commandes',
@@ -285,7 +282,7 @@ class _Chambre extends ConsumerWidget {
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 32,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -1.2,
                   height: 1,
                   color: p.text,
@@ -617,8 +614,8 @@ class _SaisieState extends ConsumerState<_Saisie> {
       icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
       title: Text(
         chambre == null
-            ? '${widget.outlet.label} · client de passage'
-            : '${widget.outlet.label} · chambre ${chambre.roomNumber}',
+            ? '${widget.outlet.label}, client de passage'
+            : '${widget.outlet.label}, chambre ${chambre.roomNumber}',
       ),
       content: SizedBox(
         width: 520,
@@ -725,7 +722,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 26,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -0.8,
                           color: p.heroAccent,
                           fontFeatures: tabularFigures,
@@ -738,28 +735,28 @@ class _SaisieState extends ConsumerState<_Saisie> {
                   if (chambre != null) ...[
                     const SizedBox(height: 6),
                     Row(
-                    children: [
-                      Text(
-                        'Ardoise après',
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 14,
-                          color: p.onHeroSoft,
+                      children: [
+                        Text(
+                          'Ardoise après',
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 14,
+                            color: p.onHeroSoft,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        formatAmount(chambre.balance + _total),
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: p.onHero,
-                          fontFeatures: tabularFigures,
+                        const Spacer(),
+                        Text(
+                          formatAmount(chambre.balance + _total),
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: p.onHero,
+                            fontFeatures: tabularFigures,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ],
                 ],
               ),

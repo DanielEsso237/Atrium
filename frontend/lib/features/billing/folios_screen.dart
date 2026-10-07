@@ -91,7 +91,7 @@ class FoliosScreen extends ConsumerWidget {
       title: 'Factures',
       subtitle:
           '${ouvertes.length} ardoise${ouvertes.length > 1 ? 's' : ''} '
-          'ouverte${ouvertes.length > 1 ? 's' : ''}  ·  '
+          'ouverte${ouvertes.length > 1 ? 's' : ''}, '
           '${formatAmount(du)} restent à encaisser',
       // La caisse vit ici : c'est le module ou l'argent passe, et la prise de
       // poste comme la fin de service s'y font naturellement.
@@ -233,7 +233,7 @@ class _Bandeau extends StatelessWidget {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 24,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.8,
                 color: couleur,
                 fontFeatures: tabularFigures,
@@ -370,7 +370,7 @@ class _LigneFolio extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: p.text,
                         fontFeatures: tabularFigures,
                       ),
@@ -394,12 +394,11 @@ class _LigneFolio extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    folio.isOpen ? folio.number : '${folio.number} · close',
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 12.5,
+                    folio.isOpen ? folio.number : '${folio.number} (close)',
+                    style: atriumCode(
+                      12,
                       color: p.textSecondary,
-                      fontFeatures: tabularFigures,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -413,7 +412,7 @@ class _LigneFolio extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: folio.balance > 0 ? couleur : p.text,
                     fontFeatures: tabularFigures,
                   ),
@@ -531,12 +530,19 @@ class _FolioDetail extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            [
-                              current.number,
-                              if (current.roomNumber != null)
-                                'chambre ${current.roomNumber}',
-                            ].join('  ·  '),
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: current.number,
+                                  style: atriumCode(13, color: p.onHeroSoft),
+                                ),
+                                if (current.roomNumber != null)
+                                  TextSpan(
+                                    text: ', chambre ${current.roomNumber}',
+                                  ),
+                              ],
+                            ),
                             style: TextStyle(
                               fontFamily: atriumFontFamily,
                               fontSize: 13.5,
@@ -565,7 +571,7 @@ class _FolioDetail extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 24,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -0.6,
                         color: p.onHero,
                       ),
@@ -591,7 +597,7 @@ class _FolioDetail extends ConsumerWidget {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 42,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -1.6,
                           height: 1.1,
                           color: current.balance > 0 ? p.heroAccent : p.onHero,
@@ -601,7 +607,7 @@ class _FolioDetail extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '${formatAmount(current.chargesTotal)} porté  ·  '
+                      '${formatAmount(current.chargesTotal)} porté, '
                       '${formatAmount(current.paymentsTotal)} encaissé',
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
@@ -633,8 +639,8 @@ class _FolioDetail extends ConsumerWidget {
                                     _Line(
                                       label: l.label,
                                       detail:
-                                          '${chargeCategoryLabel(l.category)} · ${_jour(l.businessDate)}'
-                                          '${l.quantity > 1 ? ' · ×${l.quantity}' : ''}',
+                                          '${chargeCategoryLabel(l.category)}, ${_jour(l.businessDate)}'
+                                          '${l.quantity > 1 ? ', quantité ${l.quantity}' : ''}',
                                       amount: l.amount,
                                     ),
                                 ],
@@ -656,7 +662,7 @@ class _FolioDetail extends ConsumerWidget {
                                     _Line(
                                       label: paymentMethodLabel(pay.method),
                                       detail: pay.reference ?? '',
-                                      amount: -pay.amount,
+                                      amount: pay.amount,
                                       paiement: true,
                                     ),
                                 ],
@@ -716,7 +722,7 @@ class _Section extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: AtriumColors.textSecondary,
                 ),
               ),
@@ -926,7 +932,7 @@ class _Line extends StatelessWidget {
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 15,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: paiement ? p.success : p.text,
               fontFeatures: tabularFigures,
             ),

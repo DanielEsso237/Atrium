@@ -314,7 +314,7 @@ class _EnTete extends ConsumerWidget {
                             'Chambre ${chambre.number}',
                             style: TextStyle(
                               fontSize: 30,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: AtriumColors.white,
                               height: 1.1,
                             ),
@@ -593,10 +593,7 @@ class _Date extends StatelessWidget {
       children: [
         Text(
           libelle,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: AtriumColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 12.5, color: AtriumColors.textSecondary),
         ),
         const SizedBox(height: 2),
         Text(
@@ -663,7 +660,7 @@ class _Solde extends StatelessWidget {
             formatAmount(solde),
             style: TextStyle(
               fontSize: 17,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: encre,
               fontFeatures: tabularFigures,
             ),
@@ -704,8 +701,7 @@ class _Consommations extends StatelessWidget {
           : Column(
               children: [
                 for (var i = 0; i < lignes.length; i++) ...[
-                  if (i > 0)
-                    Divider(height: 18, color: AtriumDashColors.grid),
+                  if (i > 0) Divider(height: 18, color: AtriumDashColors.grid),
                   Row(
                     children: [
                       _Tuile(
@@ -887,8 +883,7 @@ class _Historique extends StatelessWidget {
           : Column(
               children: [
                 for (var i = 0; i < sejours.length; i++) ...[
-                  if (i > 0)
-                    Divider(height: 16, color: AtriumDashColors.grid),
+                  if (i > 0) Divider(height: 16, color: AtriumDashColors.grid),
                   Row(
                     children: [
                       Container(
@@ -1095,10 +1090,7 @@ class _Actions extends ConsumerWidget {
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 54),
-              side: BorderSide(
-                color: AtriumColors.mintStrong,
-                width: 1.5,
-              ),
+              side: BorderSide(color: AtriumColors.mintStrong, width: 1.5),
             ),
             onPressed: () async {
               final fait = await confirmCheckIn(

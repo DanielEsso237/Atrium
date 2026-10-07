@@ -12,12 +12,16 @@
 /// etroits.
 library;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/brand/atrium_logo.dart';
 import '../../core/tokens.dart';
+import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
+import '../../data/repositories/donnees_de_test.dart';
 import '../auth/session.dart';
 
 /// Une entree du menu.
@@ -209,60 +213,13 @@ class _Logo extends StatelessWidget {
   final bool compacte;
 
   @override
-  Widget build(BuildContext context) {
-    final tuile = Container(
-      width: compacte ? 52 : 64,
-      height: compacte ? 52 : 64,
-      decoration: BoxDecoration(
-        color: AtriumDashColors.sidebarRaised,
-        borderRadius: BorderRadius.circular(compacte ? 14 : 18),
-        border: Border.all(color: AtriumColors.mintStrong, width: 1.5),
-        boxShadow: AtriumShadows.glow(AtriumColors.mintStrong, force: 0.25),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.bed_outlined,
-        color: AtriumColors.mint,
-        size: compacte ? 26 : 32,
-      ),
-    );
-    if (compacte) return Semantics(label: 'Edge Hotel', child: tuile);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Row(
-        children: [
-          tuile,
-          const SizedBox(width: AtriumSpacing.md + 2),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Edge Hotel',
-                  style: TextStyle(
-                    fontSize: 28,
-                    height: 1.1,
-                    fontWeight: FontWeight.w700,
-                    color: AtriumColors.onNight,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Gestion hôtelière',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AtriumDashColors.sidebarMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: compacte ? 0 : 32),
+    child: Align(
+      alignment: compacte ? Alignment.center : Alignment.centerLeft,
+      child: AtriumMark(size: compacte ? 52 : 64, onNight: true),
+    ),
+  );
 }
 
 class _LigneNav extends StatefulWidget {
@@ -500,19 +457,21 @@ class Avatar extends StatelessWidget {
     return Container(
       width: taille,
       height: taille,
-      // Un disque mangue, initiales de nuit : lisible sur la barre laterale
-      // comme sur le bandeau, en clair comme en sombre.
+      // Un disque blanc, initiales bleu royal : lisible sur le panneau bleu
+      // comme sur le papier, ou le filet le detache.
       decoration: BoxDecoration(
-        color: AtriumColors.mintStrong,
+        color: Colors.white,
         shape: BoxShape.circle,
+        border: Border.all(color: AtriumColors.border),
       ),
       alignment: Alignment.center,
       child: Text(
         _initiales,
         style: TextStyle(
+          fontFamily: atriumFontFamily,
           fontSize: taille * 0.36,
-          fontWeight: FontWeight.w800,
-          color: AtriumColors.purpleNight,
+          fontWeight: FontWeight.w700,
+          color: AtriumPalette.light.primary,
         ),
       ),
     );
@@ -536,13 +495,33 @@ class MenuCompte extends ConsumerWidget {
       tooltip: 'Compte de ${session.nomAffiche}',
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 320),
       color: AtriumColors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AtriumRadii.lg),
       ),
-      onSelected: (choix) {
+      onSelected: (choix) async {
         if (choix == 'sortir') {
           ref.read(sessionProvider.notifier).deconnecter();
+        } else if (choix == 'test' && session.agent != null) {
+          final messager = ScaffoldMessenger.of(context);
+          final routeur = GoRouter.of(context);
+          String bilan;
+          try {
+            bilan = await chargerDonneesDeTest(
+              ref.read(databaseProvider),
+              agentId: session.agent!.id,
+            );
+          } on Object catch (e) {
+            bilan = 'Chargement interrompu : $e';
+          }
+          // Sur le plan des chambres, ou le resultat se voit. Le message part
+          // apres l'image suivante : l'accueil n'a pas de Scaffold, et un
+          // SnackBar sans Scaffold leve une erreur au lieu de s'afficher.
+          routeur.go('/chambres');
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => messager.showSnackBar(SnackBar(content: Text(bilan))),
+          );
         }
       },
       itemBuilder: (context) => [
@@ -572,13 +551,26 @@ class MenuCompte extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
+        // En developpement seulement : une tablette d'hotel ne doit jamais
+        // pouvoir se remplir de clients fictifs.
+        if (kDebugMode)
+          PopupMenuItem<String>(
+            value: 'test',
+            child: Row(
+              children: [
+                Icon(Icons.science_outlined, size: 20, color: AtriumColors.ink),
+                const SizedBox(width: AtriumSpacing.sm),
+                const Flexible(child: Text('Charger des données de test')),
+              ],
+            ),
+          ),
         PopupMenuItem<String>(
           value: 'sortir',
           child: Row(
             children: [
               Icon(Icons.logout_rounded, size: 20, color: AtriumColors.ink),
               SizedBox(width: AtriumSpacing.sm),
-              Text('Se déconnecter'),
+              const Flexible(child: Text('Se déconnecter')),
             ],
           ),
         ),

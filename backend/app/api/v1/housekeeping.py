@@ -14,7 +14,7 @@ from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import HousekeepingTask, Room, User
 from app.models.enums import HousekeepingStatus, TaskStatus
-from app.schemas.housekeeping import AssignIn, HousekeepingTaskIn, HousekeepingTaskOut
+from app.schemas.housekeeping import AssignIn, HousekeepingTaskIn, HousekeepingTaskOut, RevertIn
 
 router = APIRouter(prefix="/housekeeping-tasks", tags=["housekeeping"])
 
@@ -190,6 +190,48 @@ async def inspect_task(
     room = await session.get(Room, task.room_id)
     if room is not None:
         room.housekeeping_status = HousekeepingStatus.INSPECTED
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+@router.post("/{task_id}/revert", response_model=HousekeepingTaskOut)
+async def revert_task(
+    task_id: uuid.UUID,
+    payload: RevertIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("housekeeping.manage")),
+) -> HousekeepingTask:
+    """Corrige un avancement errone sans effacer la tache ni sa traçabilite."""
+    task = await _get_task(session, task_id, user)
+    allowed = (
+        payload.from_status == TaskStatus.IN_PROGRESS and payload.status == TaskStatus.PENDING
+    ) or (
+        payload.from_status in (TaskStatus.DONE, TaskStatus.INSPECTED)
+        and payload.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS)
+    )
+    if not allowed:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce retour n'est pas possible.")
+    if task.status == payload.status:
+        return task  # Rejeu apres une reponse perdue.
+    if task.status != payload.from_status:
+        raise HTTPException(status.HTTP_409_CONFLICT, "La tache a change. Actualisez le tableau.")
+
+    task.status = payload.status
+    task.finished_at = task.duration_minutes = None
+    task.inspected_at = task.inspected_by = None
+    if payload.status == TaskStatus.PENDING:
+        task.started_at = task.assigned_at = task.assigned_to = None
+    else:
+        task.started_at = task.started_at or dt.datetime.now(dt.timezone.utc)
+        task.assigned_to = user.id
+    task.updated_by = user.id
+    room = await session.get(Room, task.room_id)
+    if room is not None and room.hotel_id == user.hotel_id:
+        room.housekeeping_status = (
+            HousekeepingStatus.DIRTY if payload.status == TaskStatus.PENDING
+            else HousekeepingStatus.IN_PROGRESS
+        )
     await session.commit()
     await session.refresh(task)
     return task

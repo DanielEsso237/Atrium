@@ -19,6 +19,7 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import '../../core/widgets/kanban_drag.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/housekeeping_repository.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -32,6 +33,10 @@ class HousekeepingScreen extends ConsumerWidget {
     final jobs = ref.watch(cleaningJobsProvider);
     final liste = jobs.value ?? const <CleaningJob>[];
     final faites = liste.where((j) => j.faite).length;
+    final peutGerer = ref
+        .watch(sessionProvider)
+        .acces
+        .peut('housekeeping.manage');
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 18.0 : 32.0;
 
@@ -81,6 +86,8 @@ class HousekeepingScreen extends ConsumerWidget {
                             Expanded(
                               child: _Colonne(
                                 titre: 'À faire',
+                                statut: HousekeepingStatus.DIRTY,
+                                peutGerer: peutGerer,
                                 couleur: CouleursEtat.occupee,
                                 jobs: aFaire,
                                 vide: 'Plus rien en attente.',
@@ -90,6 +97,8 @@ class HousekeepingScreen extends ConsumerWidget {
                             Expanded(
                               child: _Colonne(
                                 titre: 'En cours',
+                                statut: HousekeepingStatus.IN_PROGRESS,
+                                peutGerer: peutGerer,
                                 couleur: CouleursEtat.nettoyage,
                                 jobs: enCours,
                                 vide: 'Aucune chambre commencée.',
@@ -99,6 +108,8 @@ class HousekeepingScreen extends ConsumerWidget {
                             Expanded(
                               child: _Colonne(
                                 titre: 'Fait',
+                                statut: HousekeepingStatus.CLEAN,
+                                peutGerer: peutGerer,
                                 couleur: CouleursEtat.disponible,
                                 jobs: faites,
                                 vide: 'Les chambres terminées arrivent ici.',
@@ -124,12 +135,14 @@ class HousekeepingScreen extends ConsumerWidget {
                       children: [
                         if (enCours.isEmpty && aFaire.isEmpty)
                           const _RienAFaire(),
-                        for (final j in [...enCours, ...aFaire]) _Carte(job: j),
+                        for (final j in [...enCours, ...aFaire])
+                          _Carte(job: j, peutGerer: peutGerer),
                         if (faites.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          Eyebrow("Fait aujourd'hui · ${faites.length}"),
+                          Eyebrow("Fait aujourd'hui (${faites.length})"),
                           const SizedBox(height: 12),
-                          for (final j in faites) _Carte(job: j),
+                          for (final j in faites)
+                            _Carte(job: j, peutGerer: peutGerer),
                         ],
                       ],
                     ),
@@ -172,7 +185,7 @@ class _Progression extends StatelessWidget {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 30,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -1,
                 color: p.heroAccent,
                 fontFeatures: tabularFigures,
@@ -237,12 +250,16 @@ class _Progression extends StatelessWidget {
 class _Colonne extends StatelessWidget {
   const _Colonne({
     required this.titre,
+    required this.statut,
+    required this.peutGerer,
     required this.couleur,
     required this.jobs,
     required this.vide,
   });
 
   final String titre;
+  final HousekeepingStatus statut;
+  final bool peutGerer;
   final Color couleur;
   final List<CleaningJob> jobs;
   final String vide;
@@ -250,73 +267,104 @@ class _Colonne extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    return Container(
-      decoration: BoxDecoration(
-        color: p.isDark
-            ? Colors.white.withValues(alpha: 0.025)
-            : p.night.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: p.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: couleur,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Text(
-                  titre,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: p.text,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tag('${jobs.length}'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: jobs.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Text(
-                      vide,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 13.5,
-                        color: p.textSecondary,
-                      ),
+    return DragTarget<_CleaningDrag>(
+      key: ValueKey('housekeeping-column-${statut.name}'),
+      onWillAcceptWithDetails: (details) =>
+          peutGerer &&
+          switch ((details.data.job.roomStatus, statut)) {
+            (HousekeepingStatus.DIRTY, HousekeepingStatus.IN_PROGRESS) => true,
+            (HousekeepingStatus.IN_PROGRESS, HousekeepingStatus.CLEAN) => true,
+            (HousekeepingStatus.IN_PROGRESS, HousekeepingStatus.DIRTY) => true,
+            (
+              HousekeepingStatus.CLEAN || HousekeepingStatus.INSPECTED,
+              HousekeepingStatus.DIRTY || HousekeepingStatus.IN_PROGRESS,
+            ) =>
+              true,
+            _ => false,
+          },
+      onAcceptWithDetails: (details) => details.data.deplacer(statut),
+      builder: (context, candidats, refuses) => Container(
+        decoration: BoxDecoration(
+          color: candidats.isNotEmpty
+              ? couleur.withValues(alpha: 0.1)
+              : p.isDark
+              ? Colors.white.withValues(alpha: 0.025)
+              : p.night.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: candidats.isNotEmpty ? couleur : p.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: couleur,
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    children: [
-                      for (var i = 0; i < jobs.length; i++)
-                        FadeUp(
-                          index: i.clamp(0, 6),
-                          child: _Carte(job: jobs[i], compacte: true),
-                        ),
-                    ],
                   ),
-          ),
-        ],
+                  const SizedBox(width: 9),
+                  Text(
+                    titre,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tag('${jobs.length}'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: jobs.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Text(
+                        vide,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 13.5,
+                          color: p.textSecondary,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      children: [
+                        for (var i = 0; i < jobs.length; i++)
+                          FadeUp(
+                            key: ValueKey(jobs[i].roomId),
+                            index: i.clamp(0, 6),
+                            child: _Carte(
+                              job: jobs[i],
+                              compacte: true,
+                              peutGerer: peutGerer,
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _CleaningDrag {
+  const _CleaningDrag(this.job, this.deplacer);
+
+  final CleaningJob job;
+  final void Function(HousekeepingStatus) deplacer;
 }
 
 class _RienAFaire extends StatelessWidget {
@@ -331,9 +379,14 @@ class _RienAFaire extends StatelessWidget {
 }
 
 class _Carte extends ConsumerStatefulWidget {
-  const _Carte({required this.job, this.compacte = false});
+  const _Carte({
+    required this.job,
+    required this.peutGerer,
+    this.compacte = false,
+  });
 
   final CleaningJob job;
+  final bool peutGerer;
 
   /// Dans une colonne du tableau : tout empile, pleine largeur.
   final bool compacte;
@@ -345,18 +398,29 @@ class _Carte extends ConsumerStatefulWidget {
 class _CarteState extends ConsumerState<_Carte> {
   bool _busy = false;
 
-  Future<void> _agir() async {
+  Future<void> _agir({HousekeepingStatus? to}) async {
+    if (_busy || !mounted || !widget.peutGerer) return;
     final job = widget.job;
     setState(() => _busy = true);
 
     final depot = ref.read(housekeepingRepositoryProvider);
     final agent = ref.read(sessionProvider).agent?.id;
+    final vers =
+        to ??
+        (job.enCours
+            ? HousekeepingStatus.CLEAN
+            : HousekeepingStatus.IN_PROGRESS);
 
     try {
-      if (job.enCours) {
+      if (vers == HousekeepingStatus.DIRTY || job.faite) {
+        if (agent == null) return;
+        await depot.revertRoom(job.roomId, to: vers, by: agent);
+      } else if (vers == HousekeepingStatus.CLEAN) {
         // Une chambre en cours a forcement une tache : c'est elle qui l'a
         // mise dans cet etat.
-        await depot.finish(job.taskId!, by: agent);
+        final taskId =
+            job.taskId ?? await depot.startRoom(job.roomId, by: agent);
+        await depot.finish(taskId, by: agent);
       } else {
         // Sur la chambre et non sur la tache : elle peut ne pas en avoir, et
         // refuser de la nettoyer pour cette raison serait absurde.
@@ -364,16 +428,23 @@ class _CarteState extends ConsumerState<_Carte> {
       }
     } on StateError catch (e) {
       if (!mounted) return;
-      setState(() => _busy = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
       return;
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La modification a échoué. Réessayez.')),
+        );
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
 
     if (!mounted) return;
-    setState(() => _busy = false);
-    if (job.enCours) {
+    if (vers == HousekeepingStatus.CLEAN) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Chambre ${job.roomNumber} propre et disponible.'),
@@ -407,7 +478,7 @@ class _CarteState extends ConsumerState<_Carte> {
       style: TextStyle(
         fontFamily: atriumFontFamily,
         fontSize: 40,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         letterSpacing: -1.6,
         height: 1,
         color: job.faite ? p.textSecondary : p.text,
@@ -440,7 +511,7 @@ class _CarteState extends ConsumerState<_Carte> {
       ],
     );
 
-    final Widget action = job.faite
+    final Widget principale = job.faite
         ? Icon(
             PhosphorIconsFill.checkCircle,
             size: 32,
@@ -457,10 +528,28 @@ class _CarteState extends ConsumerState<_Carte> {
                 : PhosphorIconsLight.play,
             tone: job.enCours ? PillTone.accent : PillTone.primary,
             expand: widget.compacte,
-            onPressed: _busy ? null : _agir,
+            onPressed: _busy || !widget.peutGerer ? null : _agir,
           );
 
-    // Pas de LayoutBuilder ici : la carte est mesuree par IntrinsicHeight.
+    final retour = widget.peutGerer && (job.enCours || job.faite)
+        ? TextButton.icon(
+            icon: const Icon(PhosphorIconsLight.arrowLeft, size: 16),
+            label: Text(job.faite ? 'Reprendre le ménage' : 'Remettre à faire'),
+            onPressed: _busy
+                ? null
+                : () => _agir(
+                    to: job.faite
+                        ? HousekeepingStatus.IN_PROGRESS
+                        : HousekeepingStatus.DIRTY,
+                  ),
+          )
+        : null;
+    final action = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [principale, ?retour],
+    );
+
     final empile = widget.compacte || MediaQuery.sizeOf(context).width < 600;
     final contenu = empile
         ? Column(
@@ -471,10 +560,14 @@ class _CarteState extends ConsumerState<_Carte> {
                   numero,
                   const SizedBox(width: 14),
                   Expanded(child: infos),
-                  if (job.faite) action,
+                  if (job.faite) principale,
                 ],
               ),
               if (!job.faite) ...[const SizedBox(height: 14), action],
+              if (job.faite && retour != null) ...[
+                const SizedBox(height: 8),
+                retour,
+              ],
             ],
           )
         : Row(
@@ -486,46 +579,36 @@ class _CarteState extends ConsumerState<_Carte> {
             ],
           );
 
-    return Padding(
+    final carte = Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      // Un bord colore a gauche : l'etat se lit meme du coin de l'oeil.
-      // Pose en dessous d'un clip, car un bord non uniforme ne prend pas de
-      // rayon.
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: p.paper,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: p.border),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(19),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(width: 4, color: couleur),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: contenu,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: contenu,
       ),
+    );
+    if (!widget.compacte || !widget.peutGerer || _busy) {
+      return carte;
+    }
+    return KanbanDragCard<_CleaningDrag>(
+      data: _CleaningDrag(job, (to) => _agir(to: to)),
+      feedbackChild: carte.child,
+      child: carte,
     );
   }
 
   String _detail(CleaningJob job) {
     if (job.faite) {
       final d = job.durationMinutes;
-      return d == null ? job.floorLabel : '${job.floorLabel} — $d min';
+      return d == null ? job.floorLabel : '${job.floorLabel}, environ $d min';
     }
     final ecoulees = job.minutesEcoulees;
     if (ecoulees != null) {
-      return '${job.floorLabel} — commencé il y a $ecoulees min';
+      return '${job.floorLabel}, commencé il y a $ecoulees min';
     }
     return job.floorLabel.isEmpty ? _typeLabel(job.type) : job.floorLabel;
   }

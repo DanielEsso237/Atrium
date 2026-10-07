@@ -1,18 +1,18 @@
-/// Les jetons de la charte Atrium : **Nuit & mangue**.
+/// Les jetons de la charte Atrium : **Livree**, reprise de ChronoFS.
 ///
-/// Un bleu-nuit profond pour la structure, une mangue eclatante pour tout ce
-/// qui se touche, un vert palmier pour ce qui est libre. Pense pour un hall
-/// d'hotel ou la lumiere change toute la journee : clair le jour, sombre le
-/// soir, selon le reglage de l'appareil.
+/// Le bleu royal d'une livree d'hotel pour la structure et l'action, le
+/// blanc du linge pour les surfaces, une seule touche de laiton -- comme un
+/// bouton d'uniforme -- pour ce qui doit accrocher l'oeil (le montant du, le
+/// logo). Clair le jour, sombre le soir, selon le reglage de l'appareil.
 ///
 /// Chaque couleur de l'interface vient d'ici. Les noms historiques
 /// (`purple`, `mint`...) sont gardes pour ne pas toucher aux ecrans qui les
 /// emploient ; ils designent un **role**, plus une teinte :
 ///
-/// - `purple`      la couleur d'action principale (nuit le jour, mangue la nuit)
-/// - `mint*`       l'accent mangue et ses fonds pales
+/// - `purple`      la couleur d'action principale (bleu royal)
+/// - `mint*`       l'accent bleu et ses fonds pales
 /// - `white`       le papier : carte, champ, texte pose sur l'action principale
-/// - `onNight`     le texte pose sur les bandeaux de nuit, clair dans les deux modes
+/// - `onNight`     le texte pose sur un aplat bleu, clair dans les deux modes
 ///
 /// Les valeurs se lisent dans `AtriumPalette.current`, que la racine de
 /// l'application positionne selon la luminosite de l'appareil.
@@ -107,111 +107,114 @@ class AtriumPalette {
   // --- Blocs forts ---------------------------------------------------------
   //
   // Les cartes qui portent le chiffre de l'ecran (occupation, total, ticket,
-  // en-tete de fiche). La nuit, un bleu-nuit plus clair que le fond ; le
-  // jour, la mangue : pas de bloc bleu-nuit sur une page claire.
+  // en-tete de fiche) : un aplat bleu royal, le texte en blanc. La nuit, un
+  // bleu plus sourd, pour ne pas eblouir dans un hall eteint.
 
-  /// L'encre posee sur la mangue : un brun tres sombre, chaud, jamais bleu.
-  static const _encreMangue = Color(0xFF2B1B04);
+  /// Le laiton : la seule couleur chaude de la charte, rare par principe.
+  static const brass = Color(0xFFC8A15A);
 
-  Color get hero => isDark ? nightRaised : const Color(0xFFFFB020);
-  Color get heroTop => isDark ? nightBright : const Color(0xFFFFCB5C);
-  Color get onHero => isDark ? onNight : _encreMangue;
+  /// Le laiton eclairci, lisible sur le bleu royal (6,6:1).
+  static const brassOnBlue = Color(0xFFE8CB8E);
+
+  Color get hero => isDark ? const Color(0xFF16224A) : primary;
+  Color get heroTop =>
+      isDark ? const Color(0xFF1C2B5C) : const Color(0xFF1E45A0);
+  Color get onHero => const Color(0xFFFFFFFF);
   Color get onHeroSoft =>
-      isDark ? onNightSoft : _encreMangue.withValues(alpha: 0.72);
+      isDark ? const Color(0xFFB4C2EA) : const Color(0xFFC3CFEF);
 
-  /// Le chiffre mis en avant sur un bloc fort : mangue la nuit, encre le
-  /// jour (de la mangue sur de la mangue ne se lirait pas).
-  Color get heroAccent => isDark ? accent : _encreMangue;
+  /// Le chiffre mis en avant sur un bloc fort -- ce qui reste a encaisser,
+  /// le total a payer : en laiton, la seule touche chaude de l'ecran.
+  Color get heroAccent => brassOnBlue;
 
-  /// Le texte et les icones poses sur un aplat mangue.
-  Color get onAccent => isDark ? night : _encreMangue;
+  /// Le texte et les icones poses sur un aplat d'accent.
+  Color get onAccent => isDark ? night : const Color(0xFFFFFFFF);
 
   /// L'aplat d'un choix retenu (filtre, bascule, periode).
-  Color get selected => isDark ? nightBright : const Color(0xFFFFB020);
-  Color get onSelected => isDark ? onNight : _encreMangue;
+  Color get selected => isDark ? const Color(0xFF2A4BB0) : primary;
+  Color get onSelected => const Color(0xFFFFFFFF);
 
-  /// Le jour : papier froid legerement bleute, structure bleu-nuit, mangue
-  /// assombrie d'un cran pour garder 3:1 sur blanc.
+  /// Le jour : papier blanc sur un fond gris-bleu tres pale, structure et
+  /// action en bleu royal.
   static const light = AtriumPalette(
     brightness: Brightness.light,
-    // Le jour, l'action est mangue, comme la nuit : pas de bleu-nuit en aplat.
-    primary: Color(0xFFFFB020),
-    primaryPressed: Color(0xFFF08A00),
+    primary: Color(0xFF143894),
+    primaryPressed: Color(0xFF0F2C78),
     paper: Color(0xFFFFFFFF),
-    onNight: Color(0xFFFBF6EC),
-    onNightSoft: Color(0xFFC9CEE6),
-    night: Color(0xFF0A0F2E),
-    nightRaised: Color(0xFF141B47),
-    nightBright: Color(0xFF263178),
-    photoTint: Color(0xFFD7DBF3),
-    accentFill: Color(0xFFFFD98A),
-    // Assez sombre pour se lire sur blanc (contraste ~4,5:1) : la mangue
-    // franche reste pour les aplats (`hero`), pas pour le texte.
-    accent: Color(0xFFB45F00),
-    accentBorder: Color(0xFFF5CF84),
-    accentSoft: Color(0xFFFFE6B3),
-    accentTint: Color(0xFFFFF6E2),
-    background: Color(0xFFEEF0F7),
-    surface: Color(0xFFF8F9FC),
-    surfaceMuted: Color(0xFFE6E9F3),
-    border: Color(0xFFD7DCEB),
-    text: Color(0xFF0D1330),
-    textSecondary: Color(0xFF4F587A),
-    textOnMuted: Color(0xFF283052),
-    placeholder: Color(0xFFA3AAC4),
-    textDisabled: Color(0xFF8D94AF),
-    success: Color(0xFF0B8A5F),
-    error: Color(0xFFD93A33),
-    errorTint: Color(0xFFFDECEA),
-    warning: Color(0xFFB86E00),
-    tileMango: Color(0xFFFFEBC4),
-    tileMangoInk: Color(0xFF9A5A00),
-    tilePalm: Color(0xFFD3F4E4),
+    onNight: Color(0xFFFFFFFF),
+    onNightSoft: Color(0xFFC3CFEF),
+    night: Color(0xFF102A73),
+    nightRaised: Color(0xFF1A3C9A),
+    nightBright: Color(0xFF2A4BB0),
+    photoTint: Color(0xFFDCE4F8),
+    accentFill: Color(0xFFDCE7FF),
+    // Le bleu royal lui-meme : 10:1 sur blanc, il sert aussi bien au texte
+    // qu'aux aplats.
+    accent: Color(0xFF143894),
+    accentBorder: Color(0xFFC9D6F2),
+    accentSoft: Color(0xFFE3EAFA),
+    accentTint: Color(0xFFF2F5FE),
+    background: Color(0xFFF4F6FB),
+    surface: Color(0xFFF9FAFD),
+    surfaceMuted: Color(0xFFEDF0F7),
+    border: Color(0xFFE1E6F0),
+    text: Color(0xFF1C2333),
+    textSecondary: Color(0xFF5E6880),
+    textOnMuted: Color(0xFF2E3750),
+    placeholder: Color(0xFF98A1B5),
+    textDisabled: Color(0xFF8F98AD),
+    success: Color(0xFF0B7F57),
+    error: Color(0xFFD2423B),
+    errorTint: Color(0xFFFDEDEC),
+    warning: Color(0xFFA0650C),
+    tileMango: Color(0xFFE8EEFC),
+    tileMangoInk: Color(0xFF143894),
+    tilePalm: Color(0xFFDFF3EB),
     tilePalmInk: Color(0xFF0B7650),
-    tileSky: Color(0xFFDCE5FF),
-    tileSkyInk: Color(0xFF2B4DC4),
-    grid: Color(0xFFE2E6F1),
-    shadow: Color(0xFF0D1330),
+    tileSky: Color(0xFFF6EEDD),
+    tileSkyInk: Color(0xFF7D5F27),
+    grid: Color(0xFFE7EBF3),
+    shadow: Color(0xFF14244F),
   );
 
-  /// La nuit : bleu-nuit profond, la mangue devient la couleur d'action et
-  /// le papier devient une carte a peine plus claire que le fond.
+  /// La nuit : un bleu d'encre, l'action en bleu vif, le papier devient une
+  /// carte a peine plus claire que le fond.
   static const dark = AtriumPalette(
     brightness: Brightness.dark,
-    primary: Color(0xFFFFB020),
-    primaryPressed: Color(0xFFF08A00),
-    paper: Color(0xFF141B3E),
-    onNight: Color(0xFFFBF6EC),
-    onNightSoft: Color(0xFFB5BCDC),
-    night: Color(0xFF05081A),
-    nightRaised: Color(0xFF0E1433),
-    nightBright: Color(0xFF232C6B),
-    photoTint: Color(0xFF7F88C0),
-    accentFill: Color(0xFF3D2D0B),
-    accent: Color(0xFFFFB020),
-    accentBorder: Color(0xFF7A5610),
-    accentSoft: Color(0xFF45320C),
-    accentTint: Color(0xFF221B0E),
-    background: Color(0xFF080C20),
-    surface: Color(0xFF0E1433),
-    surfaceMuted: Color(0xFF1A2250),
-    border: Color(0xFF263064),
-    text: Color(0xFFF3EEE4),
-    textSecondary: Color(0xFFA6AECD),
-    textOnMuted: Color(0xFFD6DAEE),
-    placeholder: Color(0xFF5E6892),
-    textDisabled: Color(0xFF5E6892),
-    success: Color(0xFF3DDC97),
+    primary: Color(0xFF3F66DB),
+    primaryPressed: Color(0xFF3457C2),
+    paper: Color(0xFF141B31),
+    onNight: Color(0xFFF3F6FF),
+    onNightSoft: Color(0xFFA9B6DA),
+    night: Color(0xFF0A1028),
+    nightRaised: Color(0xFF121A3A),
+    nightBright: Color(0xFF22356F),
+    photoTint: Color(0xFF7F8FC4),
+    accentFill: Color(0xFF1E2E5E),
+    accent: Color(0xFF8FA8FF),
+    accentBorder: Color(0xFF34477F),
+    accentSoft: Color(0xFF1D2A55),
+    accentTint: Color(0xFF151F40),
+    background: Color(0xFF0A0E1C),
+    surface: Color(0xFF0F1528),
+    surfaceMuted: Color(0xFF19213B),
+    border: Color(0xFF252F4D),
+    text: Color(0xFFE9EDF7),
+    textSecondary: Color(0xFFA0AAC2),
+    textOnMuted: Color(0xFFD3D9EA),
+    placeholder: Color(0xFF5F6A8A),
+    textDisabled: Color(0xFF5F6A8A),
+    success: Color(0xFF3DD598),
     error: Color(0xFFFF6B63),
     errorTint: Color(0xFF3A1719),
-    warning: Color(0xFFFFB020),
-    tileMango: Color(0xFF3A2A0B),
-    tileMangoInk: Color(0xFFFFC65A),
+    warning: Color(0xFFF0B44C),
+    tileMango: Color(0xFF1C2A57),
+    tileMangoInk: Color(0xFF9DB4FF),
     tilePalm: Color(0xFF0E3326),
     tilePalmInk: Color(0xFF52E3A6),
-    tileSky: Color(0xFF16245A),
-    tileSkyInk: Color(0xFF93B0FF),
-    grid: Color(0xFF1D2552),
+    tileSky: Color(0xFF33290F),
+    tileSkyInk: Color(0xFFE8CB8E),
+    grid: Color(0xFF1B2340),
     shadow: Color(0xFF000000),
   );
 
@@ -257,7 +260,7 @@ abstract final class AtriumColors {
   static Color get warning => _p.warning;
 }
 
-/// Les couleurs du tableau de bord. La barre laterale reste de nuit dans les
+/// Les couleurs du tableau de bord. La barre laterale reste bleue dans les
 /// deux modes : c'est le repere fixe de l'application.
 abstract final class AtriumDashColors {
   static Color get sidebar => _p.night;
@@ -266,10 +269,10 @@ abstract final class AtriumDashColors {
   static Color get sidebarMuted => _p.onNightSoft;
   static const sidebarDivider = Color(0x1FFFFFFF);
 
-  /// L'entree active : une pastille de nuit claire, cerclee de mangue.
+  /// L'entree active : une pastille bleue claire, cerclee de laiton.
   static Color get activeStart => _p.nightBright;
   static Color get activeEnd => _p.nightRaised;
-  static const activeBorder = Color(0xFFFFB020);
+  static const activeBorder = AtriumPalette.brass;
 
   static Color get title => _p.text;
   static Color get page => _p.background;
@@ -289,7 +292,7 @@ abstract final class AtriumDashColors {
   static Color get chipMintInk => _p.tilePalmInk;
 
   static Color get grid => _p.grid;
-  static const wave = Color(0xFFFFB020);
+  static Color get wave => _p.primary;
 }
 
 /// Les cinq etats d'une chambre (cahier des charges, paragraphe 5.2) : libre
@@ -299,7 +302,7 @@ abstract final class AtriumDashColors {
 /// Les teintes du cahier des charges, raffinees pour la charte et passees au
 /// validateur dataviz. Le vert tire vers l'eau : c'est ce qui le garde
 /// distinct du rouge pour un lecteur daltonien (ecart de 12 contre 5 pour un
-/// vert franc) -- et il rejoint la menthe de la charte. La couleur n'est
+/// vert franc). La couleur n'est
 /// jamais seule : chaque etat porte aussi son libelle et son icone.
 ///
 /// Trois nuances par etat : la couleur pleine (le voyant, les barres), un
@@ -325,11 +328,11 @@ abstract final class AtriumRoomColors {
   static const outOfOrderTint = Color(0xFFECEEF2);
   static const outOfOrderInk = Color(0xFF3E4454);
 
-  // Les memes etats poses sur le violet des cartes-cles : un voyant plus vif,
-  // qui brille sur le fond sombre, et un libelle pale (contraste superieur a
-  // 6:1 sur le fond teinte du badge).
+  // Les memes etats poses sur un fond sombre (la fiche, les cartes la nuit,
+  // le filtre retenu) : un voyant plus vif, qui brille, et un libelle pale
+  // (contraste superieur a 6:1 sur le fond teinte du badge).
   static const availableLed = Color(0xFF3FE0C5);
-  static Color get availableOnDark => AtriumColors.mint;
+  static const availableOnDark = Color(0xFFA6F0E2);
 
   static const occupiedLed = Color(0xFFFF5C61);
   static const occupiedOnDark = Color(0xFFFFB8BA);
@@ -344,50 +347,33 @@ abstract final class AtriumRoomColors {
   static const outOfOrderOnDark = Color(0xFFDDE0E8);
 }
 
-/// Les cartes-cles du plan des chambres : toutes taillees dans le violet de
-/// la charte, comme les cles d'un meme hotel. L'etat ne les teint jamais.
-abstract final class AtriumKeyCardColors {
-  /// Le haut de la carte, ou la lumiere accroche : un cran au-dessus de la
-  /// charte, pas davantage, sinon le degrade se voit.
-  static const light = Color(0xFF38227F);
-  static Color get base => AtriumColors.purple;
-  static const deep = Color(0xFF231457);
-
-  /// Le liseret interieur qui donne son epaisseur a la carte.
-  static const edge = Color(0x1FFFFFFF);
-  static const divider = Color(0x1AFFFFFF);
-
-  /// Categorie, depart, prix : le texte secondaire sur le violet.
-  static const muted = Color(0xFFC9C2E8);
-
-  /// Le signe sans contact, a peine grave.
-  static const glyph = Color(0x5CFFFFFF);
-
-  /// Le fond des pictogrammes et la piste de l'anneau de sejour.
-  static const well = Color(0x17FFFFFF);
-}
-
-/// Les couleurs des graphiques, lisibles sur les deux fonds et distinctes
-/// pour les trois formes de daltonisme (mangue / bleu / palmier / rose).
+/// Les couleurs des graphiques, passees au validateur dataviz sur les deux
+/// fonds (blanc et #141B31) : bleu, laiton, sarcelle, prune. L'ecart pour un
+/// lecteur deuteranope entre sarcelle et prune (6,7) n'est admis que parce
+/// que chaque part porte aussi son libelle et sa valeur en legende.
 abstract final class AtriumChartColors {
-  static const current = Color(0xFFF2A20C);
-  static const previous = Color(0xFF7D88D6);
-  static const arrivals = Color(0xFF10B981);
-  static const departures = Color(0xFF5B7CFA);
+  static const current = Color(0xFF3D68DD);
+
+  /// La periode precedente : un gris-bleu en retrait, elle sert de repere.
+  static const previous = Color(0xFF9AA6C4);
+  static const arrivals = Color(0xFF11A08B);
+  static const departures = Color(0xFF3D68DD);
   static const types = [
-    Color(0xFFF2A20C),
-    Color(0xFF10B981),
-    Color(0xFF5B7CFA),
-    Color(0xFFE0557A),
+    Color(0xFF3D68DD),
+    Color(0xFFBD8A2E),
+    Color(0xFF11A08B),
+    Color(0xFFB44F9F),
   ];
   static const other = Color(0xFF8A92AE);
 }
 
+/// Les rayons : 12 pour ce qui se touche (bouton, champ, filtre), 16 pour
+/// ce qui contient (carte), 20 pour ce qui se superpose (dialogue).
 abstract final class AtriumRadii {
   static const double sm = 8;
-  static const double md = 14;
+  static const double md = 12;
   static const double lg = 16;
-  static const double xl = 24;
+  static const double xl = 20;
 }
 
 /// L'echelle d'espacement, par pas de 4.
@@ -402,77 +388,53 @@ abstract final class AtriumSpacing {
   static const double xxxl = 48;
 }
 
-/// Les ombres, teintees de bleu-nuit plutot que de gris neutre : sur un fond
-/// pale, une ombre grise salit la surface au lieu de la detacher.
+/// Les ombres, teintees de bleu plutot que de gris neutre, et tenues tres
+/// basses : la bordure detache la carte, l'ombre ne fait que la poser.
 abstract final class AtriumShadows {
-  /// La carte de connexion : large et diffuse, elle flotte sur le bandeau.
+  /// La carte de connexion : un peu plus d'air dessous, elle est seule.
   static const card = [
-    BoxShadow(color: Color(0x0F0D1330), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0A14244F), blurRadius: 2, offset: Offset(0, 1)),
     BoxShadow(
-      color: Color(0x1F0D1330),
-      blurRadius: 48,
-      spreadRadius: -8,
-      offset: Offset(0, 20),
+      color: Color(0x1214244F),
+      blurRadius: 32,
+      spreadRadius: -12,
+      offset: Offset(0, 16),
     ),
   ];
 
-  /// Touche du pave, case du PIN : un relief de bouton physique, a peine.
+  /// Touche du pave, case du PIN : a peine un relief.
   static const key = [
-    BoxShadow(color: Color(0x0D0D1330), blurRadius: 1, offset: Offset(0, 1)),
-    BoxShadow(
-      color: Color(0x140D1330),
-      blurRadius: 10,
-      spreadRadius: -2,
-      offset: Offset(0, 4),
-    ),
+    BoxShadow(color: Color(0x0D14244F), blurRadius: 1, offset: Offset(0, 1)),
   ];
 
-  /// L'embleme sur le bandeau sombre.
+  /// L'embleme sur un fond bleu.
   static const emblem = [
     BoxShadow(
-      color: Color(0x6605081A),
-      blurRadius: 24,
+      color: Color(0x3305081A),
+      blurRadius: 16,
       spreadRadius: -4,
-      offset: Offset(0, 10),
+      offset: Offset(0, 6),
     ),
   ];
 
-  /// Carte du tableau de bord : un voile a peine perceptible, la bordure
-  /// fait le travail.
+  /// Carte du tableau de bord : la bordure fait le travail.
   static const soft = [
-    BoxShadow(color: Color(0x080D1330), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(
-      color: Color(0x0D0D1330),
-      blurRadius: 24,
-      spreadRadius: -6,
-      offset: Offset(0, 10),
-    ),
+    BoxShadow(color: Color(0x0814244F), blurRadius: 2, offset: Offset(0, 1)),
   ];
 
-  /// Carte-cle du plan : une ombre violette, courte, qui la pose sur la page
-  /// comme une carte sur un comptoir.
-  static const keyCard = [
-    BoxShadow(color: Color(0x1A2D1B69), blurRadius: 3, offset: Offset(0, 1)),
-    BoxShadow(
-      color: Color(0x292D1B69),
-      blurRadius: 26,
-      spreadRadius: -12,
-      offset: Offset(0, 14),
-    ),
-  ];
-
-  /// Halo autour d'un element actif (case courante, option retenue).
+  /// Ancien halo autour d'un element actif : garde pour les appels, mais
+  /// reduit a une ombre portee nette -- un halo colore faisait gadget.
   static List<BoxShadow> glow(Color couleur, {double force = 0.45}) => [
     BoxShadow(
-      color: couleur.withValues(alpha: force),
-      blurRadius: 12,
-      spreadRadius: 1,
+      color: couleur.withValues(alpha: force * 0.4),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
     ),
   ];
 
   /// Halo de focus autour d'un champ.
   static List<BoxShadow> focusRing(Color couleur) => [
-    BoxShadow(color: couleur.withValues(alpha: 0.28), spreadRadius: 4),
+    BoxShadow(color: couleur.withValues(alpha: 0.18), spreadRadius: 3),
   ];
 }
 
@@ -499,6 +461,41 @@ abstract final class AtriumMotion {
 
 /// La police de la refonte, embarquee dans `assets/fonts/jakarta`.
 const atriumFontFamily = 'PlusJakartaSans';
+
+/// La police des titres d'ecran : Cormorant Garamond, la serif de ChronoFS
+/// (`assets/fonts/cormorant`). Jamais en dessous de 26 points : ses
+/// empattements fins disparaissent a petite taille sur une tablette.
+const atriumDisplayFamily = 'CormorantGaramond';
+
+/// Le style d'un titre d'ecran, regle comme `.heading-display` de ChronoFS :
+/// graisse 600, interlettrage de -0,01 em, chiffres alignes.
+TextStyle atriumDisplay(double taille, {Color? color, double height = 1.05}) =>
+    TextStyle(
+      fontFamily: atriumDisplayFamily,
+      fontSize: taille,
+      fontWeight: FontWeight.w600,
+      height: height,
+      letterSpacing: -0.01 * taille,
+      color: color ?? AtriumPalette.current.text,
+      fontFeatures: const [FontFeature.liningFigures()],
+    );
+
+/// La chasse fixe des codes et references : JetBrains Mono, comme les
+/// cartouches de ChronoFS (`assets/fonts/jetbrains`). Reservee aux
+/// identifiants qu'on recopie ou qu'on dicte -- code client, numero
+/// d'ardoise ou de facture, code agent --, jamais aux libelles : un zero
+/// barre ne se confond pas avec un O.
+const atriumMonoFamily = 'JetBrainsMono';
+
+/// Le style d'un code ou d'une reference.
+TextStyle atriumCode(double taille, {Color? color, FontWeight? weight}) =>
+    TextStyle(
+      fontFamily: atriumMonoFamily,
+      fontSize: taille,
+      fontWeight: weight ?? FontWeight.w600,
+      letterSpacing: 0.02 * taille,
+      color: color ?? AtriumPalette.current.text,
+    );
 
 /// Chiffres a chasse fixe : un code ou un montant ne doit pas bouger
 /// horizontalement pendant qu'on le tape.

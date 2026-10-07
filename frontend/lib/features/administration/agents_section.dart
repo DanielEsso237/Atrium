@@ -128,11 +128,12 @@ class _LigneAgent extends StatelessWidget {
                           color: u.isActive ? p.text : p.textSecondary,
                         ),
                       ),
-                      Text(
-                        '${u.employeeCode} · ${role.isEmpty ? 'sans rôle' : role} · $points',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: p.textSecondary,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: LigneCode(
+                          u.employeeCode,
+                          detail:
+                              '${role.isEmpty ? 'sans rôle' : role}, $points',
                         ),
                       ),
                     ],

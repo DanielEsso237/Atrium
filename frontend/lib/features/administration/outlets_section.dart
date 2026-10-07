@@ -94,9 +94,9 @@ class OutletsSection extends ConsumerWidget {
     final deplace = ordre.removeAt(de);
     ordre.insert(vers > de ? vers - 1 : vers, deplace);
     try {
-      await ref
-          .read(outletRepositoryProvider)
-          .reorder([for (final o in ordre) o.id]);
+      await ref.read(outletRepositoryProvider).reorder([
+        for (final o in ordre) o.id,
+      ]);
     } on StateError catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -156,8 +156,11 @@ class _LignePointDeVente extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${point.code} · $horaires',
-                        style: TextStyle(fontSize: 13.5, color: p.textSecondary),
+                        '${point.code}, $horaires',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: p.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -352,7 +355,9 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
           child: const Text('Annuler'),
         ),
         FilledButton(
-          onPressed: _busy || _libelle.text.trim().isEmpty ? null : _enregistrer,
+          onPressed: _busy || _libelle.text.trim().isEmpty
+              ? null
+              : _enregistrer,
           child: const Text('Enregistrer'),
         ),
       ],

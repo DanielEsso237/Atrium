@@ -299,19 +299,9 @@ class _LigneClient extends StatelessWidget {
                       color: p.text,
                     ),
                   ),
-                  Text(
-                    [
-                      guest.code,
-                      if (guest.phone != null) guest.phone!,
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 13,
-                      color: p.textSecondary,
-                      fontFeatures: tabularFigures,
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: LigneCode(guest.code, detail: guest.phone),
                   ),
                 ],
               ),
@@ -475,22 +465,13 @@ class _FicheClient extends ConsumerWidget {
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 28,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.8,
                   color: p.onHero,
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                guest.code,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: p.onHeroSoft,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
+              Text(guest.code, style: atriumCode(13.5, color: p.onHeroSoft)),
               const SizedBox(height: 18),
               Wrap(
                 spacing: 10,
@@ -554,7 +535,7 @@ class _FicheClient extends ConsumerWidget {
                         trailing: Text(
                           '${stays.length}',
                           style: _styleCle.copyWith(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -587,12 +568,12 @@ class _LigneSejour extends StatelessWidget {
     final a = parseIsoDate(sejour.arrival);
     final d = parseIsoDate(sejour.departure);
     final (String libelle, Color couleur) = switch (sejour.status) {
-      'CHECKED_IN' => ('En cours', const Color(0xFF12A876)),
-      'CHECKED_OUT' => ('Terminé', const Color(0xFF6B7391)),
-      'CANCELLED' => ('Annulé', const Color(0xFFE5484D)),
-      'NO_SHOW' => ('Non présenté', const Color(0xFFE5484D)),
-      'CONFIRMED' => ('Confirmé', const Color(0xFF3F7BF2)),
-      _ => ('En attente', const Color(0xFFF2A20C)),
+      'CHECKED_IN' => ('En cours', p.success),
+      'CHECKED_OUT' => ('Terminé', p.textSecondary),
+      'CANCELLED' => ('Annulé', p.error),
+      'NO_SHOW' => ('Non présenté', p.error),
+      'CONFIRMED' => ('Confirmé', p.accent),
+      _ => ('En attente', p.warning),
     };
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -609,12 +590,15 @@ class _LigneSejour extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${a == null ? sejour.arrival : formatDayMonth(a)} → '
+                  'du ${a == null ? sejour.arrival : formatDayMonth(a)} au '
                   '${d == null ? sejour.departure : formatDayMonth(d)}'
                   '${a == null ? '' : ' ${a.year}'}',
                   style: _styleValeur,
                 ),
-                Text(sejour.reference, style: _styleCle),
+                Text(
+                  sejour.reference,
+                  style: atriumCode(12, color: AtriumColors.textSecondary),
+                ),
               ],
             ),
           ),

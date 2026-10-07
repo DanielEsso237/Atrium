@@ -21,6 +21,7 @@ from app.schemas.maintenance import (
     MaintenanceTicketIn,
     MaintenanceTicketOut,
     ResolveIn,
+    RevertIn,
 )
 from app.services.numbering import Scope, next_number
 from app.services.printing import enqueue_print_job
@@ -32,6 +33,47 @@ async def _get_ticket(session: AsyncSession, ticket_id: uuid.UUID, user: User) -
     ticket = await session.get(MaintenanceTicket, ticket_id)
     if ticket is None or ticket.hotel_id != user.hotel_id or ticket.deleted_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Ticket introuvable.")
+    return ticket
+
+
+@router.post("/{ticket_id}/revert", response_model=MaintenanceTicketOut)
+async def revert_ticket(
+    ticket_id: uuid.UUID,
+    payload: RevertIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("maintenance.manage")),
+) -> MaintenanceTicket:
+    """Ramene le ticket dans une colonne precedente apres une erreur."""
+    ticket = await _get_ticket(session, ticket_id, user)
+    allowed = (
+        payload.from_status in (TicketStatus.ASSIGNED, TicketStatus.IN_PROGRESS)
+        and payload.status == TicketStatus.OPEN
+    ) or (
+        payload.from_status == TicketStatus.RESOLVED
+        and payload.status in (TicketStatus.OPEN, TicketStatus.ASSIGNED)
+    ) or (
+        payload.from_status == TicketStatus.CLOSED and payload.status == TicketStatus.RESOLVED
+    )
+    if not allowed:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce retour n'est pas possible.")
+    if ticket.status == payload.status:
+        return ticket
+    if ticket.status != payload.from_status:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Le ticket a change. Actualisez le tableau.")
+    was_closed = ticket.status == TicketStatus.CLOSED
+    ticket.status = payload.status
+    ticket.closed_at = None
+    if payload.status != TicketStatus.RESOLVED:
+        ticket.resolved_at = ticket.resolution = None
+    if payload.status == TicketStatus.OPEN:
+        ticket.assigned_at = ticket.assigned_to = None
+    ticket.updated_by = user.id
+    if was_closed and ticket.blocks_room and ticket.room_id is not None:
+        room = await session.get(Room, ticket.room_id)
+        if room is not None and room.hotel_id == user.hotel_id:
+            room.is_out_of_order = True
+    await session.commit()
+    await session.refresh(ticket)
     return ticket
 
 

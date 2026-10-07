@@ -74,3 +74,8 @@ class InterventionOut(BaseModel):
 
 class ResolveIn(BaseModel):
     resolution: str = Field(min_length=1)
+
+
+class RevertIn(BaseModel):
+    from_status: TicketStatus
+    status: TicketStatus

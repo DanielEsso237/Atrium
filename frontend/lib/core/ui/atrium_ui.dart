@@ -1,21 +1,17 @@
 /// Les composants de la refonte : ce qui donne a Atrium sa matiere.
 ///
-/// - `Bezel` : une carte a double bordure -- une coque fine qui tient un
-///   noyau, comme une plaque de verre dans un cadre d'aluminium. Les rayons
-///   sont concentriques (rayon du noyau = rayon de la coque - l'epaisseur).
-/// - `PillButton` : bouton en pilule, l'icone dans sa propre pastille qui se
-///   deplace au survol et s'enfonce a l'appui.
-/// - `FadeUp` : l'entree d'un element -- il monte, se precise et apparait,
-///   avec un decalage selon son rang.
-/// - `AmbientBackground` : le fond d'une page, deux halos de lumiere et un
-///   grain tres fin pour casser l'aplat numerique.
+/// - `Bezel` : la carte. Du papier, un filet d'un point, une ombre a peine
+///   posee. Le nom vient d'une version a double bordure, abandonnee : elle
+///   faisait objet decoratif la ou il faut un support de lecture.
+/// - `PillButton` : le bouton maison, rectangle arrondi, icone en tete.
+/// - `FadeUp` : l'apparition d'un element, un fondu court.
+/// - `AmbientBackground` : le fond d'une page, uni.
 ///
-/// Toutes les courbes sont a ressort, jamais lineaires. Toutes les
-/// animations tombent a zero quand le systeme demande de les reduire.
+/// Toutes les animations tombent a zero quand le systeme demande de les
+/// reduire.
 library;
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -45,76 +41,41 @@ class Bezel extends StatelessWidget {
   });
 
   final Widget child;
+
+  /// Rayon demande ; plafonne a 18 pour que toutes les cartes de l'ecran
+  /// parlent le meme langage, quelle que soit la page qui les pose.
   final double radius;
 
-  /// Epaisseur de la coque.
+  /// Garde pour les appels existants : la coque n'existe plus.
   final double shell;
   final EdgeInsetsGeometry padding;
 
-  /// Couleur du noyau ; par defaut le papier.
+  /// Couleur du fond ; par defaut le papier.
   final Color? core;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final sombre = AtriumPalette.current.isDark;
-    final inner = radius - shell;
-    final coreColor = core ?? AtriumColors.white;
+    final p = AtriumPalette.current;
+    final rayon = math.min(radius - shell, 18.0).clamp(8.0, 18.0);
+    final fond = core ?? p.paper;
+    // Un aplat colore (bloc fort) n'a pas besoin de filet pour se detacher.
+    final aplat = core != null && core != p.paper;
 
-    Widget noyau = DecoratedBox(
+    Widget carte = DecoratedBox(
       decoration: BoxDecoration(
-        color: coreColor,
-        borderRadius: BorderRadius.circular(inner),
-        // Le reflet du bord haut : un filet clair, comme la tranche d'une
-        // plaque de verre qui accroche la lumiere.
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: const [0, 0.04, 1],
-          colors: [
-            Color.alphaBlend(
-              Colors.white.withValues(alpha: sombre ? 0.07 : 0.6),
-              coreColor,
-            ),
-            coreColor,
-            coreColor,
-          ],
-        ),
+        color: fond,
+        borderRadius: BorderRadius.circular(rayon),
+        border: aplat ? null : Border.all(color: p.border),
+        boxShadow: p.isDark ? null : AtriumShadows.soft,
       ),
       child: Padding(padding: padding, child: child),
     );
 
     if (onTap != null) {
-      noyau = _Pressable(radius: inner, onTap: onTap!, child: noyau);
+      carte = _Pressable(radius: rayon, onTap: onTap!, child: carte);
     }
-
-    return Container(
-      padding: EdgeInsets.all(shell),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        color: sombre
-            ? Colors.white.withValues(alpha: 0.035)
-            : AtriumColors.purpleNight.withValues(alpha: 0.035),
-        border: Border.all(
-          color: sombre
-              ? Colors.white.withValues(alpha: 0.08)
-              : AtriumColors.purpleNight.withValues(alpha: 0.06),
-        ),
-        boxShadow: [
-          // Ombre teintee de nuit, tres diffuse : la carte flotte, elle ne
-          // pese pas sur la page.
-          BoxShadow(
-            color: AtriumPalette.current.shadow.withValues(
-              alpha: sombre ? 0.35 : 0.06,
-            ),
-            blurRadius: 40,
-            spreadRadius: -12,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
-      child: noyau,
-    );
+    return carte;
   }
 }
 
@@ -179,6 +140,9 @@ class _PressableState extends State<_Pressable> {
 
 enum PillTone { primary, accent, quiet }
 
+/// Le bouton maison. Le nom date de la version en pilule ; la forme est
+/// maintenant celle de tous les boutons de l'application : un rectangle a
+/// coins de 12.
 class PillButton extends StatefulWidget {
   const PillButton({
     super.key,
@@ -193,7 +157,8 @@ class PillButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
 
-  /// Icone de fin, posee dans sa propre pastille.
+  /// L'icone, devant le libelle -- sauf une fleche vers l'avant, qui se lit
+  /// apres lui (« Se connecter », puis la direction).
   final IconData? icon;
   final PillTone tone;
   final bool compact;
@@ -213,39 +178,29 @@ class _PillButtonState extends State<PillButton> {
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     final actif = widget.onPressed != null;
-    final (Color fond, Color encre, Color pastille) = switch (widget.tone) {
-      // Le jour, l'aplat prend la mangue franche des blocs forts ; l'accent
-      // plus sombre reste pour le texte et les icones sur fond clair.
-      PillTone.primary || PillTone.accent => (
-        p.isDark ? p.accent : p.hero,
-        p.onAccent,
-        p.onAccent.withValues(alpha: 0.12),
-      ),
-      PillTone.quiet => (
-        p.isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : p.night.withValues(alpha: 0.05),
-        p.text,
-        p.isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : p.night.withValues(alpha: 0.06),
-      ),
-    };
+    final plein = widget.tone != PillTone.quiet;
+    final fond = plein
+        ? (_presse || _survol ? p.primaryPressed : p.primary)
+        : (_presse ? p.surfaceMuted : (_survol ? p.surface : p.paper));
+    final encre = !actif ? p.textDisabled : (plein ? Colors.white : p.text);
     final duree = _animationsCoupees(context)
         ? Duration.zero
-        : const Duration(milliseconds: 380);
-    final hauteur = widget.compact ? 44.0 : 52.0;
+        : const Duration(milliseconds: 160);
+    final hauteur = widget.compact ? 44.0 : 50.0;
+    final apres = widget.icon == PhosphorIconsLight.arrowRight;
 
-    final contenu = Row(
-      mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: widget.compact ? 16 : 22,
-              right: widget.icon == null ? (widget.compact ? 16 : 22) : 10,
-            ),
+    final icone = widget.icon == null
+        ? null
+        : Icon(widget.icon, size: widget.compact ? 18 : 20, color: encre);
+
+    final contenu = Padding(
+      padding: EdgeInsets.symmetric(horizontal: widget.compact ? 14 : 18),
+      child: Row(
+        mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icone != null && !apres) ...[icone, const SizedBox(width: 8)],
+          Flexible(
             child: Text(
               widget.label,
               maxLines: 1,
@@ -253,37 +208,14 @@ class _PillButtonState extends State<PillButton> {
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: widget.compact ? 14.5 : 15.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.1,
-                color: actif ? encre : encre.withValues(alpha: 0.45),
+                fontWeight: FontWeight.w600,
+                color: encre,
               ),
             ),
           ),
-        ),
-        if (widget.icon != null)
-          Padding(
-            padding: EdgeInsets.only(right: (hauteur - 36) / 2),
-            child: AnimatedSlide(
-              duration: duree,
-              curve: atriumSpring,
-              offset: _survol ? const Offset(0.08, -0.04) : Offset.zero,
-              child: AnimatedScale(
-                duration: duree,
-                curve: atriumSpring,
-                scale: _survol ? 1.06 : 1,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: pastille,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(widget.icon, size: 18, color: encre),
-                ),
-              ),
-            ),
-          ),
-      ],
+          if (icone != null && apres) ...[const SizedBox(width: 10), icone],
+        ],
+      ),
     );
 
     return Semantics(
@@ -300,26 +232,25 @@ class _PillButtonState extends State<PillButton> {
           onTapUp: (_) => setState(() => _presse = false),
           onTap: widget.onPressed,
           child: AnimatedScale(
-            scale: _presse ? 0.97 : 1,
+            scale: _presse ? 0.98 : 1,
             duration: duree,
-            curve: atriumSpring,
+            curve: Curves.easeOut,
             child: AnimatedContainer(
               duration: duree,
-              curve: atriumSpring,
+              curve: Curves.easeOut,
               height: hauteur,
               decoration: BoxDecoration(
-                color: actif ? fond : fond.withValues(alpha: fond.a * 0.45),
-                borderRadius: BorderRadius.circular(hauteur),
-                boxShadow: widget.tone == PillTone.quiet || !actif
+                color: actif
+                    ? fond
+                    : (plein ? p.surfaceMuted : fond.withValues(alpha: 0.6)),
+                borderRadius: BorderRadius.circular(AtriumRadii.md),
+                border: plein
                     ? null
-                    : [
-                        BoxShadow(
-                          color: fond.withValues(alpha: _survol ? 0.45 : 0.28),
-                          blurRadius: _survol ? 26 : 18,
-                          spreadRadius: -6,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
+                    : Border.all(
+                        color: _survol
+                            ? p.accent.withValues(alpha: 0.4)
+                            : p.border,
+                      ),
               ),
               child: contenu,
             ),
@@ -334,8 +265,9 @@ class _PillButtonState extends State<PillButton> {
 // FadeUp
 // ---------------------------------------------------------------------------
 
-/// L'entree d'un element : il monte de 18 px, passe du flou au net et
-/// apparait. `index` decale l'entree dans une cascade.
+/// L'apparition d'un element : un fondu court, et un leger decalage selon
+/// son rang. Pas de glissement : une page de travail qui remonte a chaque
+/// ouverture finit par donner le mal de mer.
 class FadeUp extends StatelessWidget {
   const FadeUp({super.key, required this.child, this.index = 0});
 
@@ -345,22 +277,14 @@ class FadeUp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (_animationsCoupees(context)) return child;
-    final delai = math.min(index * 70, 560);
-    const duree = 820;
+    final delai = math.min(index * 40, 160);
+    const duree = 280;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: duree + delai),
-      curve: Interval(delai / (duree + delai), 1, curve: atriumSpring),
-      // Opacite et translation seulement : un flou par element faisait
-      // tomber le contexte WebGL et coute trop cher aux tablettes d'entree
-      // de gamme.
-      builder: (context, t, enfant) => Opacity(
-        opacity: t.clamp(0, 1),
-        child: Transform.translate(
-          offset: Offset(0, 18 * (1 - t)),
-          child: enfant,
-        ),
-      ),
+      curve: Interval(delai / (duree + delai), 1, curve: Curves.easeOut),
+      builder: (context, t, enfant) =>
+          Opacity(opacity: t.clamp(0, 1), child: enfant),
       child: child,
     );
   }
@@ -370,104 +294,16 @@ class FadeUp extends StatelessWidget {
 // AmbientBackground
 // ---------------------------------------------------------------------------
 
-/// Le fond d'une page : deux halos de lumiere (mangue en haut a droite,
-/// indigo en bas a gauche) et un grain fin, fixes, sous le contenu.
+/// Le fond d'une page : uni. Les halos et le grain d'avant ont ete retires,
+/// ils salissaient les tableaux et coutaient aux tablettes d'entree de gamme.
 class AmbientBackground extends StatelessWidget {
   const AmbientBackground({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return ColoredBox(
-      color: p.background,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(child: CustomPaint(painter: _Halos(p))),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: RepaintBoundary(
-                child: CustomPaint(painter: _Grain(p.isDark)),
-              ),
-            ),
-          ),
-          Positioned.fill(child: child),
-        ],
-      ),
-    );
-  }
-}
-
-class _Halos extends CustomPainter {
-  _Halos(this.p);
-
-  final AtriumPalette p;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    void halo(Offset centre, double rayon, Color couleur, double force) {
-      canvas.drawCircle(
-        centre,
-        rayon,
-        Paint()
-          ..shader = RadialGradient(
-            colors: [
-              couleur.withValues(alpha: force),
-              couleur.withValues(alpha: 0),
-            ],
-          ).createShader(Rect.fromCircle(center: centre, radius: rayon)),
-      );
-    }
-
-    final r = math.max(size.width, size.height);
-    halo(
-      Offset(size.width * 0.92, -r * 0.08),
-      r * 0.55,
-      p.accent,
-      p.isDark ? 0.16 : 0.18,
-    );
-    halo(
-      Offset(size.width * 0.02, size.height * 1.02),
-      r * 0.6,
-      p.isDark ? const Color(0xFF3B47C9) : const Color(0xFF7C8BFF),
-      p.isDark ? 0.18 : 0.10,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _Halos old) => old.p != p;
-}
-
-/// Un grain deterministe : quelques milliers de points presque invisibles.
-class _Grain extends CustomPainter {
-  _Grain(this.sombre);
-
-  final bool sombre;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final alea = math.Random(7);
-    final nombre = (size.width * size.height / 900).clamp(0, 9000).toInt();
-    final points = <Offset>[
-      for (var i = 0; i < nombre; i++)
-        Offset(alea.nextDouble() * size.width, alea.nextDouble() * size.height),
-    ];
-    canvas.drawPoints(
-      ui.PointMode.points,
-      points,
-      Paint()
-        ..color = (sombre ? Colors.white : Colors.black).withValues(
-          alpha: sombre ? 0.045 : 0.035,
-        )
-        ..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _Grain old) => old.sombre != sombre;
+  Widget build(BuildContext context) =>
+      ColoredBox(color: AtriumPalette.current.background, child: child);
 }
 
 // ---------------------------------------------------------------------------
@@ -490,24 +326,88 @@ class Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: strong ? c : c.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(8),
+        color: strong ? c : c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontFamily: atriumFontFamily,
           fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.1,
-          color: strong ? AtriumColors.purpleNight : AtriumColors.textPrimary,
+          fontWeight: FontWeight.w600,
+          color: strong ? Colors.white : AtriumColors.textPrimary,
         ),
       ),
     );
   }
 }
 
-/// Une vignette d'initiales, en carre arrondi plutot qu'en rond.
+/// Un code dans son cartouche : chasse fixe, fond bleu pale, filet bleu --
+/// le `.code-ue` de ChronoFS. Pour les identifiants seulement (code client,
+/// numero d'ardoise, code agent).
+class CodeCartouche extends StatelessWidget {
+  const CodeCartouche(this.code, {super.key, this.taille = 12.5});
+
+  final String code;
+  final double taille;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: p.accentTint,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: p.accentBorder),
+      ),
+      child: Text(
+        code,
+        maxLines: 1,
+        style: atriumCode(
+          taille,
+          color: p.isDark ? p.accent : const Color(0xFF183D95),
+        ),
+      ),
+    );
+  }
+}
+
+/// Un code en cartouche suivi d'un detail (telephone, role) : la ligne
+/// d'identite sous un nom.
+class LigneCode extends StatelessWidget {
+  const LigneCode(this.code, {super.key, this.detail});
+
+  final String code;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CodeCartouche(code, taille: 11.5),
+        if (detail != null && detail!.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              detail!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 13,
+                color: AtriumColors.textSecondary,
+                fontFeatures: tabularFigures,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Une vignette d'initiales.
 class Monogram extends StatelessWidget {
   const Monogram(this.name, {super.key, this.size = 42});
 
@@ -523,33 +423,32 @@ class Monogram extends StatelessWidget {
         .map((m) => m.characters.first.toUpperCase())
         .join();
     // Une teinte par nom, stable : on reconnait un client a sa couleur.
-    final teintes = [
-      const Color(0xFFFFC65A),
-      const Color(0xFF52E3A6),
-      const Color(0xFF93B0FF),
-      const Color(0xFFFF9F8F),
-      const Color(0xFFC9A8FF),
+    // Les teintes de la charte (bleu, laiton, sarcelle, prune, ardoise),
+    // en fond pale et encre foncee.
+    const teintes = [
+      (Color(0xFFDCE7FF), Color(0xFF143894)),
+      (Color(0xFFF6EEDD), Color(0xFF7D5F27)),
+      (Color(0xFFDDF2EE), Color(0xFF0B6B5D)),
+      (Color(0xFFF3E4F0), Color(0xFF7E3570)),
+      (Color(0xFFE6EAF2), Color(0xFF3A4458)),
     ];
-    final teinte = teintes[name.hashCode.abs() % teintes.length];
+    final (fond, encre) = teintes[name.hashCode.abs() % teintes.length];
+    final sombre = AtriumPalette.current.isDark;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: teinte.withValues(
-          alpha: AtriumPalette.current.isDark ? 0.18 : 0.35,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.32),
+        color: sombre ? encre.withValues(alpha: 0.35) : fond,
+        shape: BoxShape.circle,
       ),
       child: Text(
         lettres.isEmpty ? '?' : lettres,
         style: TextStyle(
           fontFamily: atriumFontFamily,
-          fontWeight: FontWeight.w800,
-          fontSize: size * 0.34,
-          color: AtriumPalette.current.isDark
-              ? teinte
-              : AtriumColors.textPrimary,
+          fontWeight: FontWeight.w700,
+          fontSize: size * 0.36,
+          color: sombre ? fond : encre,
         ),
       ),
     );
@@ -572,8 +471,7 @@ class FilterOption<T> {
   final Color? color;
 }
 
-/// Des filtres en pilules : celle retenue est pleine (nuit), les autres
-/// sont en retrait. Chaque pilule dit combien elle contient : on sait ce
+/// Des filtres : celui retenu est plein (bleu), les autres sont en retrait. Chaque pilule dit combien elle contient : on sait ce
 /// qu'un filtre va montrer avant d'appuyer dessus.
 class FilterPills<T> extends StatelessWidget {
   const FilterPills({
@@ -634,7 +532,7 @@ class _FilterPillState extends State<_FilterPill> {
     final actif = widget.actif;
     final duree = _animationsCoupees(context)
         ? Duration.zero
-        : const Duration(milliseconds: 380);
+        : const Duration(milliseconds: 160);
     final encre = actif ? p.onSelected : p.text;
     return Semantics(
       button: true,
@@ -649,34 +547,20 @@ class _FilterPillState extends State<_FilterPill> {
           onTapUp: (_) => setState(() => _presse = false),
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: _presse ? 0.96 : 1,
+            scale: _presse ? 0.98 : 1,
             duration: duree,
-            curve: atriumSpring,
+            curve: Curves.easeOut,
             child: AnimatedContainer(
               duration: duree,
-              curve: atriumSpring,
-              height: 46,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              curve: Curves.easeOut,
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: actif
                     ? p.selected
-                    : (_survol
-                          ? p.surfaceMuted
-                          : p.surface.withValues(alpha: 0.6)),
-                borderRadius: BorderRadius.circular(23),
-                border: Border.all(
-                  color: actif ? Colors.transparent : p.border,
-                ),
-                boxShadow: actif
-                    ? [
-                        BoxShadow(
-                          color: p.selected.withValues(alpha: 0.35),
-                          blurRadius: 18,
-                          spreadRadius: -6,
-                          offset: const Offset(0, 8),
-                        ),
-                      ]
-                    : null,
+                    : (_survol || _presse ? p.surfaceMuted : p.paper),
+                borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
+                border: Border.all(color: actif ? p.selected : p.border),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -697,7 +581,7 @@ class _FilterPillState extends State<_FilterPill> {
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: actif ? FontWeight.w600 : FontWeight.w500,
                       color: encre,
                     ),
                   ),
@@ -710,16 +594,16 @@ class _FilterPillState extends State<_FilterPill> {
                       ),
                       decoration: BoxDecoration(
                         color: actif
-                            ? p.onSelected.withValues(alpha: 0.16)
+                            ? p.onSelected.withValues(alpha: 0.18)
                             : p.surfaceMuted,
-                        borderRadius: BorderRadius.circular(7),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         '${o.count}',
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: actif ? p.onSelected : p.textSecondary,
                           fontFeatures: tabularFigures,
                         ),
@@ -736,7 +620,7 @@ class _FilterPillState extends State<_FilterPill> {
   }
 }
 
-/// Le champ de recherche des listes, en pilule.
+/// Le champ de recherche des listes.
 class SearchPill extends StatelessWidget {
   const SearchPill({
     super.key,
@@ -753,11 +637,11 @@ class SearchPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     final bord = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(23),
+      borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
       borderSide: BorderSide(color: p.border),
     );
     return SizedBox(
-      height: 46,
+      height: 44,
       child: TextField(
         controller: controller,
         onChanged: onChanged,
@@ -771,7 +655,7 @@ class SearchPill extends StatelessWidget {
           hintText: hint,
           isDense: true,
           filled: true,
-          fillColor: p.surface.withValues(alpha: 0.6),
+          fillColor: p.paper,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           prefixIcon: Icon(
             PhosphorIconsLight.magnifyingGlass,
@@ -781,7 +665,7 @@ class SearchPill extends StatelessWidget {
           border: bord,
           enabledBorder: bord,
           focusedBorder: bord.copyWith(
-            borderSide: BorderSide(color: p.accent, width: 1.6),
+            borderSide: BorderSide(color: p.accent, width: 1.4),
           ),
         ),
       ),
@@ -789,8 +673,8 @@ class SearchPill extends StatelessWidget {
   }
 }
 
-/// Un etat vide compose : une icone posee dans un squircle, une phrase qui
-/// dit pourquoi c'est vide, et quoi faire.
+/// Un etat vide : une icone dans un cercle pale, une phrase qui dit
+/// pourquoi c'est vide, et quoi faire.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -818,24 +702,24 @@ class EmptyState extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 76,
-                  height: 76,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
-                    color: p.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(color: p.accent.withValues(alpha: 0.25)),
+                    color: p.accentTint,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: p.accentSoft),
                   ),
-                  child: Icon(icon, size: 34, color: p.accent),
+                  child: Icon(icon, size: 28, color: p.accent),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 Text(
                   title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: atriumFontFamily,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                     color: p.text,
                   ),
                 ),
@@ -869,7 +753,7 @@ class HoverRow extends StatefulWidget {
     required this.child,
     this.onTap,
     this.padding = const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-    this.radius = 18,
+    this.radius = 12,
   });
 
   final Widget child;
@@ -899,13 +783,11 @@ class _HoverRowState extends State<HoverRow> {
         child: AnimatedContainer(
           duration: _animationsCoupees(context)
               ? Duration.zero
-              : const Duration(milliseconds: 260),
-          curve: atriumSpring,
+              : const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
           padding: widget.padding,
           decoration: BoxDecoration(
-            color: _survol
-                ? p.surfaceMuted.withValues(alpha: 0.7)
-                : Colors.transparent,
+            color: _survol ? p.surfaceMuted : Colors.transparent,
             borderRadius: BorderRadius.circular(widget.radius),
           ),
           child: widget.child,
@@ -915,7 +797,9 @@ class _HoverRowState extends State<HoverRow> {
   }
 }
 
-/// Un petit intitule de section, en capitales espacees.
+/// Le titre d'une section, en casse normale. Le nom date d'une version en
+/// capitales espacees au-dessus d'un filet, retiree : elle criait sans
+/// rien dire de plus.
 class Eyebrow extends StatelessWidget {
   const Eyebrow(this.label, {super.key, this.trailing});
 
@@ -927,18 +811,24 @@ class Eyebrow extends StatelessWidget {
     final p = AtriumPalette.current;
     return Row(
       children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontFamily: atriumFontFamily,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.6,
-            color: p.textSecondary,
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+                color: p.text,
+                fontFeatures: tabularFigures,
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Container(height: 1, color: p.border)),
         if (trailing != null) ...[const SizedBox(width: 12), trailing!],
       ],
     );
@@ -966,7 +856,7 @@ class ChoiceTiles<T> extends StatelessWidget {
     final p = AtriumPalette.current;
     final duree = _animationsCoupees(context)
         ? Duration.zero
-        : const Duration(milliseconds: 320);
+        : const Duration(milliseconds: 160);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -981,17 +871,15 @@ class ChoiceTiles<T> extends StatelessWidget {
                 onTap: () => onChanged(valeur),
                 child: AnimatedContainer(
                   duration: duree,
-                  curve: atriumSpring,
+                  curve: Curves.easeOut,
                   width: tileWidth,
                   padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
                   decoration: BoxDecoration(
-                    color: valeur == selected
-                        ? p.accent.withValues(alpha: 0.14)
-                        : p.surface,
-                    borderRadius: BorderRadius.circular(16),
+                    color: valeur == selected ? p.accentTint : p.paper,
+                    borderRadius: BorderRadius.circular(AtriumRadii.md),
                     border: Border.all(
                       color: valeur == selected ? p.accent : p.border,
-                      width: valeur == selected ? 1.8 : 1,
+                      width: valeur == selected ? 1.5 : 1,
                     ),
                   ),
                   child: Column(
@@ -1009,7 +897,7 @@ class ChoiceTiles<T> extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: atriumFontFamily,
                           fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           height: 1.2,
                           color: p.text,
                         ),
@@ -1029,13 +917,13 @@ class ChoiceTiles<T> extends StatelessWidget {
 TextStyle get montantSaisieStyle => TextStyle(
   fontFamily: atriumFontFamily,
   fontSize: 26,
-  fontWeight: FontWeight.w800,
-  letterSpacing: -0.6,
+  fontWeight: FontWeight.w700,
+  letterSpacing: -0.4,
   color: AtriumColors.textPrimary,
   fontFeatures: tabularFigures,
 );
 
-/// Une chambre a choisir : son numero dans une tuile qui s'allume.
+/// Une chambre a choisir : son numero dans une tuile qui passe au bleu.
 class RoomChoiceTile extends StatelessWidget {
   const RoomChoiceTile({
     super.key,
@@ -1062,34 +950,24 @@ class RoomChoiceTile extends StatelessWidget {
           child: AnimatedContainer(
             duration: AtriumMotion.of(
               context,
-              const Duration(milliseconds: 320),
+              const Duration(milliseconds: 160),
             ),
-            curve: atriumSpring,
+            curve: Curves.easeOut,
             width: 76,
             height: 64,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: choisie ? p.accent : p.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: choisie ? p.accent : p.border),
-              boxShadow: choisie
-                  ? [
-                      BoxShadow(
-                        color: p.accent.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        spreadRadius: -6,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
+              color: choisie ? p.selected : p.paper,
+              borderRadius: BorderRadius.circular(AtriumRadii.md),
+              border: Border.all(color: choisie ? p.selected : p.border),
             ),
             child: Text(
               numero,
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: choisie ? p.onAccent : p.text,
+                fontWeight: FontWeight.w700,
+                color: choisie ? p.onSelected : p.text,
                 fontFeatures: tabularFigures,
               ),
             ),

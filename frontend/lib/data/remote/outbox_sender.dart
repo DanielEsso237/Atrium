@@ -691,6 +691,12 @@ class OutboxSender {
   /// duree. On lui envoie donc le **verbe**, pas l'etat -- `/start`,
   /// `/finish`. C'est ce qui permet a sa duree de nettoyage de faire foi.
   _Envoi? _menage(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (p['action'] == 'REVERT') {
+      return _Envoi('/housekeeping-tasks/${p['id']}/revert', {
+        'from_status': p['from_status'],
+        'status': p['status'],
+      });
+    }
     if (entree.op == SyncOp.INSERT) {
       return _Envoi(
         '/housekeeping-tasks',
@@ -718,6 +724,12 @@ class OutboxSender {
   /// Un ticket de maintenance : creation, puis un verbe par transition,
   /// comme pour le menage. Toutes ces routes sont rejouables cote serveur.
   _Envoi? _maintenance(OutboxEntryRow entree, Map<String, dynamic> p) {
+    if (p['action'] == 'REVERT') {
+      return _Envoi('/maintenance-tickets/${p['id']}/revert', {
+        'from_status': p['from_status'],
+        'status': p['status'],
+      });
+    }
     if (entree.op == SyncOp.INSERT) {
       return _Envoi(
         '/maintenance-tickets',
