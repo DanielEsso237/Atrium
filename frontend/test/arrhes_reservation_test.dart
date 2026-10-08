@@ -100,6 +100,17 @@ void main() {
     expect(apres.length - avant, 2);
   });
 
+  test('la liste des reservations dit les arrhes, payees ou dues', () async {
+    final payee = await reserver(arrhes: 15000, moyen: PaymentMethod.CASH);
+    final due = await reserver();
+
+    final liste = await reservations.watchReservations().first;
+    final p = liste.firstWhere((r) => r.id == payee);
+    final d = liste.firstWhere((r) => r.id == due);
+    expect((p.depositAmount, p.depositPaid), (15000, true));
+    expect((d.depositAmount, d.depositPaid), (15000, false));
+  });
+
   test('a l\'arrivee, l\'ardoise ne demande plus que le reste', () async {
     final id = await reserver(arrhes: 15000, moyen: PaymentMethod.CASH);
     final ligne = await (db.select(
