@@ -334,6 +334,8 @@ class RemoteReservation {
     required this.adults,
     required this.children,
     required this.rooms,
+    this.depositAmount = 0,
+    this.depositPaidAt,
   });
 
   final String id;
@@ -345,6 +347,11 @@ class RemoteReservation {
   final int adults;
   final int children;
   final List<RemoteStayLine> rooms;
+
+  /// Les arrhes demandees (`deposit_amount`), et quand elles ont ete
+  /// encaissees -- `null` tant qu'elles sont dues.
+  final int depositAmount;
+  final DateTime? depositPaidAt;
 
   static RemoteReservation? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['guest_id'] == null) {
@@ -359,6 +366,8 @@ class RemoteReservation {
       departureDate: '${raw['departure_date']}',
       adults: _entier(raw['adults'], 1),
       children: _entier(raw['children']),
+      depositAmount: _entier(raw['deposit_amount']),
+      depositPaidAt: _instant(raw['deposit_paid_at']),
       rooms: (raw['rooms'] as List? ?? const [])
           .map(RemoteStayLine.fromJson)
           .whereType<RemoteStayLine>()

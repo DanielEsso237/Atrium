@@ -437,6 +437,10 @@ class Descente {
                 departureDate: r.departureDate,
                 adults: Value(r.adults),
                 children: Value(r.children),
+                // Les arrhes, pour que la liste des reservations les montre
+                // aussi sur les tablettes ou le dossier n'a pas ete saisi.
+                depositAmount: Value(r.depositAmount),
+                depositPaidAt: Value(r.depositPaidAt),
                 syncState: const Value(SyncState.synced),
               ),
             );
