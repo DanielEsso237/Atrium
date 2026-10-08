@@ -181,12 +181,18 @@ class RemoteMenuItem {
     required this.taxRate,
     required this.isAvailable,
     this.prepStationId,
+    this.productId,
+    this.stockQuantity = 1,
   });
 
   final String id;
   final String code;
   final String label;
   final String menuCategoryId;
+
+  /// Le produit en stock que la vente consomme, et combien par article.
+  final String? productId;
+  final int stockQuantity;
 
   /// Entier en francs CFA, conformement au contrat. Jamais de double.
   final int price;
@@ -218,6 +224,161 @@ class RemoteMenuItem {
       taxRate: _entier(raw['tax_rate']),
       isAvailable: raw['is_available'] != false,
       prepStationId: _texte(raw['prep_station_id']),
+      productId: _texte(raw['product_id']),
+      stockQuantity: _entier(raw['stock_quantity'], 1),
+    );
+  }
+}
+
+/// Un produit stocke (`ProductOut`) : biere, savon, serviette.
+class RemoteProduct {
+  const RemoteProduct({
+    required this.id,
+    required this.reference,
+    required this.label,
+    required this.unit,
+    required this.purchasePrice,
+    required this.salePrice,
+    required this.minStock,
+    this.categoryId,
+  });
+
+  final String id;
+  final String reference;
+  final String label;
+  final String unit;
+
+  /// Francs CFA entiers.
+  final int purchasePrice;
+  final int salePrice;
+
+  /// Seuil d'alerte : en dessous, l'econome est prevenu.
+  final int minStock;
+  final String? categoryId;
+
+  static RemoteProduct? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['label'] == null) return null;
+    return RemoteProduct(
+      id: '${raw['id']}',
+      reference: '${raw['reference'] ?? ''}',
+      label: '${raw['label']}',
+      unit: '${raw['unit'] ?? 'U'}',
+      purchasePrice: _entier(raw['purchase_price']),
+      salePrice: _entier(raw['sale_price']),
+      minStock: _entier(raw['min_stock']),
+      categoryId: _texte(raw['category_id']),
+    );
+  }
+}
+
+/// Un magasin (`StockLocationOut`) : l'economat, ou le stock d'un point de
+/// vente.
+class RemoteStockLocation {
+  const RemoteStockLocation({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.sortOrder,
+    required this.isCentral,
+    this.outletId,
+  });
+
+  final String id;
+  final String code;
+  final String label;
+  final int sortOrder;
+  final bool isCentral;
+  final String? outletId;
+
+  static RemoteStockLocation? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['label'] == null) return null;
+    return RemoteStockLocation(
+      id: '${raw['id']}',
+      code: '${raw['code'] ?? ''}',
+      label: '${raw['label']}',
+      sortOrder: _entier(raw['sort_order']),
+      isCentral: raw['is_central'] == true,
+      outletId: _texte(raw['outlet_id']),
+    );
+  }
+}
+
+/// La quantite d'un produit dans un magasin (`StockLevelOut`).
+class RemoteStockLevel {
+  const RemoteStockLevel({
+    required this.productId,
+    required this.locationId,
+    required this.quantity,
+    this.lastMovementAt,
+  });
+
+  final String productId;
+  final String locationId;
+
+  /// Peut etre negative : le stock est theorique, et une vente ne se refuse
+  /// pas pour autant (decision du 8 octobre).
+  final int quantity;
+  final DateTime? lastMovementAt;
+
+  static RemoteStockLevel? fromJson(Object? raw) {
+    if (raw is! Map || raw['product_id'] == null || raw['stock_location_id'] == null) {
+      return null;
+    }
+    return RemoteStockLevel(
+      productId: '${raw['product_id']}',
+      locationId: '${raw['stock_location_id']}',
+      quantity: _entier(raw['quantity']),
+      lastMovementAt: _instant(raw['last_movement_at']),
+    );
+  }
+}
+
+/// Un mouvement de stock (`StockMovementOut`). Seuls les transferts en
+/// attente descendent : ce sont eux que le controleur ou le comptable valide.
+class RemoteStockMovement {
+  const RemoteStockMovement({
+    required this.id,
+    required this.productId,
+    required this.locationId,
+    required this.type,
+    required this.quantity,
+    required this.status,
+    this.counterpartLocationId,
+    this.reason,
+    this.movedAt,
+    this.movedBy,
+  });
+
+  final String id;
+  final String productId;
+  final String locationId;
+  final String type;
+  final int quantity;
+  final String status;
+  final String? counterpartLocationId;
+  final String? reason;
+  final DateTime? movedAt;
+  final String? movedBy;
+
+  static RemoteStockMovement? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['product_id'] == null ||
+        raw['stock_location_id'] == null ||
+        raw['type'] == null) {
+      return null;
+    }
+    return RemoteStockMovement(
+      id: '${raw['id']}',
+      productId: '${raw['product_id']}',
+      locationId: '${raw['stock_location_id']}',
+      type: '${raw['type']}',
+      quantity: _entier(raw['quantity']),
+      status: '${raw['status'] ?? 'APPROVED'}',
+      counterpartLocationId: _texte(raw['counterpart_location_id']),
+      reason: _texte(raw['reason']),
+      movedAt: _instant(raw['moved_at']),
+      movedBy: _texte(raw['moved_by']),
     );
   }
 }
@@ -529,6 +690,25 @@ class CatalogApi {
   /// Les articles de la carte.
   Future<List<RemoteMenuItem>> fetchMenuItems() =>
       _lire('/menu-items', RemoteMenuItem.fromJson);
+
+  /// Les produits stockes.
+  Future<List<RemoteProduct>> fetchProducts() =>
+      _lire('/products', RemoteProduct.fromJson);
+
+  /// Les magasins : l'economat et le stock de chaque point de vente.
+  Future<List<RemoteStockLocation>> fetchStockLocations() =>
+      _lire('/stock-locations', RemoteStockLocation.fromJson);
+
+  /// Les quantites de chaque produit dans chaque magasin.
+  Future<List<RemoteStockLevel>> fetchStockLevels() =>
+      _lire('/stock-levels', RemoteStockLevel.fromJson);
+
+  /// Les transferts qui attendent leur validation.
+  Future<List<RemoteStockMovement>> fetchPendingTransfers() => _lire(
+    '/stock-movements',
+    RemoteStockMovement.fromJson,
+    query: {'status_filter': 'PENDING'},
+  );
 
   /// Les clients de l'hotel.
   ///

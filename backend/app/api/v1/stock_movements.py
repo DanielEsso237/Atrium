@@ -59,7 +59,13 @@ async def list_stock_levels(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("stock.read")),
 ) -> list[StockLevel]:
-    stmt = select(StockLevel)
+    # `stock_levels` n'a pas de hotel_id : le magasin le porte. Sans cette
+    # jointure, la liste rendait les stocks de tous les hotels.
+    stmt = (
+        select(StockLevel)
+        .join(StockLocation, StockLocation.id == StockLevel.stock_location_id)
+        .where(StockLocation.hotel_id == user.hotel_id)
+    )
     if stock_location_id:
         stmt = stmt.where(StockLevel.stock_location_id == stock_location_id)
     if product_id:

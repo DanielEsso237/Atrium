@@ -34168,6 +34168,29 @@ class $MenuItemsTable extends MenuItems
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _stockQuantityMeta = const VerificationMeta(
+    'stockQuantity',
+  );
+  @override
+  late final GeneratedColumn<int> stockQuantity = GeneratedColumn<int>(
+    'stock_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   static const VerificationMeta _allergensMeta = const VerificationMeta(
     'allergens',
   );
@@ -34225,6 +34248,8 @@ class $MenuItemsTable extends MenuItems
     taxRate,
     isAvailable,
     preparationMinutes,
+    productId,
+    stockQuantity,
     allergens,
     photoPath,
     sortOrder,
@@ -34384,6 +34409,21 @@ class $MenuItemsTable extends MenuItems
         ),
       );
     }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('stock_quantity')) {
+      context.handle(
+        _stockQuantityMeta,
+        stockQuantity.isAcceptableOrUnknown(
+          data['stock_quantity']!,
+          _stockQuantityMeta,
+        ),
+      );
+    }
     if (data.containsKey('allergens')) {
       context.handle(
         _allergensMeta,
@@ -34493,6 +34533,14 @@ class $MenuItemsTable extends MenuItems
         DriftSqlType.int,
         data['${effectivePrefix}preparation_minutes'],
       ),
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      stockQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stock_quantity'],
+      )!,
       allergens: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}allergens'],
@@ -34549,6 +34597,11 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
   final bool isAvailable;
   final int? preparationMinutes;
 
+  /// Le produit en stock que la vente consomme, et combien par article
+  /// vendu. Nul pour ce qui ne se stocke pas (plat du jour, entree en boite).
+  final String? productId;
+  final int stockQuantity;
+
   /// Allergenes, en JSON.
   final String? allergens;
   final String? photoPath;
@@ -34574,6 +34627,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
     required this.taxRate,
     required this.isAvailable,
     this.preparationMinutes,
+    this.productId,
+    required this.stockQuantity,
     this.allergens,
     this.photoPath,
     required this.sortOrder,
@@ -34621,6 +34676,10 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
     if (!nullToAbsent || preparationMinutes != null) {
       map['preparation_minutes'] = Variable<int>(preparationMinutes);
     }
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    map['stock_quantity'] = Variable<int>(stockQuantity);
     if (!nullToAbsent || allergens != null) {
       map['allergens'] = Variable<String>(allergens);
     }
@@ -34669,6 +34728,10 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
       preparationMinutes: preparationMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(preparationMinutes),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      stockQuantity: Value(stockQuantity),
       allergens: allergens == null && nullToAbsent
           ? const Value.absent()
           : Value(allergens),
@@ -34707,6 +34770,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
       taxRate: serializer.fromJson<int>(json['taxRate']),
       isAvailable: serializer.fromJson<bool>(json['isAvailable']),
       preparationMinutes: serializer.fromJson<int?>(json['preparationMinutes']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      stockQuantity: serializer.fromJson<int>(json['stockQuantity']),
       allergens: serializer.fromJson<String?>(json['allergens']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
@@ -34738,6 +34803,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
       'taxRate': serializer.toJson<int>(taxRate),
       'isAvailable': serializer.toJson<bool>(isAvailable),
       'preparationMinutes': serializer.toJson<int?>(preparationMinutes),
+      'productId': serializer.toJson<String?>(productId),
+      'stockQuantity': serializer.toJson<int>(stockQuantity),
       'allergens': serializer.toJson<String?>(allergens),
       'photoPath': serializer.toJson<String?>(photoPath),
       'sortOrder': serializer.toJson<int>(sortOrder),
@@ -34765,6 +34832,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
     int? taxRate,
     bool? isAvailable,
     Value<int?> preparationMinutes = const Value.absent(),
+    Value<String?> productId = const Value.absent(),
+    int? stockQuantity,
     Value<String?> allergens = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
     int? sortOrder,
@@ -34795,6 +34864,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
     preparationMinutes: preparationMinutes.present
         ? preparationMinutes.value
         : this.preparationMinutes,
+    productId: productId.present ? productId.value : this.productId,
+    stockQuantity: stockQuantity ?? this.stockQuantity,
     allergens: allergens.present ? allergens.value : this.allergens,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -34833,6 +34904,10 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
       preparationMinutes: data.preparationMinutes.present
           ? data.preparationMinutes.value
           : this.preparationMinutes,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      stockQuantity: data.stockQuantity.present
+          ? data.stockQuantity.value
+          : this.stockQuantity,
       allergens: data.allergens.present ? data.allergens.value : this.allergens,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
@@ -34862,6 +34937,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
           ..write('taxRate: $taxRate, ')
           ..write('isAvailable: $isAvailable, ')
           ..write('preparationMinutes: $preparationMinutes, ')
+          ..write('productId: $productId, ')
+          ..write('stockQuantity: $stockQuantity, ')
           ..write('allergens: $allergens, ')
           ..write('photoPath: $photoPath, ')
           ..write('sortOrder: $sortOrder')
@@ -34891,6 +34968,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
     taxRate,
     isAvailable,
     preparationMinutes,
+    productId,
+    stockQuantity,
     allergens,
     photoPath,
     sortOrder,
@@ -34919,6 +34998,8 @@ class MenuItemRow extends DataClass implements Insertable<MenuItemRow> {
           other.taxRate == this.taxRate &&
           other.isAvailable == this.isAvailable &&
           other.preparationMinutes == this.preparationMinutes &&
+          other.productId == this.productId &&
+          other.stockQuantity == this.stockQuantity &&
           other.allergens == this.allergens &&
           other.photoPath == this.photoPath &&
           other.sortOrder == this.sortOrder);
@@ -34945,6 +35026,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
   final Value<int> taxRate;
   final Value<bool> isAvailable;
   final Value<int?> preparationMinutes;
+  final Value<String?> productId;
+  final Value<int> stockQuantity;
   final Value<String?> allergens;
   final Value<String?> photoPath;
   final Value<int> sortOrder;
@@ -34970,6 +35053,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
     this.taxRate = const Value.absent(),
     this.isAvailable = const Value.absent(),
     this.preparationMinutes = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.stockQuantity = const Value.absent(),
     this.allergens = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -34996,6 +35081,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
     this.taxRate = const Value.absent(),
     this.isAvailable = const Value.absent(),
     this.preparationMinutes = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.stockQuantity = const Value.absent(),
     this.allergens = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -35028,6 +35115,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
     Expression<int>? taxRate,
     Expression<bool>? isAvailable,
     Expression<int>? preparationMinutes,
+    Expression<String>? productId,
+    Expression<int>? stockQuantity,
     Expression<String>? allergens,
     Expression<String>? photoPath,
     Expression<int>? sortOrder,
@@ -35054,6 +35143,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
       if (taxRate != null) 'tax_rate': taxRate,
       if (isAvailable != null) 'is_available': isAvailable,
       if (preparationMinutes != null) 'preparation_minutes': preparationMinutes,
+      if (productId != null) 'product_id': productId,
+      if (stockQuantity != null) 'stock_quantity': stockQuantity,
       if (allergens != null) 'allergens': allergens,
       if (photoPath != null) 'photo_path': photoPath,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -35082,6 +35173,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
     Value<int>? taxRate,
     Value<bool>? isAvailable,
     Value<int?>? preparationMinutes,
+    Value<String?>? productId,
+    Value<int>? stockQuantity,
     Value<String?>? allergens,
     Value<String?>? photoPath,
     Value<int>? sortOrder,
@@ -35108,6 +35201,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
       taxRate: taxRate ?? this.taxRate,
       isAvailable: isAvailable ?? this.isAvailable,
       preparationMinutes: preparationMinutes ?? this.preparationMinutes,
+      productId: productId ?? this.productId,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
       allergens: allergens ?? this.allergens,
       photoPath: photoPath ?? this.photoPath,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -35180,6 +35275,12 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
     if (preparationMinutes.present) {
       map['preparation_minutes'] = Variable<int>(preparationMinutes.value);
     }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (stockQuantity.present) {
+      map['stock_quantity'] = Variable<int>(stockQuantity.value);
+    }
     if (allergens.present) {
       map['allergens'] = Variable<String>(allergens.value);
     }
@@ -35218,6 +35319,8 @@ class MenuItemsCompanion extends UpdateCompanion<MenuItemRow> {
           ..write('taxRate: $taxRate, ')
           ..write('isAvailable: $isAvailable, ')
           ..write('preparationMinutes: $preparationMinutes, ')
+          ..write('productId: $productId, ')
+          ..write('stockQuantity: $stockQuantity, ')
           ..write('allergens: $allergens, ')
           ..write('photoPath: $photoPath, ')
           ..write('sortOrder: $sortOrder, ')
@@ -51106,6 +51209,32 @@ class $StockLocationsTable extends StockLocations
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _outletIdMeta = const VerificationMeta(
+    'outletId',
+  );
+  @override
+  late final GeneratedColumn<String> outletId = GeneratedColumn<String>(
+    'outlet_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isCentralMeta = const VerificationMeta(
+    'isCentral',
+  );
+  @override
+  late final GeneratedColumn<bool> isCentral = GeneratedColumn<bool>(
+    'is_central',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_central" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -51123,6 +51252,8 @@ class $StockLocationsTable extends StockLocations
     label,
     managerId,
     sortOrder,
+    outletId,
+    isCentral,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -51232,6 +51363,18 @@ class $StockLocationsTable extends StockLocations
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('outlet_id')) {
+      context.handle(
+        _outletIdMeta,
+        outletId.isAcceptableOrUnknown(data['outlet_id']!, _outletIdMeta),
+      );
+    }
+    if (data.containsKey('is_central')) {
+      context.handle(
+        _isCentralMeta,
+        isCentral.isAcceptableOrUnknown(data['is_central']!, _isCentralMeta),
+      );
+    }
     return context;
   }
 
@@ -51303,6 +51446,14 @@ class $StockLocationsTable extends StockLocations
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      outletId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outlet_id'],
+      ),
+      isCentral: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_central'],
+      )!,
     );
   }
 
@@ -51332,6 +51483,13 @@ class StockLocationRow extends DataClass
   final String label;
   final String? managerId;
   final int sortOrder;
+
+  /// Le point de vente dont c'est le stock ; nul pour l'economat et les
+  /// magasins internes. Tenu par le serveur.
+  final String? outletId;
+
+  /// L'economat : le stock principal, qui ravitaille les points de vente.
+  final bool isCentral;
   const StockLocationRow({
     required this.id,
     required this.createdAt,
@@ -51348,6 +51506,8 @@ class StockLocationRow extends DataClass
     required this.label,
     this.managerId,
     required this.sortOrder,
+    this.outletId,
+    required this.isCentral,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -51383,6 +51543,10 @@ class StockLocationRow extends DataClass
       map['manager_id'] = Variable<String>(managerId);
     }
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || outletId != null) {
+      map['outlet_id'] = Variable<String>(outletId);
+    }
+    map['is_central'] = Variable<bool>(isCentral);
     return map;
   }
 
@@ -51415,6 +51579,10 @@ class StockLocationRow extends DataClass
           ? const Value.absent()
           : Value(managerId),
       sortOrder: Value(sortOrder),
+      outletId: outletId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outletId),
+      isCentral: Value(isCentral),
     );
   }
 
@@ -51441,6 +51609,8 @@ class StockLocationRow extends DataClass
       label: serializer.fromJson<String>(json['label']),
       managerId: serializer.fromJson<String?>(json['managerId']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      outletId: serializer.fromJson<String?>(json['outletId']),
+      isCentral: serializer.fromJson<bool>(json['isCentral']),
     );
   }
   @override
@@ -51464,6 +51634,8 @@ class StockLocationRow extends DataClass
       'label': serializer.toJson<String>(label),
       'managerId': serializer.toJson<String?>(managerId),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'outletId': serializer.toJson<String?>(outletId),
+      'isCentral': serializer.toJson<bool>(isCentral),
     };
   }
 
@@ -51483,6 +51655,8 @@ class StockLocationRow extends DataClass
     String? label,
     Value<String?> managerId = const Value.absent(),
     int? sortOrder,
+    Value<String?> outletId = const Value.absent(),
+    bool? isCentral,
   }) => StockLocationRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -51501,6 +51675,8 @@ class StockLocationRow extends DataClass
     label: label ?? this.label,
     managerId: managerId.present ? managerId.value : this.managerId,
     sortOrder: sortOrder ?? this.sortOrder,
+    outletId: outletId.present ? outletId.value : this.outletId,
+    isCentral: isCentral ?? this.isCentral,
   );
   StockLocationRow copyWithCompanion(StockLocationsCompanion data) {
     return StockLocationRow(
@@ -51521,6 +51697,8 @@ class StockLocationRow extends DataClass
       label: data.label.present ? data.label.value : this.label,
       managerId: data.managerId.present ? data.managerId.value : this.managerId,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      outletId: data.outletId.present ? data.outletId.value : this.outletId,
+      isCentral: data.isCentral.present ? data.isCentral.value : this.isCentral,
     );
   }
 
@@ -51541,7 +51719,9 @@ class StockLocationRow extends DataClass
           ..write('code: $code, ')
           ..write('label: $label, ')
           ..write('managerId: $managerId, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('outletId: $outletId, ')
+          ..write('isCentral: $isCentral')
           ..write(')'))
         .toString();
   }
@@ -51563,6 +51743,8 @@ class StockLocationRow extends DataClass
     label,
     managerId,
     sortOrder,
+    outletId,
+    isCentral,
   );
   @override
   bool operator ==(Object other) =>
@@ -51582,7 +51764,9 @@ class StockLocationRow extends DataClass
           other.code == this.code &&
           other.label == this.label &&
           other.managerId == this.managerId &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.outletId == this.outletId &&
+          other.isCentral == this.isCentral);
 }
 
 class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
@@ -51601,6 +51785,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
   final Value<String> label;
   final Value<String?> managerId;
   final Value<int> sortOrder;
+  final Value<String?> outletId;
+  final Value<bool> isCentral;
   final Value<int> rowid;
   const StockLocationsCompanion({
     this.id = const Value.absent(),
@@ -51618,6 +51804,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
     this.label = const Value.absent(),
     this.managerId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.isCentral = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   StockLocationsCompanion.insert({
@@ -51636,6 +51824,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
     required String label,
     this.managerId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.isCentral = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -51659,6 +51849,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
     Expression<String>? label,
     Expression<String>? managerId,
     Expression<int>? sortOrder,
+    Expression<String>? outletId,
+    Expression<bool>? isCentral,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -51677,6 +51869,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
       if (label != null) 'label': label,
       if (managerId != null) 'manager_id': managerId,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (outletId != null) 'outlet_id': outletId,
+      if (isCentral != null) 'is_central': isCentral,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -51697,6 +51891,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
     Value<String>? label,
     Value<String?>? managerId,
     Value<int>? sortOrder,
+    Value<String?>? outletId,
+    Value<bool>? isCentral,
     Value<int>? rowid,
   }) {
     return StockLocationsCompanion(
@@ -51715,6 +51911,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
       label: label ?? this.label,
       managerId: managerId ?? this.managerId,
       sortOrder: sortOrder ?? this.sortOrder,
+      outletId: outletId ?? this.outletId,
+      isCentral: isCentral ?? this.isCentral,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -51769,6 +51967,12 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (outletId.present) {
+      map['outlet_id'] = Variable<String>(outletId.value);
+    }
+    if (isCentral.present) {
+      map['is_central'] = Variable<bool>(isCentral.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -51793,6 +51997,8 @@ class StockLocationsCompanion extends UpdateCompanion<StockLocationRow> {
           ..write('label: $label, ')
           ..write('managerId: $managerId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('outletId: $outletId, ')
+          ..write('isCentral: $isCentral, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -52855,6 +53061,50 @@ class $StockMovementsTable extends StockMovements
     requiredDuringInsert: false,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<StockMovementStatus, String>
+  status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('APPROVED'),
+  ).withConverter<StockMovementStatus>($StockMovementsTable.$converterstatus);
+  static const VerificationMeta _decidedByMeta = const VerificationMeta(
+    'decidedBy',
+  );
+  @override
+  late final GeneratedColumn<String> decidedBy = GeneratedColumn<String>(
+    'decided_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decidedAtMeta = const VerificationMeta(
+    'decidedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> decidedAt = GeneratedColumn<DateTime>(
+    'decided_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decisionNoteMeta = const VerificationMeta(
+    'decisionNote',
+  );
+  @override
+  late final GeneratedColumn<String> decisionNote = GeneratedColumn<String>(
+    'decision_note',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 255),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     createdAt,
@@ -52878,6 +53128,10 @@ class $StockMovementsTable extends StockMovements
     sourceId,
     movedAt,
     movedBy,
+    status,
+    decidedBy,
+    decidedAt,
+    decisionNote,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -53034,6 +53288,27 @@ class $StockMovementsTable extends StockMovements
         movedBy.isAcceptableOrUnknown(data['moved_by']!, _movedByMeta),
       );
     }
+    if (data.containsKey('decided_by')) {
+      context.handle(
+        _decidedByMeta,
+        decidedBy.isAcceptableOrUnknown(data['decided_by']!, _decidedByMeta),
+      );
+    }
+    if (data.containsKey('decided_at')) {
+      context.handle(
+        _decidedAtMeta,
+        decidedAt.isAcceptableOrUnknown(data['decided_at']!, _decidedAtMeta),
+      );
+    }
+    if (data.containsKey('decision_note')) {
+      context.handle(
+        _decisionNoteMeta,
+        decisionNote.isAcceptableOrUnknown(
+          data['decision_note']!,
+          _decisionNoteMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -53135,6 +53410,24 @@ class $StockMovementsTable extends StockMovements
         DriftSqlType.string,
         data['${effectivePrefix}moved_by'],
       ),
+      status: $StockMovementsTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      decidedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decided_by'],
+      ),
+      decidedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}decided_at'],
+      ),
+      decisionNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decision_note'],
+      ),
     );
   }
 
@@ -53147,6 +53440,10 @@ class $StockMovementsTable extends StockMovements
       const EnumNameConverter<SyncState>(SyncState.values);
   static JsonTypeConverter2<StockMovementType, String, String> $convertertype =
       const EnumNameConverter<StockMovementType>(StockMovementType.values);
+  static JsonTypeConverter2<StockMovementStatus, String, String>
+  $converterstatus = const EnumNameConverter<StockMovementStatus>(
+    StockMovementStatus.values,
+  );
 }
 
 class StockMovementRow extends DataClass
@@ -53180,6 +53477,13 @@ class StockMovementRow extends DataClass
   final String? sourceId;
   final DateTime? movedAt;
   final String? movedBy;
+
+  /// Un transfert attend sa validation : le stock ne bouge qu'a ce
+  /// moment-la. Les autres mouvements naissent APPROVED.
+  final StockMovementStatus status;
+  final String? decidedBy;
+  final DateTime? decidedAt;
+  final String? decisionNote;
   const StockMovementRow({
     required this.id,
     required this.createdAt,
@@ -53203,6 +53507,10 @@ class StockMovementRow extends DataClass
     this.sourceId,
     this.movedAt,
     this.movedBy,
+    required this.status,
+    this.decidedBy,
+    this.decidedAt,
+    this.decisionNote,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -53261,6 +53569,20 @@ class StockMovementRow extends DataClass
     if (!nullToAbsent || movedBy != null) {
       map['moved_by'] = Variable<String>(movedBy);
     }
+    {
+      map['status'] = Variable<String>(
+        $StockMovementsTable.$converterstatus.toSql(status),
+      );
+    }
+    if (!nullToAbsent || decidedBy != null) {
+      map['decided_by'] = Variable<String>(decidedBy);
+    }
+    if (!nullToAbsent || decidedAt != null) {
+      map['decided_at'] = Variable<DateTime>(decidedAt);
+    }
+    if (!nullToAbsent || decisionNote != null) {
+      map['decision_note'] = Variable<String>(decisionNote);
+    }
     return map;
   }
 
@@ -53312,6 +53634,16 @@ class StockMovementRow extends DataClass
       movedBy: movedBy == null && nullToAbsent
           ? const Value.absent()
           : Value(movedBy),
+      status: Value(status),
+      decidedBy: decidedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedBy),
+      decidedAt: decidedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedAt),
+      decisionNote: decisionNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decisionNote),
     );
   }
 
@@ -53349,6 +53681,12 @@ class StockMovementRow extends DataClass
       sourceId: serializer.fromJson<String?>(json['sourceId']),
       movedAt: serializer.fromJson<DateTime?>(json['movedAt']),
       movedBy: serializer.fromJson<String?>(json['movedBy']),
+      status: $StockMovementsTable.$converterstatus.fromJson(
+        serializer.fromJson<String>(json['status']),
+      ),
+      decidedBy: serializer.fromJson<String?>(json['decidedBy']),
+      decidedAt: serializer.fromJson<DateTime?>(json['decidedAt']),
+      decisionNote: serializer.fromJson<String?>(json['decisionNote']),
     );
   }
   @override
@@ -53383,6 +53721,12 @@ class StockMovementRow extends DataClass
       'sourceId': serializer.toJson<String?>(sourceId),
       'movedAt': serializer.toJson<DateTime?>(movedAt),
       'movedBy': serializer.toJson<String?>(movedBy),
+      'status': serializer.toJson<String>(
+        $StockMovementsTable.$converterstatus.toJson(status),
+      ),
+      'decidedBy': serializer.toJson<String?>(decidedBy),
+      'decidedAt': serializer.toJson<DateTime?>(decidedAt),
+      'decisionNote': serializer.toJson<String?>(decisionNote),
     };
   }
 
@@ -53409,6 +53753,10 @@ class StockMovementRow extends DataClass
     Value<String?> sourceId = const Value.absent(),
     Value<DateTime?> movedAt = const Value.absent(),
     Value<String?> movedBy = const Value.absent(),
+    StockMovementStatus? status,
+    Value<String?> decidedBy = const Value.absent(),
+    Value<DateTime?> decidedAt = const Value.absent(),
+    Value<String?> decisionNote = const Value.absent(),
   }) => StockMovementRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -53436,6 +53784,10 @@ class StockMovementRow extends DataClass
     sourceId: sourceId.present ? sourceId.value : this.sourceId,
     movedAt: movedAt.present ? movedAt.value : this.movedAt,
     movedBy: movedBy.present ? movedBy.value : this.movedBy,
+    status: status ?? this.status,
+    decidedBy: decidedBy.present ? decidedBy.value : this.decidedBy,
+    decidedAt: decidedAt.present ? decidedAt.value : this.decidedAt,
+    decisionNote: decisionNote.present ? decisionNote.value : this.decisionNote,
   );
   StockMovementRow copyWithCompanion(StockMovementsCompanion data) {
     return StockMovementRow(
@@ -53471,6 +53823,12 @@ class StockMovementRow extends DataClass
       sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
       movedAt: data.movedAt.present ? data.movedAt.value : this.movedAt,
       movedBy: data.movedBy.present ? data.movedBy.value : this.movedBy,
+      status: data.status.present ? data.status.value : this.status,
+      decidedBy: data.decidedBy.present ? data.decidedBy.value : this.decidedBy,
+      decidedAt: data.decidedAt.present ? data.decidedAt.value : this.decidedAt,
+      decisionNote: data.decisionNote.present
+          ? data.decisionNote.value
+          : this.decisionNote,
     );
   }
 
@@ -53498,7 +53856,11 @@ class StockMovementRow extends DataClass
           ..write('sourceTable: $sourceTable, ')
           ..write('sourceId: $sourceId, ')
           ..write('movedAt: $movedAt, ')
-          ..write('movedBy: $movedBy')
+          ..write('movedBy: $movedBy, ')
+          ..write('status: $status, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt, ')
+          ..write('decisionNote: $decisionNote')
           ..write(')'))
         .toString();
   }
@@ -53527,6 +53889,10 @@ class StockMovementRow extends DataClass
     sourceId,
     movedAt,
     movedBy,
+    status,
+    decidedBy,
+    decidedAt,
+    decisionNote,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -53553,7 +53919,11 @@ class StockMovementRow extends DataClass
           other.sourceTable == this.sourceTable &&
           other.sourceId == this.sourceId &&
           other.movedAt == this.movedAt &&
-          other.movedBy == this.movedBy);
+          other.movedBy == this.movedBy &&
+          other.status == this.status &&
+          other.decidedBy == this.decidedBy &&
+          other.decidedAt == this.decidedAt &&
+          other.decisionNote == this.decisionNote);
 }
 
 class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
@@ -53579,6 +53949,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
   final Value<String?> sourceId;
   final Value<DateTime?> movedAt;
   final Value<String?> movedBy;
+  final Value<StockMovementStatus> status;
+  final Value<String?> decidedBy;
+  final Value<DateTime?> decidedAt;
+  final Value<String?> decisionNote;
   final Value<int> rowid;
   const StockMovementsCompanion({
     this.id = const Value.absent(),
@@ -53603,6 +53977,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
     this.sourceId = const Value.absent(),
     this.movedAt = const Value.absent(),
     this.movedBy = const Value.absent(),
+    this.status = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
+    this.decisionNote = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   StockMovementsCompanion.insert({
@@ -53628,6 +54006,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
     this.sourceId = const Value.absent(),
     this.movedAt = const Value.absent(),
     this.movedBy = const Value.absent(),
+    this.status = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
+    this.decisionNote = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -53660,6 +54042,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
     Expression<String>? sourceId,
     Expression<DateTime>? movedAt,
     Expression<String>? movedBy,
+    Expression<String>? status,
+    Expression<String>? decidedBy,
+    Expression<DateTime>? decidedAt,
+    Expression<String>? decisionNote,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -53686,6 +54072,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
       if (sourceId != null) 'source_id': sourceId,
       if (movedAt != null) 'moved_at': movedAt,
       if (movedBy != null) 'moved_by': movedBy,
+      if (status != null) 'status': status,
+      if (decidedBy != null) 'decided_by': decidedBy,
+      if (decidedAt != null) 'decided_at': decidedAt,
+      if (decisionNote != null) 'decision_note': decisionNote,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -53713,6 +54103,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
     Value<String?>? sourceId,
     Value<DateTime?>? movedAt,
     Value<String?>? movedBy,
+    Value<StockMovementStatus>? status,
+    Value<String?>? decidedBy,
+    Value<DateTime?>? decidedAt,
+    Value<String?>? decisionNote,
     Value<int>? rowid,
   }) {
     return StockMovementsCompanion(
@@ -53739,6 +54133,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
       sourceId: sourceId ?? this.sourceId,
       movedAt: movedAt ?? this.movedAt,
       movedBy: movedBy ?? this.movedBy,
+      status: status ?? this.status,
+      decidedBy: decidedBy ?? this.decidedBy,
+      decidedAt: decidedAt ?? this.decidedAt,
+      decisionNote: decisionNote ?? this.decisionNote,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -53818,6 +54216,20 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
     if (movedBy.present) {
       map['moved_by'] = Variable<String>(movedBy.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(
+        $StockMovementsTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (decidedBy.present) {
+      map['decided_by'] = Variable<String>(decidedBy.value);
+    }
+    if (decidedAt.present) {
+      map['decided_at'] = Variable<DateTime>(decidedAt.value);
+    }
+    if (decisionNote.present) {
+      map['decision_note'] = Variable<String>(decisionNote.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -53849,6 +54261,10 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovementRow> {
           ..write('sourceId: $sourceId, ')
           ..write('movedAt: $movedAt, ')
           ..write('movedBy: $movedBy, ')
+          ..write('status: $status, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt, ')
+          ..write('decisionNote: $decisionNote, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -84659,6 +85075,8 @@ typedef $$MenuItemsTableCreateCompanionBuilder =
       Value<int> taxRate,
       Value<bool> isAvailable,
       Value<int?> preparationMinutes,
+      Value<String?> productId,
+      Value<int> stockQuantity,
       Value<String?> allergens,
       Value<String?> photoPath,
       Value<int> sortOrder,
@@ -84686,6 +85104,8 @@ typedef $$MenuItemsTableUpdateCompanionBuilder =
       Value<int> taxRate,
       Value<bool> isAvailable,
       Value<int?> preparationMinutes,
+      Value<String?> productId,
+      Value<int> stockQuantity,
       Value<String?> allergens,
       Value<String?> photoPath,
       Value<int> sortOrder,
@@ -84825,6 +85245,16 @@ class $$MenuItemsTableFilterComposer
 
   ColumnFilters<int> get preparationMinutes => $composableBuilder(
     column: $table.preparationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get stockQuantity => $composableBuilder(
+    column: $table.stockQuantity,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -84978,6 +85408,16 @@ class $$MenuItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get stockQuantity => $composableBuilder(
+    column: $table.stockQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get allergens => $composableBuilder(
     column: $table.allergens,
     builder: (column) => ColumnOrderings(column),
@@ -85075,6 +85515,14 @@ class $$MenuItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<int> get stockQuantity => $composableBuilder(
+    column: $table.stockQuantity,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get allergens =>
       $composableBuilder(column: $table.allergens, builder: (column) => column);
 
@@ -85158,6 +85606,8 @@ class $$MenuItemsTableTableManager
                 Value<int> taxRate = const Value.absent(),
                 Value<bool> isAvailable = const Value.absent(),
                 Value<int?> preparationMinutes = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<int> stockQuantity = const Value.absent(),
                 Value<String?> allergens = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -85183,6 +85633,8 @@ class $$MenuItemsTableTableManager
                 taxRate: taxRate,
                 isAvailable: isAvailable,
                 preparationMinutes: preparationMinutes,
+                productId: productId,
+                stockQuantity: stockQuantity,
                 allergens: allergens,
                 photoPath: photoPath,
                 sortOrder: sortOrder,
@@ -85210,6 +85662,8 @@ class $$MenuItemsTableTableManager
                 Value<int> taxRate = const Value.absent(),
                 Value<bool> isAvailable = const Value.absent(),
                 Value<int?> preparationMinutes = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<int> stockQuantity = const Value.absent(),
                 Value<String?> allergens = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -85235,6 +85689,8 @@ class $$MenuItemsTableTableManager
                 taxRate: taxRate,
                 isAvailable: isAvailable,
                 preparationMinutes: preparationMinutes,
+                productId: productId,
+                stockQuantity: stockQuantity,
                 allergens: allergens,
                 photoPath: photoPath,
                 sortOrder: sortOrder,
@@ -93552,6 +94008,8 @@ typedef $$StockLocationsTableCreateCompanionBuilder =
       required String label,
       Value<String?> managerId,
       Value<int> sortOrder,
+      Value<String?> outletId,
+      Value<bool> isCentral,
       Value<int> rowid,
     });
 typedef $$StockLocationsTableUpdateCompanionBuilder =
@@ -93571,6 +94029,8 @@ typedef $$StockLocationsTableUpdateCompanionBuilder =
       Value<String> label,
       Value<String?> managerId,
       Value<int> sortOrder,
+      Value<String?> outletId,
+      Value<bool> isCentral,
       Value<int> rowid,
     });
 
@@ -93658,6 +94118,16 @@ class $$StockLocationsTableFilterComposer
     column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCentral => $composableBuilder(
+    column: $table.isCentral,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$StockLocationsTableOrderingComposer
@@ -93743,6 +94213,16 @@ class $$StockLocationsTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCentral => $composableBuilder(
+    column: $table.isCentral,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$StockLocationsTableAnnotationComposer
@@ -93800,6 +94280,12 @@ class $$StockLocationsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get outletId =>
+      $composableBuilder(column: $table.outletId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCentral =>
+      $composableBuilder(column: $table.isCentral, builder: (column) => column);
 }
 
 class $$StockLocationsTableTableManager
@@ -93854,6 +94340,8 @@ class $$StockLocationsTableTableManager
                 Value<String> label = const Value.absent(),
                 Value<String?> managerId = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String?> outletId = const Value.absent(),
+                Value<bool> isCentral = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StockLocationsCompanion(
                 id: id,
@@ -93871,6 +94359,8 @@ class $$StockLocationsTableTableManager
                 label: label,
                 managerId: managerId,
                 sortOrder: sortOrder,
+                outletId: outletId,
+                isCentral: isCentral,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -93890,6 +94380,8 @@ class $$StockLocationsTableTableManager
                 required String label,
                 Value<String?> managerId = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String?> outletId = const Value.absent(),
+                Value<bool> isCentral = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StockLocationsCompanion.insert(
                 id: id,
@@ -93907,6 +94399,8 @@ class $$StockLocationsTableTableManager
                 label: label,
                 managerId: managerId,
                 sortOrder: sortOrder,
+                outletId: outletId,
+                isCentral: isCentral,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -94321,6 +94815,10 @@ typedef $$StockMovementsTableCreateCompanionBuilder =
       Value<String?> sourceId,
       Value<DateTime?> movedAt,
       Value<String?> movedBy,
+      Value<StockMovementStatus> status,
+      Value<String?> decidedBy,
+      Value<DateTime?> decidedAt,
+      Value<String?> decisionNote,
       Value<int> rowid,
     });
 typedef $$StockMovementsTableUpdateCompanionBuilder =
@@ -94347,6 +94845,10 @@ typedef $$StockMovementsTableUpdateCompanionBuilder =
       Value<String?> sourceId,
       Value<DateTime?> movedAt,
       Value<String?> movedBy,
+      Value<StockMovementStatus> status,
+      Value<String?> decidedBy,
+      Value<DateTime?> decidedAt,
+      Value<String?> decisionNote,
       Value<int> rowid,
     });
 
@@ -94470,6 +94972,31 @@ class $$StockMovementsTableFilterComposer
     column: $table.movedBy,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<
+    StockMovementStatus,
+    StockMovementStatus,
+    String
+  >
+  get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decisionNote => $composableBuilder(
+    column: $table.decisionNote,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$StockMovementsTableOrderingComposer
@@ -94590,6 +95117,26 @@ class $$StockMovementsTableOrderingComposer
     column: $table.movedBy,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decisionNote => $composableBuilder(
+    column: $table.decisionNote,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$StockMovementsTableAnnotationComposer
@@ -94676,6 +95223,20 @@ class $$StockMovementsTableAnnotationComposer
 
   GeneratedColumn<String> get movedBy =>
       $composableBuilder(column: $table.movedBy, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<StockMovementStatus, String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get decidedBy =>
+      $composableBuilder(column: $table.decidedBy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get decidedAt =>
+      $composableBuilder(column: $table.decidedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get decisionNote => $composableBuilder(
+    column: $table.decisionNote,
+    builder: (column) => column,
+  );
 }
 
 class $$StockMovementsTableTableManager
@@ -94737,6 +95298,10 @@ class $$StockMovementsTableTableManager
                 Value<String?> sourceId = const Value.absent(),
                 Value<DateTime?> movedAt = const Value.absent(),
                 Value<String?> movedBy = const Value.absent(),
+                Value<StockMovementStatus> status = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<DateTime?> decidedAt = const Value.absent(),
+                Value<String?> decisionNote = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StockMovementsCompanion(
                 id: id,
@@ -94761,6 +95326,10 @@ class $$StockMovementsTableTableManager
                 sourceId: sourceId,
                 movedAt: movedAt,
                 movedBy: movedBy,
+                status: status,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
+                decisionNote: decisionNote,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -94787,6 +95356,10 @@ class $$StockMovementsTableTableManager
                 Value<String?> sourceId = const Value.absent(),
                 Value<DateTime?> movedAt = const Value.absent(),
                 Value<String?> movedBy = const Value.absent(),
+                Value<StockMovementStatus> status = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<DateTime?> decidedAt = const Value.absent(),
+                Value<String?> decisionNote = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StockMovementsCompanion.insert(
                 id: id,
@@ -94811,6 +95384,10 @@ class $$StockMovementsTableTableManager
                 sourceId: sourceId,
                 movedAt: movedAt,
                 movedBy: movedBy,
+                status: status,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
+                decisionNote: decisionNote,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

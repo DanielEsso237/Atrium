@@ -60,6 +60,13 @@ class StockLocations extends Table
   TextColumn get label => text().withLength(max: 80)();
   TextColumn get managerId => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// Le point de vente dont c'est le stock ; nul pour l'economat et les
+  /// magasins internes. Tenu par le serveur.
+  TextColumn get outletId => text().nullable()();
+
+  /// L'economat : le stock principal, qui ravitaille les points de vente.
+  BoolColumn get isCentral => boolean().withDefault(const Constant(false))();
 }
 
 /// Quantite courante d'un produit dans un magasin.
@@ -105,6 +112,15 @@ class StockMovements extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get sourceId => text().nullable()();
   DateTimeColumn get movedAt => dateTime().nullable()();
   TextColumn get movedBy => text().nullable()();
+
+  /// Un transfert attend sa validation : le stock ne bouge qu'a ce
+  /// moment-la. Les autres mouvements naissent APPROVED.
+  TextColumn get status => textEnum<StockMovementStatus>().withDefault(
+    const Constant('APPROVED'),
+  )();
+  TextColumn get decidedBy => text().nullable()();
+  DateTimeColumn get decidedAt => dateTime().nullable()();
+  TextColumn get decisionNote => text().withLength(max: 255).nullable()();
 }
 
 @DataClassName('InventoryRow')

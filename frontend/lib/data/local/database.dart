@@ -117,7 +117,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne — le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -151,6 +151,18 @@ class AtriumDatabase extends _$AtriumDatabase {
       // l'administration.
       if (depuis < 3) {
         await m.createTable(userOutlets);
+      }
+      // 3 -> 4 : l'economat et le stock de chaque point de vente, les
+      // transferts a valider, et l'article de la carte relie a son produit.
+      if (depuis < 4) {
+        await m.addColumn(stockLocations, stockLocations.outletId);
+        await m.addColumn(stockLocations, stockLocations.isCentral);
+        await m.addColumn(stockMovements, stockMovements.status);
+        await m.addColumn(stockMovements, stockMovements.decidedBy);
+        await m.addColumn(stockMovements, stockMovements.decidedAt);
+        await m.addColumn(stockMovements, stockMovements.decisionNote);
+        await m.addColumn(menuItems, menuItems.productId);
+        await m.addColumn(menuItems, menuItems.stockQuantity);
       }
     },
     beforeOpen: (details) async {

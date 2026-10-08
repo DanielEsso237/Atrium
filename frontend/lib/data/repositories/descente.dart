@@ -123,6 +123,13 @@ class Descente {
       final pointsDeVente = await _siPermis(_catalog.fetchOutlets);
       final categoriesCarte = await _siPermis(_catalog.fetchMenuCategories);
       final articlesCarte = await _siPermis(_catalog.fetchMenuItems);
+      // Les stocks : reserves a qui porte stock.read.
+      final produits = await _siPermis(_catalog.fetchProducts);
+      final magasins = await _siPermis(_catalog.fetchStockLocations);
+      final niveaux = await _siPermis(_catalog.fetchStockLevels);
+      // `null` et non vide quand l'agent n'a pas le droit : une liste vide
+      // ferait retirer de la tablette tous les transferts a valider.
+      final transferts = await _siPermisOuRien(_catalog.fetchPendingTransfers);
       final clients = await _siPermis(_catalog.fetchGuests);
       final dossiers = await _siPermis(() => _catalog.fetchReservations());
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
@@ -156,6 +163,7 @@ class Descente {
         maintenant,
       );
       final nArticles = await _ecrireArticlesCarte(articlesCarte, maintenant);
+      await _ecrireStocks(produits, magasins, niveaux, transferts, maintenant);
       final nClients = await _ecrireClients(clients, maintenant, (n) {
         ecartees += n;
       });
@@ -200,6 +208,17 @@ class Descente {
       return await lire();
     } on ApiException catch (e) {
       if (e.failure == ApiFailure.forbidden) return <T>[];
+      rethrow;
+    }
+  }
+
+  /// Comme [_siPermis], mais `null` sur un refus : pour les ressources dont
+  /// l'absence sur le serveur fait retirer quelque chose de la tablette.
+  Future<List<T>?> _siPermisOuRien<T>(Future<List<T>> Function() lire) async {
+    try {
+      return await lire();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.forbidden) return null;
       rethrow;
     }
   }
@@ -338,6 +357,8 @@ class Descente {
                 price: Value(a.price),
                 taxRate: Value(a.taxRate),
                 isAvailable: Value(a.isAvailable),
+                productId: Value(a.productId),
+                stockQuantity: Value(a.stockQuantity),
                 syncState: const Value(SyncState.synced),
               ),
             );
@@ -345,6 +366,203 @@ class Descente {
     });
 
     return articles.length;
+  }
+
+  // --- Les stocks ------------------------------------------------------------
+
+  /// Ecrit produits, magasins, quantites et transferts a valider.
+  ///
+  /// **Une quantite ne doit pas effacer ce que la tablette a fait sans
+  /// l'avoir encore envoye.** Le serveur ne connait ni la biere vendue hors
+  /// ligne il y a dix minutes, ni l'entree saisie a l'economat pendant la
+  /// coupure. La quantite ecrite est donc celle du serveur, plus l'effet des
+  /// mouvements locaux pas encore remontes ([_enAttenteDeRemontee]).
+  Future<void> _ecrireStocks(
+    List<RemoteProduct> produits,
+    List<RemoteStockLocation> magasins,
+    List<RemoteStockLevel> niveaux,
+    List<RemoteStockMovement>? transferts,
+    DateTime maintenant,
+  ) async {
+    final protegesMouvements = await _sync.lignesEnAttente(db.stockMovements);
+    final enAttente = await _enAttenteDeRemontee();
+
+    await db.transaction(() async {
+      for (final p in produits) {
+        await db
+            .into(db.products)
+            .insertOnConflictUpdate(
+              ProductsCompanion.insert(
+                id: p.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                reference: p.reference,
+                label: p.label,
+                categoryId: Value(p.categoryId),
+                unit: Value(p.unit),
+                purchasePrice: Value(p.purchasePrice),
+                salePrice: Value(p.salePrice),
+                minStock: Value(p.minStock),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+
+      for (final m in magasins) {
+        await db
+            .into(db.stockLocations)
+            .insertOnConflictUpdate(
+              StockLocationsCompanion.insert(
+                id: m.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                code: m.code,
+                label: m.label,
+                sortOrder: Value(m.sortOrder),
+                outletId: Value(m.outletId),
+                isCentral: Value(m.isCentral),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+
+      for (final n in niveaux) {
+        final cle = '${n.productId}|${n.locationId}';
+        final quantite = n.quantity + (enAttente[cle] ?? 0);
+        final existant =
+            await (db.select(db.stockLevels)..where(
+                  (l) =>
+                      l.productId.equals(n.productId) &
+                      l.stockLocationId.equals(n.locationId),
+                ))
+                .getSingleOrNull();
+        if (existant == null) {
+          await db
+              .into(db.stockLevels)
+              .insert(
+                StockLevelsCompanion.insert(
+                  id: newId(),
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  productId: n.productId,
+                  stockLocationId: n.locationId,
+                  quantity: Value(quantite),
+                  lastMovementAt: Value(n.lastMovementAt),
+                  syncState: const Value(SyncState.synced),
+                ),
+              );
+        } else {
+          await (db.update(
+            db.stockLevels,
+          )..where((l) => l.id.equals(existant.id))).write(
+            StockLevelsCompanion(
+              quantity: Value(quantite),
+              lastMovementAt: Value(n.lastMovementAt),
+              updatedAt: Value(maintenant),
+            ),
+          );
+        }
+      }
+
+      if (transferts == null) return;
+      final surLeServeur = <String>{};
+      for (final t in transferts) {
+        surLeServeur.add(t.id);
+        // Une decision prise ici et pas encore remontee fait foi.
+        if (protegesMouvements.contains(t.id)) continue;
+        await db
+            .into(db.stockMovements)
+            .insertOnConflictUpdate(
+              StockMovementsCompanion.insert(
+                id: t.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                productId: t.productId,
+                stockLocationId: t.locationId,
+                type: StockMovementType.values.firstWhere(
+                  (v) => v.name == t.type,
+                  orElse: () => StockMovementType.TRANSFER,
+                ),
+                quantity: t.quantity,
+                counterpartLocationId: Value(t.counterpartLocationId),
+                reason: Value(t.reason),
+                movedAt: Value(t.movedAt),
+                movedBy: Value(t.movedBy),
+                status: const Value(StockMovementStatus.PENDING),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+      // Un transfert qui n'attend plus sur le serveur a ete valide ou refuse
+      // sur un autre poste : il quitte la liste « a valider » d'ici. Seuls
+      // ceux venus du serveur ; une demande faite ici et pas encore remontee
+      // reste.
+      final perimes =
+          await (db.select(db.stockMovements)..where(
+                (m) =>
+                    m.status.equalsValue(StockMovementStatus.PENDING) &
+                    m.syncState.equalsValue(SyncState.synced),
+              ))
+              .get();
+      for (final m in perimes) {
+        if (surLeServeur.contains(m.id)) continue;
+        await (db.delete(
+          db.stockMovements,
+        )..where((x) => x.id.equals(m.id))).go();
+      }
+    });
+  }
+
+  /// L'effet sur chaque stock (« produit|magasin ») des mouvements que le
+  /// serveur ne connait pas encore.
+  ///
+  /// Deux sortes : ceux que la tablette a saisis et qui attendent dans la
+  /// file (`pending`), et les sorties de vente, qui ne remontent pas elles-
+  /// memes mais avec leur ligne d'ardoise -- tant que celle-ci attend, le
+  /// serveur n'a rien fait sortir. Un transfert ne compte qu'une fois valide.
+  Future<Map<String, int>> _enAttenteDeRemontee() async {
+    final lignes = await db
+        .customSelect(
+          """
+      SELECT m.product_id, m.stock_location_id, m.counterpart_location_id,
+             m.type, m.quantity
+        FROM stock_movements m
+       WHERE m.deleted_at IS NULL
+         AND m.status = 'APPROVED'
+         AND (m.sync_state = 'pending'
+              OR (m.source_table = 'folio_items'
+                  AND m.source_id IN (SELECT id FROM folio_items
+                                       WHERE sync_state = 'pending')))
+      """,
+          readsFrom: {db.stockMovements, db.folioItems},
+        )
+        .get();
+
+    final effet = <String, int>{};
+    void ajouter(String produit, String? magasin, int delta) {
+      if (magasin == null) return;
+      final cle = '$produit|$magasin';
+      effet[cle] = (effet[cle] ?? 0) + delta;
+    }
+
+    for (final l in lignes) {
+      final produit = l.read<String>('product_id');
+      final magasin = l.read<String>('stock_location_id');
+      final q = l.read<int>('quantity');
+      switch (l.read<String>('type')) {
+        case 'IN' || 'RETURN' || 'ADJUSTMENT':
+          ajouter(produit, magasin, q);
+        case 'OUT' || 'LOSS':
+          ajouter(produit, magasin, -q);
+        case 'TRANSFER':
+          ajouter(produit, magasin, -q);
+          ajouter(produit, l.read<String?>('counterpart_location_id'), q);
+      }
+    }
+    return effet;
   }
 
   // --- Les clients -----------------------------------------------------------
