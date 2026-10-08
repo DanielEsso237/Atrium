@@ -21,6 +21,7 @@ import '../features/reservations/reservations_screen.dart';
 import '../features/billing/cash_screen.dart';
 import '../features/maintenance/maintenance_screen.dart';
 import '../features/stats/stats_screen.dart';
+import '../features/stock/stock_screen.dart';
 import '../features/today/today_screen.dart';
 import 'shell/app_shell.dart';
 import '../features/rooms/room_board_screen.dart';
@@ -45,6 +46,7 @@ const _permissionParZone = <String, String>{
   '/maintenance': 'maintenance.read',
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
+  '/stocks': 'stock.read',
   // Le meme droit que le serveur exige pour creer un agent : tout ce que cet
   // ecran ecrit, il le refuserait sinon, et la file se bloquerait.
   '/administration': 'users.write',
@@ -140,6 +142,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const HousekeepingScreen(),
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
+          GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),
           GoRoute(
             path: '/administration',
             builder: (_, _) => const AdministrationScreen(),

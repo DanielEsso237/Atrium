@@ -29,6 +29,7 @@ import 'outlet_repository.dart';
 import 'reservation_repository.dart';
 import 'role_repository.dart';
 import 'settings_repository.dart';
+import 'stock_repository.dart';
 import 'sync_repository.dart';
 
 final outletRepositoryProvider = Provider<OutletRepository>(
@@ -114,6 +115,33 @@ final menuForOutletProvider = StreamProvider.family<List<MenuEntry>, String>(
 /// Les chambres a qui l'on peut porter une consommation.
 final chargeableRoomsProvider = StreamProvider<List<ChargeableRoom>>(
   (ref) => ref.watch(orderRepositoryProvider).watchChargeableRooms(),
+);
+
+final stockRepositoryProvider = Provider<StockRepository>(
+  (ref) => StockRepository(ref.watch(databaseProvider)),
+);
+
+/// Les magasins : l'economat d'abord.
+final stockPlacesProvider = StreamProvider<List<StockPlace>>(
+  (ref) => ref.watch(stockRepositoryProvider).watchPlaces(),
+);
+
+/// Les produits d'un magasin et leur quantite. A l'economat, tous les
+/// produits, meme a zero : on y voit ce qu'il faut commander.
+final stockLinesProvider =
+    StreamProvider.family<List<StockLine>, ({String placeId, bool all})>(
+      (ref, cle) => ref
+          .watch(stockRepositoryProvider)
+          .watchLines(cle.placeId, allProducts: cle.all),
+    );
+
+final stockProductsProvider = StreamProvider<List<StockProduct>>(
+  (ref) => ref.watch(stockRepositoryProvider).watchProducts(),
+);
+
+/// Les transferts qui attendent une validation.
+final pendingTransfersProvider = StreamProvider<List<PendingTransfer>>(
+  (ref) => ref.watch(stockRepositoryProvider).watchPendingTransfers(),
 );
 
 final reservationRepositoryProvider = Provider<ReservationRepository>(
