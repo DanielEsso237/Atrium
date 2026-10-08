@@ -58,8 +58,36 @@ class _MagasinEnPanne extends FlutterSecureStorage {
   }
 }
 
+/// Un magasin qui garde ce qu'il avait et refuse d'ecrire : le Keystore
+/// d'une tablette sous Android 8.1.
+class _MagasinFige extends _MagasinEnPanne {
+  const _MagasinFige();
+
+  @override
+  Future<String?> read({
+    required String key,
+    // ignore: non_constant_identifier_names
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async => key == 'atrium.access_token' ? 'jeton-perime' : null;
+}
+
 void main() {
   const store = TokenStore(_MagasinEnPanne());
+
+  test('le dernier jeton ecrit l\'emporte sur un ancien reste au magasin', () async {
+    const fige = TokenStore(_MagasinFige());
+    await fige.clear();
+    await fige.save(accessToken: 'jeton-frais');
+
+    // Avant : le magasin etait lu d'abord et rendait l'ancien jeton, d'ou un
+    // 401 a chaque ecriture de la file.
+    expect(await fige.readAccess(), 'jeton-frais');
+  });
 
   setUp(() => store.clear());
 
