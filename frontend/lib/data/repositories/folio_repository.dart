@@ -11,6 +11,7 @@ import 'package:drift/drift.dart';
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/ids.dart';
+import '../../core/prolongation.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'cash_repository.dart';
@@ -208,6 +209,62 @@ class FolioRepository with OutboxWriter {
         },
       );
     });
+  }
+
+  /// Porte une prolongation a l'ardoise : la ligne « Prolongation 3 h ».
+  ///
+  /// Une ligne par demande, `quantite` heures au prix de l'heure. Elle passe
+  /// par `addCharge` comme toute charge : meme seuil, meme recalcul du solde,
+  /// meme envoi. Leve la [StateError] du seuil si l'ardoise le depasse.
+  Future<void> addExtension({
+    required String folioId,
+    required int hours,
+    required int hourlyPrice,
+    String? stayLineId,
+    String? postedBy,
+  }) {
+    if (hours < 1) {
+      throw StateError('Une prolongation dure au moins une heure.');
+    }
+    if (hourlyPrice <= 0) {
+      throw StateError("Fixez d'abord le prix de l'heure supplementaire.");
+    }
+    return addCharge(
+      folioId: folioId,
+      category: ChargeCategory.ROOM,
+      label: libelleDeProlongation(hours),
+      unitPrice: hourlyPrice,
+      quantity: hours,
+      postedBy: postedBy,
+      sourceTable: 'stay_extensions',
+      sourceId: stayLineId,
+    );
+  }
+
+  /// Les heures de prolongation deja portees a une ardoise.
+  ///
+  /// Retrouvees par le libelle : la provenance (`source_table`) ne survit pas
+  /// a la synchronisation, le libelle si.
+  Future<int> extensionHours(String folioId) async {
+    final ligne = await db
+        .customSelect(
+          '''
+      SELECT COALESCE(SUM(quantity), 0) AS heures
+        FROM folio_items
+       WHERE folio_id = ?1
+         AND deleted_at IS NULL
+         AND is_void = 0
+         AND category = 'ROOM'
+         AND label LIKE ?2
+      ''',
+          variables: [
+            Variable.withString(folioId),
+            Variable.withString('$libelleProlongation%'),
+          ],
+          readsFrom: {db.folioItems},
+        )
+        .getSingle();
+    return ligne.read<int>('heures');
   }
 
   /// Le seuil de consommation du client (`guests.credit_limit`).

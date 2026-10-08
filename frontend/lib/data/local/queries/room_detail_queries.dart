@@ -8,6 +8,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../../core/prolongation.dart';
 import '../database.dart';
 import '../enums.dart';
 
@@ -23,6 +24,7 @@ class CurrentStay {
     required this.enfants,
     required this.nightlyRate,
     required this.balance,
+    this.prolongationHeures = 0,
   });
 
   final String lineId;
@@ -36,6 +38,10 @@ class CurrentStay {
 
   /// Solde de l'ardoise, en francs CFA entiers.
   final int balance;
+
+  /// Heures de prolongation deja portees a l'ardoise : le depart est repousse
+  /// d'autant au-dela de l'heure habituelle.
+  final int prolongationHeures;
 }
 
 /// Une ligne de consommation portee a l'ardoise.
@@ -122,7 +128,15 @@ extension RoomDetailQueries on AtriumDatabase {
       SELECT rr.id, rr.arrival_date, rr.departure_date, rr.adults, rr.children,
              rr.nightly_rate,
              g.first_name, g.last_name,
-             f.id AS folio_id, f.balance
+             f.id AS folio_id, f.balance,
+             COALESCE((SELECT SUM(i.quantity)
+                         FROM folio_items i
+                        WHERE i.folio_id = f.id
+                          AND i.deleted_at IS NULL
+                          AND i.is_void = 0
+                          AND i.category = 'ROOM'
+                          AND i.label LIKE '$libelleProlongation%'), 0)
+               AS prolongation
         FROM reservation_rooms rr
         JOIN reservations res ON res.id = rr.reservation_id
         JOIN guests g         ON g.id  = res.guest_id
@@ -135,7 +149,7 @@ extension RoomDetailQueries on AtriumDatabase {
        LIMIT 1
       ''',
       variables: [Variable.withString(roomId)],
-      readsFrom: {reservationRooms, reservations, guests, folios},
+      readsFrom: {reservationRooms, reservations, guests, folios, folioItems},
     ).get();
 
     if (lignes.isEmpty) return null;
@@ -152,6 +166,7 @@ extension RoomDetailQueries on AtriumDatabase {
       enfants: r.read<int>('children'),
       nightlyRate: r.read<int>('nightly_rate'),
       balance: r.read<int?>('balance') ?? 0,
+      prolongationHeures: r.read<int>('prolongation'),
     );
   }
 
