@@ -187,7 +187,7 @@ final destinations = <Destination>[
     Groupe.services,
   ),
   const Destination(
-    'Commandes',
+    'Points de vente',
     PhosphorIconsLight.shoppingBagOpen,
     PhosphorIconsFill.shoppingBagOpen,
     '/commandes',

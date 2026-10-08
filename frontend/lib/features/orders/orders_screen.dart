@@ -62,11 +62,11 @@ class OrdersScreen extends ConsumerWidget {
 
     return points.when(
       loading: () => const ModuleScaffold(
-        title: 'Commandes',
+        title: 'Points de vente',
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => ModuleScaffold(
-        title: 'Commandes',
+        title: 'Points de vente',
         body: EmptyState(
           icon: PhosphorIconsLight.warningCircle,
           title: 'Lecture impossible',
@@ -91,7 +91,7 @@ class OrdersScreen extends ConsumerWidget {
         final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
 
         return ModuleScaffold(
-          title: 'Commandes',
+          title: 'Points de vente',
           action: caisse ? const CashButton() : null,
           subtitle: outlet.allowsRoomCharge
               ? '${outlet.label} porte sur la chambre$horaires'
@@ -157,7 +157,7 @@ class _AucunPointDeVente extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const ModuleScaffold(
-    title: 'Commandes',
+    title: 'Points de vente',
     body: EmptyState(
       icon: PhosphorIconsLight.storefront,
       title: 'Aucun point de vente',
