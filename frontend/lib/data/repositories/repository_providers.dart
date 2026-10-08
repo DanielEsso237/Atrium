@@ -47,6 +47,11 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SettingsRepository(ref.watch(databaseProvider)),
 );
 
+/// Heure de depart et prix de l'heure supplementaire, en flux continu.
+final stayRulesProvider = StreamProvider<StayRules>(
+  (ref) => ref.watch(settingsRepositoryProvider).watchStayRules(),
+);
+
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),
 );

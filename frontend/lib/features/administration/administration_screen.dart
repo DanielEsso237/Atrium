@@ -19,6 +19,7 @@ import 'credit_limits_section.dart';
 import 'deposit_section.dart';
 import 'outlets_section.dart';
 import 'roles_section.dart';
+import 'stay_rules_section.dart';
 
 class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
@@ -26,6 +27,7 @@ class AdministrationScreen extends StatelessWidget {
   static const _sections = <(String, IconData, Widget)>[
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
+    ('Départ', PhosphorIconsLight.clock, StayRulesSection()),
     ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
     ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),
     ('Plafonds clients', PhosphorIconsLight.scales, CreditLimitsSection()),

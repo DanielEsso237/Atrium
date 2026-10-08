@@ -15,12 +15,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
+import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
 import '../../core/widgets/atrium_bandeau.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../../data/repositories/repository_providers.dart' show stayRulesProvider;
 import '../billing/add_charge_dialog.dart';
 import '../auth/session.dart';
 import '../billing/charge_labels.dart';
@@ -133,7 +135,11 @@ class _Fiche extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 children: [
                   if (f.sejour != null) ...[
-                    _Sejour(sejour: f.sejour!, titre: 'Séjour en cours'),
+                    _Sejour(
+                      sejour: f.sejour!,
+                      titre: 'Séjour en cours',
+                      afficherDepart: true,
+                    ),
                     const SizedBox(height: 16),
                     _Consommations(lignes: f.consommations),
                   ] else if (f.expected != null)
@@ -428,14 +434,23 @@ class _Tuile extends StatelessWidget {
   }
 }
 
-class _Sejour extends StatelessWidget {
-  const _Sejour({required this.sejour, required this.titre});
+class _Sejour extends ConsumerWidget {
+  const _Sejour({
+    required this.sejour,
+    required this.titre,
+    this.afficherDepart = false,
+  });
 
   final CurrentStay sejour;
   final String titre;
 
+  /// Seulement pour un client present : l'heure de depart n'a pas de sens
+  /// avant son arrivee.
+  final bool afficherDepart;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final regles = ref.watch(stayRulesProvider).value;
     final arrivee = parseIsoDate(sejour.arrival);
     final depart = parseIsoDate(sejour.departure);
     final aujourdhui = businessDayFor(DateTime.now());
@@ -563,12 +578,33 @@ class _Sejour extends StatelessWidget {
             cle: 'Tarif de la nuit',
             valeur: formatAmount(sejour.nightlyRate),
           ),
+          if (afficherDepart && depart != null)
+            _Ligne(
+              cle: 'Heure de départ',
+              valeur: _heureDeDepart(
+                depart,
+                regles?.checkoutHour ?? heureDepartParDefaut,
+                sejour.prolongationHeures,
+              ),
+            ),
           const SizedBox(height: 12),
           _Solde(solde: sejour.balance),
         ],
       ),
     );
   }
+}
+
+/// « 12 h », ou « 15 h (prolongé de 3 h) » quand une prolongation est portee.
+String _heureDeDepart(DateTime depart, int heureDepart, int prolongation) {
+  final limite = limiteDeDepart(
+    depart,
+    heureDepart: heureDepart,
+    heuresProlongees: prolongation,
+  );
+  return prolongation > 0
+      ? '${formatHeure(limite)} (prolongé de $prolongation h)'
+      : formatHeure(limite);
 }
 
 class _Date extends StatelessWidget {
@@ -1052,6 +1088,40 @@ class _Actions extends ConsumerWidget {
             ),
           ),
         ),
+        // Prolonger porte une ligne sur l'ardoise : comme une consommation,
+        // il lui faut une ardoise ouverte.
+        if (sejour.folioId != null) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 54),
+                foregroundColor: AtriumDashColors.title,
+                side: BorderSide(color: AtriumDashColors.cardBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AtriumRadii.md),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: () => confirmExtendStay(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                folioId: sejour.folioId!,
+                guestName: sejour.guestName,
+              ),
+              icon: const Icon(Icons.more_time_rounded),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('Prolonger'),
+              ),
+            ),
+          ),
+        ],
         // Une consommation ne se porte que sur une ardoise ouverte.
         if (sejour.folioId != null) ...[
           const SizedBox(width: 12),

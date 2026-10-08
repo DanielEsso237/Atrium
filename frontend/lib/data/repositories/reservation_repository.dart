@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/ids.dart';
+import '../../core/prolongation.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'cash_repository.dart';
@@ -150,6 +151,14 @@ class ReservationRepository with OutboxWriter {
         });
   }
 
+  /// Le jour de depart prevu d'une ligne de sejour (date seule).
+  Future<DateTime?> departureDayOfLine(String lineId) async {
+    final ligne = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingleOrNull();
+    return ligne == null ? null : parseIsoDate(ligne.departureDate);
+  }
+
   /// Les chambres libres d'une categorie sur une periode.
   ///
   /// `availableRoomNumbers` de `rooms_queries.dart` ne renvoie que des
@@ -180,14 +189,37 @@ class ReservationRepository with OutboxWriter {
                   AND rr.arrival_date   < ?3
                   AND rr.departure_date > ?2
              )
+         -- Un client prolonge n'a pas encore rendu la chambre : le jour de
+         -- son depart elle reste occupee, au-dela de l'heure de depart.
+         AND NOT EXISTS (
+               SELECT 1
+                 FROM reservation_rooms rr
+                 JOIN folios f      ON f.reservation_room_id = rr.id
+                                   AND f.deleted_at IS NULL
+                 JOIN folio_items i ON i.folio_id = f.id
+                                   AND i.deleted_at IS NULL
+                                   AND i.is_void = 0
+                                   AND i.category = 'ROOM'
+                                   AND i.label LIKE ?4
+                WHERE rr.room_id = r.id
+                  AND rr.deleted_at IS NULL
+                  AND rr.status = 'CHECKED_IN'
+                  AND rr.departure_date = ?2
+             )
        ORDER BY r.number
       ''',
           variables: [
             Variable.withString(roomTypeId),
             Variable.withString(formatIsoDate(arrival)),
             Variable.withString(formatIsoDate(departure)),
+            Variable.withString('$libelleProlongation%'),
           ],
-          readsFrom: {db.rooms, db.reservationRooms},
+          readsFrom: {
+            db.rooms,
+            db.reservationRooms,
+            db.folios,
+            db.folioItems,
+          },
         )
         .get();
 

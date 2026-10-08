@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
@@ -115,6 +116,253 @@ Future<bool> confirmChangeRoom(
   return true;
 }
 
+/// Prolonge un sejour d'avance : la ligne « Prolongation » arrive tout de suite
+/// sur l'ardoise.
+///
+/// Renvoie `true` si la prolongation a ete portee.
+Future<bool> confirmExtendStay(
+  BuildContext context,
+  WidgetRef ref, {
+  required String lineId,
+  required String folioId,
+  required String guestName,
+}) async {
+  final regles = await ref.read(settingsRepositoryProvider).stayRules();
+  if (!context.mounted) return false;
+
+  if (!regles.billsExtraHours) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Fixez d'abord le prix de l'heure supplémentaire dans "
+          "l'administration (Départ).",
+        ),
+      ),
+    );
+    return false;
+  }
+
+  final heures = await showDialog<int>(
+    context: context,
+    builder: (_) => _DialogProlongation(
+      guestName: guestName,
+      heureDepart: regles.checkoutHour,
+      prixHeure: regles.extraHourPrice,
+    ),
+  );
+  if (heures == null || !context.mounted) return false;
+
+  try {
+    await ref
+        .read(folioRepositoryProvider)
+        .addExtension(
+          folioId: folioId,
+          hours: heures,
+          hourlyPrice: regles.extraHourPrice,
+          stayLineId: lineId,
+          postedBy: ref.read(sessionProvider).agent?.id,
+        );
+  } on StateError catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+    return false;
+  }
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Prolongation de $heures h portée à l’ardoise de $guestName.'),
+      ),
+    );
+  }
+  return true;
+}
+
+/// Le client part apres l'heure de depart : propose de facturer l'excedent.
+///
+/// Renvoie `false` si l'agent renonce au depart. Rien n'est propose -- et on
+/// renvoie `true` -- quand le client part a l'heure, quand le prix de l'heure
+/// n'est pas fixe, ou quand le sejour n'a pas d'ardoise ouverte.
+Future<bool> _proposerProlongation(
+  BuildContext context,
+  WidgetRef ref, {
+  required String lineId,
+  required String guestName,
+}) async {
+  final folios = ref.read(folioRepositoryProvider);
+  final folio = await folios.openFolioForStay(lineId);
+  final regles = await ref.read(settingsRepositoryProvider).stayRules();
+  final jourDepart = await ref
+      .read(reservationRepositoryProvider)
+      .departureDayOfLine(lineId);
+  if (folio == null || jourDepart == null || !regles.billsExtraHours) {
+    return true;
+  }
+
+  // Les heures deja demandees d'avance repoussent la limite : un client
+  // prolonge de trois heures qui part a 14 h est parti a l'heure.
+  final dejaPortees = await folios.extensionHours(folio.id);
+  final limite = limiteDeDepart(
+    jourDepart,
+    heureDepart: regles.checkoutHour,
+    heuresProlongees: dejaPortees,
+  );
+  final heures = heuresDeDepassement(DateTime.now(), limite);
+  if (heures == 0) return true;
+  if (!context.mounted) return false;
+
+  final total = heures * regles.extraHourPrice;
+  final decision = await showDialog<_Prolongation>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      icon: const Icon(PhosphorIconsLight.clockCountdown, size: 32),
+      title: const Text('Départ après l’heure'),
+      content: SizedBox(
+        width: 460,
+        child: Text(
+          '$guestName devait partir à ${formatHeure(limite)}. '
+          'Facturer $heures h de prolongation ?\n\n'
+          '$heures × ${formatAmount(regles.extraHourPrice)} = '
+          '${formatAmount(total)}',
+          style: const TextStyle(fontSize: 17),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(_Prolongation.annuler),
+          child: const Text('Annuler'),
+        ),
+        TextButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(_Prolongation.ignorer),
+          child: const Text('Ne pas facturer'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(_Prolongation.facturer),
+          child: Text('Facturer $heures h'),
+        ),
+      ],
+    ),
+  );
+
+  if (decision == null || decision == _Prolongation.annuler) return false;
+  if (decision == _Prolongation.ignorer) return true;
+
+  try {
+    await folios.addExtension(
+      folioId: folio.id,
+      hours: heures,
+      hourlyPrice: regles.extraHourPrice,
+      stayLineId: lineId,
+      postedBy: ref.read(sessionProvider).agent?.id,
+    );
+  } on StateError catch (e) {
+    // Seuil de consommation depasse : le depart n'a pas eu lieu, l'agent
+    // appelle son responsable.
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+    return false;
+  }
+  return true;
+}
+
+enum _Prolongation { annuler, ignorer, facturer }
+
+/// Choix du nombre d'heures d'une prolongation demandee d'avance.
+class _DialogProlongation extends StatefulWidget {
+  const _DialogProlongation({
+    required this.guestName,
+    required this.heureDepart,
+    required this.prixHeure,
+  });
+
+  final String guestName;
+  final int heureDepart;
+  final int prixHeure;
+
+  @override
+  State<_DialogProlongation> createState() => _DialogProlongationState();
+}
+
+class _DialogProlongationState extends State<_DialogProlongation> {
+  int _heures = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final schema = Theme.of(context).colorScheme;
+    return AlertDialog(
+      icon: const Icon(PhosphorIconsLight.clockCountdown, size: 32),
+      title: const Text('Prolonger le séjour'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${widget.guestName} garde la chambre au-delà de '
+              '${widget.heureDepart} h.',
+              style: const TextStyle(fontSize: 17),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton.outlined(
+                  onPressed: _heures > 1
+                      ? () => setState(() => _heures--)
+                      : null,
+                  icon: const Icon(Icons.remove),
+                ),
+                const SizedBox(width: 20),
+                Text(
+                  '$_heures h',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                IconButton.outlined(
+                  onPressed: _heures < 12
+                      ? () => setState(() => _heures++)
+                      : null,
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              '$_heures × ${formatAmount(widget.prixHeure)} = '
+              '${formatAmount(_heures * widget.prixHeure)}',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_heures),
+          child: const Text('Ajouter à l’ardoise'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Ce que l'agent decide devant une ardoise non soldee.
 enum _Depart { annuler, encaisser, partirQuandMeme }
 
@@ -126,6 +374,18 @@ Future<bool> confirmCheckOut(
   required String guestName,
   required String roomNumber,
 }) async {
+  // Parti apres l'heure de depart : la prolongation se propose AVANT de lire
+  // le solde, sinon l'agent encaisserait une note qui change juste apres.
+  if (!await _proposerProlongation(
+    context,
+    ref,
+    lineId: lineId,
+    guestName: guestName,
+  )) {
+    return false;
+  }
+  if (!context.mounted) return false;
+
   // Boucle et non question unique : apres un encaissement partiel il reste
   // quelque chose a demander, et on se retrouve devant le meme choix avec un
   // montant plus petit. Le client est au comptoir, il paie en deux fois, ca
