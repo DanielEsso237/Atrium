@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.atrium.atrium"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Fixe : la version par defaut de Flutter (28.2) n'etait pas installee et
+    // son telechargement echouait ; la 30 l'est sur nos postes.
+    ndkVersion = "30.0.14904198"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
