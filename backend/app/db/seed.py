@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -26,6 +27,7 @@ from app.models import (
     UserRole,
 )
 from app.models.enums import PrinterKind, PrinterProtocol
+from app.services.stock_locations import ensure_central, ensure_outlet_location
 
 HOTEL = uuid.UUID("01920000-0000-7000-8000-000000000001")
 
@@ -279,6 +281,10 @@ async def seed(session: AsyncSession) -> None:
         .values([{"id": OUTLET_RESTO, "hotel_id": HOTEL, "code": OUTLET_RESTO_CODE, "label": "Restaurant", "allows_room_charge": True, "sort_order": 0}])
         .on_conflict_do_nothing()
     )
+    # L'economat, et le stock de chaque point de vente.
+    await ensure_central(session, HOTEL)
+    for outlet in (await session.scalars(select(Outlet).where(Outlet.hotel_id == HOTEL))).all():
+        await ensure_outlet_location(session, outlet)
     await upsert(Floor, [{"id": fid, "hotel_id": HOTEL, "code": code, "label": label, "sort_order": order} for fid, code, label, order in FLOORS])
     await upsert(RoomType, [{"id": tid, "hotel_id": HOTEL, "code": code, "label": label, "base_capacity": base, "max_capacity": maxi, "default_rate": rate, "sort_order": i} for i, (tid, code, label, base, maxi, rate) in enumerate(ROOM_TYPES)])
     await upsert(Room, [{"id": room_id(number), "hotel_id": HOTEL, "number": number, "room_type_id": type_id, "floor_id": floor_id} for number, type_id, floor_id in ROOMS])

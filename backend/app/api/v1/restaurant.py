@@ -26,6 +26,7 @@ from app.schemas.restaurant import (
     RestaurantTableOut,
 )
 from app.services.outlets import DEFAULT_OUTLET_CODE, allowed_outlet_ids
+from app.services.stock_locations import ensure_outlet_location
 
 router = APIRouter(tags=["restauration"])
 
@@ -91,6 +92,9 @@ async def create_outlet(
     fields = payload.model_dump(exclude={"id"})
     outlet = Outlet(id=payload.id or uuid7(), hotel_id=user.hotel_id, **fields)
     session.add(outlet)
+    await session.flush()
+    # Son stock, dans la meme transaction : une vente doit avoir ou sortir.
+    await ensure_outlet_location(session, outlet)
     await session.commit()
     await session.refresh(outlet)
     return outlet
@@ -128,6 +132,10 @@ async def update_outlet(
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce code de point de vente existe deja.")
     for field, value in fields.items():
         setattr(outlet, field, value)
+    # Le magasin porte le nom du point de vente : renomme, il suit.
+    if "label" in fields:
+        location = await ensure_outlet_location(session, outlet)
+        location.label = outlet.label
     await session.commit()
     await session.refresh(outlet)
     return outlet

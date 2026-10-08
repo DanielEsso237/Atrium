@@ -94,6 +94,11 @@ class StockLocationOut(BaseModel):
     label: str
     manager_id: uuid.UUID | None
     sort_order: int
+    # Le point de vente dont c'est le stock ; nul pour l'economat et les
+    # magasins internes. `is_central` designe l'economat. Les deux sont tenus
+    # par le serveur, jamais saisis : `StockLocationIn` ne les porte pas.
+    outlet_id: uuid.UUID | None
+    is_central: bool
 
 
 class StockMovementIn(BaseModel):
