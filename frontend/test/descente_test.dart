@@ -161,6 +161,35 @@ void main() {
     expect(await compter('folio_items'), 1);
   });
 
+  test('les arrhes descendent avec le dossier', () async {
+    // Sans elles, une reservation saisie sur un autre poste n'affichait pas
+    // ses arrhes dans la liste : ni payees, ni dues.
+    final payees = DateTime.utc(2026, 9, 20, 10);
+    final r = _reservation(typeStandard);
+    await descente(
+      guests: [_guest()],
+      reservations: [
+        RemoteReservation(
+          id: r.id,
+          reference: r.reference,
+          guestId: r.guestId,
+          status: r.status,
+          arrivalDate: r.arrivalDate,
+          departureDate: r.departureDate,
+          adults: r.adults,
+          children: r.children,
+          rooms: r.rooms,
+          depositAmount: 15000,
+          depositPaidAt: payees,
+        ),
+      ],
+    ).pull();
+
+    final dossier = await db.select(db.reservations).getSingle();
+    expect(dossier.depositAmount, 15000);
+    expect(dossier.depositPaidAt?.toUtc(), payees);
+  });
+
   test('les lignes descendues sont marquees synced', () async {
     await descente(guests: [_guest()]).pull();
 
