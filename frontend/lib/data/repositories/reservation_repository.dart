@@ -29,6 +29,8 @@ class ReservationSummary {
     required this.roomTypeId,
     required this.roomTypeLabel,
     this.roomNumber,
+    this.depositAmount,
+    this.depositPaid = false,
   });
 
   final String id;
@@ -47,6 +49,20 @@ class ReservationSummary {
   final String roomTypeId;
   final String roomTypeLabel;
   final String? roomNumber;
+
+  /// Les arrhes du dossier, `null` ou zero s'il n'y en a pas.
+  final int? depositAmount;
+
+  /// Encaissees ; sinon dues, a demander au client.
+  final bool depositPaid;
+
+  bool get hasDeposit => (depositAmount ?? 0) > 0;
+
+  /// Annulable tant que le client n'est pas arrive : ensuite, il part par le
+  /// check-out, et le serveur refuserait l'annulation.
+  bool get canCancel =>
+      status == ReservationStatus.PENDING ||
+      status == ReservationStatus.CONFIRMED;
 
   bool get hasRoom => roomNumber != null;
   bool get canCheckIn =>
@@ -81,6 +97,8 @@ class ReservationRepository with OutboxWriter {
         .customSelect(
           '''
       SELECT r.id, r.reference,
+             r.deposit_amount,
+             (r.deposit_paid_at IS NOT NULL) AS deposit_paid,
              rr.id AS line_id, rr.arrival_date, rr.departure_date,
              rr.nightly_rate, rr.status AS line_status,
              g.first_name, g.last_name,
@@ -123,6 +141,8 @@ class ReservationRepository with OutboxWriter {
               roomTypeId: l.read<String>('room_type_id'),
               roomTypeLabel: l.read<String>('type_label'),
               roomNumber: l.read<String?>('room_number'),
+              depositAmount: l.read<int?>('deposit_amount'),
+              depositPaid: l.read<int>('deposit_paid') == 1,
             ),
           );
           if (statuses == null) return all.toList();
