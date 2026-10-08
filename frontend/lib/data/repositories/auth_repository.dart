@@ -16,6 +16,7 @@
 library;
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../local/database.dart';
 import '../local/enums.dart';
@@ -76,16 +77,26 @@ class AuthRepository {
       );
       return LoginResult.success(user, online: true);
     } on ApiException catch (e) {
-      if (!e.isOffline) {
-        // Le serveur a tranche. On ne repasse pas derriere lui.
-        return LoginResult.failed(switch (e.failure) {
-          ApiFailure.locked => LoginFailure.locked,
-          ApiFailure.forbidden => LoginFailure.disabledAccount,
-          _ => LoginFailure.wrongSecret,
-        });
+      // Seuls ces trois-la sont un jugement du serveur sur l'agent. On ne
+      // repasse pas derriere lui.
+      switch (e.failure) {
+        case ApiFailure.unauthorized:
+          return const LoginResult.failed(LoginFailure.wrongSecret);
+        case ApiFailure.locked:
+          return const LoginResult.failed(LoginFailure.locked);
+        case ApiFailure.forbidden:
+          return const LoginResult.failed(LoginFailure.disabledAccount);
+        default:
+          break;
       }
-      // Serveur injoignable : c'est le cas normal d'une tablette dans un
-      // couloir, pas une erreur. On verifie localement.
+      // Serveur injoignable, ou qui repond de travers (erreur 500, adresse
+      // fausse, tunnel ferme) : la tablette verifie elle-meme. Avant, tout ce
+      // qui n'etait pas « injoignable » s'affichait « Code incorrect », et
+      // l'agent cherchait son erreur alors que le serveur etait en panne.
+      if (!e.isOffline) {
+        debugPrint('Atrium : connexion refusee par un serveur en erreur '
+            '(${e.failure.name}) : ${e.message}. Verification locale.');
+      }
       return _localVerify(employeeCode, secret);
     }
   }

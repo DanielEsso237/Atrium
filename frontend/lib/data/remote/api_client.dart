@@ -74,12 +74,15 @@ class ApiClient {
        _dio = dio ?? Dio() {
     _dio.options = _dio.options.copyWith(
       baseUrl: baseUrl,
-      // Delais courts : l'exigence 6.1 demande moins de deux secondes pour
-      // toute action courante. Au-dela, mieux vaut basculer hors ligne et
-      // laisser la file d'attente faire son travail que de figer l'ecran.
+      // Se connecter doit etre rapide : un serveur qui ne repond pas en 5 s
+      // n'est pas la, et la tablette passe hors ligne. Mais un serveur
+      // joignable peut etre lent -- un PC charge a mis plusieurs secondes a
+      // ecrire un point de vente pendant les essais, et a 10 s la tablette
+      // abandonnait une ecriture qui allait reussir. Les ecrans n'attendent
+      // pas ces requetes : elles partent de la file, en arriere-plan.
       connectTimeout: const Duration(seconds: 5),
-      sendTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      sendTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 20),
       contentType: Headers.jsonContentType,
       // On veut lire le corps des 4xx pour en extraire `detail` : sans cela
       // Dio leve avant qu'on ait vu le message du serveur.
@@ -173,6 +176,13 @@ class ApiClient {
     try {
       response = await call();
     } on DioException catch (e) {
+      // La cause exacte, dans la console : « hors ligne » recouvre un delai
+      // depasse, un nom introuvable, un certificat refuse... et sans elle on
+      // cherche des heures du mauvais cote.
+      debugPrint(
+        'Atrium : ${e.requestOptions.method} ${e.requestOptions.uri} '
+        'a echoue (${e.type.name}) : ${e.error ?? e.message}',
+      );
       throw ApiException(_failureOf(e), _messageOf(e));
     }
 
