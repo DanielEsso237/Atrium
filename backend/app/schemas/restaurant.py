@@ -123,6 +123,10 @@ class MenuItemIn(BaseModel):
     tax_rate: int = Field(default=0, ge=0, le=100, description="Pourcentage")
     is_available: bool = True
     preparation_minutes: int | None = Field(default=None, ge=0)
+    product_id: uuid.UUID | None = Field(
+        default=None, description="Produit en stock que la vente consomme ; absent = ne se stocke pas"
+    )
+    stock_quantity: int = Field(default=1, ge=1, description="Quantite du produit sortie par article vendu")
 
 
 class MenuItemOut(BaseModel):
@@ -138,3 +142,5 @@ class MenuItemOut(BaseModel):
     tax_rate: int
     is_available: bool
     preparation_minutes: int | None
+    product_id: uuid.UUID | None
+    stock_quantity: int

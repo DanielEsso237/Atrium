@@ -27,6 +27,7 @@ from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import StockLevel, StockLocation, StockMovement, User
 from app.models.enums import StockMovementStatus, StockMovementType
+from app.services.stock_levels import apply_movement
 from app.schemas.stock import (
     StockDecisionIn,
     StockLevelOut,
@@ -35,48 +36,6 @@ from app.schemas.stock import (
 )
 
 router = APIRouter(tags=["mouvements de stock"])
-
-
-async def _apply_delta(
-    session: AsyncSession, product_id: uuid.UUID, location_id: uuid.UUID, delta: int
-) -> None:
-    """Met a jour le compteur `stock_levels`, quitte a passer sous zero.
-
-    `stock_movements` reste la source de verite (voir le modele) ; ce compteur
-    ne sert qu'a afficher un stock sans tout reagreger.
-    """
-    level = await session.scalar(
-        select(StockLevel).where(
-            StockLevel.product_id == product_id, StockLevel.stock_location_id == location_id
-        )
-    )
-    now = dt.datetime.now(dt.timezone.utc)
-    if level is None:
-        session.add(
-            StockLevel(
-                product_id=product_id,
-                stock_location_id=location_id,
-                quantity=delta,
-                last_movement_at=now,
-            )
-        )
-    else:
-        level.quantity += delta
-        level.last_movement_at = now
-
-
-async def _appliquer(session: AsyncSession, m: StockMovement) -> None:
-    """Ce que le mouvement change aux stocks."""
-    if m.type == StockMovementType.TRANSFER:
-        await _apply_delta(session, m.product_id, m.stock_location_id, -m.quantity)
-        await _apply_delta(session, m.product_id, m.counterpart_location_id, m.quantity)
-    elif m.type == StockMovementType.ADJUSTMENT:
-        # Delta signe, deja dans le bon sens.
-        await _apply_delta(session, m.product_id, m.stock_location_id, m.quantity)
-    elif m.type in (StockMovementType.IN, StockMovementType.RETURN):
-        await _apply_delta(session, m.product_id, m.stock_location_id, m.quantity)
-    else:  # OUT, LOSS
-        await _apply_delta(session, m.product_id, m.stock_location_id, -m.quantity)
 
 
 async def _magasin(session: AsyncSession, location_id: uuid.UUID, user: User) -> StockLocation:
@@ -188,7 +147,7 @@ async def create_stock_movement(
     )
     session.add(movement)
     if movement.status == StockMovementStatus.APPROVED:
-        await _appliquer(session, movement)
+        await apply_movement(session, movement)
     await session.commit()
     await session.refresh(movement)
     return movement
@@ -211,7 +170,7 @@ async def approve_stock_movement(
         return m
     if m.status == StockMovementStatus.REJECTED:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce transfert a deja ete refuse.")
-    await _appliquer(session, m)
+    await apply_movement(session, m)
     m.status = StockMovementStatus.APPROVED
     m.decided_by = user.id
     m.decided_at = dt.datetime.now(dt.timezone.utc)

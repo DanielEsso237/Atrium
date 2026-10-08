@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
-from app.models import MenuCategory, MenuItem, Outlet, PrepStation, RestaurantTable, User
+from app.models import MenuCategory, MenuItem, Outlet, PrepStation, Product, RestaurantTable, User
 from app.schemas.restaurant import (
     MenuCategoryIn,
     MenuCategoryOut,
@@ -285,6 +285,15 @@ async def list_menu_items(
     return list(result.scalars().all())
 
 
+async def _verifier_produit(session: AsyncSession, product_id: uuid.UUID | None, user: User) -> None:
+    """Le produit relie a un article doit etre un produit de cet hotel."""
+    if product_id is None:
+        return
+    produit = await session.get(Product, product_id)
+    if produit is None or produit.hotel_id != user.hotel_id or produit.deleted_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Produit introuvable.")
+
+
 @router.post("/menu-items", response_model=MenuItemOut, status_code=status.HTTP_201_CREATED)
 async def create_menu_item(
     payload: MenuItemIn,
@@ -300,6 +309,7 @@ async def create_menu_item(
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Article introuvable.")
             response.status_code = status.HTTP_200_OK
             return existing
+    await _verifier_produit(session, payload.product_id, user)
     item = MenuItem(
         id=payload.id or uuid7(), hotel_id=user.hotel_id, **payload.model_dump(exclude={"id"})
     )
@@ -322,6 +332,7 @@ async def update_menu_item(
     de cet article, sans toucher au code (voir R1 dans le modele `MenuItem`).
     """
     item = await _get_scoped(session, MenuItem, item_id, user)
+    await _verifier_produit(session, payload.product_id, user)
     for field, value in payload.model_dump(exclude={"id"}).items():
         setattr(item, field, value)
     await session.commit()
