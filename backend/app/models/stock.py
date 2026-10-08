@@ -20,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import HotelScoped, RefBase, SyncBase
-from app.models.enums import InventoryStatus, StockMovementType
+from app.models.enums import InventoryStatus, StockMovementStatus, StockMovementType
 from app.models.rooms import _enum
 
 
@@ -178,6 +178,18 @@ class StockMovement(SyncBase, HotelScoped):
     moved_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
+    # Un transfert attend sa validation (controleur ou comptable) : le stock
+    # ne bouge qu'a ce moment-la. Les autres mouvements naissent APPROVED.
+    status: Mapped[StockMovementStatus] = mapped_column(
+        _enum(StockMovementStatus, "stock_movement_status"),
+        default=StockMovementStatus.APPROVED,
+        server_default=StockMovementStatus.APPROVED.value,
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    decision_note: Mapped[str | None] = mapped_column(String(255), default=None)
 
 
 class Inventory(SyncBase, HotelScoped):

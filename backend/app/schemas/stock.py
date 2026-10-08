@@ -7,7 +7,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import StockMovementType
+from app.models.enums import StockMovementStatus, StockMovementType
 
 
 class SupplierIn(BaseModel):
@@ -110,6 +110,10 @@ class StockMovementIn(BaseModel):
     pour ADJUSTMENT c'est un delta signe direct (peut etre negatif).
     """
 
+    id: uuid.UUID | None = Field(
+        default=None,
+        description="UUID v7 genere par la tablette : un renvoi du meme id ne compte pas deux fois",
+    )
     product_id: uuid.UUID
     stock_location_id: uuid.UUID
     type: StockMovementType
@@ -135,6 +139,16 @@ class StockMovementOut(BaseModel):
     counterpart_location_id: uuid.UUID | None
     moved_at: dt.datetime | None
     moved_by: uuid.UUID | None
+    status: StockMovementStatus
+    decided_by: uuid.UUID | None
+    decided_at: dt.datetime | None
+    decision_note: str | None
+
+
+class StockDecisionIn(BaseModel):
+    """Validation ou refus d'un transfert : le motif est facultatif."""
+
+    note: str | None = Field(default=None, max_length=255)
 
 
 class StockLevelOut(BaseModel):
