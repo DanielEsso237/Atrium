@@ -385,6 +385,63 @@ class StockRepository with OutboxWriter {
     });
   }
 
+  /// Fait sortir du stock du point de vente ce qu'une ligne vendue consomme,
+  /// comme le serveur le fera a la reception de la ligne.
+  ///
+  /// La sortie ne part pas dans la file : elle remonte avec sa ligne
+  /// d'ardoise, que le serveur traduit lui-meme en mouvement. Elle est donc
+  /// ecrite `synced` et rattachee a la ligne (`folio_items`), ce qui permet a
+  /// la descente de la compter tant que la ligne n'est pas remontee.
+  ///
+  /// Rien si l'article n'est relie a aucun produit, ou si le point de vente
+  /// n'a pas encore son magasin sur cette tablette. A appeler dans la
+  /// transaction qui ecrit la ligne.
+  Future<void> deductLocalForSale({
+    required String outletId,
+    required String menuItemId,
+    required int quantity,
+    required String folioItemId,
+    String? by,
+  }) async {
+    if (quantity <= 0) return;
+    final article = await (db.select(
+      db.menuItems,
+    )..where((a) => a.id.equals(menuItemId))).getSingleOrNull();
+    final produit = article?.productId;
+    if (article == null || produit == null) return;
+    final magasin =
+        await (db.select(db.stockLocations)
+              ..where((m) => m.outletId.equals(outletId))
+              ..limit(1))
+            .getSingleOrNull();
+    if (magasin == null) return;
+
+    final now = DateTime.now().toUtc();
+    final sortie = quantity * article.stockQuantity;
+    await db
+        .into(db.stockMovements)
+        .insert(
+          StockMovementsCompanion.insert(
+            id: newId(),
+            createdAt: now,
+            updatedAt: now,
+            hotelId: hotelId,
+            productId: produit,
+            stockLocationId: magasin.id,
+            type: StockMovementType.OUT,
+            quantity: sortie,
+            reason: Value('Vente : ${article.label}'),
+            sourceTable: const Value('folio_items'),
+            sourceId: Value(folioItemId),
+            movedAt: Value(now),
+            movedBy: Value(by),
+            status: const Value(StockMovementStatus.APPROVED),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+    await _ajouter(produit, magasin.id, -sortie, now);
+  }
+
   Future<void> _inserer({
     required String id,
     required DateTime now,

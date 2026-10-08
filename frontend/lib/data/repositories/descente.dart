@@ -534,10 +534,17 @@ class Descente {
          AND m.status = 'APPROVED'
          AND (m.sync_state = 'pending'
               OR (m.source_table = 'folio_items'
-                  AND m.source_id IN (SELECT id FROM folio_items
-                                       WHERE sync_state = 'pending')))
+                  AND m.source_id IN (
+                        SELECT fi.id FROM folio_items fi
+                         WHERE fi.sync_state = 'pending'
+                            -- Une vente de passage remonte avec son ardoise,
+                            -- pas ligne par ligne.
+                            OR fi.folio_id IN (
+                                 SELECT f.id FROM folios f
+                                  WHERE f.type = 'WALK_IN'
+                                    AND f.sync_state = 'pending'))))
       """,
-          readsFrom: {db.stockMovements, db.folioItems},
+          readsFrom: {db.stockMovements, db.folioItems, db.folios},
         )
         .get();
 

@@ -505,6 +505,10 @@ class OutboxSender {
             'quantity': p['quantity'],
             'unit_price': p['unit_price'],
             'override_by': p['override_by'],
+            // Une consommation dit l'article vendu et le point de vente qui
+            // l'a servie : le serveur fait sortir le produit de son stock.
+            'menu_item_id': p['menu_item_id'],
+            'outlet_id': p['source_table'] == 'outlets' ? p['source_id'] : null,
             // Une nuitee dit quelle nuit elle facture : le serveur la
             // reconnait si une autre tablette l'a deja portee.
             'night_date': p['source_table'] == 'stay_nights'
