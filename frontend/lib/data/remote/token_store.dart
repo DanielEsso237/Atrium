@@ -60,9 +60,20 @@ class TokenStore {
   /// Keystore verrouille, plateforme sans implementation. L'echec ne doit
   /// jamais faire planter l'application — au pire l'agent se reconnecte.
   Future<String?> _read(String key) async {
+    // La memoire d'abord : elle a toujours le dernier jeton ecrit pendant que
+    // l'application tourne. Lu en premier, le magasin rendait un jeton perime
+    // quand son ecriture avait echoue (Keystore d'Android 8.1) : chaque
+    // ecriture de la file prenait un 401, renouvelait le jeton en memoire
+    // seulement, et le suivant repartait avec l'ancien.
+    final enMemoire = _memoire[key];
+    if (enMemoire != null) return enMemoire;
     try {
+      // Au redemarrage, la memoire est vide : le magasin reprend la session.
       final stocke = await _storage.read(key: key);
-      if (stocke != null) return stocke;
+      if (stocke != null) {
+        _memoire[key] = stocke;
+        return stocke;
+      }
     } catch (e) {
       // Le dire plutot que de rendre `null` en silence : sans ce message, une
       // session qui ne survit pas au rechargement ressemble a un bug de
