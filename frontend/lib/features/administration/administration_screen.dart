@@ -24,7 +24,7 @@ class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
 
   static const _sections = <(String, IconData, Widget)>[
-    ('Commandes', PhosphorIconsLight.storefront, OutletsSection()),
+    ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
     ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),

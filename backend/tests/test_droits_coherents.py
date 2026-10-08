@@ -82,7 +82,7 @@ def test_qui_peut_agir_peut_en_assumer_la_consequence(action, consequence):
 def test_seul_l_encadrement_autorise_un_depassement_de_seuil():
     """Le seuil ne sert a rien si ceux qu'il arrete peuvent le lever seuls."""
     for role_id, libelle in LIBELLE_PAR_ID.items():
-        if libelle in ("Reception", "Caisse", "Commandes"):
+        if libelle in ("Reception", "Caisse", "Points de vente"):
             assert "folio.override_limit" not in droits(role_id), libelle
     manager = next(r for r, lab in LIBELLE_PAR_ID.items() if lab.startswith("Manager"))
     assert "folio.override_limit" in droits(manager)

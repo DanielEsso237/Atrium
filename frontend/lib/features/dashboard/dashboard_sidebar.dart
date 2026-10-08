@@ -86,7 +86,7 @@ final _entrees = <_Entree>[
     'rooms.read',
   ),
   const _Entree(
-    'Commandes',
+    'Points de vente',
     Icons.restaurant_outlined,
     '/commandes',
     'order.read',

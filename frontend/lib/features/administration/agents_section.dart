@@ -348,7 +348,7 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
                 Text(
                   _points.isEmpty
                       ? 'Aucun coché : l’agent voit tous les points de vente.'
-                      : 'L’agent ne verra que ceux-là dans l’écran Commande.',
+                      : 'L’agent ne verra que ceux-là dans l’écran Points de vente.',
                   style: TextStyle(fontSize: 13, color: p.textSecondary),
                 ),
               ],

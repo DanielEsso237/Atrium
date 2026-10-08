@@ -33,7 +33,7 @@ class OutletsSection extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 6),
           child: Row(
             children: [
-              const Expanded(child: Eyebrow('Commandes')),
+              const Expanded(child: Eyebrow('Points de vente')),
               PillButton(
                 label: 'Nouveau point de vente',
                 icon: PhosphorIconsLight.plus,
@@ -47,7 +47,7 @@ class OutletsSection extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Chaque point de vente est un onglet de l’écran Commandes. Glissez '
+            'Chaque point de vente est un onglet de l’écran Points de vente. Glissez '
             'une ligne pour changer leur ordre.',
             style: TextStyle(
               fontSize: 13.5,
@@ -341,7 +341,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
                   onChanged: (v) => setState(() => _actif = v),
                   title: const Text('Actif'),
                   subtitle: const Text(
-                    'Désactivé, il disparaît des onglets de l’écran Commandes. '
+                    'Désactivé, il disparaît des onglets de l’écran Points de vente. '
                     'Ses commandes passées restent.',
                   ),
                 ),
