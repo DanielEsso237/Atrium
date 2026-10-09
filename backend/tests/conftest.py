@@ -99,6 +99,7 @@ _PERMISSIONS_NEEDED = [
     "maintenance.read", "maintenance.manage",
     "cash.session",
     "folio.override_limit",
+    "hotel.write",
 ]
 
 

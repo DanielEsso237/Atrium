@@ -7,6 +7,8 @@
 /// les pas du suivant.
 library;
 
+import 'dart:typed_data';
+
 import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
 
@@ -27,6 +29,8 @@ class FakeCatalogApi implements CatalogApi {
     this.stockLocations = const [],
     this.stockLevels = const [],
     this.pendingTransfers = const [],
+    this.hotel,
+    this.logo,
   });
 
   final List<RemoteRoom> rooms;
@@ -44,6 +48,10 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteStockLocation> stockLocations;
   final List<RemoteStockLevel> stockLevels;
   final List<RemoteStockMovement> pendingTransfers;
+
+  /// `HotelOut` brut ; `null` : le serveur ne l'expose pas (ancien serveur).
+  final Map<String, dynamic>? hotel;
+  final Uint8List? logo;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
@@ -75,6 +83,23 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<RemoteFolio>> fetchOpenFolios() async => folios;
+
+  @override
+  Future<Map<String, dynamic>> fetchHotel() async =>
+      hotel ?? (throw const ApiException(ApiFailure.notFound, 'absent'));
+
+  @override
+  Future<Uint8List> fetchHotelLogo() async =>
+      logo ?? (throw const ApiException(ApiFailure.notFound, 'absent'));
+
+  @override
+  Future<Map<String, dynamic>> putHotelLogo(Uint8List octets) async => {
+    ...?hotel,
+    'logo_version': 'srv-${octets.length}',
+  };
+
+  @override
+  Future<void> deleteHotelLogo() async {}
 
   @override
   Future<List<RemoteOutlet>> fetchOutlets() async => outlets;
@@ -138,6 +163,19 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemoteFolio>> fetchOpenFolios() async => _couloir();
+
+  @override
+  Future<Map<String, dynamic>> fetchHotel() async => _couloir();
+
+  @override
+  Future<Uint8List> fetchHotelLogo() async => _couloir();
+
+  @override
+  Future<Map<String, dynamic>> putHotelLogo(Uint8List octets) async =>
+      _couloir();
+
+  @override
+  Future<void> deleteHotelLogo() async => _couloir();
 
   @override
   Future<List<RemoteOutlet>> fetchOutlets() async => _couloir();

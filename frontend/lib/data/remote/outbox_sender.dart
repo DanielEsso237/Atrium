@@ -58,6 +58,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'users' => db.users,
     'roles' => db.roles,
     'stock_movements' => db.stockMovements,
+    'hotels' => db.hotels,
     _ => null,
   };
 }
@@ -628,6 +629,23 @@ class OutboxSender {
           },
           methode: _Methode.patch,
         );
+
+      case 'hotels':
+        // Le nom et les coordonnees de l'hotel : le serveur ne touche
+        // qu'aux champs envoyes, le fuseau et l'heure de bascule restent.
+        return _Envoi('/hotel', {
+          for (final cle in const [
+            'name',
+            'legal_name',
+            'address',
+            'city',
+            'country',
+            'phone',
+            'email',
+            'tax_id',
+          ])
+            cle: p[cle],
+        }, methode: _Methode.patch);
 
       case 'roles':
         // Les permissions du role en entier : le serveur remplace, et un

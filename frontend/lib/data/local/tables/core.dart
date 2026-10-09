@@ -19,6 +19,14 @@ class Hotels extends Table with SyncedTableColumns {
   TextColumn get website => text().withLength(max: 160).nullable()();
   TextColumn get taxId => text().withLength(max: 40).nullable()();
   TextColumn get logoPath => text().withLength(max: 255).nullable()();
+
+  /// Le logo lui-meme, garde sur la tablette : une facture editee hors ligne
+  /// doit le porter comme les autres. Colonne locale, le serveur n'en a pas.
+  BlobColumn get logoData => blob().nullable()();
+
+  /// L'empreinte du logo (`logo_version` du serveur). Prefixee `local-` tant
+  /// qu'un logo importe ici n'est pas remonte : la descente ne l'ecrase pas.
+  TextColumn get logoVersion => text().withLength(max: 64).nullable()();
   TextColumn get timezone => text()
       .withLength(max: 64)
       .withDefault(const Constant('Africa/Abidjan'))();

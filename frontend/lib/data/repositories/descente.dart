@@ -25,6 +25,7 @@ library;
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../core/ids.dart';
 import '../local/database.dart';
@@ -32,6 +33,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
+import 'hotel_repository.dart';
 import 'settings_repository.dart' show depositRuleKey;
 import 'sync_repository.dart';
 
@@ -120,6 +122,16 @@ class Descente {
       // clients. Un refus (403) passait pour une panne et faisait echouer
       // toute la descente -- la reception ne recevait plus ni clients, ni
       // reservations, ni ardoises.
+      // L'hotel d'abord : son logo importe ici remonte avant que la
+      // descente ne compare les versions, et son nom en tete des factures
+      // suit le dernier enregistre. Un serveur qui ne l'expose pas encore
+      // (404) n'empeche rien.
+      try {
+        await HotelRepository(db, hotelId: hotelId).synchroniser(_catalog);
+      } on ApiException catch (e) {
+        if (e.isOffline) rethrow;
+        debugPrint('[Descente] hotel ecarte : ${e.message}');
+      }
       final pointsDeVente = await _siPermis(_catalog.fetchOutlets);
       final categoriesCarte = await _siPermis(_catalog.fetchMenuCategories);
       final articlesCarte = await _siPermis(_catalog.fetchMenuItems);

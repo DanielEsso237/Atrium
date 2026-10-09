@@ -102,6 +102,13 @@ const _roles = <_RoleDemo>[
 typedef _PermissionDemo = (String id, String code, String label, String module);
 
 const _permissions = <_PermissionDemo>[
+  // Le nom, les coordonnees et le logo de l'hotel, en tete des factures.
+  (
+    '01920000-0000-7000-8000-000000004112',
+    'hotel.write',
+    "Modifier le parametrage de l'etablissement",
+    'hotel',
+  ),
   (
     '01920000-0000-7000-8000-000000004104',
     'rooms.read',
@@ -206,6 +213,7 @@ const _permissions = <_PermissionDemo>[
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
 /// les clients et les folios, conformement au serveur.
 const _droits = <(String role, String permission)>[
+  (_roleAdmin, '01920000-0000-7000-8000-000000004112'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004104'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004105'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004121'),

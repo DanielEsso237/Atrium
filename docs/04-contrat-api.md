@@ -388,6 +388,26 @@ dans la caisse ouverte de l'agent et clôt l'ardoise.
 - Rejouée avec le même `id`, la vente rend l'ardoise existante (**200**),
   sans rien réécrire.
 
+## L'hôtel et son logo
+
+`GET /hotel` (tout agent connecté) rend le nom, les coordonnées et
+`logo_version`, l'empreinte du logo en place (`null` sans logo).
+`PATCH /hotel` (`hotel.write`) ne modifie que les champs envoyés : renommer
+l'hôtel ne remet plus le fuseau ni l'heure de bascule à leur valeur par
+défaut.
+
+- `PUT /hotel/logo` (`hotel.write`), `multipart/form-data`, champ `file` :
+  PNG ou JPEG reconnu à ses premiers octets (**422** sinon), **512 Ko** au
+  plus (**413**). Rend l'hôtel avec sa nouvelle `logo_version`. Renvoyer la
+  même image ne change pas la version.
+- `GET /hotel/logo` (tout agent connecté) : le fichier ; **404** sans logo.
+- `DELETE /hotel/logo` (`hotel.write`) : **204**.
+
+La tablette range le logo dans sa base (`hotels.logo_data`, colonne locale)
+pour imprimer hors ligne. Un logo importé sur la tablette porte une version
+`local-…` jusqu'à sa remontée, faite au début de chaque descente ; la
+descente ne retélécharge l'image que si `logo_version` a changé.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

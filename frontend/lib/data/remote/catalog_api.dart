@@ -9,6 +9,10 @@
 /// la reception des quarante autres.
 library;
 
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+
 import 'api_client.dart';
 
 /// Une chaine, ou `null` si le champ est absent.
@@ -747,6 +751,30 @@ class CatalogApi {
   /// rapatrier ferait grossir l'appel sans rien apporter a la reception.
   Future<List<RemoteFolio>> fetchOpenFolios() =>
       _lire('/folios', RemoteFolio.fromJson, query: {'status': 'OPEN'});
+
+  /// Le parametrage de l'hotel (`HotelOut`), brut : nom, coordonnees et
+  /// `logo_version`.
+  Future<Map<String, dynamic>> fetchHotel() => _client.get('/hotel');
+
+  /// Le fichier du logo.
+  Future<Uint8List> fetchHotelLogo() => _client.getBytes('/hotel/logo');
+
+  /// Remplace le logo ; rend le parametrage, avec la nouvelle version.
+  Future<Map<String, dynamic>> putHotelLogo(Uint8List octets) {
+    final png = octets.length > 3 && octets[0] == 0x89 && octets[1] == 0x50;
+    return _client.putFile(
+      '/hotel/logo',
+      FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          octets,
+          filename: png ? 'logo.png' : 'logo.jpg',
+          contentType: DioMediaType('image', png ? 'png' : 'jpeg'),
+        ),
+      }),
+    );
+  }
+
+  Future<void> deleteHotelLogo() => _client.delete('/hotel/logo');
 
   /// Lit une liste et en ecarte les lignes illisibles.
   Future<List<T>> _lire<T>(
