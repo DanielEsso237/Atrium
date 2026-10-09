@@ -223,4 +223,39 @@ void main() {
     final data = await client.get('/rooms/abc');
     expect(data['number'], '101');
   });
+
+  test('chaque requete dit a ngrok de ne pas intercaler sa page', () async {
+    final adaptateur = _EnTetesVus();
+    final client = ApiClient(
+      baseUrl: 'https://exemple.test',
+      tokens: const TokenStore(),
+      dio: Dio()..httpClientAdapter = adaptateur,
+    );
+    await client.get('/rooms');
+    expect(adaptateur.enTetes['ngrok-skip-browser-warning'], '1');
+  });
+}
+
+/// Retient les en-tetes de la derniere requete.
+class _EnTetesVus implements HttpClientAdapter {
+  Map<String, dynamic> enTetes = const {};
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    enTetes = options.headers;
+    return ResponseBody.fromBytes(
+      utf8.encode('{}'),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
