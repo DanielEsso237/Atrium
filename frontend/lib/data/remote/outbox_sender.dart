@@ -580,6 +580,7 @@ class OutboxSender {
               'closes_at': p['closes_at'],
               'allows_room_charge': p['allows_room_charge'],
               'sort_order': p['sort_order'],
+            'kind': p['kind'],
             }),
           );
         }

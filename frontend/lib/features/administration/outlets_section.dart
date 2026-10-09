@@ -12,6 +12,7 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
+import '../../data/local/enums.dart';
 import '../../data/repositories/outlet_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 
@@ -165,6 +166,10 @@ class _LignePointDeVente extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (point.kind == OutletKind.SERVICE) ...[
+                  const Tag('Service'),
+                  const SizedBox(width: 8),
+                ],
                 if (point.allowsRoomCharge) ...[
                   const Tag('À la chambre'),
                   const SizedBox(width: 8),
@@ -194,6 +199,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
   late TimeOfDay? _fermeture = _lire(widget.existant?.closesAt);
   late bool _chambre = widget.existant?.allowsRoomCharge ?? true;
   late bool _actif = widget.existant?.isActive ?? true;
+  late OutletKind _genre = widget.existant?.kind ?? OutletKind.OUTLET;
   bool _busy = false;
 
   @override
@@ -239,6 +245,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
           opensAt: _ecrire(_ouverture),
           closesAt: _ecrire(_fermeture),
           allowsRoomCharge: _chambre,
+          kind: _genre,
         );
       } else {
         await depot.update(
@@ -282,6 +289,25 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Le genre se choisit a la creation : il range l'onglet dans
+              // l'ecran Points de vente ou Services.
+              if (creation) ...[
+                SegmentedButton<OutletKind>(
+                  segments: const [
+                    ButtonSegment(
+                      value: OutletKind.OUTLET,
+                      label: Text('Point de vente'),
+                    ),
+                    ButtonSegment(
+                      value: OutletKind.SERVICE,
+                      label: Text('Service'),
+                    ),
+                  ],
+                  selected: {_genre},
+                  onSelectionChanged: (s) => setState(() => _genre = s.first),
+                ),
+                const SizedBox(height: 16),
+              ],
               TextField(
                 controller: _libelle,
                 autofocus: creation,
