@@ -544,6 +544,7 @@ class _MoyenPassageState extends State<_MoyenPassage> {
 class _Ligne {
   final libelle = TextEditingController();
   final prix = TextEditingController();
+  final focus = FocusNode();
   int quantite = 1;
 
   /// L'article de la carte choisi, pour le mettre en evidence seulement :
@@ -556,6 +557,7 @@ class _Ligne {
   void dispose() {
     libelle.dispose();
     prix.dispose();
+    focus.dispose();
   }
 }
 
@@ -563,8 +565,9 @@ class _Ligne {
 /// quantite)`, une par ligne.
 ///
 /// Plusieurs lignes d'un coup : de l'eau et deux plats de poulet se portent
-/// ensemble, sans rouvrir la chambre pour chacun. La carte du point de vente
-/// remplit la ligne en cours ; la saisie libre reste toujours possible.
+/// ensemble, sans rouvrir la chambre pour chacun. Chaque ligne se choisit
+/// dans la carte du point de vente, en tapant quelques lettres ; le prix se
+/// remplit, et reste modifiable. Un plat hors carte se tape librement.
 class _Saisie extends ConsumerStatefulWidget {
   const _Saisie({required this.outlet, required this.chambre});
 
@@ -582,11 +585,11 @@ class _SaisieState extends ConsumerState<_Saisie> {
 
   _Ligne get _enCours => _lignes.last;
 
-  void _choisir(MenuEntry e) {
+  void _choisir(_Ligne l, MenuEntry e) {
     setState(() {
-      _enCours.articleId = e.id;
-      _enCours.libelle.text = e.label;
-      _enCours.prix.text = '${e.price}';
+      l.articleId = e.id;
+      l.libelle.text = e.label;
+      l.prix.text = '${e.price}';
     });
   }
 
@@ -636,32 +639,27 @@ class _SaisieState extends ConsumerState<_Saisie> {
               chambre?.guestName ?? 'Il paie sur place, avant de partir.',
               style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
             ),
+            // Ce que ce client a deja pris ici : le comptoir le voit avant
+            // de porter.
+            if (chambre != null)
+              _Historique(folioId: chambre.folioId, outletId: widget.outlet.id),
             const SizedBox(height: 16),
-
-            // La carte d'abord : elle remplit la derniere ligne.
-            _Carte(
-              outletId: widget.outlet.id,
-              choisi: _enCours.articleId,
-              onChoisir: _choisir,
-            ),
 
             for (final (i, l) in _lignes.indexed) ...[
               if (i > 0) const Divider(height: 28),
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: l.libelle,
+                    child: _ChampArticle(
+                      ligne: l,
+                      outletId: widget.outlet.id,
+                      libelle: _lignes.length > 1
+                          ? 'Consommation ${i + 1}'
+                          : 'Consommation',
+                      onChoisi: (e) => _choisir(l, e),
                       // Retoucher le libelle a la main : ce n'est plus
                       // l'article de la carte.
-                      onChanged: (_) => setState(() => l.articleId = null),
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        labelText: _lignes.length > 1
-                            ? 'Consommation ${i + 1}'
-                            : 'Consommation',
-                        hintText: 'Ce qui apparaîtra sur la facture',
-                      ),
+                      onTape: () => setState(() => l.articleId = null),
                     ),
                   ),
                   if (_lignes.length > 1)
@@ -801,77 +799,205 @@ class _SaisieState extends ConsumerState<_Saisie> {
   }
 }
 
-/// La carte du point de vente, au-dessus de la saisie libre.
+/// Les lettres sans accent ni majuscule : « ndo » trouve « Ndolé ».
+String _sansAccent(String texte) {
+  const accents = 'àâäáãéèêëíìîïóòôöõúùûüçñ';
+  const simples = 'aaaaaeeeeiiiiooooouuuucn';
+  final bas = texte.toLowerCase();
+  final b = StringBuffer();
+  for (final c in bas.split('')) {
+    final i = accents.indexOf(c);
+    b.write(i < 0 ? c : simples[i]);
+  }
+  return b.toString();
+}
+
+/// Le champ « Consommation » : on tape, la carte du point de vente propose.
 ///
-/// Absente tant qu'elle est vide ou en cours de lecture : la saisie libre
-/// reste alors seule, comme avant. Un plat du jour ou un service hors carte
-/// doit toujours rester possible.
-class _Carte extends ConsumerWidget {
-  const _Carte({
+/// Choisir un article remplit le libelle et le prix (modifiable), et relie
+/// la ligne a l'article : c'est ce lien qui fait sortir le stock. Un plat
+/// hors carte se tape librement, sans rien choisir.
+class _ChampArticle extends ConsumerWidget {
+  const _ChampArticle({
+    required this.ligne,
     required this.outletId,
-    required this.choisi,
-    required this.onChoisir,
+    required this.libelle,
+    required this.onChoisi,
+    required this.onTape,
   });
 
+  final _Ligne ligne;
   final String outletId;
-  final String? choisi;
-  final void Function(MenuEntry) onChoisir;
+  final String libelle;
+  final void Function(MenuEntry) onChoisi;
+  final VoidCallback onTape;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entrees =
+    final carte =
         ref.watch(menuForOutletProvider(outletId)).asData?.value ??
         const <MenuEntry>[];
-    if (entrees.isEmpty) return const SizedBox.shrink();
-
     final schema = Theme.of(context).colorScheme;
-    final lignes = <Widget>[];
-    String? derniere;
 
-    for (final e in entrees) {
-      if (e.categoryLabel != derniere) {
-        derniere = e.categoryLabel;
-        lignes.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 10, 4, 2),
-            child: Text(
-              e.categoryLabel,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: schema.onSurfaceVariant,
-              ),
+    return RawAutocomplete<MenuEntry>(
+      textEditingController: ligne.libelle,
+      focusNode: ligne.focus,
+      displayStringForOption: (e) => e.label,
+      optionsBuilder: (valeur) {
+        final cherche = _sansAccent(valeur.text.trim());
+        // Champ vide : toute la carte, pour choisir sans rien taper.
+        return [
+          for (final e in carte)
+            if (e.isAvailable &&
+                (cherche.isEmpty ||
+                    _sansAccent(e.label).contains(cherche) ||
+                    _sansAccent(e.categoryLabel).contains(cherche)))
+              e,
+        ];
+      },
+      onSelected: onChoisi,
+      fieldViewBuilder: (context, controleur, focus, valider) => TextField(
+        controller: controleur,
+        focusNode: focus,
+        onChanged: (_) => onTape(),
+        onSubmitted: (_) => valider(),
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          labelText: libelle,
+          hintText: carte.isEmpty
+              ? 'Ce qui apparaîtra sur la facture'
+              : 'Chercher dans la carte, ou saisir librement',
+          prefixIcon: const Icon(PhosphorIconsLight.magnifyingGlass, size: 20),
+          suffixIcon: ligne.articleId != null
+              ? Icon(PhosphorIconsLight.checkCircle, color: schema.primary)
+              : null,
+        ),
+      ),
+      optionsViewBuilder: (context, choisir, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 6,
+          borderRadius: BorderRadius.circular(14),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280, maxWidth: 460),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              shrinkWrap: true,
+              children: [
+                for (final e in options)
+                  ListTile(
+                    dense: true,
+                    title: Text(e.label),
+                    subtitle: Text(e.categoryLabel),
+                    trailing: Text(
+                      formatAmount(e.price),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onTap: () => choisir(e),
+                  ),
+              ],
             ),
           ),
-        );
-      }
-      lignes.add(
-        ListTile(
-          dense: true,
-          selected: e.id == choisi,
-          enabled: e.isAvailable,
-          title: Text(e.label),
-          subtitle: e.isAvailable ? null : const Text('Rupture'),
-          trailing: Text(formatAmount(e.price)),
-          onTap: e.isAvailable ? () => onChoisir(e) : null,
+        ),
+      ),
+    );
+  }
+}
+
+/// Les consommations passees du client dans ce point de vente.
+final _historiqueProvider =
+    StreamProvider.family<
+      List<PastConsumption>,
+      ({String folioId, String outletId})
+    >(
+      (ref, cle) => ref
+          .watch(orderRepositoryProvider)
+          .watchGuestHistory(folioId: cle.folioId, outletId: cle.outletId),
+    );
+
+class _Historique extends ConsumerWidget {
+  const _Historique({required this.folioId, required this.outletId});
+
+  final String folioId;
+  final String outletId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lignes =
+        ref
+            .watch(_historiqueProvider((folioId: folioId, outletId: outletId)))
+            .value ??
+        const <PastConsumption>[];
+    final schema = Theme.of(context).colorScheme;
+    if (lignes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text(
+          'Première consommation de ce client ici.',
+          style: TextStyle(fontSize: 13.5, color: schema.onSurfaceVariant),
         ),
       );
     }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 220),
-          child: ListView(shrinkWrap: true, children: lignes),
-        ),
-        const Divider(height: 24),
-        Text(
-          'Ou saisie libre',
-          style: TextStyle(fontSize: 12.5, color: schema.onSurfaceVariant),
-        ),
-        const SizedBox(height: 8),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Déjà consommé ici',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: schema.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 150),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final c in lignes)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 52,
+                          child: Text(
+                            '${c.businessDate.substring(8, 10)}/'
+                            '${c.businessDate.substring(5, 7)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: schema.onSurfaceVariant,
+                              fontFeatures: tabularFigures,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${c.quantity} × ${c.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        Text(
+                          formatAmount(c.amount),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: tabularFigures,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
