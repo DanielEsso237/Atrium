@@ -220,7 +220,9 @@ class _Logo extends StatelessWidget {
     padding: EdgeInsets.symmetric(horizontal: compacte ? 0 : 32),
     child: Align(
       alignment: compacte ? Alignment.center : Alignment.centerLeft,
-      child: AtriumMark(size: compacte ? 52 : 64, onNight: true),
+      child: compacte
+          ? const AtriumMark(size: 52, onNight: true)
+          : const AtriumLockup(markSize: 50),
     ),
   );
 }
@@ -520,6 +522,7 @@ class MenuCompte extends ConsumerWidget {
             bilan = await chargerDonneesDeTest(
               ref.read(databaseProvider),
               agentId: session.agent!.id,
+              peut: session.acces.peut,
             );
           } on Object catch (e) {
             bilan = 'Chargement interrompu : $e';

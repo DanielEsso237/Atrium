@@ -134,6 +134,7 @@ flutter:
     # Carillon (urgent) et alarme (critique) des alertes, generes par calcul.
     - assets/sounds/alerte_urgente.wav
     - assets/sounds/alerte_critique.wav
+    - assets/images/edge-hotel-mark.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

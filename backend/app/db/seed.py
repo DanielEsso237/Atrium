@@ -143,6 +143,7 @@ CASH_SESSION = PERMISSIONS[30][0]
 FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
 FOLIO_CHARGE = PERMISSIONS[32][0]
 STOCK_TRANSFER_APPROVE = PERMISSIONS[33][0]
+STOCK_READ = PERMISSIONS[12][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -199,6 +200,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # comptoir encaisse, donc ouvre une caisse. Sans elle, ses ventes
     # n'etaient dans aucun tiroir.
     (RESTAURANT_ROLE, CASH_SESSION),
+    # Le barman voit le stock de son bar (retour du 9 octobre) : lecture
+    # seulement, et la tablette ne lui montre que ses points de vente.
+    (RESTAURANT_ROLE, STOCK_READ),
     (RESTAURANT_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, FOLIO_READ),
     (CAISSE_ROLE, FOLIO_WRITE),

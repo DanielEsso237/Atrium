@@ -106,6 +106,7 @@ class RemoteOutlet {
     this.opensAt,
     this.closesAt,
     this.isActive = true,
+    this.kind = 'OUTLET',
   });
 
   final String id;
@@ -115,6 +116,9 @@ class RemoteOutlet {
   /// Desactive par l'administration : il sort des onglets de l'ecran
   /// Commande, mais reste en base -- les commandes passees y renvoient.
   final bool isActive;
+
+  /// `OUTLET` ou `SERVICE`.
+  final String kind;
 
   /// Ce point de vente peut-il porter une consommation sur la chambre.
   ///
@@ -137,6 +141,7 @@ class RemoteOutlet {
       opensAt: _heure(raw['opens_at']),
       closesAt: _heure(raw['closes_at']),
       isActive: raw['is_active'] != false,
+      kind: '${raw['kind'] ?? 'OUTLET'}',
     );
   }
 }

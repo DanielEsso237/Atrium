@@ -20,6 +20,10 @@ class Outlets extends Table
   BoolColumn get allowsRoomCharge =>
       boolean().withDefault(const Constant(true))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// Point de vente ou service : il range l'onglet dans le bon ecran.
+  TextColumn get kind =>
+      textEnum<OutletKind>().withDefault(const Constant('OUTLET'))();
 }
 
 /// Poste de preparation : cuisine, bar, patisserie.

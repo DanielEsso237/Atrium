@@ -51,7 +51,9 @@ extension on Groupe {
   String? get libelle => switch (this) {
     Groupe.pilotage => null,
     Groupe.sejours => 'Séjours',
-    Groupe.services => 'Services',
+    // « Services » est desormais l'onglet des prestations (spa, piscine,
+    // salles) : le groupe qui le contient prend un autre nom.
+    Groupe.services => 'Exploitation',
     Groupe.finances => 'Finances',
     Groupe.reglages => null,
   };
@@ -192,6 +194,16 @@ final destinations = <Destination>[
     PhosphorIconsLight.shoppingBagOpen,
     PhosphorIconsFill.shoppingBagOpen,
     '/commandes',
+    'order.read',
+    Groupe.services,
+  ),
+  // Les prestations : spa, piscine, salle de sport, salles de conference et
+  // de banquet. Meme ecran que les points de vente, filtre sur le genre.
+  const Destination(
+    'Services',
+    PhosphorIconsLight.bell,
+    PhosphorIconsLight.bell,
+    '/services',
     'order.read',
     Groupe.services,
   ),
@@ -546,7 +558,7 @@ class _BarreState extends State<_Barre> {
             padding: EdgeInsets.only(left: 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: AtriumMark(size: 58, onNight: true),
+              child: AtriumLockup(markSize: 46),
             ),
           ),
           const SizedBox(height: 14),
