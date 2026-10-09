@@ -1021,162 +1021,109 @@ class _Actions extends ConsumerWidget {
     // Le check-in n'a de sens que si un sejour attribue attend, et le
     // check-out que si quelqu'un est la. Les deux ne sont jamais proposes
     // ensemble : ce serait offrir une action impossible.
-    final List<Widget> boutons;
+    final Widget contenu;
     if (sejour != null) {
-      boutons = [
-        Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 54),
-              foregroundColor: AtriumDashColors.title,
-              side: BorderSide(color: AtriumDashColors.cardBorder),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AtriumRadii.md),
-              ),
-              textStyle: const TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            onPressed: () async {
-              final fait = await confirmCheckOut(
-                context,
-                ref,
-                lineId: sejour.lineId,
-                guestName: sejour.guestName,
-                roomNumber: chambre.number,
-              );
-              if (fait && context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Check-out'),
-          ),
+      final ardoise = sejour.folioId;
+      final boutons = <Widget>[
+        _BoutonAction(
+          libelle: 'Check-out',
+          icone: Icons.logout_rounded,
+          onPressed: () async {
+            final fait = await confirmCheckOut(
+              context,
+              ref,
+              lineId: sejour.lineId,
+              guestName: sejour.guestName,
+              roomNumber: chambre.number,
+            );
+            if (fait && context.mounted) Navigator.of(context).pop();
+          },
         ),
         // Seulement pendant un sejour : avant l'arrivee, on reattribue depuis
         // la liste des reservations, et rien n'est encore occupe.
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 54),
-              foregroundColor: AtriumDashColors.title,
-              side: BorderSide(color: AtriumDashColors.cardBorder),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AtriumRadii.md),
-              ),
-              textStyle: const TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            onPressed: () async {
-              final fait = await confirmChangeRoom(
-                context,
-                ref,
-                lineId: sejour.lineId,
-                guestName: sejour.guestName,
-                roomNumber: chambre.number,
-              );
-              if (fait && context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.swap_horiz_rounded),
-            label: const FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text('Changer de chambre'),
-            ),
-          ),
+        _BoutonAction(
+          libelle: 'Changer de chambre',
+          icone: Icons.swap_horiz_rounded,
+          onPressed: () async {
+            final fait = await confirmChangeRoom(
+              context,
+              ref,
+              lineId: sejour.lineId,
+              guestName: sejour.guestName,
+              roomNumber: chambre.number,
+            );
+            if (fait && context.mounted) Navigator.of(context).pop();
+          },
         ),
-        // Prolonger porte une ligne sur l'ardoise : comme une consommation,
-        // il lui faut une ardoise ouverte.
-        if (sejour.folioId != null) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 54),
-                foregroundColor: AtriumDashColors.title,
-                side: BorderSide(color: AtriumDashColors.cardBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AtriumRadii.md),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              onPressed: () => confirmExtendStay(
-                context,
-                ref,
-                lineId: sejour.lineId,
-                folioId: sejour.folioId!,
-                guestName: sejour.guestName,
-              ),
-              icon: const Icon(Icons.more_time_rounded),
-              label: const FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('Prolonger'),
-              ),
+        // Prolonger et consommer portent une ligne sur l'ardoise : il leur
+        // faut une ardoise ouverte.
+        if (ardoise != null)
+          _BoutonAction(
+            libelle: 'Prolonger',
+            icone: Icons.more_time_rounded,
+            onPressed: () => confirmExtendStay(
+              context,
+              ref,
+              lineId: sejour.lineId,
+              folioId: ardoise,
+              guestName: sejour.guestName,
             ),
           ),
-        ],
-        // Une consommation ne se porte que sur une ardoise ouverte.
-        if (sejour.folioId != null) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 54),
-                backgroundColor: AtriumColors.mintSoft,
-                foregroundColor: AtriumColors.ink,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AtriumRadii.md),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              onPressed: () => showAddChargeDialog(
-                context,
-                folioId: sejour.folioId!,
-                guestName: sejour.guestName,
-              ),
-              icon: const Icon(Icons.add_shopping_cart_rounded),
-              label: const FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('Consommation'),
-              ),
+        if (ardoise != null)
+          _BoutonAction(
+            libelle: 'Consommation',
+            icone: Icons.add_shopping_cart_rounded,
+            plein: true,
+            onPressed: () => showAddChargeDialog(
+              context,
+              folioId: ardoise,
+              guestName: sejour.guestName,
             ),
           ),
-        ],
       ];
+      // Une grille de deux colonnes : sur une seule ligne, quatre boutons se
+      // partageaient la largeur du panneau, et leur texte devenait illisible.
+      contenu = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < boutons.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: boutons[i]),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: i + 1 < boutons.length
+                      ? boutons[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
     } else if (attendu != null) {
-      boutons = [
-        Expanded(
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 54),
-              side: BorderSide(color: AtriumColors.mintStrong, width: 1.5),
-            ),
-            onPressed: () async {
-              final fait = await confirmCheckIn(
-                context,
-                ref,
-                lineId: attendu.lineId,
-                guestName: attendu.guestName,
-                roomNumber: chambre.number,
-              );
-              if (fait && context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.login_rounded),
-            label: Text('Check-in de ${attendu.guestName}'),
+      contenu = SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 54),
+            side: BorderSide(color: AtriumColors.mintStrong, width: 1.5),
           ),
+          onPressed: () async {
+            final fait = await confirmCheckIn(
+              context,
+              ref,
+              lineId: attendu.lineId,
+              guestName: attendu.guestName,
+              roomNumber: chambre.number,
+            );
+            if (fait && context.mounted) Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.login_rounded),
+          label: Text('Check-in de ${attendu.guestName}'),
         ),
-      ];
+      );
     } else {
       return const SizedBox.shrink();
     }
@@ -1192,7 +1139,70 @@ class _Actions extends ConsumerWidget {
         color: AtriumDashColors.card,
         border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
       ),
-      child: Row(children: boutons),
+      child: contenu,
+    );
+  }
+}
+
+/// Un bouton de la fiche, a la taille de sa case dans la grille.
+///
+/// Texte a sa taille normale, sur une ligne : reduit pour tenir, il devenait
+/// illisible. `plein` marque l'action du quotidien (la consommation).
+class _BoutonAction extends StatelessWidget {
+  const _BoutonAction({
+    required this.libelle,
+    required this.icone,
+    required this.onPressed,
+    this.plein = false,
+  });
+
+  final String libelle;
+  final IconData icone;
+  final VoidCallback onPressed;
+  final bool plein;
+
+  @override
+  Widget build(BuildContext context) {
+    final forme = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AtriumRadii.md),
+    );
+    const texte = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+    );
+    final label = Text(
+      libelle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (plein) {
+      return FilledButton.icon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 54),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          backgroundColor: AtriumColors.mintSoft,
+          foregroundColor: AtriumColors.ink,
+          shape: forme,
+          textStyle: texte,
+        ),
+        onPressed: onPressed,
+        icon: Icon(icone),
+        label: label,
+      );
+    }
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 54),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        foregroundColor: AtriumDashColors.title,
+        side: BorderSide(color: AtriumDashColors.cardBorder),
+        shape: forme,
+        textStyle: texte,
+      ),
+      onPressed: onPressed,
+      icon: Icon(icone),
+      label: label,
     );
   }
 }
