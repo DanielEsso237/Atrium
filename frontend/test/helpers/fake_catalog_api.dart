@@ -20,6 +20,7 @@ class FakeCatalogApi implements CatalogApi {
     this.menuCategories = const [],
     this.menuItems = const [],
     this.depositRule,
+    this.notificationLevels,
     this.users = const [],
     this.roles = const [],
     this.permissions = const [],
@@ -39,6 +40,7 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteMenuCategory> menuCategories;
   final List<RemoteMenuItem> menuItems;
   final Object? depositRule;
+  final Object? notificationLevels;
   final List<Map<String, dynamic>> users;
   final List<Map<String, dynamic>> roles;
   final List<Map<String, dynamic>> permissions;
@@ -99,6 +101,9 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => depositRule;
+
+  @override
+  Future<Object?> fetchNotificationLevels() async => notificationLevels;
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => users;
@@ -169,6 +174,9 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => _couloir();
+
+  @override
+  Future<Object?> fetchNotificationLevels() async => _couloir();
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => _couloir();

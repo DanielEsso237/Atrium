@@ -74,7 +74,14 @@ class _Bandeau extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final critique = alerte.niveau == NiveauAlerte.critique;
-    final fond = critique ? p.error : p.warning;
+    // Une arrivee attendue n'est pas un avertissement : le bleu de la
+    // maison pour l'information, l'ambre pour l'urgent, le rouge pour le
+    // critique.
+    final fond = switch (alerte.niveau) {
+      NiveauAlerte.critique => p.error,
+      NiveauAlerte.urgente => p.warning,
+      NiveauAlerte.info => p.primary,
+    };
     final centre = ref.read(centreAlertesProvider.notifier);
     final etroit = MediaQuery.sizeOf(context).width < 600;
 
@@ -99,6 +106,17 @@ class _Bandeau extends ConsumerWidget {
               ),
             ),
             child: const Text('Voir'),
+          ),
+        // Dix arrivees le matin font dix alertes : une seule touche pour
+        // toutes, plutot que dix « J'ai vu ».
+        if (autres > 0)
+          TextButton(
+            onPressed: centre.acquitterTout,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              minimumSize: const Size(64, 44),
+            ),
+            child: const Text('Tout vu'),
           ),
         FilledButton(
           onPressed: () => centre.acquitter(alerte.cle),

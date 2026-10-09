@@ -17,7 +17,13 @@ import 'package:vibration/vibration.dart';
 import '../../data/local/queries/alert_queries.dart';
 
 abstract class SignalAlerte {
-  Future<void> emettre(NiveauAlerte niveau);
+  /// La gravite choisit la sonnerie et le motif ; `son` et `vibration`
+  /// viennent du niveau de l'evenement et du choix de l'agent.
+  Future<void> emettre(
+    NiveauAlerte niveau, {
+    bool son = true,
+    bool vibration = true,
+  });
 
   /// Coupe une sonnerie en cours.
   Future<void> arreter();
@@ -29,8 +35,15 @@ class SignalAppareil implements SignalAlerte {
   bool _amplitude = false;
 
   @override
-  Future<void> emettre(NiveauAlerte niveau) async {
-    await Future.wait([_vibrer(niveau), _sonner(niveau)]);
+  Future<void> emettre(
+    NiveauAlerte niveau, {
+    bool son = true,
+    bool vibration = true,
+  }) async {
+    await Future.wait([
+      if (vibration) _vibrer(niveau),
+      if (son) _sonner(niveau),
+    ]);
   }
 
   Future<void> _vibrer(NiveauAlerte niveau) async {
@@ -45,9 +58,9 @@ class SignalAppareil implements SignalAlerte {
         return;
       }
       switch (niveau) {
-        case NiveauAlerte.info:
-          await Vibration.vibrate(duration: 180);
-        case NiveauAlerte.urgente:
+        // Une arrivee reglee « sonore et vibration » doit se sentir autant
+        // qu'une chambre a faire : la breve de 180 ms passait inapercue.
+        case NiveauAlerte.info || NiveauAlerte.urgente:
           await Vibration.vibrate(
             pattern: const [0, 450, 180, 450],
             intensities: _amplitude ? const [0, 255, 0, 255] : const [],
@@ -66,7 +79,6 @@ class SignalAppareil implements SignalAlerte {
   }
 
   Future<void> _sonner(NiveauAlerte niveau) async {
-    if (niveau == NiveauAlerte.info) return;
     final critique = niveau == NiveauAlerte.critique;
     try {
       final lecteur = _lecteur ??= AudioPlayer(playerId: 'atrium-alertes');

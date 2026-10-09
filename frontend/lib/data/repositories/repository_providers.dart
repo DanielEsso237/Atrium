@@ -53,6 +53,11 @@ final stayRulesProvider = StreamProvider<StayRules>(
   (ref) => ref.watch(settingsRepositoryProvider).watchStayRules(),
 );
 
+/// Le niveau de chaque evenement d'alerte, en flux continu.
+final niveauxAlertesProvider = StreamProvider<NiveauxAlertes>(
+  (ref) => ref.watch(settingsRepositoryProvider).watchNiveauxAlertes(),
+);
+
 final guestRepositoryProvider = Provider<GuestRepository>(
   (ref) => GuestRepository(ref.watch(databaseProvider)),
 );

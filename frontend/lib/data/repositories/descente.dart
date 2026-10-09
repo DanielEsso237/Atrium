@@ -33,7 +33,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
-import 'settings_repository.dart' show depositRuleKey;
+import 'settings_repository.dart' show depositRuleKey, notificationLevelsKey;
 import 'sync_repository.dart';
 
 /// Ce qu'une descente a rapatrie.
@@ -144,6 +144,7 @@ class Descente {
         () => _catalog.fetchPayments(depuis),
       );
       final regleArrhes = await _catalog.fetchDepositRule();
+      final niveauxAlertes = await _catalog.fetchNotificationLevels();
       final agents = await _siPermis(_catalog.fetchUsers);
       final roles = await _siPermis(_catalog.fetchRoles);
       final permissions = await _siPermis(_catalog.fetchPermissions);
@@ -153,6 +154,7 @@ class Descente {
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
       await _ecrireRegleArrhes(regleArrhes, maintenant);
+      await _ecrireNiveauxAlertes(niveauxAlertes, maintenant);
       // Les agents : chacun avec ses roles, ses permissions et ses points de
       // vente. `applyServerAgent` epargne un agent modifie ici et pas encore
       // remonte.
@@ -259,6 +261,42 @@ class Descente {
             key: depositRuleKey,
             value: Value(regle == null ? null : jsonEncode(regle)),
             label: const Value('Regle des arrhes'),
+            syncState: const Value(SyncState.synced),
+          ),
+        );
+  }
+
+  // --- Les niveaux des alertes ----------------------------------------------
+
+  /// Ecrit les niveaux des alertes, sauf ceux que l'administration de cette
+  /// tablette a changes et qui ne sont pas encore remontes. `null` (serveur
+  /// sans la route) ou vide (rien de fixe) : la tablette garde les siens.
+  Future<void> _ecrireNiveauxAlertes(
+    Object? niveaux,
+    DateTime maintenant,
+  ) async {
+    if (niveaux is! Map || niveaux.isEmpty) return;
+    final existante =
+        await (db.select(db.settings)..where(
+              (s) =>
+                  s.key.equals(notificationLevelsKey) &
+                  s.scope.equalsValue(SettingScope.GLOBAL) &
+                  s.scopeId.isNull(),
+            ))
+            .getSingleOrNull();
+    if (existante?.syncState == SyncState.pending) return;
+
+    await db
+        .into(db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(
+            id: existante?.id ?? newId(),
+            createdAt: existante?.createdAt ?? maintenant,
+            updatedAt: maintenant,
+            hotelId: hotelId,
+            key: notificationLevelsKey,
+            value: Value(jsonEncode(niveaux)),
+            label: const Value('Niveaux des alertes'),
             syncState: const Value(SyncState.synced),
           ),
         );

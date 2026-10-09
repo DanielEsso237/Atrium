@@ -174,6 +174,24 @@ de `services/deposit.py` : `{"mode":"FIXED","amount":20000}` ou
 `{"mode":"PERCENT","rate_bp":3000}`. Tout autre corps répond `422` : une
 règle mal formée serait sinon lue, en silence, comme « pas d'arrhes ».
 
+## Les niveaux des alertes
+
+`GET /settings/notification-levels` rend `{"levels": {"LOW_STOCK": "SILENT",
+…}}` : le niveau de chaque événement d'alerte, `{}` tant que
+l'administration n'a rien fixé (la tablette applique alors ses défauts).
+Ouvert à tout agent connecté, pour la même raison que la règle des arrhes.
+
+`PUT` remplace le tout — droit `users.write`. Les niveaux sont stricts
+(`SILENT`, `SOUND`, `SOUND_VIBRATION`, sinon `422`) ; les codes d'événement
+sont libres (`^[A-Z][A-Z_]*$`) : une tablette plus récente que le serveur en
+connaît d'autres, et un refus bloquerait sa file pour un simple réglage.
+Codes d'aujourd'hui : `SYNC_BLOCKED`, `ROOM_TO_CLEAN`, `MAINTENANCE`,
+`LATE_DEPARTURE`, `ARRIVAL_EXPECTED`, `TRANSFER_PENDING`, `LOW_STOCK`.
+
+Le serveur n'envoie aucune notification : chaque tablette calcule ses
+alertes depuis sa base locale. Le réglage « couper le son » d'un agent reste
+sur la tablette (clé `notifications.agent`, portée `USER`) et ne remonte pas.
+
 ## Les points de vente
 
 `POST /outlets` accepte l'`id` de la tablette : un renvoi répond `200` sans

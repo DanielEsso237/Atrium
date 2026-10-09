@@ -8,6 +8,14 @@
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <!-- Les alertes qu'on ne doit pas manquer font vibrer la tablette. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Les alertes dans le volet, meme application fermee (Android 13+
+         demande l'accord de l'agent a la premiere connexion). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- La veille « Alertes actives » : un service au premier plan garde
+         l'application en vie tant qu'un agent est connecte. Sans lui,
+         Android tue le processus en arriere-plan, et avec lui les alertes. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <application
         android:label="Edge Hotel"
         android:name="${applicationName}"
@@ -34,6 +42,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+            android:name="com.dexterous.flutterlocalnotifications.ForegroundService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Alertes de service d'un hotel : chambres a faire, pannes, saisies bloquees."/>
+        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -742,6 +742,18 @@ class CatalogApi {
   Future<Object?> fetchDepositRule() async =>
       (await _client.get('/settings/deposit-rule'))['rule'];
 
+  /// Les niveaux des alertes, bruts : `NiveauxAlertes.fromJson` les lit.
+  /// `null` quand le serveur ne connait pas encore la route : la tablette
+  /// garde alors ce qu'elle a.
+  Future<Object?> fetchNotificationLevels() async {
+    try {
+      return (await _client.get('/settings/notification-levels'))['levels'];
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
+      rethrow;
+    }
+  }
+
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
 
