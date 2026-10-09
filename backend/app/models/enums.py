@@ -196,6 +196,15 @@ class TicketStatus(StrEnum):
 # --- Stocks -----------------------------------------------------------------
 
 
+class StockMovementStatus(StrEnum):
+    """Un transfert attend la validation du controleur ou du comptable ; les
+    autres mouvements sont appliques des leur enregistrement."""
+
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 class StockMovementType(StrEnum):
     IN = "IN"
     OUT = "OUT"

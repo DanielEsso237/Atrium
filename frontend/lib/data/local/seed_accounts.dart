@@ -140,6 +140,25 @@ const _permissions = <_PermissionDemo>[
     'Ouvrir et fermer sa session de caisse',
     'cash',
   ),
+  // Les stocks (identifiants locaux, comme cash.session ci-dessus).
+  (
+    '01920000-0000-7000-8000-000000004151',
+    'stock.read',
+    'Consulter les stocks',
+    'stock',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004152',
+    'stock.movement',
+    'Enregistrer un mouvement de stock',
+    'stock',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004153',
+    'stock.transfer.approve',
+    'Valider ou refuser un transfert de stock',
+    'stock',
+  ),
   (
     '01920000-0000-7000-8000-000000004126',
     'housekeeping.read',
@@ -230,6 +249,11 @@ const _droits = <(String role, String permission)>[
   (_roleRestaurant, '01920000-0000-7000-8000-000000004150'),
   (_roleReception, '01920000-0000-7000-8000-000000004150'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004150'),
+  // Les stocks : l'administrateur, en attendant les roles econome,
+  // controleur et comptable.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004151'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004152'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004153'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {

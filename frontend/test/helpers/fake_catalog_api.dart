@@ -23,6 +23,10 @@ class FakeCatalogApi implements CatalogApi {
     this.users = const [],
     this.roles = const [],
     this.permissions = const [],
+    this.products = const [],
+    this.stockLocations = const [],
+    this.stockLevels = const [],
+    this.pendingTransfers = const [],
   });
 
   final List<RemoteRoom> rooms;
@@ -36,9 +40,27 @@ class FakeCatalogApi implements CatalogApi {
   final List<Map<String, dynamic>> users;
   final List<Map<String, dynamic>> roles;
   final List<Map<String, dynamic>> permissions;
+  final List<RemoteProduct> products;
+  final List<RemoteStockLocation> stockLocations;
+  final List<RemoteStockLevel> stockLevels;
+  final List<RemoteStockMovement> pendingTransfers;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
+
+  @override
+  Future<List<RemoteProduct>> fetchProducts() async => products;
+
+  @override
+  Future<List<RemoteStockLocation>> fetchStockLocations() async =>
+      stockLocations;
+
+  @override
+  Future<List<RemoteStockLevel>> fetchStockLevels() async => stockLevels;
+
+  @override
+  Future<List<RemoteStockMovement>> fetchPendingTransfers() async =>
+      pendingTransfers;
 
   @override
   Future<List<RemoteGuest>> fetchGuests() async => guests;
@@ -89,6 +111,19 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => _couloir();
+
+  @override
+  Future<List<RemoteProduct>> fetchProducts() async => _couloir();
+
+  @override
+  Future<List<RemoteStockLocation>> fetchStockLocations() async => _couloir();
+
+  @override
+  Future<List<RemoteStockLevel>> fetchStockLevels() async => _couloir();
+
+  @override
+  Future<List<RemoteStockMovement>> fetchPendingTransfers() async =>
+      _couloir();
 
   @override
   Future<List<RemoteGuest>> fetchGuests() async => _couloir();

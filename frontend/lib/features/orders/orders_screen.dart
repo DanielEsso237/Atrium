@@ -333,7 +333,7 @@ class _Chambre extends ConsumerWidget {
   }
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
-    final lignes = await showDialog<List<(String, int, int)>>(
+    final lignes = await showDialog<List<(String, int, int, String?)>>(
       context: context,
       builder: (_) => _Saisie(outlet: outlet, chambre: chambre),
     );
@@ -343,7 +343,7 @@ class _Chambre extends ConsumerWidget {
     // celles d'avant sont bien portees, et le message dit ou l'on en est.
     var portees = 0;
     var total = 0;
-    for (final (libelle, prix, quantite) in lignes) {
+    for (final (libelle, prix, quantite, article) in lignes) {
       try {
         await ref
             .read(orderRepositoryProvider)
@@ -354,6 +354,7 @@ class _Chambre extends ConsumerWidget {
               unitPrice: prix,
               quantity: quantite,
               by: ref.read(sessionProvider).agent?.id,
+              menuItemId: article,
             );
       } on StateError catch (e) {
         if (!context.mounted) return;
@@ -443,7 +444,7 @@ class _Passage extends ConsumerWidget {
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
-    final lignes = await showDialog<List<(String, int, int)>>(
+    final lignes = await showDialog<List<(String, int, int, String?)>>(
       context: context,
       builder: (_) => _Saisie(outlet: outlet, chambre: null),
     );
@@ -778,6 +779,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
                       l.libelle.text.trim(),
                       int.parse(l.prix.text.trim()),
                       l.quantite,
+                      // L'article de la carte, s'il n'a pas ete retouche a la
+                      // main : c'est lui qui fait sortir le stock.
+                      l.articleId,
                     ),
                 ]),
           child: Text(

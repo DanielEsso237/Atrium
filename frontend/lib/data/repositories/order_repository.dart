@@ -22,6 +22,7 @@ import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'outbox.dart';
+import 'stock_repository.dart';
 
 /// Une chambre a qui l'on peut porter une consommation.
 class ChargeableRoom {
@@ -209,6 +210,7 @@ class OrderRepository with OutboxWriter {
     required int unitPrice,
     int quantity = 1,
     String? by,
+    String? menuItemId,
   }) async {
     if (!outlet.allowsRoomCharge) {
       throw StateError(
@@ -235,6 +237,7 @@ class OrderRepository with OutboxWriter {
       // par point de vente sans ajouter de colonne.
       sourceTable: 'outlets',
       sourceId: outlet.id,
+      menuItemId: menuItemId,
     );
   }
 
@@ -252,12 +255,13 @@ class OrderRepository with OutboxWriter {
   /// montre tel quel.
   Future<String> sellWalkIn({
     required OutletRow outlet,
-    required List<(String label, int unitPrice, int quantity)> lines,
+    required List<(String label, int unitPrice, int quantity, String? menuItemId)>
+    lines,
     required PaymentMethod method,
     required String by,
   }) async {
     if (lines.isEmpty) throw StateError('Indiquez ce qui a été consommé.');
-    for (final (label, prix, quantite) in lines) {
+    for (final (label, prix, quantite, _) in lines) {
       if (label.trim().isEmpty) {
         throw StateError('Indiquez ce qui a été consommé.');
       }
@@ -280,8 +284,14 @@ class OrderRepository with OutboxWriter {
     final categorie = _categoriePour(outlet.code);
     final total = lines.fold(0, (t, l) => t + l.$2 * l.$3);
     final articles = [
-      for (final (label, prix, quantite) in lines)
-        (id: newId(), label: label.trim(), prix: prix, quantite: quantite),
+      for (final (label, prix, quantite, article) in lines)
+        (
+          id: newId(),
+          label: label.trim(),
+          prix: prix,
+          quantite: quantite,
+          article: article,
+        ),
     ];
 
     await db.transaction(() async {
@@ -327,6 +337,16 @@ class OrderRepository with OutboxWriter {
                 syncState: const Value(SyncState.synced),
               ),
             );
+        // Le stock du point de vente baisse ici aussi, tout de suite.
+        if (a.article != null) {
+          await StockRepository(db, hotelId: hotelId).deductLocalForSale(
+            outletId: outlet.id,
+            menuItemId: a.article!,
+            quantity: a.quantite,
+            folioItemId: a.id,
+            by: by,
+          );
+        }
       }
       await db
           .into(db.payments)
@@ -364,6 +384,7 @@ class OrderRepository with OutboxWriter {
                 'label': a.label,
                 'quantity': a.quantite,
                 'unit_price': a.prix,
+                'menu_item_id': a.article,
               },
           ],
           'payment': {'id': paiementId, 'method': method.name, 'amount': total},

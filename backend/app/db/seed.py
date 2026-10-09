@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -26,6 +27,7 @@ from app.models import (
     UserRole,
 )
 from app.models.enums import PrinterKind, PrinterProtocol
+from app.services.stock_locations import ensure_central, ensure_outlet_location
 
 HOTEL = uuid.UUID("01920000-0000-7000-8000-000000000001")
 
@@ -114,6 +116,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004131"), "cash.session", "Ouvrir et fermer sa session de caisse", "cash"),
     (uuid.UUID("01920000-0000-7000-8000-000000004132"), "folio.override_limit", "Autoriser une consommation au-dela du seuil du client", "folio"),
     (uuid.UUID("01920000-0000-7000-8000-000000004133"), "folio.charge", "Porter une consommation sur une ardoise (sans encaisser)", "folio"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004134"), "stock.transfer.approve", "Valider ou refuser un transfert de stock", "stock"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -139,6 +142,7 @@ STOCK_MOVEMENT = PERMISSIONS[29][0]
 CASH_SESSION = PERMISSIONS[30][0]
 FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
 FOLIO_CHARGE = PERMISSIONS[32][0]
+STOCK_TRANSFER_APPROVE = PERMISSIONS[33][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -279,6 +283,10 @@ async def seed(session: AsyncSession) -> None:
         .values([{"id": OUTLET_RESTO, "hotel_id": HOTEL, "code": OUTLET_RESTO_CODE, "label": "Restaurant", "allows_room_charge": True, "sort_order": 0}])
         .on_conflict_do_nothing()
     )
+    # L'economat, et le stock de chaque point de vente.
+    await ensure_central(session, HOTEL)
+    for outlet in (await session.scalars(select(Outlet).where(Outlet.hotel_id == HOTEL))).all():
+        await ensure_outlet_location(session, outlet)
     await upsert(Floor, [{"id": fid, "hotel_id": HOTEL, "code": code, "label": label, "sort_order": order} for fid, code, label, order in FLOORS])
     await upsert(RoomType, [{"id": tid, "hotel_id": HOTEL, "code": code, "label": label, "base_capacity": base, "max_capacity": maxi, "default_rate": rate, "sort_order": i} for i, (tid, code, label, base, maxi, rate) in enumerate(ROOM_TYPES)])
     await upsert(Room, [{"id": room_id(number), "hotel_id": HOTEL, "number": number, "room_type_id": type_id, "floor_id": floor_id} for number, type_id, floor_id in ROOMS])

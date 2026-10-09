@@ -16,6 +16,7 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'cash_repository.dart';
 import 'outbox.dart';
+import 'stock_repository.dart';
 
 /// Une ardoise, telle qu'affichee dans la liste des factures.
 class FolioSummary {
@@ -140,7 +141,7 @@ class FolioRepository with OutboxWriter {
   /// Les totaux du folio sont materialises et recalcules ici, dans la meme
   /// transaction : un solde qui se recalculerait a l'affichage divergerait du
   /// jour ou deux ecrans le liraient au meme instant.
-  Future<void> addCharge({
+  Future<String> addCharge({
     required String folioId,
     required ChargeCategory category,
     required String label,
@@ -151,6 +152,7 @@ class FolioRepository with OutboxWriter {
     String? sourceId,
     String? businessDate,
     String? overrideBy,
+    String? menuItemId,
   }) async {
     final id = newId();
     final now = DateTime.now().toUtc();
@@ -206,9 +208,25 @@ class FolioRepository with OutboxWriter {
           // Sans lui, le serveur refuserait une charge que la tablette a
           // acceptee : elle a vu l'autorisation, lui non.
           'override_by': overrideBy,
+          // L'article vendu : le serveur en fait sortir le produit du stock
+          // du point de vente (`source_id`).
+          'menu_item_id': menuItemId,
         },
       );
+
+      // Le stock du point de vente baisse ici aussi, tout de suite, meme
+      // hors ligne : le bar doit voir qu'il lui reste une biere de moins.
+      if (menuItemId != null && sourceTable == 'outlets' && sourceId != null) {
+        await StockRepository(db, hotelId: hotelId).deductLocalForSale(
+          outletId: sourceId,
+          menuItemId: menuItemId,
+          quantity: quantity,
+          folioItemId: id,
+          by: postedBy,
+        );
+      }
     });
+    return id;
   }
 
   /// Porte une prolongation a l'ardoise : la ligne « Prolongation 3 h ».

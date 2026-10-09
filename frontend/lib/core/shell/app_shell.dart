@@ -194,6 +194,16 @@ final destinations = <Destination>[
     'order.read',
     Groupe.services,
   ),
+  // L'economat et le stock de chaque point de vente. L'icone pleine est la
+  // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
+  const Destination(
+    'Stocks',
+    PhosphorIconsLight.archive,
+    PhosphorIconsLight.archive,
+    '/stocks',
+    'stock.read',
+    Groupe.services,
+  ),
   const Destination(
     'Factures',
     PhosphorIconsLight.receipt,

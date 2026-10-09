@@ -15,11 +15,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import HotelScoped, RefBase, SyncBase
-from app.models.enums import InventoryStatus, StockMovementType
+from app.models.enums import InventoryStatus, StockMovementStatus, StockMovementType
 from app.models.rooms import _enum
 
 
@@ -77,10 +78,27 @@ class Product(RefBase, HotelScoped):
 
 
 class StockLocation(RefBase, HotelScoped):
-    """Magasin : economat, cuisine, bar, lingerie."""
+    """Magasin : l'economat, ou le stock d'un point de vente (bar, boite...).
+
+    L'economat est le stock principal : il ravitaille les points de vente, qui
+    peuvent aussi se ravitailler entre eux (le bar qui manque de jus en prend a
+    la boite de nuit). Chaque point de vente a son magasin, cree avec lui
+    (`app/services/stock_locations.py`) : sans lui, une vente n'aurait aucun
+    stock ou sortir. D'autres magasins (lingerie, cuisine) restent possibles.
+    """
 
     __tablename__ = "stock_locations"
-    __table_args__ = (UniqueConstraint("hotel_id", "code"),)
+    __table_args__ = (
+        UniqueConstraint("hotel_id", "code"),
+        # Un magasin par point de vente, et un seul economat par hotel.
+        UniqueConstraint("outlet_id"),
+        Index(
+            "ux_stock_locations_central",
+            "hotel_id",
+            unique=True,
+            postgresql_where=text("is_central"),
+        ),
+    )
 
     code: Mapped[str] = mapped_column(String(32))
     label: Mapped[str] = mapped_column(String(80))
@@ -88,6 +106,14 @@ class StockLocation(RefBase, HotelScoped):
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
     sort_order: Mapped[int] = mapped_column(default=0)
+    # Le point de vente dont c'est le stock ; nul pour l'economat et les
+    # magasins internes.
+    outlet_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("outlets.id", ondelete="RESTRICT"), default=None
+    )
+    is_central: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
 
 
 class StockLevel(SyncBase):
@@ -152,6 +178,18 @@ class StockMovement(SyncBase, HotelScoped):
     moved_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
+    # Un transfert attend sa validation (controleur ou comptable) : le stock
+    # ne bouge qu'a ce moment-la. Les autres mouvements naissent APPROVED.
+    status: Mapped[StockMovementStatus] = mapped_column(
+        _enum(StockMovementStatus, "stock_movement_status"),
+        default=StockMovementStatus.APPROVED,
+        server_default=StockMovementStatus.APPROVED.value,
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    decision_note: Mapped[str | None] = mapped_column(String(255), default=None)
 
 
 class Inventory(SyncBase, HotelScoped):

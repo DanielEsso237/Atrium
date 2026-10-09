@@ -92,6 +92,11 @@ class MenuItems extends Table
   BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
   IntColumn get preparationMinutes => integer().nullable()();
 
+  /// Le produit en stock que la vente consomme, et combien par article
+  /// vendu. Nul pour ce qui ne se stocke pas (plat du jour, entree en boite).
+  TextColumn get productId => text().nullable()();
+  IntColumn get stockQuantity => integer().withDefault(const Constant(1))();
+
   /// Allergenes, en JSON.
   TextColumn get allergens => text().nullable()();
   TextColumn get photoPath => text().withLength(max: 255).nullable()();

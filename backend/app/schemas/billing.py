@@ -15,6 +15,12 @@ class FolioItemIn(BaseModel):
     category: ChargeCategory
     label: str = Field(min_length=1, max_length=160)
     quantity: int = Field(default=1, ge=1)
+    menu_item_id: uuid.UUID | None = Field(
+        default=None, description="Article de la carte vendu : fait sortir son produit du stock"
+    )
+    outlet_id: uuid.UUID | None = Field(
+        default=None, description="Point de vente qui a servi : c'est son stock qui baisse"
+    )
     unit_price: int = Field(ge=0, description="FCFA, TTC")
     tax_rate: int = Field(default=0, ge=0, le=100)
     override_by: uuid.UUID | None = Field(
@@ -77,6 +83,9 @@ class WalkInItemIn(BaseModel):
     category: ChargeCategory
     label: str = Field(min_length=1, max_length=160)
     quantity: int = Field(default=1, ge=1)
+    menu_item_id: uuid.UUID | None = Field(
+        default=None, description="Article de la carte vendu : fait sortir son produit du stock"
+    )
     unit_price: int = Field(gt=0, description="FCFA, TTC")
 
 

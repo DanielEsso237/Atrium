@@ -127,6 +127,15 @@ class MenuItem(RefBase, HotelScoped):
     )
     price: Mapped[int] = mapped_column(BigInteger, default=0)
     tax_rate: Mapped[int] = mapped_column(Integer, default=0)
+    # Le produit en stock que la vente consomme, et combien par article vendu
+    # (une biere vendue = une biere sortie). Nul pour ce qui ne se stocke pas :
+    # un plat du jour, une entree en boite. Les recettes (plusieurs
+    # ingredients par plat) et les conversions (casier, bouteille, verre)
+    # viendront avec leur propre ticket.
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), default=None
+    )
+    stock_quantity: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     # Rupture ponctuelle, distincte de `is_active` qui retire l'article du menu.
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
     preparation_minutes: Mapped[int | None] = mapped_column(default=None)

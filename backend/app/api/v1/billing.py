@@ -43,6 +43,7 @@ from app.services.business_day import current_business_date
 from app.services import folios as folio_service
 from app.services.folios import recompute_totals
 from app.services.numbering import Scope, next_number
+from app.services.stock_levels import deduct_for_sale
 from app.services.printing import enqueue_print_job
 
 router = APIRouter(tags=["facturation"])
@@ -245,6 +246,17 @@ async def add_folio_item(
         night.posted_at = item.posted_at
     session.add(item)
     await session.flush()
+    # Ce que la ligne consomme sort du stock du point de vente. Le rejeu est
+    # rendu plus haut : on n'arrive ici qu'une fois par ligne.
+    await deduct_for_sale(
+        session,
+        hotel_id=user.hotel_id,
+        outlet_id=payload.outlet_id,
+        menu_item_id=payload.menu_item_id,
+        quantity=payload.quantity,
+        folio_item_id=item.id,
+        by=user.id,
+    )
     await recompute_totals(session, folio)
     await session.commit()
     await session.refresh(item)
@@ -453,9 +465,10 @@ async def walk_in_sale(
     session.add(folio)
     await session.flush()
     for i in payload.items:
+        item_id = i.id or uuid7()
         session.add(
             FolioItem(
-                id=i.id or uuid7(),
+                id=item_id,
                 folio_id=folio.id,
                 category=i.category,
                 label=i.label,
@@ -472,6 +485,16 @@ async def walk_in_sale(
                 source_table="outlets",
                 source_id=outlet.id,
             )
+        )
+        await session.flush()
+        await deduct_for_sale(
+            session,
+            hotel_id=user.hotel_id,
+            outlet_id=outlet.id,
+            menu_item_id=i.menu_item_id,
+            quantity=i.quantity,
+            folio_item_id=item_id,
+            by=user.id,
         )
     cash_session_id = await session.scalar(
         select(CashSession.id)

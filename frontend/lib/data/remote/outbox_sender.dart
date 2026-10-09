@@ -57,6 +57,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'settings' => db.settings,
     'users' => db.users,
     'roles' => db.roles,
+    'stock_movements' => db.stockMovements,
     _ => null,
   };
 }
@@ -504,6 +505,10 @@ class OutboxSender {
             'quantity': p['quantity'],
             'unit_price': p['unit_price'],
             'override_by': p['override_by'],
+            // Une consommation dit l'article vendu et le point de vente qui
+            // l'a servie : le serveur fait sortir le produit de son stock.
+            'menu_item_id': p['menu_item_id'],
+            'outlet_id': p['source_table'] == 'outlets' ? p['source_id'] : null,
             // Une nuitee dit quelle nuit elle facture : le serveur la
             // reconnait si une autre tablette l'a deja portee.
             'night_date': p['source_table'] == 'stay_nights'
@@ -649,6 +654,30 @@ class OutboxSender {
           '/settings/deposit-rule',
           (regle as Map).cast<String, Object?>(),
           methode: _Methode.put,
+        );
+
+      case 'stock_movements':
+        // Validation ou refus d'un transfert : son endpoint, avec le motif.
+        if (p['action'] == 'APPROVE' || p['action'] == 'REJECT') {
+          final verbe = p['action'] == 'APPROVE' ? 'approve' : 'reject';
+          return _Envoi(
+            '/stock-movements/${p['id']}/$verbe',
+            _sansNuls({'note': p['note']}),
+          );
+        }
+        // Entree, transfert demande : le serveur rejoue sans doublon par l'id.
+        return _Envoi(
+          '/stock-movements',
+          _sansNuls({
+            'id': p['id'],
+            'product_id': p['product_id'],
+            'stock_location_id': p['stock_location_id'],
+            'counterpart_location_id': p['counterpart_location_id'],
+            'type': p['type'],
+            'quantity': p['quantity'],
+            'unit_cost': p['unit_cost'],
+            'reason': p['reason'],
+          }),
         );
 
       case 'invoices':

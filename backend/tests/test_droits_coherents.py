@@ -64,6 +64,9 @@ IMPLICATIONS = [
     # Le client de passage paie au comptoir : la vente y est encaissee, dans
     # la caisse ouverte de l'agent (POST /folios/walk-in).
     ("order.create", "cash.session"),
+    # Valider un transfert, c'est accepter de vider un magasin : il faut en
+    # voir le stock avant.
+    ("stock.transfer.approve", "stock.read"),
 ]
 
 

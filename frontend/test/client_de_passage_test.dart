@@ -33,7 +33,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  const lignes = [('Bière', 1500, 2), ('Brochettes', 3000, 1)];
+  const lignes = [('Bière', 1500, 2, null), ('Brochettes', 3000, 1, null)];
 
   test('vendue, payee et close, une seule entree de file', () async {
     final caisse = await CashRepository(
