@@ -121,9 +121,11 @@ final stockRepositoryProvider = Provider<StockRepository>(
   (ref) => StockRepository(ref.watch(databaseProvider)),
 );
 
-/// Les magasins : l'economat d'abord.
-final stockPlacesProvider = StreamProvider<List<StockPlace>>(
-  (ref) => ref.watch(stockRepositoryProvider).watchPlaces(),
+/// Les magasins que cet agent voit : l'economat d'abord. Le barman ne voit
+/// que le stock de ses points de vente.
+final stockPlacesProvider = StreamProvider.family<List<StockPlace>, String?>(
+  (ref, agentId) =>
+      ref.watch(stockRepositoryProvider).watchPlaces(agentId: agentId),
 );
 
 /// Les produits d'un magasin et leur quantite. A l'economat, tous les
