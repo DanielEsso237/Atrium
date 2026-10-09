@@ -824,6 +824,19 @@ class CatalogApi {
     );
   }
 
+  /// Les sejours en cours, quelle que soit leur date d'arrivee.
+  ///
+  /// La fenetre de [fetchReservations] part de l'arrivee : un client
+  /// installe depuis plus de 7 jours en sortait, et une tablette neuve ou
+  /// reinstallee montrait sa chambre occupee sans personne dedans. Un depart
+  /// oublie produisait le meme effet. Les sejours en cours sont peu
+  /// nombreux : ils descendent tous.
+  Future<List<RemoteReservation>> fetchStaysInHouse() => _lire(
+    '/reservations',
+    RemoteReservation.fromJson,
+    query: {'status': 'CHECKED_IN'},
+  );
+
   /// Les ardoises ouvertes, avec leurs lignes.
   ///
   /// Les ardoises closes ne descendent pas : elles ne bougent plus, et les

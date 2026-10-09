@@ -101,12 +101,14 @@ void main() {
   Descente descente({
     List<RemoteGuest> guests = const [],
     List<RemoteReservation> reservations = const [],
+    List<RemoteReservation>? staysInHouse,
     List<RemoteFolio> folios = const [],
     List<RemoteOutlet> outlets = const [],
   }) {
     final api = FakeCatalogApi(
       guests: guests,
       reservations: reservations,
+      staysInHouse: staysInHouse,
       folios: folios,
       outlets: outlets,
     );
@@ -159,6 +161,34 @@ void main() {
     expect(await compter('guests'), 1);
     expect(await compter('reservation_rooms'), 1);
     expect(await compter('folio_items'), 1);
+  });
+
+  test('un sejour en cours arrive avant la fenetre descend quand meme',
+      () async {
+    // Vecu : arrive le 1er, depart prevu le 3, jamais fait. Le 9, la fenetre
+    // des arrivees ne le contenait plus ; la tablette reinstallee montrait
+    // la chambre occupee, et sa fiche disait « aucun client ».
+    final sejour = _reservation(typeStandard, statut: 'CHECKED_IN');
+    final rapport = await descente(
+      guests: [_guest()],
+      staysInHouse: [sejour],
+    ).pull();
+
+    expect(rapport.reservations, 1);
+    final ligne = await db.select(db.reservationRooms).getSingle();
+    expect(ligne.status.name, 'CHECKED_IN');
+  });
+
+  test('un sejour en cours vu par les deux appels ne s ecrit qu une fois',
+      () async {
+    final sejour = _reservation(typeStandard, statut: 'CHECKED_IN');
+    final rapport = await descente(
+      guests: [_guest()],
+      reservations: [sejour],
+    ).pull();
+
+    expect(rapport.reservations, 1);
+    expect(await compter('reservation_rooms'), 1);
   });
 
   test('les arrhes descendent avec le dossier', () async {
