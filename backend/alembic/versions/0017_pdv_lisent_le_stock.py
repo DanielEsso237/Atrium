@@ -5,7 +5,7 @@ celui de la boite. Lecture seulement (stock.read) ; c'est la tablette qui ne
 lui montre que les magasins de ses points de vente, comme ses onglets de
 vente.
 
-Revision ID: 0017_points_de_vente_lisent_le_stock
+Revision ID: 0017_pdv_lisent_le_stock
 Revises: 0016_services
 """
 
@@ -15,7 +15,7 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "0017_points_de_vente_lisent_le_stock"
+revision: str = "0017_pdv_lisent_le_stock"
 down_revision: Union[str, None] = "0016_services"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
