@@ -98,6 +98,13 @@ abstract final class PhosphorIconsLight {
   static const wine = IconData(0xe6b2, fontFamily: 'PhosphorLight');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorLight');
   static const x = IconData(0xe4f6, fontFamily: 'PhosphorLight');
+  static const arrowCounterClockwise = IconData(0xe038, fontFamily: 'PhosphorLight');
+  static const caretDown = IconData(0xe136, fontFamily: 'PhosphorLight');
+  static const downloadSimple = IconData(0xe20c, fontFamily: 'PhosphorLight');
+  static const filePdf = IconData(0xe702, fontFamily: 'PhosphorLight');
+  static const fileXls = IconData(0xeb22, fontFamily: 'PhosphorLight');
+  static const trendDown = IconData(0xe4ac, fontFamily: 'PhosphorLight');
+  static const trendUp = IconData(0xe4ae, fontFamily: 'PhosphorLight');
 }
 
 abstract final class PhosphorIconsFill {

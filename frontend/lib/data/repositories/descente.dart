@@ -26,6 +26,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../core/business_day.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
@@ -133,6 +134,15 @@ class Descente {
       final clients = await _siPermis(_catalog.fetchGuests);
       final dossiers = await _siPermis(() => _catalog.fetchReservations());
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
+      // Les rapports : ventes closes ailleurs et encaissements de tous les
+      // postes, sur une fenetre glissante.
+      final depuis = _debutFenetreRapports();
+      final ardoisesCloses = await _siPermis(
+        () => _catalog.fetchClosedFolios(depuis),
+      );
+      final encaissements = await _siPermis(
+        () => _catalog.fetchPayments(depuis),
+      );
       final regleArrhes = await _catalog.fetchDepositRule();
       final agents = await _siPermis(_catalog.fetchUsers);
       final roles = await _siPermis(_catalog.fetchRoles);
@@ -173,10 +183,11 @@ class Descente {
       );
       ecartees += ecartDossiers;
       final (nArdoises, nItems, ecartArdoises) = await _ecrireArdoises(
-        ardoises,
+        [...ardoises, ...ardoisesCloses],
         maintenant,
       );
       ecartees += ecartArdoises;
+      ecartees += await _ecrireEncaissements(encaissements, maintenant);
 
       return PullReport(
         outlets: nPoints,
@@ -779,6 +790,11 @@ class Descente {
                   taxAmount: Value(i.taxAmount),
                   businessDate: i.businessDate,
                   isVoid: Value(i.isVoid),
+                  // Un serveur plus ancien ne les envoie pas : ne pas effacer
+                  // ce que la tablette savait deja de la provenance.
+                  sourceTable: Value.absentIfNull(i.sourceTable),
+                  sourceId: Value.absentIfNull(i.sourceId),
+                  postedBy: Value.absentIfNull(i.postedBy),
                   syncState: const Value(SyncState.synced),
                 ),
               );
@@ -788,6 +804,62 @@ class Descente {
     });
 
     return (ardoisesEcrites, itemsEcrits, sautes);
+  }
+
+  // --- Les encaissements -----------------------------------------------------
+
+  /// Combien de jours de ventes closes et d'encaissements chaque descente
+  /// relit : de quoi couvrir le mois precedent en entier, sans faire
+  /// grossir l'appel de toute l'histoire de l'hotel.
+  static const fenetreRapports = 62;
+
+  DateTime _debutFenetreRapports() {
+    final jour = businessDayFor(DateTime.now());
+    // Composantes et non duree : un changement d'heure decalerait le jour.
+    return DateTime(jour.year, jour.month, jour.day - fenetreRapports);
+  }
+
+  /// Rend le nombre d'encaissements ecartes (en attente d'envoi ici).
+  Future<int> _ecrireEncaissements(
+    List<RemotePayment> encaissements,
+    DateTime maintenant,
+  ) async {
+    final proteges = await _sync.lignesEnAttente(db.payments);
+    var sautes = 0;
+
+    await db.transaction(() async {
+      for (final p in encaissements) {
+        // La version locale fait foi tant qu'elle n'est pas remontee.
+        // Un moyen inconnu de cette version : le ranger en especes fausserait
+        // la caisse, mieux vaut l'ecarter.
+        final moyen = _moyen(p.method);
+        if (proteges.contains(p.id) || moyen == null) {
+          sautes++;
+          continue;
+        }
+        await db
+            .into(db.payments)
+            .insertOnConflictUpdate(
+              PaymentsCompanion.insert(
+                id: p.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                method: moyen,
+                amount: p.amount,
+                folioId: Value(p.folioId),
+                cashSessionId: Value(p.cashSessionId),
+                reference: Value(p.reference),
+                receivedBy: Value(p.receivedBy),
+                receivedAt: Value(p.receivedAt),
+                businessDate: Value(p.businessDate),
+                isRefund: Value(p.isRefund),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+    return sautes;
   }
 
   // --- Outils ----------------------------------------------------------------
@@ -817,6 +889,13 @@ class Descente {
     (s) => s.name == v,
     orElse: () => FolioType.GUEST,
   );
+
+  static PaymentMethod? _moyen(String v) {
+    for (final m in PaymentMethod.values) {
+      if (m.name == v) return m;
+    }
+    return null;
+  }
 
   static ChargeCategory _categorie(String v) => ChargeCategory.values
       .firstWhere((s) => s.name == v, orElse: () => ChargeCategory.MISC);

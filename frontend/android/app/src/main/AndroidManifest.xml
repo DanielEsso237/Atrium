@@ -6,6 +6,8 @@
     <!-- Facultatif : une tablette sans appareil photo s'installe quand meme,
          et la saisie de l'arrivee reste possible sans les photos. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- Les alertes qu'on ne doit pas manquer font vibrer la tablette. -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="Edge Hotel"
         android:name="${applicationName}"

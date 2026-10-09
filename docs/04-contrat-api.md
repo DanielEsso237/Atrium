@@ -388,6 +388,23 @@ dans la caisse ouverte de l'agent et clôt l'ardoise.
 - Rejouée avec le même `id`, la vente rend l'ardoise existante (**200**),
   sans rien réécrire.
 
+## Ce qui redescend pour les rapports
+
+Les rapports se calculent sur la tablette, hors ligne. Il leur faut aussi
+les ventes faites, soldées et closes sur un autre poste, qui ne figurent
+jamais dans la liste des ardoises ouvertes.
+
+- `GET /folios?closed_since=AAAA-MM-JJ` : les ardoises closes depuis ce
+  jour, avec leurs lignes. Chaque ligne porte désormais `source_table`,
+  `source_id` (le point de vente quand `source_table = "outlets"`) et
+  `posted_by` (l'agent qui l'a saisie).
+- `GET /payments?since=AAAA-MM-JJ` : les encaissements depuis cette journée
+  hôtelière, arrhes et remboursements compris, avec `received_by`,
+  `business_date` et `cash_session_id`. Exige `folio.read`.
+
+La tablette relit une fenêtre glissante de 62 jours à chaque descente, de
+quoi couvrir le mois précédent en entier.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

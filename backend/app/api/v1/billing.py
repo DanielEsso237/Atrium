@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import permission_codes, require_any_permission, require_permission
@@ -37,6 +37,7 @@ from app.schemas.billing import (
     FolioOut,
     InvoiceOut,
     PaymentIn,
+    PaymentOut,
     WalkInSaleIn,
 )
 from app.services.business_day import current_business_date
@@ -122,10 +123,24 @@ async def _check_credit_limit(
     return authorizer.id
 
 
+def _debut_du_jour(jour: dt.date) -> dt.datetime:
+    """Minuit UTC du jour donne : une borne large, jamais plus etroite.
+
+    Une fenetre de descente qui commence quelques heures trop tot relit
+    quelques lignes de trop ; une qui commence trop tard en perd.
+    """
+    return dt.datetime.combine(jour, dt.time.min, tzinfo=dt.timezone.utc)
+
+
 @router.get("/folios", response_model=list[FolioOut])
 async def list_folios(
     status_filter: FolioStatus | None = Query(None, alias="status"),
     guest_id: uuid.UUID | None = None,
+    closed_since: dt.date | None = Query(
+        None,
+        description="Ardoises closes depuis ce jour : les rapports d'une "
+        "tablette comptent aussi les ventes faites et soldees ailleurs.",
+    ),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("folio.read")),
 ) -> list[Folio]:
@@ -134,7 +149,43 @@ async def list_folios(
         stmt = stmt.where(Folio.status == status_filter)
     if guest_id:
         stmt = stmt.where(Folio.guest_id == guest_id)
+    if closed_since:
+        stmt = stmt.where(Folio.closed_at >= _debut_du_jour(closed_since))
     stmt = stmt.order_by(Folio.opened_at.desc().nullslast())
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+@router.get("/payments", response_model=list[PaymentOut])
+async def list_payments(
+    since: dt.date = Query(description="Premiere journee hoteliere incluse"),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("folio.read")),
+) -> list[Payment]:
+    """Les encaissements depuis une journee, arrhes et remboursements compris.
+
+    Ils redescendent a part des ardoises : une ardoise soldee et close sur un
+    autre poste n'apporterait ni l'agent ni le moyen de paiement, et les
+    rapports filtres par l'un ou l'autre seraient faux d'une tablette a
+    l'autre.
+    """
+    stmt = (
+        select(Payment)
+        .where(
+            Payment.hotel_id == user.hotel_id,
+            Payment.deleted_at.is_(None),
+            # Un encaissement sans journee hoteliere (ancien) se range par son
+            # instant de reception.
+            or_(
+                Payment.business_date >= since,
+                and_(
+                    Payment.business_date.is_(None),
+                    Payment.received_at >= _debut_du_jour(since),
+                ),
+            ),
+        )
+        .order_by(Payment.received_at.asc().nullsfirst(), Payment.id)
+    )
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

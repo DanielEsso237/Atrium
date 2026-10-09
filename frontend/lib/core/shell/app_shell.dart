@@ -37,6 +37,7 @@ import '../brand/atrium_logo.dart';
 import '../theme_mode.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
+import '../../features/alerts/alert_banner.dart';
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
 
 /// Les familles du menu, dans l'ordre ou un hotel se lit : d'abord la vue
@@ -221,6 +222,15 @@ final destinations = <Destination>[
     Groupe.finances,
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
+  // Une periode, des filtres, et de quoi la remettre au comptable.
+  const Destination(
+    'Rapports',
+    PhosphorIconsLight.chartLineUp,
+    PhosphorIconsFill.chartLineUp,
+    '/rapports',
+    'folio.read',
+    Groupe.finances,
+  ),
   const Destination(
     'Administration',
     PhosphorIconsLight.lockSimple,
@@ -304,7 +314,9 @@ class AppShell extends ConsumerWidget {
       context.go(d.route!);
     }
 
-    final page = AmbientBackground(child: child);
+    // Les alertes en tete de chaque ecran : un metier a ecran unique n'a pas
+    // de cloche, il doit les voir quand meme.
+    final page = AmbientBackground(child: BandeauAlertes(child: child));
 
     if (largeur >= 1100) {
       return Material(

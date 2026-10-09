@@ -45,6 +45,11 @@ dependencies:
   dio: ^5.11.1
   flutter_secure_storage: ^11.2.0
   image_picker: ^1.2.3
+  pdf: ^3.12.0
+  excel: ^4.0.6
+  share_plus: ^13.3.1
+  audioplayers: ^6.7.1
+  vibration: ^3.2.1
 
 dev_dependencies:
   flutter_test:
@@ -125,6 +130,9 @@ flutter:
   assets:
     - assets/images/chambre.jpg
     - assets/images/edge-hotel-logo.png
+    # Carillon (urgent) et alarme (critique) des alertes, generes par calcul.
+    - assets/sounds/alerte_urgente.wav
+    - assets/sounds/alerte_critique.wav
 
   # To add assets to your application, add an assets section, like this:
   # assets:
