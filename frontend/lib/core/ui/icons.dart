@@ -19,6 +19,7 @@ abstract final class PhosphorIconsLight {
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorLight');
   static const bed = IconData(0xe0cc, fontFamily: 'PhosphorLight');
   static const bell = IconData(0xe0ce, fontFamily: 'PhosphorLight');
+  static const bellSlash = IconData(0xe0d2, fontFamily: 'PhosphorLight');
   static const broom = IconData(0xec54, fontFamily: 'PhosphorLight');
   static const buildings = IconData(0xe102, fontFamily: 'PhosphorLight');
   static const calendarBlank = IconData(0xe10a, fontFamily: 'PhosphorLight');
@@ -68,6 +69,7 @@ abstract final class PhosphorIconsLight {
   static const moon = IconData(0xe330, fontFamily: 'PhosphorLight');
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorLight');
   static const numpad = IconData(0xe3c8, fontFamily: 'PhosphorLight');
+  static const package = IconData(0xe390, fontFamily: 'PhosphorLight');
   static const password = IconData(0xe752, fontFamily: 'PhosphorLight');
   static const percent = IconData(0xe3b6, fontFamily: 'PhosphorLight');
   static const phone = IconData(0xe3b8, fontFamily: 'PhosphorLight');
@@ -83,6 +85,8 @@ abstract final class PhosphorIconsLight {
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorLight');
   static const siren = IconData(0xe9b8, fontFamily: 'PhosphorLight');
   static const sparkle = IconData(0xe6a2, fontFamily: 'PhosphorLight');
+  static const speakerHigh = IconData(0xe44a, fontFamily: 'PhosphorLight');
+  static const speakerSlash = IconData(0xe45a, fontFamily: 'PhosphorLight');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorLight');
   static const storefront = IconData(0xe470, fontFamily: 'PhosphorLight');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorLight');
@@ -93,11 +97,19 @@ abstract final class PhosphorIconsLight {
   static const userPlus = IconData(0xe4d0, fontFamily: 'PhosphorLight');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorLight');
   static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorLight');
+  static const vibrate = IconData(0xe4d8, fontFamily: 'PhosphorLight');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorLight');
   static const warningDiamond = IconData(0xe7fc, fontFamily: 'PhosphorLight');
   static const wine = IconData(0xe6b2, fontFamily: 'PhosphorLight');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorLight');
   static const x = IconData(0xe4f6, fontFamily: 'PhosphorLight');
+  static const arrowCounterClockwise = IconData(0xe038, fontFamily: 'PhosphorLight');
+  static const caretDown = IconData(0xe136, fontFamily: 'PhosphorLight');
+  static const downloadSimple = IconData(0xe20c, fontFamily: 'PhosphorLight');
+  static const filePdf = IconData(0xe702, fontFamily: 'PhosphorLight');
+  static const fileXls = IconData(0xeb22, fontFamily: 'PhosphorLight');
+  static const trendDown = IconData(0xe4ac, fontFamily: 'PhosphorLight');
+  static const trendUp = IconData(0xe4ae, fontFamily: 'PhosphorLight');
 }
 
 abstract final class PhosphorIconsFill {

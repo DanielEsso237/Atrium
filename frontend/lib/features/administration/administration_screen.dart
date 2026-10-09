@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import 'agents_section.dart';
+import 'alerts_section.dart';
 import 'credit_limits_section.dart';
 import 'deposit_section.dart';
 import 'outlets_section.dart';
@@ -28,6 +29,7 @@ class AdministrationScreen extends StatelessWidget {
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Départ', PhosphorIconsLight.clock, StayRulesSection()),
+    ('Alertes', PhosphorIconsLight.bell, AlertsSection()),
     ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
     ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),
     ('Plafonds clients', PhosphorIconsLight.scales, CreditLimitsSection()),

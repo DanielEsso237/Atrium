@@ -19,9 +19,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/brand/atrium_logo.dart';
 import '../../core/tokens.dart';
+import '../../core/ui/icons.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
 import '../../data/repositories/donnees_de_test.dart';
+import '../../data/repositories/repository_providers.dart';
+import '../alerts/alert_center.dart' show preferencesAlertesProvider;
 import '../auth/session.dart';
 
 /// Une entree du menu.
@@ -493,6 +496,8 @@ class MenuCompte extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sonCoupe =
+        ref.watch(preferencesAlertesProvider).value?.sonCoupe ?? false;
     return PopupMenuButton<String>(
       tooltip: 'Compte de ${session.nomAffiche}',
       position: PopupMenuPosition.under,
@@ -505,6 +510,10 @@ class MenuCompte extends ConsumerWidget {
       onSelected: (choix) async {
         if (choix == 'sortir') {
           ref.read(sessionProvider.notifier).deconnecter();
+        } else if (choix == 'son' && session.agent != null) {
+          await ref
+              .read(settingsRepositoryProvider)
+              .setSonCoupe(session.agent!.id, !sonCoupe);
         } else if (choix == 'test' && session.agent != null) {
           final messager = ScaffoldMessenger.of(context);
           final routeur = GoRouter.of(context);
@@ -554,6 +563,30 @@ class MenuCompte extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
+        // Pour cet agent seulement : le bandeau et la vibration restent, une
+        // alerte ne passe donc pas inapercue pour autant.
+        PopupMenuItem<String>(
+          value: 'son',
+          child: Row(
+            children: [
+              Icon(
+                sonCoupe
+                    ? PhosphorIconsLight.speakerHigh
+                    : PhosphorIconsLight.speakerSlash,
+                size: 20,
+                color: AtriumColors.ink,
+              ),
+              const SizedBox(width: AtriumSpacing.sm),
+              Flexible(
+                child: Text(
+                  sonCoupe
+                      ? 'Rétablir le son des alertes'
+                      : 'Couper le son des alertes',
+                ),
+              ),
+            ],
+          ),
+        ),
         // En developpement seulement : une tablette d'hotel ne doit jamais
         // pouvoir se remplir de clients fictifs.
         if (kDebugMode)

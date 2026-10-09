@@ -640,8 +640,14 @@ class OutboxSender {
         );
 
       case 'settings':
-        // Un seul reglage remonte aujourd'hui : la regle des arrhes. Une
-        // valeur vide la retire.
+        // Les niveaux des alertes : le serveur remplace le tout.
+        if (p['key'] == 'notifications.levels') {
+          return _Envoi('/settings/notification-levels', {
+            'levels': p['value'],
+          }, methode: _Methode.put);
+        }
+        // Le reste (depart, preferences d'un agent) reste sur la tablette.
+        // La regle des arrhes remonte ; une valeur vide la retire.
         if (p['key'] != 'reservation.deposit_rule') return null;
         final regle = p['value'];
         if (regle == null) {

@@ -20,6 +20,7 @@ class FakeCatalogApi implements CatalogApi {
     this.menuCategories = const [],
     this.menuItems = const [],
     this.depositRule,
+    this.notificationLevels,
     this.users = const [],
     this.roles = const [],
     this.permissions = const [],
@@ -27,6 +28,8 @@ class FakeCatalogApi implements CatalogApi {
     this.stockLocations = const [],
     this.stockLevels = const [],
     this.pendingTransfers = const [],
+    this.closedFolios = const [],
+    this.payments = const [],
   });
 
   final List<RemoteRoom> rooms;
@@ -37,6 +40,7 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteMenuCategory> menuCategories;
   final List<RemoteMenuItem> menuItems;
   final Object? depositRule;
+  final Object? notificationLevels;
   final List<Map<String, dynamic>> users;
   final List<Map<String, dynamic>> roles;
   final List<Map<String, dynamic>> permissions;
@@ -44,6 +48,8 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteStockLocation> stockLocations;
   final List<RemoteStockLevel> stockLevels;
   final List<RemoteStockMovement> pendingTransfers;
+  final List<RemoteFolio> closedFolios;
+  final List<RemotePayment> payments;
 
   @override
   Future<List<RemoteRoom>> fetchRooms() async => rooms;
@@ -77,6 +83,13 @@ class FakeCatalogApi implements CatalogApi {
   Future<List<RemoteFolio>> fetchOpenFolios() async => folios;
 
   @override
+  Future<List<RemoteFolio>> fetchClosedFolios(DateTime since) async =>
+      closedFolios;
+
+  @override
+  Future<List<RemotePayment>> fetchPayments(DateTime since) async => payments;
+
+  @override
   Future<List<RemoteOutlet>> fetchOutlets() async => outlets;
 
   @override
@@ -88,6 +101,9 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => depositRule;
+
+  @override
+  Future<Object?> fetchNotificationLevels() async => notificationLevels;
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => users;
@@ -140,6 +156,14 @@ class CatalogApiHorsLigne implements CatalogApi {
   Future<List<RemoteFolio>> fetchOpenFolios() async => _couloir();
 
   @override
+  Future<List<RemoteFolio>> fetchClosedFolios(DateTime since) async =>
+      _couloir();
+
+  @override
+  Future<List<RemotePayment>> fetchPayments(DateTime since) async =>
+      _couloir();
+
+  @override
   Future<List<RemoteOutlet>> fetchOutlets() async => _couloir();
 
   @override
@@ -150,6 +174,9 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<Object?> fetchDepositRule() async => _couloir();
+
+  @override
+  Future<Object?> fetchNotificationLevels() async => _couloir();
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => _couloir();

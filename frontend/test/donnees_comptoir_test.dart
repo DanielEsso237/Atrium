@@ -60,7 +60,8 @@ void main() {
     final avant = file.length;
     expect(
       await chargerDonneesDeTest(db, agentId: admin, peut: (_) => true),
-      'Les données de test sont déjà sur cette tablette.',
+      'Les données de test sont déjà sur cette tablette. '
+      'Le complément pour les rapports est déjà là.',
     );
     expect(await db.select(db.outboxEntries).get(), hasLength(avant));
   });

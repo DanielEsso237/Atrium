@@ -16,7 +16,8 @@
 /// jeu (`backend/app/db/seed_demo.py`).
 library;
 
-import 'package:drift/drift.dart' show BooleanExpressionOperators, Variable;
+import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
@@ -25,10 +26,12 @@ import '../local/enums.dart';
 import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
+import 'housekeeping_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outlet_repository.dart';
 import 'reservation_repository.dart';
+import 'stock_repository.dart';
 
 /// Les clients : prenom, nom, nationalite, telephone.
 const _clients = [
@@ -78,6 +81,27 @@ const _consommations = [
   (7, ChargeCategory.FNB, 'Dîner au restaurant', 1, 9500),
 ];
 
+/// Les ventes au comptoir du complement : rang du point de vente, lignes
+/// (libelle, prix unitaire, quantite), moyen de paiement. Les points de
+/// vente sont ceux de la tablette, pris dans l'ordre.
+const _ventes = [
+  (0, [('Poulet DG', 6500, 1), ('Bissap maison', 1000, 2)], PaymentMethod.CASH),
+  (
+    0,
+    [('Brochettes de bœuf', 3000, 2), ('Bière locale', 1500, 3)],
+    PaymentMethod.MOBILE_MONEY,
+  ),
+  (1, [('Bière locale', 1500, 4)], PaymentMethod.CASH),
+  (1, [('Cocktail maison', 4500, 2)], PaymentMethod.CARD),
+  (2, [('Bouteille de champagne', 45000, 1)], PaymentMethod.CARD),
+  (
+    2,
+    [('Eau minérale', 1000, 3), ('Soda', 1000, 2)],
+    PaymentMethod.MOBILE_MONEY,
+  ),
+  (0, [('Petit-déjeuner continental', 6000, 2)], PaymentMethod.CASH),
+];
+
 /// Les points de vente du jeu : code du jeu d'essai du serveur
 /// (`backend/app/db/donnees_essai.py`), code et identifiant si on doit le
 /// creer, libelle, horaires.
@@ -124,7 +148,9 @@ const _ventesAuComptoir = [
   ('402', 'RESTO', 1, 'Eru et water fufu', 1, 5000),
 ];
 
-/// Charge le jeu et dit ce qui a ete fait, en une phrase pour l'ecran.
+/// Charge le jeu, ses ventes au comptoir et son complement pour les
+/// rapports (ventes, stock, caisse, menage, pannes), et dit ce qui a ete
+/// fait, en une phrase pour l'ecran.
 ///
 /// Une seule fois par tablette : si les clients du jeu sont deja la, on ne
 /// recree rien -- deux fois les memes clients, ce serait deux fiches au
@@ -135,6 +161,17 @@ const _ventesAuComptoir = [
 /// `restaurant.write` au serveur ; sans lui, on ne cree rien qu'il
 /// refuserait.
 Future<String> chargerDonneesDeTest(
+  AtriumDatabase db, {
+  required String agentId,
+  bool Function(String permission)? peut,
+}) async {
+  final sejours = await _clientsEtSejours(db, agentId: agentId, peut: peut);
+  final complement = await _complement(db, agentId: agentId);
+  return '$sejours $complement';
+}
+
+/// Le premier jeu : clients, sejours, consommations, une panne.
+Future<String> _clientsEtSejours(
   AtriumDatabase db, {
   required String agentId,
   bool Function(String permission)? peut,
@@ -299,14 +336,6 @@ Future<String?> _chargerVentesAuComptoir(
   required String agentId,
   required bool Function(String permission) peut,
 }) async {
-  final deja = await db
-      .customSelect(
-        "SELECT 1 FROM folio_items WHERE source_table = 'outlets' "
-        "AND label = 'Eru et water fufu' AND deleted_at IS NULL LIMIT 1",
-      )
-      .getSingleOrNull();
-  if (deja != null) return null;
-
   final points = <String, OutletRow>{};
   for (final (code, codeEssai, id, libelle, ouvre, ferme) in _pointsDeVente) {
     final existant = await (db.select(db.outlets)
@@ -342,11 +371,29 @@ Future<String?> _chargerVentesAuComptoir(
   final aujourdhui = businessDayFor(DateTime.now());
   final ardoises = FolioRepository(db);
   var ventes = 0;
+  var dejaPortees = 0;
   for (final (numero, code, ilYa, libelle, quantite, prix)
       in _ventesAuComptoir) {
     final chambre = chambres[numero];
     final point = points[code];
     if (chambre == null || point == null) continue;
+    // Deja portee lors d'un chargement precedent : on ne la double pas.
+    final deja = await db
+        .customSelect(
+          "SELECT 1 FROM folio_items WHERE source_table = 'outlets' "
+          'AND folio_id = ?1 AND source_id = ?2 AND label = ?3 '
+          'AND deleted_at IS NULL LIMIT 1',
+          variables: [
+            Variable.withString(chambre.folioId),
+            Variable.withString(point.id),
+            Variable.withString(libelle),
+          ],
+        )
+        .getSingleOrNull();
+    if (deja != null) {
+      dejaPortees++;
+      continue;
+    }
     await ardoises.addCharge(
       folioId: chambre.folioId,
       category: ChargeCategory.FNB,
@@ -370,9 +417,196 @@ Future<String?> _chargerVentesAuComptoir(
     );
     ventes++;
   }
+  if (ventes == 0 && dejaPortees > 0) return null;
   return ventes == 0
       ? 'Aucun client installé à qui porter : chargez d’abord le jeu.'
       : '$ventes consommations au bar et au restaurant.';
+}
+
+/// De quoi remplir les rapports et declencher les alertes : ventes aux
+/// points de vente, livraison en stock, une caisse close avec un ecart, une
+/// chambre faite, une panne reglee et une panne urgente.
+///
+/// Tout passe par les depots, donc par la file d'envoi. Les ventes et les
+/// encaissements tombent sur la journee en cours : un depot ne date pas une
+/// saisie dans le passe.
+Future<String> _complement(
+  AtriumDatabase db, {
+  required String agentId,
+}) async {
+  final deja = await db
+      .customSelect(
+        "SELECT 1 FROM folio_items WHERE label = 'Bissap maison' "
+        'AND deleted_at IS NULL LIMIT 1',
+      )
+      .getSingleOrNull();
+  if (deja != null) {
+    return 'Le complément pour les rapports est déjà là.';
+  }
+
+  final faits = <String>[];
+  final caisse = CashRepository(db);
+  await caisse.open(userId: agentId, openingFloat: 50000, by: agentId);
+
+  // Le stock d'abord : les ventes d'articles relies a un produit l'entament.
+  try {
+    final produits = await (db.select(db.products)
+          ..where((p) => p.deletedAt.isNull() & p.isActive.equals(true))
+          ..orderBy([(p) => OrderingTerm(expression: p.label)])
+          ..limit(5))
+        .get();
+    final magasins = await (db.select(db.stockLocations)
+          ..where((l) => l.deletedAt.isNull())
+          ..orderBy([(l) => OrderingTerm(expression: l.sortOrder)]))
+        .get();
+    if (produits.isNotEmpty && magasins.isNotEmpty) {
+      final central = magasins.firstWhere(
+        (l) => l.isCentral,
+        orElse: () => magasins.first,
+      );
+      for (final p in produits) {
+        await StockRepository(db).receive(
+          placeId: central.id,
+          productId: p.id,
+          quantity: 24,
+          unitCost: p.purchasePrice,
+          reason: 'Livraison fournisseur',
+          by: agentId,
+        );
+      }
+      faits.add('${produits.length} livraisons en stock');
+    }
+  } catch (e) {
+    debugPrint('[Donnees de test] stock ecarte : $e');
+  }
+
+  // Les ventes au comptoir, reparties sur les points de vente connus.
+  final points = await (db.select(db.outlets)
+        ..where((o) => o.deletedAt.isNull())
+        ..orderBy([(o) => OrderingTerm(expression: o.sortOrder)]))
+      .get();
+  if (points.isEmpty) {
+    faits.add('aucune vente : pas de point de vente sur cette tablette');
+  } else {
+    final commandes = OrderRepository(db);
+    var ventes = 0;
+    for (final (rang, lignes, moyen) in _ventes) {
+      final point = points[rang % points.length];
+      final articles = <(String, int, int, String?)>[];
+      for (final (libelle, prix, quantite) in lignes) {
+        // L'article de la carte du meme nom, s'il existe : la vente fait
+        // alors sortir son produit du stock, et la marge se calcule.
+        final article = await db
+            .customSelect(
+              '''
+              SELECT mi.id AS id FROM menu_items mi
+                JOIN menu_categories mc ON mc.id = mi.menu_category_id
+               WHERE mi.label = ?1 AND mi.deleted_at IS NULL
+                 AND (mc.outlet_id IS NULL OR mc.outlet_id = ?2)
+               LIMIT 1
+              ''',
+              variables: [
+                Variable.withString(libelle),
+                Variable.withString(point.id),
+              ],
+            )
+            .getSingleOrNull();
+        articles.add((libelle, prix, quantite, article?.read<String>('id')));
+      }
+      await commandes.sellWalkIn(
+        outlet: point,
+        lines: articles,
+        method: moyen,
+        by: agentId,
+      );
+      ventes++;
+    }
+    faits.add('$ventes ventes au comptoir');
+  }
+
+  // Une caisse close avec 500 FCFA de moins que prevu, puis une nouvelle
+  // ouverte : l'agent peut continuer d'encaisser.
+  final session = await caisse.openSessionId(agentId);
+  if (session != null) {
+    final attendu = (await db
+            .customSelect(
+              '''
+              SELECT s.opening_float + COALESCE((
+                SELECT SUM(CASE WHEN p.is_refund = 1 THEN -p.amount
+                                ELSE p.amount END)
+                  FROM payments p
+                 WHERE p.cash_session_id = s.id
+                   AND p.method = 'CASH'
+                   AND p.deleted_at IS NULL), 0) AS attendu
+                FROM cash_sessions s WHERE s.id = ?1
+              ''',
+              variables: [Variable.withString(session)],
+            )
+            .getSingle())
+        .read<int>('attendu');
+    await caisse.close(
+      sessionId: session,
+      countedAmount: attendu > 500 ? attendu - 500 : attendu,
+      by: agentId,
+    );
+    await caisse.open(userId: agentId, openingFloat: 50000, by: agentId);
+    faits.add('une caisse close avec un écart');
+  }
+
+  // Une chambre faite : la premiere a faire.
+  try {
+    final tache = await (db.select(db.housekeepingTasks)
+          ..where(
+            (t) => t.deletedAt.isNull() & t.status.equalsValue(TaskStatus.PENDING),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+    if (tache != null) {
+      final menage = HousekeepingRepository(db);
+      await menage.start(tache.id, by: agentId);
+      await menage.finish(tache.id, by: agentId);
+      faits.add('une chambre faite');
+    }
+  } catch (e) {
+    debugPrint('[Donnees de test] menage ecarte : $e');
+  }
+
+  // Une panne reglee, pour les delais ; une panne urgente, pour l'alerte.
+  try {
+    final pannes = MaintenanceRepository(db);
+    final ampoule = await pannes.create(
+      title: 'Ampoule grillée dans le couloir',
+      location: 'Couloir du 2e étage',
+      by: agentId,
+    );
+    await pannes.take(ampoule, by: agentId);
+    await pannes.resolve(
+      ampoule,
+      resolution: 'Ampoule remplacée',
+      by: agentId,
+    );
+    final chambre = (await db
+            .customSelect(
+              "SELECT id FROM rooms WHERE number = '105' "
+              'AND deleted_at IS NULL LIMIT 1',
+            )
+            .getSingleOrNull())
+        ?.read<String>('id');
+    await pannes.create(
+      title: "Fuite d'eau dans la salle de bain",
+      description: "L'eau coule sous la porte, le client attend à la réception.",
+      roomId: chambre,
+      location: chambre == null ? 'Chambre 105' : null,
+      priority: Priority.URGENT,
+      blocksRoom: chambre != null,
+      by: agentId,
+    );
+    faits.add('deux pannes, dont une urgente');
+  } catch (e) {
+    debugPrint('[Donnees de test] pannes ecartees : $e');
+  }
+
+  return 'Complément : ${faits.join(', ')}.';
 }
 
 Future<String> _ligneDe(AtriumDatabase db, String reservationId) async =>
