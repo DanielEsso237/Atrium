@@ -7,7 +7,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import TableStatus
+from app.models.enums import OutletKind, TableStatus
 
 
 class OutletIn(BaseModel):
@@ -20,6 +20,7 @@ class OutletIn(BaseModel):
     closes_at: dt.time | None = None
     allows_room_charge: bool = True
     sort_order: int = 0
+    kind: OutletKind = OutletKind.OUTLET
 
 
 class OutletUpdate(BaseModel):
@@ -36,6 +37,7 @@ class OutletUpdate(BaseModel):
     allows_room_charge: bool | None = None
     sort_order: int | None = None
     is_active: bool | None = None
+    kind: OutletKind | None = None
 
 
 class OutletOut(BaseModel):
@@ -49,6 +51,7 @@ class OutletOut(BaseModel):
     allows_room_charge: bool
     sort_order: int
     is_active: bool
+    kind: OutletKind
 
 
 class PrepStationIn(BaseModel):

@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import HotelScoped, RefBase, SyncBase
-from app.models.enums import OrderStatus, OrderType, TableStatus
+from app.models.enums import OrderStatus, OrderType, OutletKind, TableStatus
 from app.models.rooms import _enum
 
 
@@ -37,6 +37,13 @@ class Outlet(RefBase, HotelScoped):
     closes_at: Mapped[dt.time | None] = mapped_column(Time, default=None)
     allows_room_charge: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(default=0)
+    # Point de vente (restaurant, bar, boutique) ou service (spa, piscine,
+    # salle de conference) : meme saisie, meme facturation, deux onglets.
+    kind: Mapped[OutletKind] = mapped_column(
+        _enum(OutletKind, "outlet_kind"),
+        default=OutletKind.OUTLET,
+        server_default=OutletKind.OUTLET.value,
+    )
 
 
 class PrepStation(RefBase, HotelScoped):

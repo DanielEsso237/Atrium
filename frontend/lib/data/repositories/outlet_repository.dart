@@ -44,6 +44,7 @@ class OutletRepository with OutboxWriter {
     String? closesAt,
     bool allowsRoomCharge = true,
     int? sortOrder,
+    OutletKind kind = OutletKind.OUTLET,
   }) async {
     final id = newId();
     final choisi = (code == null || code.trim().isEmpty)
@@ -70,6 +71,7 @@ class OutletRepository with OutboxWriter {
         'closes_at': closesAt,
         'allows_room_charge': allowsRoomCharge,
         'sort_order': ordre,
+        'kind': kind.name,
       },
       action: () async {
         await db
@@ -86,6 +88,7 @@ class OutletRepository with OutboxWriter {
                 closesAt: Value(closesAt),
                 allowsRoomCharge: Value(allowsRoomCharge),
                 sortOrder: Value(ordre),
+                kind: Value(kind),
                 syncState: const Value(SyncState.pending),
               ),
             );

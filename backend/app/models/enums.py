@@ -196,6 +196,15 @@ class TicketStatus(StrEnum):
 # --- Stocks -----------------------------------------------------------------
 
 
+class OutletKind(StrEnum):
+    """Ce qu'on vend : des consommations (restaurant, bar, boutique) ou des
+    prestations (spa, piscine, salle de conference). Les deux se saisissent
+    et se facturent pareil ; ils s'affichent dans deux onglets."""
+
+    OUTLET = "OUTLET"
+    SERVICE = "SERVICE"
+
+
 class StockMovementStatus(StrEnum):
     """Un transfert attend la validation du controleur ou du comptable ; les
     autres mouvements sont appliques des leur enregistrement."""

@@ -52,29 +52,35 @@ final _rechercheProvider = NotifierProvider<_RechercheChambre, String>(
 );
 
 class OrdersScreen extends ConsumerWidget {
-  const OrdersScreen({super.key});
+  const OrdersScreen({super.key, this.kind = OutletKind.OUTLET});
+
+  /// Les points de vente (restaurant, bar, boutique) ou les services (spa,
+  /// piscine, salles) : meme ecran, meme saisie, deux onglets du menu.
+  final OutletKind kind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final points = ref.watch(
       outletsProvider(ref.watch(sessionProvider).agent?.id),
     );
+    final titre = kind == OutletKind.SERVICE ? 'Services' : 'Points de vente';
 
     return points.when(
-      loading: () => const ModuleScaffold(
-        title: 'Points de vente',
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => ModuleScaffold(
+        title: titre,
+        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => ModuleScaffold(
-        title: 'Points de vente',
+        title: titre,
         body: EmptyState(
           icon: PhosphorIconsLight.warningCircle,
           title: 'Lecture impossible',
           message: '$e',
         ),
       ),
-      data: (liste) {
-        if (liste.isEmpty) return const _AucunPointDeVente();
+      data: (tous) {
+        final liste = [for (final o in tous) if (o.kind == kind) o];
+        if (liste.isEmpty) return _AucunPointDeVente(titre: titre);
         final choisiId = ref.watch(_pointChoisiProvider);
         final outlet = liste.firstWhere(
           (o) => o.id == choisiId,
@@ -91,7 +97,7 @@ class OrdersScreen extends ConsumerWidget {
         final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
 
         return ModuleScaffold(
-          title: 'Points de vente',
+          title: titre,
           action: caisse ? const CashButton() : null,
           subtitle: outlet.allowsRoomCharge
               ? '${outlet.label} porte sur la chambre$horaires'
@@ -153,14 +159,16 @@ class _ChampChambre extends ConsumerWidget {
 }
 
 class _AucunPointDeVente extends StatelessWidget {
-  const _AucunPointDeVente();
+  const _AucunPointDeVente({required this.titre});
+
+  final String titre;
 
   @override
-  Widget build(BuildContext context) => const ModuleScaffold(
-    title: 'Points de vente',
+  Widget build(BuildContext context) => ModuleScaffold(
+    title: titre,
     body: EmptyState(
       icon: PhosphorIconsLight.storefront,
-      title: 'Aucun point de vente',
+      title: titre == 'Services' ? 'Aucun service' : 'Aucun point de vente',
       message:
           "Ils arrivent du serveur : lancez une synchronisation, ou demandez "
           "à l'administration d'en créer un.",

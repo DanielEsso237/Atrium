@@ -284,6 +284,9 @@ class Descente {
                 allowsRoomCharge: Value(o.allowsRoomCharge),
                 sortOrder: Value(o.sortOrder),
                 isActive: Value(o.isActive),
+                kind: Value(
+                  o.kind == 'SERVICE' ? OutletKind.SERVICE : OutletKind.OUTLET,
+                ),
                 syncState: const Value(SyncState.synced),
               ),
             );
