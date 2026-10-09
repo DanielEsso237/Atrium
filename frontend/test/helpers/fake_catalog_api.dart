@@ -17,6 +17,7 @@ class FakeCatalogApi implements CatalogApi {
     this.rooms = const [],
     this.guests = const [],
     this.reservations = const [],
+    this.staysInHouse,
     this.folios = const [],
     this.outlets = const [],
     this.menuCategories = const [],
@@ -39,6 +40,10 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteRoom> rooms;
   final List<RemoteGuest> guests;
   final List<RemoteReservation> reservations;
+
+  /// Les sejours en cours rendus a part ; par defaut, ceux de
+  /// [reservations] qui sont CHECKED_IN, comme le serveur.
+  final List<RemoteReservation>? staysInHouse;
   final List<RemoteFolio> folios;
   final List<RemoteOutlet> outlets;
   final List<RemoteMenuCategory> menuCategories;
@@ -86,6 +91,11 @@ class FakeCatalogApi implements CatalogApi {
     int joursAvant = 7,
     int joursApres = 30,
   }) async => reservations;
+
+  @override
+  Future<List<RemoteReservation>> fetchStaysInHouse() async =>
+      staysInHouse ??
+      reservations.where((r) => r.status == 'CHECKED_IN').toList();
 
   @override
   Future<List<RemoteFolio>> fetchOpenFolios() async => folios;
@@ -176,6 +186,9 @@ class CatalogApiHorsLigne implements CatalogApi {
     int joursAvant = 7,
     int joursApres = 30,
   }) async => _couloir();
+
+  @override
+  Future<List<RemoteReservation>> fetchStaysInHouse() async => _couloir();
 
   @override
   Future<List<RemoteFolio>> fetchOpenFolios() async => _couloir();

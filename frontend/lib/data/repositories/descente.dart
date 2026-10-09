@@ -144,7 +144,16 @@ class Descente {
       // ferait retirer de la tablette tous les transferts a valider.
       final transferts = await _siPermisOuRien(_catalog.fetchPendingTransfers);
       final clients = await _siPermis(_catalog.fetchGuests);
-      final dossiers = await _siPermis(() => _catalog.fetchReservations());
+      // La fenetre des arrivees, plus tous les sejours en cours : un client
+      // arrive avant la fenetre est encore dans sa chambre. Le meme dossier
+      // peut venir des deux appels ; il ne s'ecrit qu'une fois.
+      final dossiers = {
+        for (final d in [
+          ...await _siPermis(() => _catalog.fetchReservations()),
+          ...await _siPermis(_catalog.fetchStaysInHouse),
+        ])
+          d.id: d,
+      }.values.toList();
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
       // Les rapports : ventes closes ailleurs et encaissements de tous les
       // postes, sur une fenetre glissante.
