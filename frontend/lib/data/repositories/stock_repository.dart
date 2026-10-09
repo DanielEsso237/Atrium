@@ -113,9 +113,27 @@ class StockRepository with OutboxWriter {
   // --- Lectures -------------------------------------------------------------
 
   /// Les magasins : l'economat d'abord, puis dans leur ordre.
-  Stream<List<StockPlace>> watchPlaces() {
+  ///
+  /// Un agent rattache a des points de vente (le barman) ne voit que leurs
+  /// magasins : le stock du bar, pas celui de la boite ni l'economat. Un agent
+  /// sans rattachement (administration, econome) voit tout -- meme regle que
+  /// les onglets de l'ecran Points de vente.
+  Stream<List<StockPlace>> watchPlaces({String? agentId}) {
     final q = db.select(db.stockLocations)
-      ..where((m) => m.deletedAt.isNull() & m.isActive.equals(true))
+      ..where(
+        (m) =>
+            m.deletedAt.isNull() &
+            m.isActive.equals(true) &
+            (agentId == null
+                ? const Constant(true)
+                : CustomExpression<bool>(
+                    '(NOT EXISTS (SELECT 1 FROM user_outlets uo '
+                    "WHERE uo.user_id = '${agentId.replaceAll("'", "''")}') "
+                    'OR stock_locations.outlet_id IN (SELECT uo.outlet_id FROM '
+                    "user_outlets uo WHERE uo.user_id = '${agentId.replaceAll("'", "''")}'))",
+                    watchedTables: [db.userOutlets],
+                  )),
+      )
       ..orderBy([
         (m) => OrderingTerm.desc(m.isCentral),
         (m) => OrderingTerm.asc(m.sortOrder),

@@ -138,6 +138,40 @@ void main() {
     expect(await db.select(db.outboxEntries).get(), isEmpty);
   });
 
+  test('le barman ne voit que le stock de ses points de vente', () async {
+    final now = DateTime.now().toUtc();
+    final outlet = newId();
+    final barman = newId();
+    await db
+        .into(db.outlets)
+        .insert(
+          OutletsCompanion.insert(
+            id: outlet, createdAt: now, updatedAt: now, hotelId: _hotel,
+            code: 'BAR', label: 'Bar',
+          ),
+        );
+    await (db.update(db.stockLocations)..where((m) => m.id.equals(bar))).write(
+      StockLocationsCompanion(outletId: Value(outlet)),
+    );
+    await db
+        .into(db.users)
+        .insert(
+          UsersCompanion.insert(
+            id: barman, createdAt: now, updatedAt: now, hotelId: _hotel,
+            employeeCode: 'BAR01', firstName: 'Ines', lastName: 'Mbarga',
+          ),
+        );
+    await db
+        .into(db.userOutlets)
+        .insert(UserOutletsCompanion.insert(userId: barman, outletId: outlet));
+
+    final siens = await stocks.watchPlaces(agentId: barman).first;
+    expect(siens.map((m) => m.label), ['Bar']);
+    // L'administration, sans rattachement, voit tout.
+    final tous = await stocks.watchPlaces().first;
+    expect(tous.map((m) => m.label), ['Économat', 'Bar']);
+  });
+
   test('les mouvements remontent dans la file des stocks', () async {
     await stocks.receive(placeId: economat, productId: biere, quantity: 1);
     final e = (await db.select(db.outboxEntries).get()).single;
