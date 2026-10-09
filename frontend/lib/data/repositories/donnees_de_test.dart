@@ -16,15 +16,18 @@
 /// jeu (`backend/app/db/seed_demo.py`).
 library;
 
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart' show BooleanExpressionOperators, Variable;
 
 import '../../core/business_day.dart';
+import '../../core/formats.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'maintenance_repository.dart';
+import 'order_repository.dart';
+import 'outlet_repository.dart';
 import 'reservation_repository.dart';
 
 /// Les clients : prenom, nom, nationalite, telephone.
@@ -75,14 +78,66 @@ const _consommations = [
   (7, ChargeCategory.FNB, 'Dîner au restaurant', 1, 9500),
 ];
 
+/// Les points de vente du jeu : code du jeu d'essai du serveur
+/// (`backend/app/db/donnees_essai.py`), code et identifiant si on doit le
+/// creer, libelle, horaires.
+///
+/// Deja descendu du serveur, le point de vente est repris tel quel. Sinon il
+/// est cree sous un code a part et un identifiant fixe : un serveur qui a
+/// deja son `BAR` refuserait un second point de vente au meme code (409), et
+/// la file se bloquerait derriere ; le meme identifiant, renvoye par une
+/// autre tablette, est reconnu comme un renvoi.
+const _pointsDeVente = [
+  (
+    'BAR',
+    'BAR_ESSAI',
+    '01920000-0000-7000-9000-0000000e0001',
+    'Bar / Lounge',
+    '10:00',
+    '23:59',
+  ),
+  (
+    'RESTO',
+    'RESTO_ESSAI',
+    '01920000-0000-7000-9000-0000000e0002',
+    'Restaurant',
+    '06:30',
+    '23:00',
+  ),
+];
+
+/// Ce que les clients installes ont deja pris au comptoir : chambre, point
+/// de vente, jours avant aujourd'hui, libelle, quantite, prix unitaire. Les
+/// prix de la carte du jeu d'essai du serveur. Le 309 et le 401, arrives du
+/// jour, n'ont encore rien pris : la fiche montre aussi ce cas.
+const _ventesAuComptoir = [
+  ('102', 'BAR', 1, 'Mutzig', 2, 1000),
+  ('102', 'BAR', 1, 'Guinness', 1, 1200),
+  ('102', 'BAR', 0, 'Top Ananas', 1, 600),
+  ('102', 'RESTO', 1, 'Poulet DG', 1, 7500),
+  ('201', 'BAR', 1, '33 Export', 2, 900),
+  ('201', 'RESTO', 0, 'Ndolé crevettes et plantain', 1, 6500),
+  ('201', 'RESTO', 0, 'Supermont 1,5 L', 1, 1000),
+  ('501', 'BAR', 2, 'Mutzig', 3, 1000),
+  ('501', 'BAR', 1, 'Guinness', 2, 1200),
+  ('501', 'BAR', 0, 'Supermont 1,5 L', 1, 1000),
+  ('402', 'RESTO', 1, 'Eru et water fufu', 1, 5000),
+];
+
 /// Charge le jeu et dit ce qui a ete fait, en une phrase pour l'ecran.
 ///
 /// Une seule fois par tablette : si les clients du jeu sont deja la, on ne
 /// recree rien -- deux fois les memes clients, ce serait deux fiches au
-/// serveur.
+/// serveur. Les ventes au comptoir, venues apres, se chargent quand meme
+/// sur une tablette qui a deja le premier jeu.
+///
+/// `peut` : les droits de l'agent. Creer un point de vente demande
+/// `restaurant.write` au serveur ; sans lui, on ne cree rien qu'il
+/// refuserait.
 Future<String> chargerDonneesDeTest(
   AtriumDatabase db, {
   required String agentId,
+  bool Function(String permission)? peut,
 }) async {
   final deja = await db
       .customSelect(
@@ -90,7 +145,14 @@ Future<String> chargerDonneesDeTest(
         "AND last_name = 'Mballa' AND deleted_at IS NULL LIMIT 1",
       )
       .getSingleOrNull();
-  if (deja != null) return 'Les données de test sont déjà sur cette tablette.';
+  if (deja != null) {
+    return await _chargerVentesAuComptoir(
+          db,
+          agentId: agentId,
+          peut: peut ?? (_) => false,
+        ) ??
+        'Les données de test sont déjà sur cette tablette.';
+  }
 
   final chambres = {
     for (final r in await db.customSelect('''
@@ -219,7 +281,98 @@ Future<String> chargerDonneesDeTest(
     );
   }
 
-  return '${clients.length} clients et $sejours séjours ajoutés.';
+  final comptoir = await _chargerVentesAuComptoir(
+    db,
+    agentId: agentId,
+    peut: peut ?? (_) => false,
+  );
+  return '${clients.length} clients et $sejours séjours ajoutés.'
+      '${comptoir == null ? '' : ' $comptoir'}';
+}
+
+/// Le bar et le restaurant, et ce que les clients installes y ont pris :
+/// de quoi ouvrir une chambre au point de vente et voir son historique.
+///
+/// `null` quand c'est deja fait.
+Future<String?> _chargerVentesAuComptoir(
+  AtriumDatabase db, {
+  required String agentId,
+  required bool Function(String permission) peut,
+}) async {
+  final deja = await db
+      .customSelect(
+        "SELECT 1 FROM folio_items WHERE source_table = 'outlets' "
+        "AND label = 'Eru et water fufu' AND deleted_at IS NULL LIMIT 1",
+      )
+      .getSingleOrNull();
+  if (deja != null) return null;
+
+  final points = <String, OutletRow>{};
+  for (final (code, codeEssai, id, libelle, ouvre, ferme) in _pointsDeVente) {
+    final existant = await (db.select(db.outlets)
+          ..where(
+            (o) =>
+                (o.code.equals(code) | o.id.equals(id)) &
+                o.deletedAt.isNull() &
+                o.isActive.equals(true) &
+                o.allowsRoomCharge.equals(true),
+          ))
+        .get();
+    if (existant.isNotEmpty) {
+      points[code] = existant.first;
+    } else if (peut('restaurant.write')) {
+      points[code] = await OutletRepository(db).create(
+        id: id,
+        code: codeEssai,
+        label: libelle,
+        opensAt: ouvre,
+        closesAt: ferme,
+      );
+    }
+  }
+  if (points.isEmpty) {
+    return 'Aucun point de vente : chargez les données avec un compte qui '
+        'gère les points de vente (ADMIN01).';
+  }
+
+  final chambres = {
+    for (final c in await OrderRepository(db).watchChargeableRooms().first)
+      c.roomNumber: c,
+  };
+  final aujourdhui = businessDayFor(DateTime.now());
+  final ardoises = FolioRepository(db);
+  var ventes = 0;
+  for (final (numero, code, ilYa, libelle, quantite, prix)
+      in _ventesAuComptoir) {
+    final chambre = chambres[numero];
+    final point = points[code];
+    if (chambre == null || point == null) continue;
+    await ardoises.addCharge(
+      folioId: chambre.folioId,
+      category: ChargeCategory.FNB,
+      label: libelle,
+      quantity: quantite,
+      unitPrice: prix,
+      postedBy: agentId,
+      // D'ou vient la ligne : c'est ce qui la fait apparaitre dans
+      // l'historique du point de vente.
+      sourceTable: 'outlets',
+      sourceId: point.id,
+      businessDate: ilYa == 0
+          ? null
+          : formatIsoDate(
+              DateTime.utc(
+                aujourdhui.year,
+                aujourdhui.month,
+                aujourdhui.day - ilYa,
+              ),
+            ),
+    );
+    ventes++;
+  }
+  return ventes == 0
+      ? 'Aucun client installé à qui porter : chargez d’abord le jeu.'
+      : '$ventes consommations au bar et au restaurant.';
 }
 
 Future<String> _ligneDe(AtriumDatabase db, String reservationId) async =>

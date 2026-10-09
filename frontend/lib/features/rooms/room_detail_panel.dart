@@ -17,7 +17,7 @@ import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
-import '../../core/widgets/atrium_bandeau.dart';
+import '../../core/widgets/fiche_laterale.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
@@ -37,60 +37,12 @@ final ficheChambreProvider = StreamProvider.family<RoomDetail, String>((
   return ref.watch(databaseProvider).watchRoomDetail(roomId);
 });
 
-/// Ouvre la fiche : en panneau lateral sur une tablette couchee, pour garder
-/// le plan sous les yeux et enchainer dix chambres ; en feuille qui monte du
-/// bas sur un telephone, ou la place manque pour les deux.
+/// Ouvre la fiche : panneau lateral sur une tablette couchee, pour garder le
+/// plan sous les yeux et enchainer dix chambres ; feuille sur un telephone.
 void afficherFicheChambre(BuildContext context, RoomBoardEntry chambre) {
-  final theme = Theme.of(context);
-  final large = MediaQuery.sizeOf(context).width >= 900;
-
-  if (large) {
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Fermer la fiche',
-      barrierColor: AtriumDashColors.title.withValues(alpha: 0.35),
-      transitionDuration: AtriumMotion.of(
-        context,
-        const Duration(milliseconds: 320),
-      ),
-      pageBuilder: (_, _, _) => Theme(
-        data: theme,
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: SizedBox(
-            width: 500,
-            height: double.infinity,
-            child: _Fiche(chambre: chambre, panneau: true),
-          ),
-        ),
-      ),
-      transitionBuilder: (_, animation, _, enfant) => SlideTransition(
-        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          ),
-        ),
-        child: enfant,
-      ),
-    );
-    return;
-  }
-
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => Theme(
-      data: theme,
-      child: FractionallySizedBox(
-        heightFactor: 0.94,
-        child: _Fiche(chambre: chambre, panneau: false),
-      ),
-    ),
+  afficherFicheLaterale<void>(
+    context,
+    fiche: (panneau) => _Fiche(chambre: chambre, panneau: panneau),
   );
 }
 
@@ -113,12 +65,8 @@ class _Fiche extends ConsumerWidget {
         chambre;
     final vue = apparence(actuelle.displayStatus);
 
-    return Material(
-      color: AtriumDashColors.page,
-      clipBehavior: Clip.antiAlias,
-      borderRadius: panneau
-          ? const BorderRadius.horizontal(left: Radius.circular(28))
-          : const BorderRadius.vertical(top: Radius.circular(28)),
+    return FicheSurface(
+      panneau: panneau,
       child: Column(
         children: [
           _EnTete(chambre: actuelle, vue: vue, panneau: panneau),
@@ -145,7 +93,7 @@ class _Fiche extends ConsumerWidget {
                   ] else if (f.expected != null)
                     _Sejour(sejour: f.expected!, titre: 'Arrivée attendue')
                   else
-                    _Carte(
+                    FicheCarte(
                       child: Row(
                         children: [
                           _Tuile(
@@ -201,210 +149,37 @@ class _EnTete extends ConsumerWidget {
         .watch(sessionProvider)
         .acces
         .peut('maintenance.manage');
-    final haut = panneau ? MediaQuery.paddingOf(context).top : 0.0;
     final lieu = [
       chambre.typeLabel,
       if (chambre.floorLabel != null) chambre.floorLabel!.toLowerCase(),
     ].join(', ');
 
-    return SizedBox(
-      height: 200 + haut,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            photoChambre,
-            fit: BoxFit.cover,
-            alignment: const Alignment(0.4, 0.2),
-            color: AtriumColors.photoTint,
-            colorBlendMode: BlendMode.multiply,
-            filterQuality: FilterQuality.medium,
-            excludeFromSemantics: true,
-          ),
-          // La nuit monte du bas : le numero et le prix se lisent en blanc
-          // sans ombre portee.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AtriumColors.purpleNight.withValues(alpha: 0.35),
-                  AtriumColors.purpleNight.withValues(alpha: 0.6),
-                  AtriumColors.purpleNight.withValues(alpha: 0.94),
-                ],
-                stops: const [0, 0.45, 1],
-              ),
+    return FicheEnTete(
+      panneau: panneau,
+      titre: 'Chambre ${chambre.number}',
+      sousTitre: lieu,
+      badge: PastilleEtat(apparence: vue, surFonce: true),
+      actions: [
+        // Signaler un probleme la ou on le decouvre : un client appelle, la
+        // reception a la fiche sous les yeux.
+        if (peutSignaler)
+          FicheBoutonRond(
+            icone: Icons.build_outlined,
+            libelle: 'Signaler un problème',
+            onTap: () => showReportIssueDialog(
+              context,
+              roomId: chambre.roomId,
+              roomNumber: chambre.number,
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(22, haut + 14, 14, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!panneau)
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 5,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: AtriumColors.white.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                Row(
-                  children: [
-                    PastilleEtat(apparence: vue, surFonce: true),
-                    const Spacer(),
-                    // Signaler un probleme la ou on le decouvre : un client
-                    // appelle, la reception a la fiche sous les yeux.
-                    if (peutSignaler)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Material(
-                          color: AtriumColors.white.withValues(alpha: 0.16),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => showReportIssueDialog(
-                              context,
-                              roomId: chambre.roomId,
-                              roomNumber: chambre.number,
-                            ),
-                            child: Tooltip(
-                              message: 'Signaler un problème',
-                              child: SizedBox.square(
-                                dimension: 44,
-                                child: Icon(
-                                  Icons.build_outlined,
-                                  color: AtriumColors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    Semantics(
-                      button: true,
-                      label: 'Fermer la fiche',
-                      excludeSemantics: true,
-                      child: Material(
-                        color: AtriumColors.white.withValues(alpha: 0.16),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => Navigator.of(context).pop(),
-                          child: SizedBox.square(
-                            dimension: 44,
-                            child: Icon(
-                              Icons.close_rounded,
-                              color: AtriumColors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Chambre ${chambre.number}',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w700,
-                              color: AtriumColors.white,
-                              height: 1.1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            lieu,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: AtriumColors.onPurpleSoft,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          formatAmount(chambre.rate),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AtriumColors.white,
-                          ),
-                        ),
-                        Text(
-                          'la nuit',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AtriumColors.onPurpleSoft,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
+      valeur: formatAmount(chambre.rate),
+      legendeValeur: 'la nuit',
     );
   }
 }
 
 // --- Sections ----------------------------------------------------------------
-
-class _Carte extends StatelessWidget {
-  const _Carte({required this.child, this.titre});
-
-  final String? titre;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AtriumDashColors.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AtriumDashColors.cardBorder),
-        boxShadow: AtriumShadows.soft,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (titre != null) ...[
-            Text(
-              titre!,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AtriumDashColors.title,
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
-          child,
-        ],
-      ),
-    );
-  }
-}
 
 class _Tuile extends StatelessWidget {
   const _Tuile({
@@ -466,7 +241,7 @@ class _Sejour extends ConsumerWidget {
         '${sejour.enfants} enfant${sejour.enfants > 1 ? 's' : ''}',
     ].join(', ');
 
-    return _Carte(
+    return FicheCarte(
       titre: titre,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -727,7 +502,7 @@ class _Consommations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Carte(
+    return FicheCarte(
       titre: 'Consommations',
       child: lignes.isEmpty
           ? Text(
@@ -837,7 +612,7 @@ class _Caracteristiques extends StatelessWidget {
         ? ('Hors service', apparence(RoomDisplayStatus.MAINTENANCE))
         : ('En service', apparence(RoomDisplayStatus.AVAILABLE));
 
-    return _Carte(
+    return FicheCarte(
       titre: 'La chambre',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -909,7 +684,7 @@ class _Historique extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Carte(
+    return FicheCarte(
       titre: 'Historique',
       child: sejours.isEmpty
           ? Text(

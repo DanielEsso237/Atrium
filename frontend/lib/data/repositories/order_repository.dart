@@ -75,6 +75,7 @@ class PastConsumption {
     required this.quantity,
     required this.amount,
     required this.businessDate,
+    this.currentStay = false,
   });
 
   final String label;
@@ -85,6 +86,9 @@ class PastConsumption {
 
   /// `AAAA-MM-JJ`, la journee d'exploitation.
   final String businessDate;
+
+  /// Sur l'ardoise ouverte, et non sur un sejour precedent du meme client.
+  final bool currentStay;
 }
 
 class OrderRepository with OutboxWriter {
@@ -192,7 +196,8 @@ class OrderRepository with OutboxWriter {
     return db
         .customSelect(
           '''
-      SELECT fi.label, fi.quantity, fi.amount, fi.business_date
+      SELECT fi.label, fi.quantity, fi.amount, fi.business_date,
+             (f.id = ?1) AS sejour
         FROM folio_items fi
         JOIN folios f ON f.id = fi.folio_id
        WHERE fi.deleted_at IS NULL AND fi.is_void = 0
@@ -219,9 +224,34 @@ class OrderRepository with OutboxWriter {
                 quantity: r.read<int>('quantity'),
                 amount: r.read<int>('amount'),
                 businessDate: r.read<String>('business_date'),
+                currentStay: r.read<bool>('sejour'),
               ),
           ],
         );
+  }
+
+  /// Ce que l'ardoise ouverte doit deja a ce point de vente : le total du
+  /// sejour ici, sans la limite de la liste.
+  Stream<int> watchStaySpendAt({
+    required String folioId,
+    required String outletId,
+  }) {
+    return db
+        .customSelect(
+          '''
+      SELECT COALESCE(SUM(amount), 0) AS total
+        FROM folio_items
+       WHERE folio_id = ?1 AND deleted_at IS NULL AND is_void = 0
+         AND source_table = 'outlets' AND source_id = ?2
+      ''',
+          variables: [
+            Variable.withString(folioId),
+            Variable.withString(outletId),
+          ],
+          readsFrom: {db.folioItems},
+        )
+        .watchSingle()
+        .map((r) => r.read<int>('total'));
   }
 
   Stream<List<MenuEntry>> watchMenu(String outletId) {
