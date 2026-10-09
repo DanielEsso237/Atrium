@@ -18,6 +18,7 @@ import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
+import '../../core/widgets/fiche_laterale.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/local/enums.dart';
@@ -341,9 +342,11 @@ class _Chambre extends ConsumerWidget {
   }
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
-    final lignes = await showDialog<List<(String, int, int, String?)>>(
-      context: context,
-      builder: (_) => _Saisie(outlet: outlet, chambre: chambre),
+    final lignes = await afficherFicheLaterale<List<(String, int, int, String?)>>(
+      context,
+      libelleFermer: 'Fermer sans porter',
+      fiche: (panneau) =>
+          _Saisie(outlet: outlet, chambre: chambre, panneau: panneau),
     );
     if (lignes == null || lignes.isEmpty || !context.mounted) return;
 
@@ -452,9 +455,11 @@ class _Passage extends ConsumerWidget {
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
-    final lignes = await showDialog<List<(String, int, int, String?)>>(
-      context: context,
-      builder: (_) => _Saisie(outlet: outlet, chambre: null),
+    final lignes = await afficherFicheLaterale<List<(String, int, int, String?)>>(
+      context,
+      libelleFermer: 'Fermer sans encaisser',
+      fiche: (panneau) =>
+          _Saisie(outlet: outlet, chambre: null, panneau: panneau),
     );
     if (lignes == null || lignes.isEmpty || !context.mounted) return;
 
@@ -561,20 +566,30 @@ class _Ligne {
   }
 }
 
-/// Saisie de consommations. Rend la liste `(libelle, prix unitaire,
-/// quantite)`, une par ligne.
+/// Saisie de consommations, dans une fiche comme celle d'une chambre. Rend
+/// la liste `(libelle, prix unitaire, quantite, article)`, une par ligne.
 ///
 /// Plusieurs lignes d'un coup : de l'eau et deux plats de poulet se portent
 /// ensemble, sans rouvrir la chambre pour chacun. Chaque ligne se choisit
 /// dans la carte du point de vente, en tapant quelques lettres ; le prix se
 /// remplit, et reste modifiable. Un plat hors carte se tape librement.
+///
+/// Sous la commande, ce que le client a deja pris ici ; en bas, toujours
+/// visible, ce que la commande coute et ou elle emmene l'ardoise.
 class _Saisie extends ConsumerStatefulWidget {
-  const _Saisie({required this.outlet, required this.chambre});
+  const _Saisie({
+    required this.outlet,
+    required this.chambre,
+    required this.panneau,
+  });
 
   final OutletRow outlet;
 
   /// `null` : client de passage, qui paie sur place.
   final ChargeableRoom? chambre;
+
+  /// Panneau lateral (tablette couchee) ou feuille (telephone).
+  final bool panneau;
 
   @override
   ConsumerState<_Saisie> createState() => _SaisieState();
@@ -613,188 +628,318 @@ class _SaisieState extends ConsumerState<_Saisie> {
   /// Pret a porter : aucune ligne a moitie remplie.
   bool get _pret => _lignes.every((l) => l.complete);
 
+  void _valider() => Navigator.of(context).pop([
+    for (final l in _lignes)
+      (
+        l.libelle.text.trim(),
+        int.parse(l.prix.text.trim()),
+        l.quantite,
+        // L'article de la carte, s'il n'a pas ete retouche a la main : c'est
+        // lui qui fait sortir le stock.
+        l.articleId,
+      ),
+  ]);
+
   @override
   Widget build(BuildContext context) {
-    final schema = Theme.of(context).colorScheme;
-    final p = AtriumPalette.current;
     final chambre = widget.chambre;
 
-    return AlertDialog(
-      // La carte, les lignes et le recapitulatif depassent vite un ecran de
-      // tablette quand le clavier s'ouvre : le contenu doit pouvoir defiler.
-      scrollable: true,
-      icon: const Icon(PhosphorIconsLight.forkKnife, size: 32),
-      title: Text(
-        chambre == null
-            ? '${widget.outlet.label}, client de passage'
-            : '${widget.outlet.label}, chambre ${chambre.roomNumber}',
-      ),
-      content: SizedBox(
-        width: 520,
+    return FicheSurface(
+      panneau: widget.panneau,
+      child: Padding(
+        // Le clavier monte : la barre du total monte avec lui au lieu de
+        // passer dessous, et le bouton reste a portee de pouce.
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              chambre?.guestName ?? 'Il paie sur place, avant de partir.',
-              style: TextStyle(fontSize: 16, color: schema.onSurfaceVariant),
+            FicheEnTete(
+              panneau: widget.panneau,
+              titre: chambre == null
+                  ? 'Client de passage'
+                  : 'Chambre ${chambre.roomNumber}',
+              sousTitre: chambre?.guestName ?? 'Il paie sur place, avant de partir',
+              badge: _BadgePoint(outlet: widget.outlet),
+              valeur: chambre == null ? null : formatAmount(chambre.balance),
+              legendeValeur: chambre == null ? null : 'à l’ardoise',
+              libelleFermer: chambre == null
+                  ? 'Fermer sans encaisser'
+                  : 'Fermer sans porter',
             ),
-            // Ce que ce client a deja pris ici : le comptoir le voit avant
-            // de porter.
-            if (chambre != null)
-              _Historique(folioId: chambre.folioId, outletId: widget.outlet.id),
-            const SizedBox(height: 16),
-
-            for (final (i, l) in _lignes.indexed) ...[
-              if (i > 0) const Divider(height: 28),
-              Row(
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 children: [
-                  Expanded(
-                    child: _ChampArticle(
-                      ligne: l,
-                      outletId: widget.outlet.id,
-                      libelle: _lignes.length > 1
-                          ? 'Consommation ${i + 1}'
-                          : 'Consommation',
-                      onChoisi: (e) => _choisir(l, e),
-                      // Retoucher le libelle a la main : ce n'est plus
-                      // l'article de la carte.
-                      onTape: () => setState(() => l.articleId = null),
-                    ),
-                  ),
-                  if (_lignes.length > 1)
-                    IconButton(
-                      tooltip: 'Retirer cette ligne',
-                      icon: const Icon(PhosphorIconsLight.x, size: 20),
-                      onPressed: () => _retirer(l),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: l.prix,
-                      keyboardType: TextInputType.number,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Prix unitaire',
-                        suffixText: 'FCFA',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  _Quantite(
-                    valeur: l.quantite,
-                    onChange: (v) => setState(() => l.quantite = v),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                // Une ligne vide de plus ne sert a rien : on remplit d'abord.
-                onPressed: _enCours.complete ? _ajouter : null,
-                icon: const Icon(PhosphorIconsLight.plus, size: 18),
-                label: const Text('Ajouter une ligne'),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: p.hero,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '${chambre == null ? 'À encaisser' : 'À porter'}'
-                        '${_lignes.length > 1 ? ' (${_lignes.length} lignes)' : ''}',
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 15,
-                          color: p.onHeroSoft,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        formatAmount(_total),
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.8,
-                          color: p.heroAccent,
-                          fontFeatures: tabularFigures,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // L'ardoise apres coup : le comptoir voit ou il emmene le
-                  // client avant de valider, pas apres.
+                  FicheCarte(titre: 'Commande', child: _formulaire()),
+                  // Ce que ce client a deja pris ici : le comptoir le voit
+                  // avant de porter.
                   if (chambre != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Text(
-                          'Ardoise après',
-                          style: TextStyle(
-                            fontFamily: atriumFontFamily,
-                            fontSize: 14,
-                            color: p.onHeroSoft,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          formatAmount(chambre.balance + _total),
-                          style: TextStyle(
-                            fontFamily: atriumFontFamily,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: p.onHero,
-                            fontFeatures: tabularFigures,
-                          ),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(height: 16),
+                    _Historique(folioId: chambre.folioId, outlet: widget.outlet),
                   ],
                 ],
               ),
             ),
+            _Barre(
+              total: _total,
+              lignes: _lignes.length,
+              ardoise: chambre?.balance,
+              onValider: _pret ? _valider : null,
+            ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+    );
+  }
+
+  Widget _formulaire() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final (i, l) in _lignes.indexed) ...[
+        if (i > 0) Divider(height: 28, color: AtriumDashColors.grid),
+        Row(
+          children: [
+            Expanded(
+              child: _ChampArticle(
+                ligne: l,
+                outletId: widget.outlet.id,
+                libelle: _lignes.length > 1
+                    ? 'Consommation ${i + 1}'
+                    : 'Consommation',
+                onChoisi: (e) => _choisir(l, e),
+                // Retoucher le libelle a la main : ce n'est plus l'article
+                // de la carte.
+                onTape: () => setState(() => l.articleId = null),
+              ),
+            ),
+            if (_lignes.length > 1)
+              IconButton(
+                tooltip: 'Retirer cette ligne',
+                icon: const Icon(PhosphorIconsLight.x, size: 20),
+                onPressed: () => _retirer(l),
+              ),
+          ],
         ),
-        FilledButton(
-          onPressed: !_pret
-              ? null
-              : () => Navigator.of(context).pop([
-                  for (final l in _lignes)
-                    (
-                      l.libelle.text.trim(),
-                      int.parse(l.prix.text.trim()),
-                      l.quantite,
-                      // L'article de la carte, s'il n'a pas ete retouche a la
-                      // main : c'est lui qui fait sortir le stock.
-                      l.articleId,
-                    ),
-                ]),
-          child: Text(
-            chambre == null ? 'Choisir le paiement' : 'Porter à la chambre',
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: l.prix,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Prix unitaire',
+                  suffixText: 'FCFA',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _Quantite(
+              valeur: l.quantite,
+              onChange: (v) => setState(() => l.quantite = v),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          // Une ligne vide de plus ne sert a rien : on remplit d'abord.
+          onPressed: _enCours.complete ? _ajouter : null,
+          icon: const Icon(PhosphorIconsLight.plus, size: 18),
+          label: const Text('Ajouter une ligne'),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Le point de vente, en pastille sur la photo : on sait ou l'on porte.
+class _BadgePoint extends StatelessWidget {
+  const _BadgePoint({required this.outlet});
+
+  final OutletRow outlet;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(10, 7, 14, 7),
+    decoration: BoxDecoration(
+      color: AtriumColors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          outlet.kind == OutletKind.SERVICE
+              ? PhosphorIconsLight.flowerLotus
+              : PhosphorIconsLight.storefront,
+          size: 18,
+          color: AtriumColors.white,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          outlet.label,
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AtriumColors.white,
           ),
         ),
       ],
+    ),
+  );
+}
+
+/// La barre du bas, toujours visible : le total de la commande, l'ardoise
+/// apres coup, et le geste. Le comptoir voit ou il emmene le client avant
+/// de valider, pas apres.
+class _Barre extends StatelessWidget {
+  const _Barre({
+    required this.total,
+    required this.lignes,
+    required this.ardoise,
+    required this.onValider,
+  });
+
+  final int total;
+  final int lignes;
+
+  /// `null` : client de passage, sans ardoise.
+  final int? ardoise;
+  final VoidCallback? onValider;
+
+  @override
+  Widget build(BuildContext context) {
+    final passage = ardoise == null;
+    final forme = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AtriumRadii.md),
+    );
+    const texteBouton = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+    );
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.paddingOf(context).bottom,
+      ),
+      decoration: BoxDecoration(
+        color: AtriumDashColors.card,
+        border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${passage ? 'À encaisser' : 'À porter'}'
+                '${lignes > 1 ? ', $lignes lignes' : ''}',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AtriumColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              // Le chiffre qui change a chaque article choisi : il glisse
+              // d'une valeur a l'autre, l'oeil suit le calcul.
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: total.toDouble()),
+                duration: AtriumMotion.of(
+                  context,
+                  const Duration(milliseconds: 280),
+                ),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => Text(
+                  formatAmount(v.round()),
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: AtriumDashColors.title,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!passage) ...[
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text(
+                  'Ardoise après',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AtriumColors.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  formatAmount(ardoise! + total),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AtriumDashColors.title,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 54),
+                    foregroundColor: AtriumDashColors.title,
+                    side: BorderSide(color: AtriumDashColors.cardBorder),
+                    shape: forme,
+                    textStyle: texteBouton,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 54),
+                    backgroundColor: AtriumColors.mintSoft,
+                    foregroundColor: AtriumColors.ink,
+                    shape: forme,
+                    textStyle: texteBouton,
+                  ),
+                  onPressed: onValider,
+                  icon: Icon(
+                    passage
+                        ? PhosphorIconsLight.coins
+                        : PhosphorIconsLight.receipt,
+                  ),
+                  label: Text(
+                    passage ? 'Choisir le paiement' : 'Porter à la chambre',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -912,94 +1057,127 @@ final _historiqueProvider =
     >(
       (ref, cle) => ref
           .watch(orderRepositoryProvider)
-          .watchGuestHistory(folioId: cle.folioId, outletId: cle.outletId),
+          .watchGuestHistory(
+            folioId: cle.folioId,
+            outletId: cle.outletId,
+            limit: 30,
+          ),
     );
 
+/// Ce que l'ardoise ouverte doit deja a ce point de vente.
+final _depenseSejourProvider =
+    StreamProvider.family<int, ({String folioId, String outletId})>(
+      (ref, cle) => ref
+          .watch(orderRepositoryProvider)
+          .watchStaySpendAt(folioId: cle.folioId, outletId: cle.outletId),
+    );
+
+/// Ce que le client a deja pris ici, comme les consommations de la fiche
+/// chambre : ce sejour d'abord, puis ses sejours precedents (meme fiche
+/// client), pour voir ce qu'il prend d'habitude.
 class _Historique extends ConsumerWidget {
-  const _Historique({required this.folioId, required this.outletId});
+  const _Historique({required this.folioId, required this.outlet});
 
   final String folioId;
-  final String outletId;
+  final OutletRow outlet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cle = (folioId: folioId, outletId: outlet.id);
     final lignes =
-        ref
-            .watch(_historiqueProvider((folioId: folioId, outletId: outletId)))
-            .value ??
-        const <PastConsumption>[];
-    final schema = Theme.of(context).colorScheme;
-    if (lignes.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Text(
-          'Première consommation de ce client ici.',
-          style: TextStyle(fontSize: 13.5, color: schema.onSurfaceVariant),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Déjà consommé ici',
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: schema.onSurfaceVariant,
+        ref.watch(_historiqueProvider(cle)).value ?? const <PastConsumption>[];
+    final sejour = ref.watch(_depenseSejourProvider(cle)).value ?? 0;
+
+    return FicheCarte(
+      titre: 'Déjà consommé ici',
+      suffixe: sejour == 0
+          ? null
+          : Text(
+              'Ce séjour : ${formatAmount(sejour)}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AtriumDashColors.title,
+                fontFeatures: tabularFigures,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 150),
-            child: ListView(
-              shrinkWrap: true,
+      child: lignes.isEmpty
+          ? Text(
+              'Première consommation de ce client ${outlet.kind == OutletKind.SERVICE ? 'à ce service' : 'à ce point de vente'}.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
+            )
+          : Column(
               children: [
-                for (final c in lignes)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Text(
-                            '${c.businessDate.substring(8, 10)}/'
-                            '${c.businessDate.substring(5, 7)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: schema.onSurfaceVariant,
-                              fontFeatures: tabularFigures,
+                for (final (i, c) in lignes.indexed) ...[
+                  if (i > 0) Divider(height: 18, color: AtriumDashColors.grid),
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AtriumDashColors.tileLavender,
+                          borderRadius: BorderRadius.circular(38 * 0.3),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          outlet.kind == OutletKind.SERVICE
+                              ? PhosphorIconsLight.flowerLotus
+                              : PhosphorIconsLight.forkKnife,
+                          size: 19,
+                          color: AtriumDashColors.tileLavenderInk,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${c.quantity} × ${c.label}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: AtriumDashColors.title,
+                              ),
                             ),
-                          ),
+                            Text(
+                              c.currentStay
+                                  ? _jour(c.businessDate)
+                                  : '${_jour(c.businessDate)}, séjour précédent',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AtriumColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: Text(
-                            '${c.quantity} × ${c.label}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14),
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatAmount(c.amount),
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: c.currentStay
+                              ? AtriumDashColors.title
+                              : AtriumColors.textSecondary,
+                          fontFeatures: tabularFigures,
                         ),
-                        Text(
-                          formatAmount(c.amount),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            fontFeatures: tabularFigures,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ],
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
+
+  /// « 28/09 » a partir d'une date ISO de la base.
+  static String _jour(String iso) =>
+      '${iso.substring(8, 10)}/${iso.substring(5, 7)}';
 }
 
 class _Quantite extends StatelessWidget {

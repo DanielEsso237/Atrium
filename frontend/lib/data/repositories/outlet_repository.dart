@@ -37,7 +37,11 @@ class OutletRepository with OutboxWriter {
   /// Cree un point de vente. Sans `code`, il se deduit du libelle (« Boite
   /// de nuit » -> `BOITE_DE_NUIT`), rendu unique ; sans `sortOrder`, il se
   /// range apres les autres.
+  ///
+  /// `id` fixe un identifiant connu d'avance (les donnees de test) : le
+  /// serveur reconnait alors un renvoi au lieu de refuser un code deja pris.
   Future<OutletRow> create({
+    String? id,
     String? code,
     required String label,
     String? opensAt,
@@ -46,7 +50,7 @@ class OutletRepository with OutboxWriter {
     int? sortOrder,
     OutletKind kind = OutletKind.OUTLET,
   }) async {
-    final id = newId();
+    final ident = id ?? newId();
     final choisi = (code == null || code.trim().isEmpty)
         ? await codeLibre(label)
         : code;
@@ -61,10 +65,10 @@ class OutletRepository with OutboxWriter {
 
     return writeAndEnqueue(
       table: 'outlets',
-      id: id,
+      id: ident,
       operation: SyncOp.INSERT,
       payload: {
-        'id': id,
+        'id': ident,
         'code': propre,
         'label': label.trim(),
         'opens_at': opensAt,
@@ -78,7 +82,7 @@ class OutletRepository with OutboxWriter {
             .into(db.outlets)
             .insert(
               OutletsCompanion.insert(
-                id: id,
+                id: ident,
                 createdAt: now,
                 updatedAt: now,
                 hotelId: hotelId,
@@ -92,7 +96,7 @@ class OutletRepository with OutboxWriter {
                 syncState: const Value(SyncState.pending),
               ),
             );
-        return _byId(id);
+        return _byId(ident);
       },
     );
   }

@@ -546,7 +546,7 @@ class _BarreState extends State<_Barre> {
             padding: EdgeInsets.only(left: 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: AtriumMark(size: 58, onNight: true),
+              child: AtriumLockup(markSize: 46),
             ),
           ),
           const SizedBox(height: 14),
