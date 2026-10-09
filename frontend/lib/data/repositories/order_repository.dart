@@ -68,6 +68,25 @@ class MenuEntry {
   final String categoryLabel;
 }
 
+/// Une consommation passee d'un client dans un point de vente.
+class PastConsumption {
+  const PastConsumption({
+    required this.label,
+    required this.quantity,
+    required this.amount,
+    required this.businessDate,
+  });
+
+  final String label;
+  final int quantity;
+
+  /// Francs CFA entiers.
+  final int amount;
+
+  /// `AAAA-MM-JJ`, la journee d'exploitation.
+  final String businessDate;
+}
+
 class OrderRepository with OutboxWriter {
   OrderRepository(this.db, {this.hotelId = FolioRepository.defaultHotelId});
 
@@ -160,6 +179,51 @@ class OrderRepository with OutboxWriter {
   /// Le serveur ne filtre pas la carte : c'est ici qu'on garde les categories
   /// du point de vente courant et les categories communes (`outlet_id` nul).
   /// Les articles en rupture restent dans la liste : l'ecran les grise.
+  /// Ce que le client de cette ardoise a deja consomme dans ce point de
+  /// vente : sur ce sejour et sur ses sejours precedents (meme fiche client).
+  ///
+  /// Le comptoir voit ce que le client prend d'habitude, et ce qu'il a deja
+  /// pris ce soir -- avant de porter une troisieme bouteille.
+  Stream<List<PastConsumption>> watchGuestHistory({
+    required String folioId,
+    required String outletId,
+    int limit = 15,
+  }) {
+    return db
+        .customSelect(
+          '''
+      SELECT fi.label, fi.quantity, fi.amount, fi.business_date
+        FROM folio_items fi
+        JOIN folios f ON f.id = fi.folio_id
+       WHERE fi.deleted_at IS NULL AND fi.is_void = 0
+         AND fi.source_table = 'outlets' AND fi.source_id = ?2
+         AND (f.id = ?1
+              OR (f.guest_id IS NOT NULL
+                  AND f.guest_id = (SELECT guest_id FROM folios WHERE id = ?1)))
+       ORDER BY fi.business_date DESC, fi.created_at DESC
+       LIMIT ?3
+      ''',
+          variables: [
+            Variable.withString(folioId),
+            Variable.withString(outletId),
+            Variable.withInt(limit),
+          ],
+          readsFrom: {db.folioItems, db.folios},
+        )
+        .watch()
+        .map(
+          (rows) => [
+            for (final r in rows)
+              PastConsumption(
+                label: r.read<String>('label'),
+                quantity: r.read<int>('quantity'),
+                amount: r.read<int>('amount'),
+                businessDate: r.read<String>('business_date'),
+              ),
+          ],
+        );
+  }
+
   Stream<List<MenuEntry>> watchMenu(String outletId) {
     return db
         .customSelect(
