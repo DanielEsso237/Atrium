@@ -228,9 +228,10 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
 - **Créer la carte du restaurant** (menus et prix) depuis l'écran Commandes :
   elle descend déjà et se choisit à la commande, mais ne se crée pas encore
   depuis la tablette.
-- Le détail des **encaissements ne redescend pas** (`FolioOut` ne les expose
-  pas) : sur un second poste, le solde est juste mais on ne sait pas qui a
-  payé quoi.
+- Les **encaissements et les ardoises closes ne redescendent que sur 62
+  jours** (`GET /payments?since=`, `GET /folios?closed_since=`, constante
+  `Descente.fenetreRapports`) : les rapports d'un second poste sont complets
+  sur cette fenêtre, pas au-delà.
 - Attribuer une chambre sans enregistrer d'arrivée n'a pas d'endpoint
   (`ReservationRoomUpdate` n'a pas de `room_id`) ; l'attribution repart avec le
   check-in, ce qui suffit aujourd'hui.

@@ -37,6 +37,7 @@ import '../brand/atrium_logo.dart';
 import '../theme_mode.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
+import '../../features/alerts/alert_banner.dart';
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
 
 /// Les familles du menu, dans l'ordre ou un hotel se lit : d'abord la vue
@@ -50,7 +51,9 @@ extension on Groupe {
   String? get libelle => switch (this) {
     Groupe.pilotage => null,
     Groupe.sejours => 'Séjours',
-    Groupe.services => 'Services',
+    // « Services » est desormais l'onglet des prestations (spa, piscine,
+    // salles) : le groupe qui le contient prend un autre nom.
+    Groupe.services => 'Exploitation',
     Groupe.finances => 'Finances',
     Groupe.reglages => null,
   };
@@ -194,6 +197,16 @@ final destinations = <Destination>[
     'order.read',
     Groupe.services,
   ),
+  // Les prestations : spa, piscine, salle de sport, salles de conference et
+  // de banquet. Meme ecran que les points de vente, filtre sur le genre.
+  const Destination(
+    'Services',
+    PhosphorIconsLight.bell,
+    PhosphorIconsLight.bell,
+    '/services',
+    'order.read',
+    Groupe.services,
+  ),
   // L'economat et le stock de chaque point de vente. L'icone pleine est la
   // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
   const Destination(
@@ -220,6 +233,15 @@ final destinations = <Destination>[
     'folio.read',
     Groupe.finances,
     indicateur: (r) => montantCompact(r.caDuJour),
+  ),
+  // Une periode, des filtres, et de quoi la remettre au comptable.
+  const Destination(
+    'Rapports',
+    PhosphorIconsLight.chartLineUp,
+    PhosphorIconsFill.chartLineUp,
+    '/rapports',
+    'folio.read',
+    Groupe.finances,
   ),
   const Destination(
     'Administration',
@@ -304,7 +326,9 @@ class AppShell extends ConsumerWidget {
       context.go(d.route!);
     }
 
-    final page = AmbientBackground(child: child);
+    // Les alertes en tete de chaque ecran : un metier a ecran unique n'a pas
+    // de cloche, il doit les voir quand meme.
+    final page = AmbientBackground(child: BandeauAlertes(child: child));
 
     if (largeur >= 1100) {
       return Material(
@@ -534,7 +558,7 @@ class _BarreState extends State<_Barre> {
             padding: EdgeInsets.only(left: 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: AtriumMark(size: 58, onNight: true),
+              child: AtriumLockup(markSize: 46),
             ),
           ),
           const SizedBox(height: 14),

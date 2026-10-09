@@ -30556,6 +30556,16 @@ class $OutletsTable extends Outlets with TableInfo<$OutletsTable, OutletRow> {
     defaultValue: const Constant(0),
   );
   @override
+  late final GeneratedColumnWithTypeConverter<OutletKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('OUTLET'),
+      ).withConverter<OutletKind>($OutletsTable.$converterkind);
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     createdAt,
@@ -30574,6 +30584,7 @@ class $OutletsTable extends Outlets with TableInfo<$OutletsTable, OutletRow> {
     closesAt,
     allowsRoomCharge,
     sortOrder,
+    kind,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -30777,6 +30788,12 @@ class $OutletsTable extends Outlets with TableInfo<$OutletsTable, OutletRow> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      kind: $OutletsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
     );
   }
 
@@ -30787,6 +30804,8 @@ class $OutletsTable extends Outlets with TableInfo<$OutletsTable, OutletRow> {
 
   static JsonTypeConverter2<SyncState, String, String> $convertersyncState =
       const EnumNameConverter<SyncState>(SyncState.values);
+  static JsonTypeConverter2<OutletKind, String, String> $converterkind =
+      const EnumNameConverter<OutletKind>(OutletKind.values);
 }
 
 class OutletRow extends DataClass implements Insertable<OutletRow> {
@@ -30809,6 +30828,9 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
   final String? closesAt;
   final bool allowsRoomCharge;
   final int sortOrder;
+
+  /// Point de vente ou service : il range l'onglet dans le bon ecran.
+  final OutletKind kind;
   const OutletRow({
     required this.id,
     required this.createdAt,
@@ -30827,6 +30849,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
     this.closesAt,
     required this.allowsRoomCharge,
     required this.sortOrder,
+    required this.kind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -30866,6 +30889,9 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
     }
     map['allows_room_charge'] = Variable<bool>(allowsRoomCharge);
     map['sort_order'] = Variable<int>(sortOrder);
+    {
+      map['kind'] = Variable<String>($OutletsTable.$converterkind.toSql(kind));
+    }
     return map;
   }
 
@@ -30902,6 +30928,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
           : Value(closesAt),
       allowsRoomCharge: Value(allowsRoomCharge),
       sortOrder: Value(sortOrder),
+      kind: Value(kind),
     );
   }
 
@@ -30930,6 +30957,9 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
       closesAt: serializer.fromJson<String?>(json['closesAt']),
       allowsRoomCharge: serializer.fromJson<bool>(json['allowsRoomCharge']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      kind: $OutletsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
     );
   }
   @override
@@ -30955,6 +30985,9 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
       'closesAt': serializer.toJson<String?>(closesAt),
       'allowsRoomCharge': serializer.toJson<bool>(allowsRoomCharge),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'kind': serializer.toJson<String>(
+        $OutletsTable.$converterkind.toJson(kind),
+      ),
     };
   }
 
@@ -30976,6 +31009,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
     Value<String?> closesAt = const Value.absent(),
     bool? allowsRoomCharge,
     int? sortOrder,
+    OutletKind? kind,
   }) => OutletRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -30996,6 +31030,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
     closesAt: closesAt.present ? closesAt.value : this.closesAt,
     allowsRoomCharge: allowsRoomCharge ?? this.allowsRoomCharge,
     sortOrder: sortOrder ?? this.sortOrder,
+    kind: kind ?? this.kind,
   );
   OutletRow copyWithCompanion(OutletsCompanion data) {
     return OutletRow(
@@ -31020,6 +31055,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
           ? data.allowsRoomCharge.value
           : this.allowsRoomCharge,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      kind: data.kind.present ? data.kind.value : this.kind,
     );
   }
 
@@ -31042,7 +31078,8 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
           ..write('opensAt: $opensAt, ')
           ..write('closesAt: $closesAt, ')
           ..write('allowsRoomCharge: $allowsRoomCharge, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('kind: $kind')
           ..write(')'))
         .toString();
   }
@@ -31066,6 +31103,7 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
     closesAt,
     allowsRoomCharge,
     sortOrder,
+    kind,
   );
   @override
   bool operator ==(Object other) =>
@@ -31087,7 +31125,8 @@ class OutletRow extends DataClass implements Insertable<OutletRow> {
           other.opensAt == this.opensAt &&
           other.closesAt == this.closesAt &&
           other.allowsRoomCharge == this.allowsRoomCharge &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.kind == this.kind);
 }
 
 class OutletsCompanion extends UpdateCompanion<OutletRow> {
@@ -31108,6 +31147,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
   final Value<String?> closesAt;
   final Value<bool> allowsRoomCharge;
   final Value<int> sortOrder;
+  final Value<OutletKind> kind;
   final Value<int> rowid;
   const OutletsCompanion({
     this.id = const Value.absent(),
@@ -31127,6 +31167,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
     this.closesAt = const Value.absent(),
     this.allowsRoomCharge = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OutletsCompanion.insert({
@@ -31147,6 +31188,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
     this.closesAt = const Value.absent(),
     this.allowsRoomCharge = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -31172,6 +31214,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
     Expression<String>? closesAt,
     Expression<bool>? allowsRoomCharge,
     Expression<int>? sortOrder,
+    Expression<String>? kind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -31192,6 +31235,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
       if (closesAt != null) 'closes_at': closesAt,
       if (allowsRoomCharge != null) 'allows_room_charge': allowsRoomCharge,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (kind != null) 'kind': kind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -31214,6 +31258,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
     Value<String?>? closesAt,
     Value<bool>? allowsRoomCharge,
     Value<int>? sortOrder,
+    Value<OutletKind>? kind,
     Value<int>? rowid,
   }) {
     return OutletsCompanion(
@@ -31234,6 +31279,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
       closesAt: closesAt ?? this.closesAt,
       allowsRoomCharge: allowsRoomCharge ?? this.allowsRoomCharge,
       sortOrder: sortOrder ?? this.sortOrder,
+      kind: kind ?? this.kind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -31294,6 +31340,11 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $OutletsTable.$converterkind.toSql(kind.value),
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -31320,6 +31371,7 @@ class OutletsCompanion extends UpdateCompanion<OutletRow> {
           ..write('closesAt: $closesAt, ')
           ..write('allowsRoomCharge: $allowsRoomCharge, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('kind: $kind, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -83554,6 +83606,7 @@ typedef $$OutletsTableCreateCompanionBuilder =
       Value<String?> closesAt,
       Value<bool> allowsRoomCharge,
       Value<int> sortOrder,
+      Value<OutletKind> kind,
       Value<int> rowid,
     });
 typedef $$OutletsTableUpdateCompanionBuilder =
@@ -83575,6 +83628,7 @@ typedef $$OutletsTableUpdateCompanionBuilder =
       Value<String?> closesAt,
       Value<bool> allowsRoomCharge,
       Value<int> sortOrder,
+      Value<OutletKind> kind,
       Value<int> rowid,
     });
 
@@ -83672,6 +83726,12 @@ class $$OutletsTableFilterComposer
     column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<OutletKind, OutletKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 }
 
 class $$OutletsTableOrderingComposer
@@ -83767,6 +83827,11 @@ class $$OutletsTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$OutletsTableAnnotationComposer
@@ -83832,6 +83897,9 @@ class $$OutletsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<OutletKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
 }
 
 class $$OutletsTableTableManager
@@ -83882,6 +83950,7 @@ class $$OutletsTableTableManager
                 Value<String?> closesAt = const Value.absent(),
                 Value<bool> allowsRoomCharge = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<OutletKind> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OutletsCompanion(
                 id: id,
@@ -83901,6 +83970,7 @@ class $$OutletsTableTableManager
                 closesAt: closesAt,
                 allowsRoomCharge: allowsRoomCharge,
                 sortOrder: sortOrder,
+                kind: kind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -83922,6 +83992,7 @@ class $$OutletsTableTableManager
                 Value<String?> closesAt = const Value.absent(),
                 Value<bool> allowsRoomCharge = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<OutletKind> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OutletsCompanion.insert(
                 id: id,
@@ -83941,6 +84012,7 @@ class $$OutletsTableTableManager
                 closesAt: closesAt,
                 allowsRoomCharge: allowsRoomCharge,
                 sortOrder: sortOrder,
+                kind: kind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

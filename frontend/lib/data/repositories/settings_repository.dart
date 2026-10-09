@@ -1,4 +1,4 @@
-/// Les reglages de l'hotel : aujourd'hui, la regle des arrhes.
+/// Les reglages de l'hotel : la regle des arrhes, le depart, les alertes.
 ///
 /// La regle vit dans `settings`, cle `reservation.deposit_rule`, au format
 /// fixe cote serveur (`services/deposit.py`) :
@@ -15,9 +15,19 @@ import '../../core/ids.dart';
 import '../../core/prolongation.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../local/queries/alert_queries.dart';
 import 'outbox.dart';
 
 const depositRuleKey = 'reservation.deposit_rule';
+
+/// Le niveau de chaque evenement d'alerte, pour tout l'hotel : remonte au
+/// serveur (`PUT /settings/notification-levels`) et redescend sur chaque
+/// tablette.
+const notificationLevelsKey = 'notifications.levels';
+
+/// Les preferences d'alerte d'un agent (portee `USER`). Elles restent sur la
+/// tablette : la file les acquitte sans les envoyer.
+const agentNotificationsKey = 'notifications.agent';
 
 /// Heure de depart de l'hotel (entier, 0 a 23) et prix de l'heure
 /// supplementaire (FCFA entiers). Deux reglages a valeur simple : la valeur
@@ -102,6 +112,63 @@ class DepositRule {
 
   @override
   int get hashCode => Object.hash(mode, amount, rateBp);
+}
+
+/// Le niveau de chaque evenement : celui de l'administration, sinon le
+/// defaut du catalogue.
+class NiveauxAlertes {
+  const NiveauxAlertes([this._choisis = const {}]);
+
+  final Map<TypeEvenement, NiveauSignal> _choisis;
+
+  NiveauSignal de(TypeEvenement type) => _choisis[type] ?? type.niveauParDefaut;
+
+  NiveauxAlertes avec(TypeEvenement type, NiveauSignal niveau) =>
+      NiveauxAlertes({..._choisis, type: niveau});
+
+  /// Tous les evenements, explicitement : un defaut qui changerait dans une
+  /// version future ne doit pas changer ce que l'administrateur a vu et
+  /// valide.
+  Map<String, String> toJson() => {
+    for (final t in TypeEvenement.values) t.code: de(t).code,
+  };
+
+  /// Un code inconnu (une tablette plus recente) ou un niveau mal forme est
+  /// ignore : l'evenement garde son defaut.
+  static NiveauxAlertes fromJson(Object? raw) {
+    if (raw is! Map) return const NiveauxAlertes();
+    return NiveauxAlertes({
+      for (final MapEntry(:key, :value) in raw.entries)
+        ?TypeEvenement.depuisCode('$key'): ?NiveauSignal.depuisCode(value),
+    });
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is NiveauxAlertes &&
+      TypeEvenement.values.every((t) => other.de(t) == de(t));
+
+  @override
+  int get hashCode => Object.hashAll(TypeEvenement.values.map(de));
+}
+
+/// Ce qu'un agent a choisi pour lui-meme.
+class PreferencesAlertes {
+  const PreferencesAlertes({this.sonCoupe = false});
+
+  /// Plus aucune sonnerie pour cet agent ; le bandeau et la vibration
+  /// restent, pour que l'alerte ne passe pas inapercue pour autant.
+  final bool sonCoupe;
+
+  static PreferencesAlertes fromJson(Object? raw) =>
+      PreferencesAlertes(sonCoupe: raw is Map && raw['sound_muted'] == true);
+
+  @override
+  bool operator ==(Object other) =>
+      other is PreferencesAlertes && other.sonCoupe == sonCoupe;
+
+  @override
+  int get hashCode => sonCoupe.hashCode;
 }
 
 class SettingsRepository with OutboxWriter {
@@ -231,6 +298,97 @@ class SettingsRepository with OutboxWriter {
     );
   }
 
+  // --- Les alertes -----------------------------------------------------------
+
+  Stream<NiveauxAlertes> watchNiveauxAlertes() {
+    return (db.select(db.settings)..where(_niveaux)).watchSingleOrNull().map(
+      (r) => r?.value == null
+          ? const NiveauxAlertes()
+          : NiveauxAlertes.fromJson(jsonDecode(r!.value!)),
+    );
+  }
+
+  /// Fixe le niveau de tous les evenements d'un coup : le serveur remplace
+  /// le tout, et un renvoi du meme corps ne change rien.
+  Future<void> setNiveauxAlertes(NiveauxAlertes niveaux) async {
+    final existante = await (db.select(
+      db.settings,
+    )..where(_niveaux)).getSingleOrNull();
+    final id = existante?.id ?? newId();
+    final valeur = niveaux.toJson();
+    final now = DateTime.now().toUtc();
+
+    await writeAndEnqueue(
+      table: 'settings',
+      id: id,
+      operation: SyncOp.UPDATE,
+      payload: {'id': id, 'key': notificationLevelsKey, 'value': valeur},
+      action: () async {
+        await db
+            .into(db.settings)
+            .insertOnConflictUpdate(
+              SettingsCompanion.insert(
+                id: id,
+                createdAt: existante?.createdAt ?? now,
+                updatedAt: now,
+                hotelId: hotelId,
+                key: notificationLevelsKey,
+                value: Value(jsonEncode(valeur)),
+                label: const Value('Niveaux des alertes'),
+                syncState: const Value(SyncState.pending),
+              ),
+            );
+      },
+    );
+  }
+
+  Stream<PreferencesAlertes> watchPreferencesAlertes(String agentId) {
+    return (db.select(
+      db.settings,
+    )..where((s) => _preferences(s, agentId))).watchSingleOrNull().map(
+      (r) => r?.value == null
+          ? const PreferencesAlertes()
+          : PreferencesAlertes.fromJson(jsonDecode(r!.value!)),
+    );
+  }
+
+  /// Coupe ou retablit le son des alertes pour cet agent, sur cette
+  /// tablette. Ecrit dans la file comme le reste, qui l'acquitte sans
+  /// l'envoyer (voir `OutboxSender._envoiPour`).
+  Future<void> setSonCoupe(String agentId, bool coupe) async {
+    final existante = await (db.select(
+      db.settings,
+    )..where((s) => _preferences(s, agentId))).getSingleOrNull();
+    final id = existante?.id ?? newId();
+    final valeur = {'sound_muted': coupe};
+    final now = DateTime.now().toUtc();
+
+    await writeAndEnqueue(
+      table: 'settings',
+      id: id,
+      operation: SyncOp.UPDATE,
+      payload: {'id': id, 'key': agentNotificationsKey, 'value': valeur},
+      action: () async {
+        await db
+            .into(db.settings)
+            .insertOnConflictUpdate(
+              SettingsCompanion.insert(
+                id: id,
+                createdAt: existante?.createdAt ?? now,
+                updatedAt: now,
+                hotelId: hotelId,
+                key: agentNotificationsKey,
+                value: Value(jsonEncode(valeur)),
+                scope: const Value(SettingScope.USER),
+                scopeId: Value(agentId),
+                label: const Value("Alertes de l'agent"),
+                syncState: const Value(SyncState.pending),
+              ),
+            );
+      },
+    );
+  }
+
   /// Une valeur absente ou mal formee garde le defaut : midi, et pas de
   /// facturation.
   StayRules _regles(List<SettingRow> lignes) {
@@ -257,6 +415,18 @@ class SettingsRepository with OutboxWriter {
       s.key.isIn([stayCheckoutHourKey, stayExtraHourPriceKey]) &
       s.scope.equalsValue(SettingScope.GLOBAL) &
       s.scopeId.isNull() &
+      s.deletedAt.isNull();
+
+  Expression<bool> _niveaux($SettingsTable s) =>
+      s.key.equals(notificationLevelsKey) &
+      s.scope.equalsValue(SettingScope.GLOBAL) &
+      s.scopeId.isNull() &
+      s.deletedAt.isNull();
+
+  Expression<bool> _preferences($SettingsTable s, String agentId) =>
+      s.key.equals(agentNotificationsKey) &
+      s.scope.equalsValue(SettingScope.USER) &
+      s.scopeId.equals(agentId) &
       s.deletedAt.isNull();
 
   Expression<bool> _regle($SettingsTable s) =>

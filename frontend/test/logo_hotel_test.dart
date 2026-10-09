@@ -108,6 +108,20 @@ void main() {
     expect(relu.width, 800);
   });
 
+  test('les marges vides autour du dessin sont retirees a l import', () {
+    // Un carre noir de 50 points au milieu d'un fond blanc de 200 : il reste
+    // le carre et sa respiration (4 % de son cote, 2 points de chaque bord).
+    final fond = img.Image(width: 200, height: 200)
+      ..clear(img.ColorRgb8(255, 255, 255));
+    img.fillRect(
+      fond, x1: 75, y1: 75, x2: 124, y2: 124, color: img.ColorRgb8(0, 0, 0),
+    );
+    final relu = img.decodeImage(
+      preparerLogo(Uint8List.fromList(img.encodePng(fond))),
+    )!;
+    expect((relu.width, relu.height), (54, 54));
+  });
+
   test('le logo du ticket est en noir et blanc, 384 points de large', () {
     final nb = logoNoirEtBlanc(_png(300, 120))!;
     final relu = img.decodeImage(nb)!;
@@ -222,7 +236,7 @@ void main() {
     final bilan = await chargerDonneesDeTest(
       db,
       agentId: admin.id,
-      peutModifierHotel: true,
+      peut: (p) => p == 'hotel.write',
       logo: logo,
     );
     expect(bilan, contains('Hôtel : coordonnées et logo ajoutés.'));
@@ -238,7 +252,7 @@ void main() {
       await chargerDonneesDeTest(
         db,
         agentId: admin.id,
-        peutModifierHotel: true,
+        peut: (p) => p == 'hotel.write',
         logo: logo,
       ),
       contains('déjà son logo'),

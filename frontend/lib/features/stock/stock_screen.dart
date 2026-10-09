@@ -38,8 +38,9 @@ class StockScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final magasins = ref.watch(stockPlacesProvider);
-    final acces = ref.watch(sessionProvider).acces;
+    final session = ref.watch(sessionProvider);
+    final magasins = ref.watch(stockPlacesProvider(session.agent?.id));
+    final acces = session.acces;
     final peutBouger = acces.peut('stock.movement');
     final peutValider = acces.peut('stock.transfer.approve');
 

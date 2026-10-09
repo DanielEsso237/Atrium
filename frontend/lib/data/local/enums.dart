@@ -98,6 +98,11 @@ enum TicketStatus { OPEN, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED, CANCELLED }
 
 enum StockMovementType { IN, OUT, TRANSFER, ADJUSTMENT, LOSS, RETURN }
 
+/// Ce qu'on vend : des consommations (restaurant, bar, boutique) ou des
+/// prestations (spa, piscine, salle de conference). Meme saisie, meme
+/// facturation ; deux onglets.
+enum OutletKind { OUTLET, SERVICE }
+
 /// Un transfert attend la validation du controleur ou du comptable ; les
 /// autres mouvements sont appliques des leur enregistrement.
 enum StockMovementStatus { PENDING, APPROVED, REJECTED }

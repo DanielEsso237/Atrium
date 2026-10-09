@@ -119,11 +119,7 @@ int _seuilOtsu(img.Image gris) {
 /// Retire le fond uni ou transparent autour du dessin, en gardant une
 /// petite respiration.
 img.Image _rogner(img.Image source) {
-  final rognee = img.trim(
-    source,
-    mode: source.hasAlpha ? img.TrimMode.transparent : img.TrimMode.topLeftColor,
-    fuzzy: 0.06,
-  );
+  final rognee = _rognerFond(source, tolerance: 0.06);
   if (rognee.width < 8 || rognee.height < 8) return source;
   final marge = (0.04 * (rognee.width > rognee.height ? rognee.width : rognee.height)).round();
   final cadre = img.Image(
@@ -133,6 +129,38 @@ img.Image _rogner(img.Image source) {
   );
   if (!rognee.hasAlpha) cadre.clear(img.ColorRgb8(255, 255, 255));
   return img.compositeImage(cadre, rognee, dstX: marge, dstY: marge);
+}
+
+/// Le cadre du dessin : ce qui n'est ni transparent (PNG avec transparence)
+/// ni de la couleur du coin haut gauche, a `tolerance` pres.
+///
+/// `img.trim(fuzzy:)` le fait, mais seulement depuis image 4.9, qui exige
+/// archive 4 ; `excel` (export des rapports) est encore sur archive 3.
+img.Image _rognerFond(img.Image source, {required double tolerance}) {
+  final max = source.maxChannelValue.toDouble();
+  final fond = source.getPixel(0, 0);
+  bool dessin(img.Pixel p) => source.hasAlpha
+      ? p.a / max > tolerance
+      : (p.r - fond.r).abs() / max > tolerance ||
+            (p.g - fond.g).abs() / max > tolerance ||
+            (p.b - fond.b).abs() / max > tolerance;
+
+  var gauche = source.width, haut = source.height, droite = -1, bas = -1;
+  for (final p in source) {
+    if (!dessin(p)) continue;
+    if (p.x < gauche) gauche = p.x;
+    if (p.x > droite) droite = p.x;
+    if (p.y < haut) haut = p.y;
+    if (p.y > bas) bas = p.y;
+  }
+  if (droite < 0) return source;
+  return img.copyCrop(
+    source,
+    x: gauche,
+    y: haut,
+    width: droite - gauche + 1,
+    height: bas - haut + 1,
+  );
 }
 
 /// Pose l'image sur du blanc : la transparence d'un PNG deviendrait du noir

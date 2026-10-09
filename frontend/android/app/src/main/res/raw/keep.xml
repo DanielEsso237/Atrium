@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les sonneries des canaux de notification ne sont citees que par leur
+     nom, depuis Dart : sans cette liste, la reduction des ressources du
+     build release les supprimerait, et les alertes sonneraient muettes. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/alerte_critique,@raw/alerte_urgente,@drawable/ic_notification" />

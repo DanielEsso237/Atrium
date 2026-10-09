@@ -1,4 +1,6 @@
-"""La regle des arrhes, au format fixe par `services/deposit.py`.
+"""Les reglages : la regle des arrhes et les niveaux des alertes.
+
+La regle des arrhes, au format fixe par `services/deposit.py` :
 
     {"mode": "FIXED", "amount": 20000}     somme fixe en FCFA
     {"mode": "PERCENT", "rate_bp": 3000}   30 % du sejour, en points de base
@@ -10,9 +12,9 @@ silence.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 
 class DepositRule(BaseModel):
@@ -38,3 +40,30 @@ class DepositRule(BaseModel):
 
 class DepositRuleOut(BaseModel):
     rule: dict | None
+
+
+# --- Niveaux des alertes ------------------------------------------------------
+
+AlertLevel = Literal["SILENT", "SOUND", "SOUND_VIBRATION"]
+
+
+class NotificationLevels(BaseModel):
+    """Le niveau de chaque evenement d'alerte, fixe par l'administration.
+
+        {"levels": {"ARRIVAL_EXPECTED": "SOUND", "LOW_STOCK": "SILENT"}}
+
+    Les niveaux sont stricts : une valeur inconnue serait lue par la tablette
+    comme le defaut, et l'administrateur croirait avoir regle ce qu'il n'a
+    pas regle. Les codes d'evenement, eux, sont libres : une tablette plus
+    recente que le serveur en connait d'autres, et un refus bloquerait sa
+    file d'envoi pour un simple reglage.
+    """
+
+    levels: dict[
+        Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z_]{0,39}$")],
+        AlertLevel,
+    ] = Field(max_length=40)
+
+
+class NotificationLevelsOut(BaseModel):
+    levels: dict[str, str]

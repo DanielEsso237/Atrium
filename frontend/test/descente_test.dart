@@ -368,6 +368,73 @@ void main() {
         .getSingle();
     expect(o.read<bool>('a'), isFalse);
   });
+
+  test('une vente close ailleurs et son encaissement descendent', () async {
+    const vente = '01920000-0000-7000-8000-00000000d010';
+    const ligneVente = '01920000-0000-7000-8000-00000000d011';
+    const paiement = '01920000-0000-7000-8000-00000000d012';
+    const bar = '01920000-0000-7000-8000-00000000d013';
+    const agent = '01920000-0000-7000-8000-00000000d014';
+    final api = FakeCatalogApi(
+      closedFolios: [
+        RemoteFolio(
+          id: vente,
+          number: 'FOL-000099',
+          status: 'CLOSED',
+          type: 'WALK_IN',
+          chargesTotal: 3000,
+          paymentsTotal: 3000,
+          balance: 0,
+          items: [
+            const RemoteFolioItem(
+              id: ligneVente,
+              category: 'FNB',
+              label: 'Biere',
+              quantity: 2,
+              unitPrice: 1500,
+              amount: 3000,
+              businessDate: '2026-10-08',
+              sourceTable: 'outlets',
+              sourceId: bar,
+              postedBy: agent,
+            ),
+          ],
+        ),
+      ],
+      payments: [
+        const RemotePayment(
+          id: paiement,
+          method: 'MOBILE_MONEY',
+          amount: 3000,
+          folioId: vente,
+          receivedBy: agent,
+          businessDate: '2026-10-08',
+        ),
+        // Un moyen que cette version ne connait pas : ecarte, pas range en
+        // especes.
+        const RemotePayment(
+          id: '01920000-0000-7000-8000-00000000d015',
+          method: 'CRYPTO',
+          amount: 500,
+          businessDate: '2026-10-08',
+        ),
+      ],
+    );
+    await Descente(db, api, SyncRepository(db, api)).pull();
+
+    final ligne = await (db.select(
+      db.folioItems,
+    )..where((i) => i.id.equals(ligneVente))).getSingle();
+    expect(ligne.sourceTable, 'outlets');
+    expect(ligne.sourceId, bar);
+    expect(ligne.postedBy, agent);
+
+    final p = await (db.select(db.payments)).get();
+    expect(p, hasLength(1));
+    expect(p.single.method, PaymentMethod.MOBILE_MONEY);
+    expect(p.single.receivedBy, agent);
+    expect(p.single.businessDate, '2026-10-08');
+  });
 }
 
 /// Le serveur tel que la reception le voit : le restaurant lui est refuse.

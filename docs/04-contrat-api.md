@@ -174,6 +174,24 @@ de `services/deposit.py` : `{"mode":"FIXED","amount":20000}` ou
 `{"mode":"PERCENT","rate_bp":3000}`. Tout autre corps répond `422` : une
 règle mal formée serait sinon lue, en silence, comme « pas d'arrhes ».
 
+## Les niveaux des alertes
+
+`GET /settings/notification-levels` rend `{"levels": {"LOW_STOCK": "SILENT",
+…}}` : le niveau de chaque événement d'alerte, `{}` tant que
+l'administration n'a rien fixé (la tablette applique alors ses défauts).
+Ouvert à tout agent connecté, pour la même raison que la règle des arrhes.
+
+`PUT` remplace le tout — droit `users.write`. Les niveaux sont stricts
+(`SILENT`, `SOUND`, `SOUND_VIBRATION`, sinon `422`) ; les codes d'événement
+sont libres (`^[A-Z][A-Z_]*$`) : une tablette plus récente que le serveur en
+connaît d'autres, et un refus bloquerait sa file pour un simple réglage.
+Codes d'aujourd'hui : `SYNC_BLOCKED`, `ROOM_TO_CLEAN`, `MAINTENANCE`,
+`LATE_DEPARTURE`, `ARRIVAL_EXPECTED`, `TRANSFER_PENDING`, `LOW_STOCK`.
+
+Le serveur n'envoie aucune notification : chaque tablette calcule ses
+alertes depuis sa base locale. Le réglage « couper le son » d'un agent reste
+sur la tablette (clé `notifications.agent`, portée `USER`) et ne remonte pas.
+
 ## Les points de vente
 
 `POST /outlets` accepte l'`id` de la tablette : un renvoi répond `200` sans
@@ -407,6 +425,23 @@ La tablette range le logo dans sa base (`hotels.logo_data`, colonne locale)
 pour imprimer hors ligne. Un logo importé sur la tablette porte une version
 `local-…` jusqu'à sa remontée, faite au début de chaque descente ; la
 descente ne retélécharge l'image que si `logo_version` a changé.
+
+## Ce qui redescend pour les rapports
+
+Les rapports se calculent sur la tablette, hors ligne. Il leur faut aussi
+les ventes faites, soldées et closes sur un autre poste, qui ne figurent
+jamais dans la liste des ardoises ouvertes.
+
+- `GET /folios?closed_since=AAAA-MM-JJ` : les ardoises closes depuis ce
+  jour, avec leurs lignes. Chaque ligne porte désormais `source_table`,
+  `source_id` (le point de vente quand `source_table = "outlets"`) et
+  `posted_by` (l'agent qui l'a saisie).
+- `GET /payments?since=AAAA-MM-JJ` : les encaissements depuis cette journée
+  hôtelière, arrhes et remboursements compris, avec `received_by`,
+  `business_date` et `cash_session_id`. Exige `folio.read`.
+
+La tablette relit une fenêtre glissante de 62 jours à chaque descente, de
+quoi couvrir le mois précédent en entier.
 
 ## La pagination
 

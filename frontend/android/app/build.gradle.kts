@@ -13,6 +13,8 @@ android {
     ndkVersion = "30.0.14904198"
 
     compileOptions {
+        // Exige par flutter_local_notifications (alertes en arriere-plan).
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -43,4 +45,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

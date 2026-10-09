@@ -51,6 +51,12 @@ class FolioItemOut(BaseModel):
     is_void: bool
     void_reason: str | None
     override_by: uuid.UUID | None = None
+    # L'origine de la ligne et son auteur : sans eux, une autre tablette ne
+    # sait pas a quel point de vente rattacher la vente ni quel agent l'a
+    # saisie, et ses rapports filtres sont faux.
+    source_table: str | None = None
+    source_id: uuid.UUID | None = None
+    posted_by: uuid.UUID | None = None
 
 
 class FolioOut(BaseModel):
@@ -115,6 +121,11 @@ class PaymentOut(BaseModel):
     is_refund: bool
     folio_id: uuid.UUID | None
     reservation_id: uuid.UUID | None
+    # Qui a encaisse, sur quelle journee et dans quelle caisse : ce que les
+    # rapports filtrent (agent, moyen de paiement, periode).
+    received_by: uuid.UUID | None = None
+    business_date: dt.date | None = None
+    cash_session_id: uuid.UUID | None = None
 
 
 class InvoiceLineOut(BaseModel):

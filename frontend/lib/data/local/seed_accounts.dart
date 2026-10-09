@@ -255,6 +255,9 @@ const _droits = <(String role, String permission)>[
   // Le client de passage paie au comptoir (decision du 4 octobre) : le
   // comptoir ouvre une caisse, comme la reception et l'administration.
   (_roleRestaurant, '01920000-0000-7000-8000-000000004150'),
+  // Le barman voit le stock de son bar, en lecture : l'ecran Stocks ne lui
+  // montre que les magasins de ses points de vente.
+  (_roleRestaurant, '01920000-0000-7000-8000-000000004151'),
   (_roleReception, '01920000-0000-7000-8000-000000004150'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004150'),
   // Les stocks : l'administrateur, en attendant les roles econome,

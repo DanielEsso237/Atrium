@@ -110,6 +110,7 @@ class RemoteOutlet {
     this.opensAt,
     this.closesAt,
     this.isActive = true,
+    this.kind = 'OUTLET',
   });
 
   final String id;
@@ -119,6 +120,9 @@ class RemoteOutlet {
   /// Desactive par l'administration : il sort des onglets de l'ecran
   /// Commande, mais reste en base -- les commandes passees y renvoient.
   final bool isActive;
+
+  /// `OUTLET` ou `SERVICE`.
+  final String kind;
 
   /// Ce point de vente peut-il porter une consommation sur la chambre.
   ///
@@ -141,6 +145,7 @@ class RemoteOutlet {
       opensAt: _heure(raw['opens_at']),
       closesAt: _heure(raw['closes_at']),
       isActive: raw['is_active'] != false,
+      kind: '${raw['kind'] ?? 'OUTLET'}',
     );
   }
 }
@@ -554,6 +559,9 @@ class RemoteFolioItem {
     this.taxRate = 0,
     this.taxAmount = 0,
     this.isVoid = false,
+    this.sourceTable,
+    this.sourceId,
+    this.postedBy,
   });
 
   final String id;
@@ -566,6 +574,15 @@ class RemoteFolioItem {
   final int taxRate;
   final int taxAmount;
   final bool isVoid;
+
+  /// L'origine de la ligne : `outlets` + l'id du point de vente pour une
+  /// vente. Sans elle, les rapports d'un autre poste ne savent pas ou ranger
+  /// la vente.
+  final String? sourceTable;
+  final String? sourceId;
+
+  /// L'agent qui a saisi la ligne.
+  final String? postedBy;
 
   static RemoteFolioItem? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null) return null;
@@ -580,6 +597,56 @@ class RemoteFolioItem {
       taxRate: _entier(raw['tax_rate']),
       taxAmount: _entier(raw['tax_amount']),
       isVoid: raw['is_void'] == true,
+      sourceTable: _texte(raw['source_table']),
+      sourceId: _texte(raw['source_id']),
+      postedBy: _texte(raw['posted_by']),
+    );
+  }
+}
+
+/// Un encaissement (`PaymentOut`), pour les rapports.
+class RemotePayment {
+  const RemotePayment({
+    required this.id,
+    required this.method,
+    required this.amount,
+    this.isRefund = false,
+    this.folioId,
+    this.receivedBy,
+    this.receivedAt,
+    this.businessDate,
+    this.cashSessionId,
+    this.reference,
+  });
+
+  final String id;
+  final String method;
+  final int amount;
+  final bool isRefund;
+  final String? folioId;
+  final String? receivedBy;
+  final DateTime? receivedAt;
+
+  /// Date seule, `AAAA-MM-JJ` : jamais convertie de fuseau.
+  final String? businessDate;
+  final String? cashSessionId;
+  final String? reference;
+
+  static RemotePayment? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['method'] == null) {
+      return null;
+    }
+    return RemotePayment(
+      id: '${raw['id']}',
+      method: '${raw['method']}',
+      amount: _entier(raw['amount']),
+      isRefund: raw['is_refund'] == true,
+      folioId: _texte(raw['folio_id']),
+      receivedBy: _texte(raw['received_by']),
+      receivedAt: _instant(raw['received_at']),
+      businessDate: _texte(raw['business_date']),
+      cashSessionId: _texte(raw['cash_session_id']),
+      reference: _texte(raw['reference']),
     );
   }
 }
@@ -684,6 +751,18 @@ class CatalogApi {
   Future<Object?> fetchDepositRule() async =>
       (await _client.get('/settings/deposit-rule'))['rule'];
 
+  /// Les niveaux des alertes, bruts : `NiveauxAlertes.fromJson` les lit.
+  /// `null` quand le serveur ne connait pas encore la route : la tablette
+  /// garde alors ce qu'elle a.
+  Future<Object?> fetchNotificationLevels() async {
+    try {
+      return (await _client.get('/settings/notification-levels'))['levels'];
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
+      rethrow;
+    }
+  }
+
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
 
@@ -775,6 +854,20 @@ class CatalogApi {
   }
 
   Future<void> deleteHotelLogo() => _client.delete('/hotel/logo');
+
+  /// Les ardoises closes depuis `since`, pour les rapports seulement.
+  ///
+  /// Une vente au comptoir s'ouvre et se clot dans la meme requete : sans cet
+  /// appel, les autres postes n'en verraient jamais le chiffre.
+  Future<List<RemoteFolio>> fetchClosedFolios(DateTime since) => _lire(
+    '/folios',
+    RemoteFolio.fromJson,
+    query: {'closed_since': _jour(since)},
+  );
+
+  /// Les encaissements depuis la journee hoteliere `since`.
+  Future<List<RemotePayment>> fetchPayments(DateTime since) =>
+      _lire('/payments', RemotePayment.fromJson, query: {'since': _jour(since)});
 
   /// Lit une liste et en ecarte les lignes illisibles.
   Future<List<T>> _lire<T>(

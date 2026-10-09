@@ -21,6 +21,8 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/queries/dashboard_queries.dart';
+import '../alerts/alert_banner.dart';
+import '../alerts/alert_center.dart';
 import '../auth/session.dart';
 import '../dashboard/dashboard_charts.dart';
 import '../dashboard/dashboard_screen.dart'
@@ -732,7 +734,11 @@ class NotificationBell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
-    final nonLues = ref.watch(notificationsNonLuesProvider).value ?? 0;
+    // Les alertes en cours comptent comme des notifications non lues : la
+    // cloche est l'endroit ou on les retrouve apres les avoir acquittees.
+    final nonLues =
+        (ref.watch(notificationsNonLuesProvider).value ?? 0) +
+        ref.watch(centreAlertesProvider).nonVues;
     return Tooltip(
       message: nonLues == 0
           ? 'Notifications'
@@ -790,12 +796,13 @@ class _Notifications extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final liste = ref.watch(notificationsProvider).value ?? const [];
+    final alertes = ref.watch(centreAlertesProvider).actives;
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.bell, size: 30),
       title: const Text('Notifications'),
       content: SizedBox(
         width: 440,
-        child: liste.isEmpty
+        child: liste.isEmpty && alertes.isEmpty
             ? Text(
                 'Aucune notification pour le moment.',
                 textAlign: TextAlign.center,
@@ -804,6 +811,7 @@ class _Notifications extends ConsumerWidget {
             : ListView(
                 shrinkWrap: true,
                 children: [
+                  const ListeAlertes(),
                   for (final n in liste)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
