@@ -1,4 +1,4 @@
-/// L'administration de l'hotel : points de vente, regle des arrhes, agents,
+/// L'administration de l'hotel : etablissement (nom, logo), points de vente, regle des arrhes, agents,
 /// roles, plafonds des clients.
 ///
 /// Reservee a l'administrateur (`users.write`, voir `router.dart`) : chaque
@@ -18,6 +18,7 @@ import 'agents_section.dart';
 import 'alerts_section.dart';
 import 'credit_limits_section.dart';
 import 'deposit_section.dart';
+import 'hotel_section.dart';
 import 'outlets_section.dart';
 import 'roles_section.dart';
 import 'stay_rules_section.dart';
@@ -26,6 +27,8 @@ class AdministrationScreen extends StatelessWidget {
   const AdministrationScreen({super.key});
 
   static const _sections = <(String, IconData, Widget)>[
+    // L'identite de l'hotel d'abord : elle ouvre chaque facture.
+    ('Établissement', PhosphorIconsLight.buildings, HotelSection()),
     ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Départ', PhosphorIconsLight.clock, StayRulesSection()),

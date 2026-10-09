@@ -148,6 +148,17 @@ class ApiClient {
     return _asMap(await _send(() => _dio.delete(path)));
   }
 
+  /// Lit un fichier binaire (le logo de l'hotel).
+  Future<Uint8List> getBytes(String path) async {
+    final data = await _send(
+      () => _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      ),
+    );
+    return data is List<int> ? Uint8List.fromList(data) : Uint8List(0);
+  }
+
   /// Envoie un fichier en `multipart/form-data`.
   ///
   /// Dix secondes suffisent a une ligne JSON, pas a une photo sur le Wi-Fi

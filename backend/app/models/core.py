@@ -60,6 +60,18 @@ class Hotel(RootBase):
     day_rollover_hour: Mapped[int] = mapped_column(default=6)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    @property
+    def logo_version(self) -> str | None:
+        """L'empreinte du logo en place, tiree du nom de son fichier.
+
+        Une tablette la compare a la sienne : elle ne retelecharge l'image
+        que lorsqu'elle a change, au lieu de la relire a chaque descente.
+        """
+        if not self.logo_path:
+            return None
+        nom = self.logo_path.rsplit("/", 1)[-1]
+        return nom.split(".", 1)[0]
+
 
 class Role(RefBase):
     __tablename__ = "roles"

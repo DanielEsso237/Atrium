@@ -25,6 +25,9 @@ class HotelOut(BaseModel):
     timezone: str
     currency: str
     day_rollover_hour: int
+    # Absente tant qu'aucun logo n'a ete envoye. Le fichier se lit par
+    # `GET /hotel/logo`.
+    logo_version: str | None = None
 
 
 class HotelUpdate(BaseModel):

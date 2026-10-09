@@ -12,8 +12,9 @@
 /// etroits.
 library;
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show compute, kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,6 +27,7 @@ import '../../data/repositories/donnees_de_test.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../alerts/alert_center.dart' show preferencesAlertesProvider;
 import '../auth/session.dart';
+import '../hotel/logo_images.dart';
 
 /// Une entree du menu.
 class _Entree {
@@ -519,10 +521,20 @@ class MenuCompte extends ConsumerWidget {
           final routeur = GoRouter.of(context);
           String bilan;
           try {
+            // Le logo d'Edge Hotel livre avec l'application, prepare comme
+            // un logo importe depuis l'administration.
+            final brut = await rootBundle.load(
+              'assets/images/edge-hotel-logo.png',
+            );
+            final logo = await compute(
+              preparerLogo,
+              brut.buffer.asUint8List(brut.offsetInBytes, brut.lengthInBytes),
+            );
             bilan = await chargerDonneesDeTest(
               ref.read(databaseProvider),
               agentId: session.agent!.id,
               peut: session.acces.peut,
+              logo: logo,
             );
           } on Object catch (e) {
             bilan = 'Chargement interrompu : $e';

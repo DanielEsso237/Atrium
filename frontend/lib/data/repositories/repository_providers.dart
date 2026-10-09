@@ -19,6 +19,7 @@ import 'cash_repository.dart';
 import 'descente.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
+import 'hotel_repository.dart';
 import 'housekeeping_repository.dart';
 import 'id_photo_repository.dart';
 import 'invoice_repository.dart';
@@ -90,6 +91,15 @@ final cashRepositoryProvider = Provider<CashRepository>(
 /// La caisse ouverte de l'agent connecte, avec son attendu en direct.
 final currentCashProvider = StreamProvider.family<CashView?, String>(
   (ref, userId) => ref.watch(cashRepositoryProvider).watchCurrent(userId),
+);
+
+final hotelRepositoryProvider = Provider<HotelRepository>(
+  (ref) => HotelRepository(ref.watch(databaseProvider)),
+);
+
+/// L'hotel de la tablette : nom, coordonnees et logo des factures.
+final hotelProvider = StreamProvider<HotelRow?>(
+  (ref) => ref.watch(hotelRepositoryProvider).watch(),
 );
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(

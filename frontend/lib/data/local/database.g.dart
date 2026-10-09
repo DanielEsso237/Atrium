@@ -240,6 +240,29 @@ class $HotelsTable extends Hotels with TableInfo<$HotelsTable, HotelRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _logoDataMeta = const VerificationMeta(
+    'logoData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> logoData = GeneratedColumn<Uint8List>(
+    'logo_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _logoVersionMeta = const VerificationMeta(
+    'logoVersion',
+  );
+  @override
+  late final GeneratedColumn<String> logoVersion = GeneratedColumn<String>(
+    'logo_version',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 64),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _timezoneMeta = const VerificationMeta(
     'timezone',
   );
@@ -316,6 +339,8 @@ class $HotelsTable extends Hotels with TableInfo<$HotelsTable, HotelRow> {
     website,
     taxId,
     logoPath,
+    logoData,
+    logoVersion,
     timezone,
     currency,
     dayRolloverHour,
@@ -463,6 +488,21 @@ class $HotelsTable extends Hotels with TableInfo<$HotelsTable, HotelRow> {
         logoPath.isAcceptableOrUnknown(data['logo_path']!, _logoPathMeta),
       );
     }
+    if (data.containsKey('logo_data')) {
+      context.handle(
+        _logoDataMeta,
+        logoData.isAcceptableOrUnknown(data['logo_data']!, _logoDataMeta),
+      );
+    }
+    if (data.containsKey('logo_version')) {
+      context.handle(
+        _logoVersionMeta,
+        logoVersion.isAcceptableOrUnknown(
+          data['logo_version']!,
+          _logoVersionMeta,
+        ),
+      );
+    }
     if (data.containsKey('timezone')) {
       context.handle(
         _timezoneMeta,
@@ -585,6 +625,14 @@ class $HotelsTable extends Hotels with TableInfo<$HotelsTable, HotelRow> {
         DriftSqlType.string,
         data['${effectivePrefix}logo_path'],
       ),
+      logoData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}logo_data'],
+      ),
+      logoVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logo_version'],
+      ),
       timezone: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}timezone'],
@@ -635,6 +683,14 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
   final String? website;
   final String? taxId;
   final String? logoPath;
+
+  /// Le logo lui-meme, garde sur la tablette : une facture editee hors ligne
+  /// doit le porter comme les autres. Colonne locale, le serveur n'en a pas.
+  final Uint8List? logoData;
+
+  /// L'empreinte du logo (`logo_version` du serveur). Prefixee `local-` tant
+  /// qu'un logo importe ici n'est pas remonte : la descente ne l'ecrase pas.
+  final String? logoVersion;
   final String timezone;
   final String currency;
 
@@ -668,6 +724,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
     this.website,
     this.taxId,
     this.logoPath,
+    this.logoData,
+    this.logoVersion,
     required this.timezone,
     required this.currency,
     required this.dayRolloverHour,
@@ -731,6 +789,12 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
     if (!nullToAbsent || logoPath != null) {
       map['logo_path'] = Variable<String>(logoPath);
     }
+    if (!nullToAbsent || logoData != null) {
+      map['logo_data'] = Variable<Uint8List>(logoData);
+    }
+    if (!nullToAbsent || logoVersion != null) {
+      map['logo_version'] = Variable<String>(logoVersion);
+    }
     map['timezone'] = Variable<String>(timezone);
     map['currency'] = Variable<String>(currency);
     map['day_rollover_hour'] = Variable<int>(dayRolloverHour);
@@ -789,6 +853,12 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
       logoPath: logoPath == null && nullToAbsent
           ? const Value.absent()
           : Value(logoPath),
+      logoData: logoData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logoData),
+      logoVersion: logoVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logoVersion),
       timezone: Value(timezone),
       currency: Value(currency),
       dayRolloverHour: Value(dayRolloverHour),
@@ -825,6 +895,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
       website: serializer.fromJson<String?>(json['website']),
       taxId: serializer.fromJson<String?>(json['taxId']),
       logoPath: serializer.fromJson<String?>(json['logoPath']),
+      logoData: serializer.fromJson<Uint8List?>(json['logoData']),
+      logoVersion: serializer.fromJson<String?>(json['logoVersion']),
       timezone: serializer.fromJson<String>(json['timezone']),
       currency: serializer.fromJson<String>(json['currency']),
       dayRolloverHour: serializer.fromJson<int>(json['dayRolloverHour']),
@@ -858,6 +930,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
       'website': serializer.toJson<String?>(website),
       'taxId': serializer.toJson<String?>(taxId),
       'logoPath': serializer.toJson<String?>(logoPath),
+      'logoData': serializer.toJson<Uint8List?>(logoData),
+      'logoVersion': serializer.toJson<String?>(logoVersion),
       'timezone': serializer.toJson<String>(timezone),
       'currency': serializer.toJson<String>(currency),
       'dayRolloverHour': serializer.toJson<int>(dayRolloverHour),
@@ -887,6 +961,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
     Value<String?> website = const Value.absent(),
     Value<String?> taxId = const Value.absent(),
     Value<String?> logoPath = const Value.absent(),
+    Value<Uint8List?> logoData = const Value.absent(),
+    Value<String?> logoVersion = const Value.absent(),
     String? timezone,
     String? currency,
     int? dayRolloverHour,
@@ -915,6 +991,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
     website: website.present ? website.value : this.website,
     taxId: taxId.present ? taxId.value : this.taxId,
     logoPath: logoPath.present ? logoPath.value : this.logoPath,
+    logoData: logoData.present ? logoData.value : this.logoData,
+    logoVersion: logoVersion.present ? logoVersion.value : this.logoVersion,
     timezone: timezone ?? this.timezone,
     currency: currency ?? this.currency,
     dayRolloverHour: dayRolloverHour ?? this.dayRolloverHour,
@@ -947,6 +1025,10 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
       website: data.website.present ? data.website.value : this.website,
       taxId: data.taxId.present ? data.taxId.value : this.taxId,
       logoPath: data.logoPath.present ? data.logoPath.value : this.logoPath,
+      logoData: data.logoData.present ? data.logoData.value : this.logoData,
+      logoVersion: data.logoVersion.present
+          ? data.logoVersion.value
+          : this.logoVersion,
       timezone: data.timezone.present ? data.timezone.value : this.timezone,
       currency: data.currency.present ? data.currency.value : this.currency,
       dayRolloverHour: data.dayRolloverHour.present
@@ -980,6 +1062,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
           ..write('website: $website, ')
           ..write('taxId: $taxId, ')
           ..write('logoPath: $logoPath, ')
+          ..write('logoData: $logoData, ')
+          ..write('logoVersion: $logoVersion, ')
           ..write('timezone: $timezone, ')
           ..write('currency: $currency, ')
           ..write('dayRolloverHour: $dayRolloverHour, ')
@@ -1011,6 +1095,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
     website,
     taxId,
     logoPath,
+    $driftBlobEquality.hash(logoData),
+    logoVersion,
     timezone,
     currency,
     dayRolloverHour,
@@ -1041,6 +1127,8 @@ class HotelRow extends DataClass implements Insertable<HotelRow> {
           other.website == this.website &&
           other.taxId == this.taxId &&
           other.logoPath == this.logoPath &&
+          $driftBlobEquality.equals(other.logoData, this.logoData) &&
+          other.logoVersion == this.logoVersion &&
           other.timezone == this.timezone &&
           other.currency == this.currency &&
           other.dayRolloverHour == this.dayRolloverHour &&
@@ -1069,6 +1157,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
   final Value<String?> website;
   final Value<String?> taxId;
   final Value<String?> logoPath;
+  final Value<Uint8List?> logoData;
+  final Value<String?> logoVersion;
   final Value<String> timezone;
   final Value<String> currency;
   final Value<int> dayRolloverHour;
@@ -1096,6 +1186,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
     this.website = const Value.absent(),
     this.taxId = const Value.absent(),
     this.logoPath = const Value.absent(),
+    this.logoData = const Value.absent(),
+    this.logoVersion = const Value.absent(),
     this.timezone = const Value.absent(),
     this.currency = const Value.absent(),
     this.dayRolloverHour = const Value.absent(),
@@ -1124,6 +1216,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
     this.website = const Value.absent(),
     this.taxId = const Value.absent(),
     this.logoPath = const Value.absent(),
+    this.logoData = const Value.absent(),
+    this.logoVersion = const Value.absent(),
     this.timezone = const Value.absent(),
     this.currency = const Value.absent(),
     this.dayRolloverHour = const Value.absent(),
@@ -1156,6 +1250,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
     Expression<String>? website,
     Expression<String>? taxId,
     Expression<String>? logoPath,
+    Expression<Uint8List>? logoData,
+    Expression<String>? logoVersion,
     Expression<String>? timezone,
     Expression<String>? currency,
     Expression<int>? dayRolloverHour,
@@ -1184,6 +1280,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
       if (website != null) 'website': website,
       if (taxId != null) 'tax_id': taxId,
       if (logoPath != null) 'logo_path': logoPath,
+      if (logoData != null) 'logo_data': logoData,
+      if (logoVersion != null) 'logo_version': logoVersion,
       if (timezone != null) 'timezone': timezone,
       if (currency != null) 'currency': currency,
       if (dayRolloverHour != null) 'day_rollover_hour': dayRolloverHour,
@@ -1214,6 +1312,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
     Value<String?>? website,
     Value<String?>? taxId,
     Value<String?>? logoPath,
+    Value<Uint8List?>? logoData,
+    Value<String?>? logoVersion,
     Value<String>? timezone,
     Value<String>? currency,
     Value<int>? dayRolloverHour,
@@ -1242,6 +1342,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
       website: website ?? this.website,
       taxId: taxId ?? this.taxId,
       logoPath: logoPath ?? this.logoPath,
+      logoData: logoData ?? this.logoData,
+      logoVersion: logoVersion ?? this.logoVersion,
       timezone: timezone ?? this.timezone,
       currency: currency ?? this.currency,
       dayRolloverHour: dayRolloverHour ?? this.dayRolloverHour,
@@ -1318,6 +1420,12 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
     if (logoPath.present) {
       map['logo_path'] = Variable<String>(logoPath.value);
     }
+    if (logoData.present) {
+      map['logo_data'] = Variable<Uint8List>(logoData.value);
+    }
+    if (logoVersion.present) {
+      map['logo_version'] = Variable<String>(logoVersion.value);
+    }
     if (timezone.present) {
       map['timezone'] = Variable<String>(timezone.value);
     }
@@ -1360,6 +1468,8 @@ class HotelsCompanion extends UpdateCompanion<HotelRow> {
           ..write('website: $website, ')
           ..write('taxId: $taxId, ')
           ..write('logoPath: $logoPath, ')
+          ..write('logoData: $logoData, ')
+          ..write('logoVersion: $logoVersion, ')
           ..write('timezone: $timezone, ')
           ..write('currency: $currency, ')
           ..write('dayRolloverHour: $dayRolloverHour, ')
@@ -67624,6 +67734,8 @@ typedef $$HotelsTableCreateCompanionBuilder =
       Value<String?> website,
       Value<String?> taxId,
       Value<String?> logoPath,
+      Value<Uint8List?> logoData,
+      Value<String?> logoVersion,
       Value<String> timezone,
       Value<String> currency,
       Value<int> dayRolloverHour,
@@ -67653,6 +67765,8 @@ typedef $$HotelsTableUpdateCompanionBuilder =
       Value<String?> website,
       Value<String?> taxId,
       Value<String?> logoPath,
+      Value<Uint8List?> logoData,
+      Value<String?> logoVersion,
       Value<String> timezone,
       Value<String> currency,
       Value<int> dayRolloverHour,
@@ -67772,6 +67886,16 @@ class $$HotelsTableFilterComposer
 
   ColumnFilters<String> get logoPath => $composableBuilder(
     column: $table.logoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get logoData => $composableBuilder(
+    column: $table.logoData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logoVersion => $composableBuilder(
+    column: $table.logoVersion,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -67910,6 +68034,16 @@ class $$HotelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<Uint8List> get logoData => $composableBuilder(
+    column: $table.logoData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logoVersion => $composableBuilder(
+    column: $table.logoVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get timezone => $composableBuilder(
     column: $table.timezone,
     builder: (column) => ColumnOrderings(column),
@@ -68007,6 +68141,14 @@ class $$HotelsTableAnnotationComposer
   GeneratedColumn<String> get logoPath =>
       $composableBuilder(column: $table.logoPath, builder: (column) => column);
 
+  GeneratedColumn<Uint8List> get logoData =>
+      $composableBuilder(column: $table.logoData, builder: (column) => column);
+
+  GeneratedColumn<String> get logoVersion => $composableBuilder(
+    column: $table.logoVersion,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get timezone =>
       $composableBuilder(column: $table.timezone, builder: (column) => column);
 
@@ -68071,6 +68213,8 @@ class $$HotelsTableTableManager
                 Value<String?> website = const Value.absent(),
                 Value<String?> taxId = const Value.absent(),
                 Value<String?> logoPath = const Value.absent(),
+                Value<Uint8List?> logoData = const Value.absent(),
+                Value<String?> logoVersion = const Value.absent(),
                 Value<String> timezone = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<int> dayRolloverHour = const Value.absent(),
@@ -68098,6 +68242,8 @@ class $$HotelsTableTableManager
                 website: website,
                 taxId: taxId,
                 logoPath: logoPath,
+                logoData: logoData,
+                logoVersion: logoVersion,
                 timezone: timezone,
                 currency: currency,
                 dayRolloverHour: dayRolloverHour,
@@ -68127,6 +68273,8 @@ class $$HotelsTableTableManager
                 Value<String?> website = const Value.absent(),
                 Value<String?> taxId = const Value.absent(),
                 Value<String?> logoPath = const Value.absent(),
+                Value<Uint8List?> logoData = const Value.absent(),
+                Value<String?> logoVersion = const Value.absent(),
                 Value<String> timezone = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<int> dayRolloverHour = const Value.absent(),
@@ -68154,6 +68302,8 @@ class $$HotelsTableTableManager
                 website: website,
                 taxId: taxId,
                 logoPath: logoPath,
+                logoData: logoData,
+                logoVersion: logoVersion,
                 timezone: timezone,
                 currency: currency,
                 dayRolloverHour: dayRolloverHour,

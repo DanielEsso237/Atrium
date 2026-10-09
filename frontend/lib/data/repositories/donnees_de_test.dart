@@ -16,6 +16,8 @@
 /// jeu (`backend/app/db/seed_demo.py`).
 library;
 
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
@@ -26,6 +28,7 @@ import '../local/enums.dart';
 import 'cash_repository.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
+import 'hotel_repository.dart';
 import 'housekeeping_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
@@ -160,14 +163,56 @@ const _ventesAuComptoir = [
 /// `peut` : les droits de l'agent. Creer un point de vente demande
 /// `restaurant.write` au serveur ; sans lui, on ne cree rien qu'il
 /// refuserait.
+///
+/// L'hotel (coordonnees et logo) se regle aussi sur une tablette qui a deja
+/// les sejours, et seulement pour un agent qui a `hotel.write` : le
+/// serveur refuserait la modification a tout autre, et la file d'envoi
+/// se bloquerait derriere.
 Future<String> chargerDonneesDeTest(
   AtriumDatabase db, {
   required String agentId,
   bool Function(String permission)? peut,
+  Uint8List? logo,
 }) async {
   final sejours = await _clientsEtSejours(db, agentId: agentId, peut: peut);
   final complement = await _complement(db, agentId: agentId);
-  return '$sejours $complement';
+  if (!(peut?.call('hotel.write') ?? false)) return '$sejours $complement';
+  final hotel = await _hotelDeTest(db, agentId: agentId, logo: logo);
+  return '$sejours $complement $hotel';
+}
+
+/// Des coordonnees et le logo d'Edge Hotel, pour voir l'en-tete des
+/// factures. Rien n'est remplace : un hotel deja renseigne garde les siens.
+Future<String> _hotelDeTest(
+  AtriumDatabase db, {
+  required String agentId,
+  Uint8List? logo,
+}) async {
+  final depot = HotelRepository(db);
+  final hotel = await depot.lire();
+  if (hotel == null) return '';
+  final faits = <String>[];
+  if (hotel.address == null && hotel.phone == null) {
+    await depot.modifierIdentite(
+      nom: hotel.name,
+      raisonSociale: 'Edge Hospitality SARL',
+      adresse: 'Boulevard de la République, Plateau',
+      ville: 'Abidjan',
+      pays: "Côte d'Ivoire",
+      telephone: '+225 27 20 30 40 50',
+      email: 'reception@edgehotel.ci',
+      numeroFiscal: 'CI-ABJ-2026-B-1234',
+      by: agentId,
+    );
+    faits.add('coordonnées');
+  }
+  if (logo != null && hotel.logoData == null && hotel.logoVersion == null) {
+    await depot.importerLogo(logo, by: agentId);
+    faits.add('logo');
+  }
+  return faits.isEmpty
+      ? "L'hôtel avait déjà son logo et ses coordonnées."
+      : "Hôtel : ${faits.join(' et ')} ajoutés.";
 }
 
 /// Le premier jeu : clients, sejours, consommations, une panne.

@@ -108,8 +108,12 @@ abstract final class PhosphorIconsLight {
   static const downloadSimple = IconData(0xe20c, fontFamily: 'PhosphorLight');
   static const filePdf = IconData(0xe702, fontFamily: 'PhosphorLight');
   static const fileXls = IconData(0xeb22, fontFamily: 'PhosphorLight');
+  static const image = IconData(0xe2ca, fontFamily: 'PhosphorLight');
+  static const printer = IconData(0xe3dc, fontFamily: 'PhosphorLight');
+  static const trash = IconData(0xe4a6, fontFamily: 'PhosphorLight');
   static const trendDown = IconData(0xe4ac, fontFamily: 'PhosphorLight');
   static const trendUp = IconData(0xe4ae, fontFamily: 'PhosphorLight');
+  static const uploadSimple = IconData(0xe4c0, fontFamily: 'PhosphorLight');
 }
 
 abstract final class PhosphorIconsFill {

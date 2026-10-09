@@ -13,13 +13,16 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/brand/atrium_logo.dart';
 import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/icons.dart';
+import '../../data/local/database.dart';
 import '../../data/repositories/invoice_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../hotel/en_tete_hotel.dart';
+import '../hotel/logo_images.dart';
+import 'invoice_pdf.dart';
 
 /// Edite la facture si besoin, puis la montre.
 Future<void> showInvoiceDialog(
@@ -53,9 +56,47 @@ class _InvoiceDialog extends ConsumerWidget {
   final String folioId;
   final String guestName;
 
+  /// Fabrique le PDF demande et le remet a l'agent.
+  Future<void> _exporter(
+    BuildContext context,
+    WidgetRef ref,
+    InvoiceView vue, {
+    required bool ticket,
+  }) async {
+    final messager = ScaffoldMessenger.of(context);
+    final boite = context.findRenderObject() as RenderBox?;
+    final origine = boite == null
+        ? null
+        : boite.localToGlobal(Offset.zero) & boite.size;
+    try {
+      final hotel = await ref.read(hotelProvider.future);
+      final octets = ticket
+          ? await factureTicket(
+              vue: vue,
+              hotel: hotel,
+              client: guestName,
+              logoNoirBlanc: await ref.read(logoTicketProvider.future),
+            )
+          : await factureA4(vue: vue, hotel: hotel, client: guestName);
+      final numero = vue.displayNumber.replaceAll(RegExp('[^A-Za-z0-9-]'), '');
+      await partagerPdf(
+        octets,
+        nom: ticket ? 'ticket-$numero' : 'facture-$numero',
+        sujet: 'Facture ${vue.displayNumber}',
+        origine: origine,
+      );
+    } catch (e) {
+      messager.showSnackBar(
+        SnackBar(content: Text("Le PDF n'a pas pu être préparé : $e")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final facture = ref.watch(invoiceForFolioProvider(folioId));
+    final hotel = ref.watch(hotelProvider).value;
+    final vue = facture.value;
     return AlertDialog(
       contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       content: SizedBox(
@@ -68,11 +109,25 @@ class _InvoiceDialog extends ConsumerWidget {
           error: (e, _) => Text('Erreur : $e'),
           data: (vue) {
             if (vue == null) return const Text('Aucune facture.');
-            return _Corps(vue: vue, guestName: guestName);
+            return _Corps(vue: vue, guestName: guestName, hotel: hotel);
           },
         ),
       ),
       actions: [
+        if (vue != null) ...[
+          // Le ticket pour l'imprimante de caisse, en noir et blanc ; la page
+          // A4 pour l'envoyer ou l'imprimer au bureau.
+          TextButton.icon(
+            onPressed: () => _exporter(context, ref, vue, ticket: true),
+            icon: const Icon(PhosphorIconsLight.receipt, size: 18),
+            label: const Text('Ticket'),
+          ),
+          TextButton.icon(
+            onPressed: () => _exporter(context, ref, vue, ticket: false),
+            icon: const Icon(PhosphorIconsLight.filePdf, size: 18),
+            label: const Text('PDF'),
+          ),
+        ],
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Fermer'),
@@ -85,10 +140,11 @@ class _InvoiceDialog extends ConsumerWidget {
 /// La facture elle-meme : une feuille de papier, meme en mode nuit. C'est un
 /// document que le client emporte, pas un ecran.
 class _Corps extends StatelessWidget {
-  const _Corps({required this.vue, required this.guestName});
+  const _Corps({required this.vue, required this.guestName, this.hotel});
 
   final InvoiceView vue;
   final String guestName;
+  final HotelRow? hotel;
 
   static const _encre = Color(0xFF1C2333);
   static const _gris = Color(0xFF5E6880);
@@ -139,22 +195,12 @@ class _Corps extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const AtriumLockup(markSize: 38, onNight: false, ink: _encre),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('Facture', style: st(12.5, FontWeight.w600, _gris)),
-                    Text(
-                      vue.displayNumber,
-                      style: atriumCode(15, color: _encre),
-                    ),
-                  ],
-                ),
-              ],
+            // Le logo et les coordonnees de l'hotel, reglés dans
+            // l'administration ; son nom seul tant qu'il n'a pas de logo.
+            EnTeteFacture(
+              hotel: hotel,
+              titre: 'Facture',
+              numero: vue.displayNumber,
             ),
             const SizedBox(height: 20),
             Text('Client', style: st(12, FontWeight.w600, _gris)),
