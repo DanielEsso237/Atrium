@@ -328,11 +328,14 @@ class _Chambre extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Ardoise ${formatAmount(chambre.balance)}',
+            chambre.departDepasse
+                ? 'Départ dépassé · ${formatAmount(chambre.balance)}'
+                : 'Ardoise ${formatAmount(chambre.balance)}',
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 12.5,
-              color: p.textSecondary,
+              color: chambre.departDepasse ? p.error : p.textSecondary,
+              fontWeight: chambre.departDepasse ? FontWeight.w600 : null,
               fontFeatures: tabularFigures,
             ),
           ),
@@ -657,7 +660,11 @@ class _SaisieState extends ConsumerState<_Saisie> {
               titre: chambre == null
                   ? 'Client de passage'
                   : 'Chambre ${chambre.roomNumber}',
-              sousTitre: chambre?.guestName ?? 'Il paie sur place, avant de partir',
+              sousTitre: chambre == null
+                  ? 'Il paie sur place, avant de partir'
+                  : chambre.departDepasse
+                  ? '${chambre.guestName} · départ dépassé'
+                  : chambre.guestName,
               badge: _BadgePoint(outlet: widget.outlet),
               valeur: chambre == null ? null : formatAmount(chambre.balance),
               legendeValeur: chambre == null ? null : 'à l’ardoise',

@@ -1325,6 +1325,7 @@ class _Situation {
     this.icone,
     this.initiales,
     this.progression,
+    this.enRetard = false,
   });
 
   final String titre;
@@ -1336,6 +1337,11 @@ class _Situation {
 
   /// Part du sejour ecoulee, de 0 a 1, pour un client present.
   final double? progression;
+
+  /// Client encore en chambre apres sa date de depart : le detail passe en
+  /// rouge. Seule exception a l'encre de la page -- c'est une anomalie, pas
+  /// un etat.
+  final bool enRetard;
 }
 
 _Situation _situation(RoomBoardEntry c, OccupantPlan? occupant) {
@@ -1347,6 +1353,8 @@ _Situation _situation(RoomBoardEntry c, OccupantPlan? occupant) {
     return _Situation(
       titre: occupant.nom,
       detail: _depart(occupant.depart, aujourdhui),
+      // Un depart oublie se voit sur le plan, pas seulement dans la cloche.
+      enRetard: occupant.depart.isBefore(aujourdhui),
       initiales: _initiales(occupant.nom),
       progression: nuits <= 0 ? 1 : ((ecoulees + 1) / nuits).clamp(0.0, 1.0),
     );
@@ -1387,7 +1395,8 @@ _Situation _situation(RoomBoardEntry c, OccupantPlan? occupant) {
 
 String _depart(DateTime depart, DateTime aujourdhui) {
   final jours = depart.difference(aujourdhui).inDays;
-  if (jours <= 0) return 'Départ aujourd’hui';
+  if (jours < 0) return 'Départ dépassé (prévu le ${formatDayMonth(depart)})';
+  if (jours == 0) return 'Départ aujourd’hui';
   if (jours == 1) return 'Départ demain';
   return 'Départ le ${formatShortDate(depart).substring(0, 5)}';
 }
@@ -1438,7 +1447,10 @@ class _LigneSituation extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: AtriumColors.textSecondary,
+                    color: s.enRetard
+                        ? AtriumColors.error
+                        : AtriumColors.textSecondary,
+                    fontWeight: s.enRetard ? FontWeight.w600 : null,
                     height: 1.3,
                   ),
                 ),

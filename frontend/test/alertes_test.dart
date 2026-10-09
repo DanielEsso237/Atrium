@@ -260,6 +260,41 @@ void main() {
     );
   });
 
+  test('l heure de depart reglee compte, et un depart oublie devient critique',
+      () async {
+    await db
+        .into(db.reservationRooms)
+        .insert(
+          ReservationRoomsCompanion.insert(
+            id: id(),
+            createdAt: t0,
+            updatedAt: t0,
+            reservationId: id(),
+            roomTypeId: roomTypeSeeds.first.id,
+            roomId: Value(chambre),
+            arrivalDate: '2026-10-01',
+            departureDate: '2026-10-03',
+            status: const Value(ReservationStatus.CHECKED_IN),
+          ),
+        );
+    await SettingsRepository(db).setStayRules(
+      const StayRules(checkoutHour: 11),
+    );
+    final droits = {'reservation.read'};
+
+    // Depart a 11 h dans cet hotel : a 11 h 30, c'est deja depasse.
+    final jour = await db.chargerAlertes(
+      contexte(droits, maintenant: DateTime(2026, 10, 3, 11, 30)),
+    );
+    expect(jour.single.niveau, NiveauAlerte.urgente);
+
+    // Six jours plus tard, personne n'a rien fait : la 401 du 9 octobre.
+    final oublie = await db.chargerAlertes(
+      contexte(droits, maintenant: DateTime(2026, 10, 9, 23)),
+    );
+    expect(oublie.single.niveau, NiveauAlerte.critique);
+  });
+
   test('le centre sonne une fois, rappelle, et se tait quand on a vu',
       () async {
     final signal = _SignalNote();

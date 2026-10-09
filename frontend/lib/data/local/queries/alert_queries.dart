@@ -20,6 +20,7 @@ import '../../../core/formats.dart';
 import '../../../core/prolongation.dart';
 import '../database.dart';
 import '../enums.dart';
+import '../../repositories/settings_repository.dart' show stayCheckoutHourKey;
 
 /// Les evenements qui font une alerte : la liste arretee avec l'hotel.
 ///
@@ -215,6 +216,7 @@ extension AlertQueries on AtriumDatabase {
       reservationRooms,
       reservations,
       folioItems,
+      settings,
       stockLevels,
       stockMovements,
       products,
@@ -361,6 +363,18 @@ extension AlertQueries on AtriumDatabase {
   /// Les clients encore dans leur chambre apres l'heure de depart,
   /// prolongations comprises.
   Future<List<Alerte>> _departs(ContexteAlertes c) async {
+    // L'heure reglee dans l'administration, midi a defaut : une alerte a
+    // 12 h dans un hotel qui libere les chambres a 11 h sonnerait trop tard.
+    final reglage = await customSelect(
+      "SELECT value FROM settings WHERE key = ?1 AND scope = 'GLOBAL' "
+      'AND scope_id IS NULL AND deleted_at IS NULL LIMIT 1',
+      variables: [Variable.withString(stayCheckoutHourKey)],
+      readsFrom: {settings},
+    ).getSingleOrNull();
+    final lue = int.tryParse(reglage?.readNullable<String>('value') ?? '');
+    final heureDepart =
+        lue != null && lue >= 0 && lue <= 23 ? lue : heureDepartParDefaut;
+    final aujourdhui = businessDayFor(c.maintenant);
     final lignes = await customSelect(
       '''
       SELECT rr.id AS id, rr.departure_date AS depart, r.number AS chambre,
@@ -389,11 +403,16 @@ extension AlertQueries on AtriumDatabase {
     ).get();
     final alertes = <Alerte>[];
     for (final l in lignes) {
+      final jourDepart = parseIsoDate(l.read<String>('depart'))!;
       final limite = limiteDeDepart(
-        parseIsoDate(l.read<String>('depart'))!,
+        jourDepart,
+        heureDepart: heureDepart,
         heuresProlongees: l.read<int>('heures'),
       );
       if (!c.maintenant.isAfter(limite)) continue;
+      // Une nuit de plus sans depart ni prolongation : la chambre n'est
+      // peut-etre plus occupee du tout, ou le client dort sans etre facture.
+      final oublie = aujourdhui.isAfter(jourDepart);
       final client = [
         l.readNullable<String>('prenom'),
         l.readNullable<String>('nom'),
@@ -404,7 +423,7 @@ extension AlertQueries on AtriumDatabase {
           // depassement sonne de nouveau.
           cle: 'depart-${l.read<String>('id')}-${limite.toIso8601String()}',
           type: TypeEvenement.departDepasse,
-          niveau: NiveauAlerte.urgente,
+          niveau: oublie ? NiveauAlerte.critique : NiveauAlerte.urgente,
           titre: 'Départ dépassé : chambre '
               '${l.readNullable<String>('chambre') ?? '?'}',
           corps:

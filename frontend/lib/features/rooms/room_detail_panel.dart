@@ -362,9 +362,54 @@ class _Sejour extends ConsumerWidget {
                 sejour.prolongationHeures,
               ),
             ),
+          if (afficherDepart && depart != null)
+            _DepartDepasse(
+              limite: limiteDeDepart(
+                depart,
+                heureDepart: regles?.checkoutHour ?? heureDepartParDefaut,
+                heuresProlongees: sejour.prolongationHeures,
+              ),
+            ),
           const SizedBox(height: 12),
           _Solde(solde: sejour.balance),
         ],
+      ),
+    );
+  }
+}
+
+/// Le client est encore la apres l'heure de depart : la reception a oublie
+/// le depart, ou le client reste sans que ce soit saisi. Les boutons du bas
+/// font l'un ou l'autre.
+class _DepartDepasse extends StatelessWidget {
+  const _DepartDepasse({required this.limite});
+
+  final DateTime limite;
+
+  @override
+  Widget build(BuildContext context) {
+    final maintenant = DateTime.now();
+    if (!maintenant.isAfter(limite)) return const SizedBox.shrink();
+    final jour = limite.year == maintenant.year &&
+            limite.month == maintenant.month &&
+            limite.day == maintenant.day
+        ? ''
+        : ' le ${formatDayMonth(limite)}';
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AtriumColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        'Départ dépassé : prévu$jour à ${formatHeure(limite)}. '
+        'Faites le départ ou prolongez le séjour.',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AtriumColors.error,
+        ),
       ),
     );
   }
