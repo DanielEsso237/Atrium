@@ -32,6 +32,7 @@ from app.models import (
     Outlet,
     Product,
     ProductCategory,
+    StockLocation,
     StockMovement,
     Supplier,
 )
@@ -72,10 +73,18 @@ FOURNISSEURS = [
     ("GUINNESS", "Guinness Cameroun", "Douala, Bassa", "+237 233 37 21 00"),
     ("SOURCE_PAYS", "Source du Pays (Supermont)", "Mbanga", "+237 233 39 40 00"),
     ("MOKOLO", "Grossiste du marché Mokolo", "Yaoundé, Mokolo", "+237 677 00 00 00"),
+    ("MARCHE_CENTRAL", "Marché central de Douala (vivres frais)", "Douala, Akwa", "+237 699 00 00 00"),
+    ("CONGELCAM", "Congelcam (poissons et viandes)", "Douala, Port", "+237 233 40 10 00"),
+    ("CHOCOCAM", "Grossiste épicerie Chococam", "Douala, Bassa", "+237 233 37 70 00"),
+    ("HYGIENE_PRO", "Hygiène Pro Cameroun", "Yaoundé, Mvan", "+237 222 30 30 30"),
 ]
 
 # --- Produits : (reference, libelle, categorie, unite, achat, vente, seuil, fournisseur)
-CATEGORIES = ["Bières", "Sodas", "Eaux", "Jus", "Vins et spiritueux", "Boutique"]
+CATEGORIES = [
+    "Bières", "Sodas", "Eaux", "Jus", "Vins et spiritueux", "Boutique",
+    "Épicerie", "Viandes et poissons", "Fruits et légumes", "Produits laitiers et œufs",
+    "Café, thé et boulangerie", "Entretien", "Spa et bien-être",
+]
 PRODUITS = [
     ("MUTZIG", "Mutzig 65 cl", "Bières", "BTL", 450, 1000, 48, "SABC"),
     ("33_EXPORT", "33 Export 65 cl", "Bières", "BTL", 420, 900, 48, "SABC"),
@@ -104,6 +113,48 @@ PRODUITS = [
     ("SERVIETTE", "Serviette de bain", "Boutique", "U", 3000, 7000, 5, "MOKOLO"),
     ("TSHIRT", "Tee-shirt souvenir Edge Hotel", "Boutique", "U", 3000, 8000, 5, "MOKOLO"),
     ("PAGNE", "Pagne souvenir", "Boutique", "U", 4000, 10000, 5, "MOKOLO"),
+    # L'economat ne tient pas que des boissons : tout ce que l'hotel achete
+    # pour vendre ou pour servir y entre d'abord.
+    ("RIZ", "Riz parfumé", "Épicerie", "KG", 700, 0, 50, "CHOCOCAM"),
+    ("HUILE_VEG", "Huile végétale raffinée", "Épicerie", "L", 1300, 0, 20, "CHOCOCAM"),
+    ("HUILE_PALME", "Huile de palme rouge", "Épicerie", "L", 1000, 0, 20, "MARCHE_CENTRAL"),
+    ("FARINE", "Farine de blé", "Épicerie", "KG", 650, 0, 25, "CHOCOCAM"),
+    ("SUCRE", "Sucre en poudre", "Épicerie", "KG", 800, 0, 20, "CHOCOCAM"),
+    ("SEL", "Sel fin", "Épicerie", "KG", 300, 0, 10, "CHOCOCAM"),
+    ("ARACHIDES", "Arachides crues", "Épicerie", "KG", 1200, 0, 10, "MARCHE_CENTRAL"),
+    ("EGUSI", "Graines de courge (egusi)", "Épicerie", "KG", 2500, 0, 5, "MARCHE_CENTRAL"),
+    ("EPICES_MBONGO", "Épices mbongo", "Épicerie", "KG", 4000, 0, 2, "MARCHE_CENTRAL"),
+    ("CUBES", "Bouillon en cubes (boîte)", "Épicerie", "U", 1500, 0, 5, "CHOCOCAM"),
+    ("POULET", "Poulet entier", "Viandes et poissons", "U", 4000, 0, 20, "MARCHE_CENTRAL"),
+    ("BOEUF", "Viande de bœuf", "Viandes et poissons", "KG", 3500, 0, 15, "CONGELCAM"),
+    ("CHEVRE", "Viande de chèvre", "Viandes et poissons", "KG", 4500, 0, 10, "MARCHE_CENTRAL"),
+    ("POISSON_BAR", "Poisson bar", "Viandes et poissons", "KG", 3000, 0, 15, "CONGELCAM"),
+    ("CREVETTES", "Crevettes", "Viandes et poissons", "KG", 6000, 0, 5, "CONGELCAM"),
+    ("FEUILLES_NDOLE", "Feuilles de ndolé lavées", "Fruits et légumes", "KG", 1500, 0, 10, "MARCHE_CENTRAL"),
+    ("FEUILLES_ERU", "Feuilles d'eru (okok)", "Fruits et légumes", "KG", 2000, 0, 5, "MARCHE_CENTRAL"),
+    ("PLANTAIN", "Plantain (régime)", "Fruits et légumes", "U", 3000, 0, 10, "MARCHE_CENTRAL"),
+    ("MANIOC", "Bâton de manioc", "Fruits et légumes", "U", 150, 0, 40, "MARCHE_CENTRAL"),
+    ("MIONDO", "Miondo (paquet)", "Fruits et légumes", "U", 500, 0, 20, "MARCHE_CENTRAL"),
+    ("TARO", "Taro", "Fruits et légumes", "KG", 800, 0, 10, "MARCHE_CENTRAL"),
+    ("OIGNONS", "Oignons", "Fruits et légumes", "KG", 600, 0, 15, "MARCHE_CENTRAL"),
+    ("TOMATES", "Tomates", "Fruits et légumes", "KG", 700, 0, 15, "MARCHE_CENTRAL"),
+    ("AIL", "Ail", "Fruits et légumes", "KG", 2500, 0, 3, "MARCHE_CENTRAL"),
+    ("PIMENT", "Piment", "Fruits et légumes", "KG", 1500, 0, 3, "MARCHE_CENTRAL"),
+    ("AVOCATS", "Avocats", "Fruits et légumes", "U", 150, 0, 30, "MARCHE_CENTRAL"),
+    ("FRUITS", "Fruits de saison (ananas, papaye, mangue)", "Fruits et légumes", "KG", 600, 0, 20, "MARCHE_CENTRAL"),
+    ("OEUFS", "Œufs (plateau de 30)", "Produits laitiers et œufs", "U", 2500, 0, 5, "MARCHE_CENTRAL"),
+    ("LAIT", "Lait entier", "Produits laitiers et œufs", "L", 1000, 0, 20, "CHOCOCAM"),
+    ("BEURRE", "Beurre", "Produits laitiers et œufs", "KG", 5000, 0, 3, "CHOCOCAM"),
+    ("CAFE_GRAINS", "Café arabica de l'Ouest en grains", "Café, thé et boulangerie", "KG", 4000, 0, 5, "MOKOLO"),
+    ("THE", "Thé (boîte de 100 sachets)", "Café, thé et boulangerie", "U", 2500, 0, 3, "CHOCOCAM"),
+    ("CHOCOLAT", "Poudre de cacao", "Café, thé et boulangerie", "KG", 3000, 0, 3, "CHOCOCAM"),
+    ("PAIN", "Pain (baguette)", "Café, thé et boulangerie", "U", 150, 0, 40, "MARCHE_CENTRAL"),
+    ("LIQUIDE_VAISSELLE", "Liquide vaisselle", "Entretien", "L", 900, 0, 10, "HYGIENE_PRO"),
+    ("JAVEL", "Eau de Javel", "Entretien", "L", 500, 0, 10, "HYGIENE_PRO"),
+    ("PAPIER_TOILETTE", "Papier toilette (rouleau)", "Entretien", "U", 250, 0, 60, "HYGIENE_PRO"),
+    ("SACS_POUBELLE", "Sacs poubelle (rouleau)", "Entretien", "U", 1500, 0, 10, "HYGIENE_PRO"),
+    ("HUILE_MASSAGE", "Huile de massage karité", "Spa et bien-être", "L", 6000, 0, 3, "MOKOLO"),
+    ("SERVIETTE_SPA", "Serviette de spa", "Spa et bien-être", "U", 2500, 0, 20, "MOKOLO"),
 ]
 
 # --- Stock : entree a l'economat, puis ravitaillements valides ---------------
@@ -114,7 +165,20 @@ ENTREES = {
     "AQUABELLE": 72, "JUS_FOLERE": 40, "JUS_GINGEMBRE": 40, "JB": 12, "VIN_ROUGE": 24,
     "MOET": 6, "SAVON": 60, "DENTIFRICE": 30, "BROSSE": 30, "SERVIETTE": 15,
     "TSHIRT": 20, "PAGNE": 15,
+    "RIZ": 200, "HUILE_VEG": 60, "HUILE_PALME": 40, "FARINE": 100, "SUCRE": 80, "SEL": 20,
+    "ARACHIDES": 30, "EGUSI": 15, "EPICES_MBONGO": 5, "CUBES": 20, "POULET": 60, "BOEUF": 50,
+    "CHEVRE": 30, "POISSON_BAR": 50, "CREVETTES": 20, "FEUILLES_NDOLE": 30, "FEUILLES_ERU": 15,
+    "PLANTAIN": 30, "MANIOC": 150, "MIONDO": 60, "TARO": 30, "OIGNONS": 40, "TOMATES": 40,
+    "AIL": 5, "PIMENT": 5, "AVOCATS": 80, "FRUITS": 50, "OEUFS": 20, "LAIT": 60, "BEURRE": 10,
+    "CAFE_GRAINS": 15, "THE": 10, "CHOCOLAT": 8, "PAIN": 120, "LIQUIDE_VAISSELLE": 30,
+    "JAVEL": 30, "PAPIER_TOILETTE": 240, "SACS_POUBELLE": 30, "HUILE_MASSAGE": 10,
+    "SERVIETTE_SPA": 60,
 }
+
+# La cuisine : un magasin interne, pas un point de vente. L'economat la
+# ravitaille en denrees ; c'est elle qui prepare les plats du restaurant, du
+# room service et du bar.
+CUISINE = ("CUISINE", "Cuisine")
 # (produit, point de vente, quantite)
 RAVITAILLEMENTS = [
     ("MUTZIG", "BAR", 48), ("MUTZIG", "RESTO", 24), ("MUTZIG", "BOITE_DE_NUIT", 72),
@@ -130,6 +194,24 @@ RAVITAILLEMENTS = [
     ("MOET", "BOITE_DE_NUIT", 4), ("VIN_ROUGE", "RESTO", 12),
     ("SAVON", "BOUTIQUE", 30), ("DENTIFRICE", "BOUTIQUE", 15), ("BROSSE", "BOUTIQUE", 15),
     ("SERVIETTE", "BOUTIQUE", 8), ("TSHIRT", "BOUTIQUE", 10), ("PAGNE", "BOUTIQUE", 8),
+    # La cuisine recoit les denrees.
+    ("RIZ", "CUISINE", 50), ("HUILE_VEG", "CUISINE", 15), ("HUILE_PALME", "CUISINE", 10),
+    ("FARINE", "CUISINE", 20), ("SUCRE", "CUISINE", 10), ("SEL", "CUISINE", 5),
+    ("ARACHIDES", "CUISINE", 10), ("EGUSI", "CUISINE", 5), ("EPICES_MBONGO", "CUISINE", 2),
+    ("CUBES", "CUISINE", 5), ("POULET", "CUISINE", 20), ("BOEUF", "CUISINE", 15),
+    ("CHEVRE", "CUISINE", 10), ("POISSON_BAR", "CUISINE", 15), ("CREVETTES", "CUISINE", 6),
+    ("FEUILLES_NDOLE", "CUISINE", 10), ("FEUILLES_ERU", "CUISINE", 5), ("PLANTAIN", "CUISINE", 10),
+    ("MANIOC", "CUISINE", 40), ("MIONDO", "CUISINE", 20), ("TARO", "CUISINE", 10),
+    ("OIGNONS", "CUISINE", 15), ("TOMATES", "CUISINE", 15), ("AIL", "CUISINE", 2),
+    ("PIMENT", "CUISINE", 2), ("AVOCATS", "CUISINE", 30), ("FRUITS", "CUISINE", 15),
+    ("OEUFS", "CUISINE", 6), ("LAIT", "CUISINE", 10), ("BEURRE", "CUISINE", 3),
+    # Le cafe, ses boissons chaudes ; le spa, ses huiles et serviettes ; le
+    # menage passe par la reception pour l'entretien.
+    ("CAFE_GRAINS", "CAFE", 5), ("THE", "CAFE", 4), ("CHOCOLAT", "CAFE", 3), ("LAIT", "CAFE", 15),
+    ("PAIN", "CAFE", 30), ("SUCRE", "CAFE", 5), ("OEUFS", "ROOM_SERVICE", 2),
+    ("HUILE_MASSAGE", "SPA", 4), ("SERVIETTE_SPA", "SPA", 30), ("SERVIETTE_SPA", "PISCINE", 20),
+    ("LIQUIDE_VAISSELLE", "CUISINE", 8), ("JAVEL", "RECEPTION", 10),
+    ("PAPIER_TOILETTE", "RECEPTION", 80), ("SACS_POUBELLE", "CUISINE", 8),
 ]
 
 # --- Cartes : point de vente -> [(categorie, [(code, libelle, prix, produit)])]
@@ -358,6 +440,22 @@ async def charger(session: AsyncSession) -> dict[str, int]:
     magasins = {code: await ensure_outlet_location(session, o) for code, o in points.items()}
     for code, magasin in magasins.items():
         magasin.label = points[code].label
+        # Les magasins des points de vente d'abord, ceux des services ensuite.
+        magasin.sort_order = (
+            100 if points[code].kind == OutletKind.SERVICE else 10
+        ) + points[code].sort_order
+    code_cuisine, label_cuisine = CUISINE
+    existante = await session.scalar(
+        select(StockLocation).where(
+            StockLocation.hotel_id == HOTEL, StockLocation.code == code_cuisine
+        )
+    )
+    magasins[code_cuisine] = await _upsert(
+        session, StockLocation,
+        existante.id if existante is not None else _id("stock_location", code_cuisine),
+        hotel_id=HOTEL, code=code_cuisine, label=label_cuisine, sort_order=1,
+    )
+    points_et_cuisine = {**{c: o.label for c, o in points.items()}, code_cuisine: label_cuisine}
 
     fournisseurs = {}
     for code, nom, adresse, tel in FOURNISSEURS:
@@ -411,7 +509,7 @@ async def charger(session: AsyncSession) -> dict[str, int]:
             f"transfert:{ref}:{code}", product_id=produits[ref].id,
             stock_location_id=economat.id, counterpart_location_id=magasins[code].id,
             type=StockMovementType.TRANSFER, quantity=quantite,
-            reason=f"Ravitaillement {points[code].label}",
+            reason=f"Ravitaillement {points_et_cuisine[code]}",
             status=StockMovementStatus.APPROVED, decided_by=DEMO_ADMIN, decided_at=maintenant,
         )
 
