@@ -74,16 +74,25 @@ class ApiClient {
        _dio = dio ?? Dio() {
     _dio.options = _dio.options.copyWith(
       baseUrl: baseUrl,
-      // Se connecter doit etre rapide : un serveur qui ne repond pas en 5 s
-      // n'est pas la, et la tablette passe hors ligne. Mais un serveur
-      // joignable peut etre lent -- un PC charge a mis plusieurs secondes a
-      // ecrire un point de vente pendant les essais, et a 10 s la tablette
-      // abandonnait une ecriture qui allait reussir. Les ecrans n'attendent
-      // pas ces requetes : elles partent de la file, en arriere-plan.
-      connectTimeout: const Duration(seconds: 5),
+      // Se connecter doit etre rapide : un serveur qui ne repond pas en 10 s
+      // n'est pas la, et la tablette passe hors ligne. 5 s suffisaient sur le
+      // reseau local ; a travers ngrok, la connexion fait un detour par
+      // Internet, et en 3G elle depassait. Un serveur joignable peut aussi
+      // etre lent -- un PC charge a mis plusieurs secondes a ecrire un point
+      // de vente pendant les essais, et a 10 s la tablette abandonnait une
+      // ecriture qui allait reussir. Les ecrans n'attendent pas ces
+      // requetes : elles partent de la file, en arriere-plan.
+      connectTimeout: const Duration(seconds: 10),
       sendTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 20),
       contentType: Headers.jsonContentType,
+      // Le serveur de test passe par ngrok, qui peut intercaler une page
+      // d'avertissement HTML a la place de la reponse JSON. Cet en-tete l'en
+      // dispense ; un serveur sans ngrok l'ignore.
+      headers: {
+        ..._dio.options.headers,
+        'ngrok-skip-browser-warning': '1',
+      },
       // On veut lire le corps des 4xx pour en extraire `detail` : sans cela
       // Dio leve avant qu'on ait vu le message du serveur.
       validateStatus: (code) => code != null && code < 500,

@@ -99,6 +99,15 @@ set TEST_DATABASE_URL=postgresql+asyncpg://atrium:...@localhost:5432/atrium_test
 .venv/Scripts/python -m pytest
 ```
 
+**Essais sur tablette : `backend/lance-serveur.cmd`.** Il met la base à jour,
+lance le serveur sur `127.0.0.1:8001` et le publie par ngrok sous le domaine
+fixe de `NGROK_DOMAIN` (dans `backend/.env`, avec `NGROK_EXE` si ngrok n'est
+pas dans le PATH). La tablette se compile une fois pour toutes avec
+`--dart-define=ATRIUM_API=https://<domaine>/api/v1` et joint le serveur de
+n'importe quel réseau. Avant, on passait l'IP du PC : elle changeait à chaque
+Wi-Fi, il fallait recompiler, et le pare-feu Windows bloquait Python dès que
+le réseau était classé public.
+
 **Toujours `lance-web.cmd`, jamais `flutter run -d chrome` à la main.** La
 base locale du navigateur est cloisonnée par origine et `flutter run` choisit
 un port au hasard : chaque lancement ouvrait une base neuve, et la saisie

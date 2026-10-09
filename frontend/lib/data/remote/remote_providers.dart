@@ -17,6 +17,11 @@ import 'token_store.dart';
 ///
 ///   flutter run --dart-define=ATRIUM_API=http://192.168.1.20:8000/api/v1
 ///
+/// Pour les essais, le serveur du PC de developpement est publie par ngrok
+/// (`backend/lance-serveur.cmd`) sous un domaine fixe : la tablette se
+/// compile une fois avec `https://<domaine>/api/v1` et le joint de n'importe
+/// quel reseau, sans adresse IP a recopier ni pare-feu a regler.
+///
 /// Le defaut vise la machine de developpement. Sur une tablette Android,
 /// `localhost` designe la tablette elle-meme : il faudra toujours passer
 /// l'adresse du serveur de l'hotel.
