@@ -15,6 +15,7 @@ library;
 import 'package:drift/drift.dart';
 
 import '../../core/business_day.dart';
+import '../../core/formats.dart' show parseIsoDate;
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
@@ -32,6 +33,7 @@ class ChargeableRoom {
     required this.guestName,
     required this.folioId,
     required this.balance,
+    this.departure,
   });
 
   final String roomId;
@@ -44,6 +46,14 @@ class ChargeableRoom {
   /// Affiche avant de valider : c'est ce qui rendra le seuil de consommation
   /// comprehensible le jour ou il existera, plutot qu'un refus sec.
   final int balance;
+
+  /// Date de depart prevue. Un client en retard peut encore consommer --
+  /// il est sans doute dans l'hotel -- mais le serveur doit le voir.
+  final DateTime? departure;
+
+  /// Encore en chambre apres sa date de depart.
+  bool get departDepasse =>
+      departure != null && departure!.isBefore(businessDayFor(DateTime.now()));
 }
 
 /// Un article de la carte, tel que l'ecran le propose.
@@ -111,7 +121,8 @@ class OrderRepository with OutboxWriter {
              g.first_name    AS first_name,
              g.last_name     AS last_name,
              f.id            AS folio_id,
-             f.balance       AS balance
+             f.balance       AS balance,
+             rr.departure_date AS departure
         FROM reservation_rooms rr
         JOIN rooms r          ON r.id = rr.room_id
         JOIN reservations res ON res.id = rr.reservation_id
@@ -143,6 +154,7 @@ class OrderRepository with OutboxWriter {
                       '${l.read<String>('last_name')}',
                   folioId: l.read<String>('folio_id'),
                   balance: l.read<int>('balance'),
+                  departure: parseIsoDate(l.read<String>('departure')),
                 ),
               )
               .toList(),
