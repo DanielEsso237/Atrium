@@ -277,6 +277,26 @@ class CashSession(SyncBase, HotelScoped):
     variance: Mapped[int] = mapped_column(BigInteger, default=0)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
 
+    # Le point de vente dont c'est le tiroir. Nul : la caisse centrale, tenue
+    # par la reception. Une caisse de point de vente ne se ferme pas sur un
+    # simple comptage : sa fermeture *est* le versement du soir, et
+    # `counted_amount` le montant que l'agent declare remettre.
+    outlet_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("outlets.id", ondelete="SET NULL"), default=None, index=True
+    )
+    # Ce que la reception dit avoir recu. Nul tant qu'elle n'a pas confirme :
+    # l'argent a quitte le point de vente sans etre encore entre nulle part.
+    received_amount: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    received_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    received_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    # La caisse centrale dans laquelle le versement est entre : il gonfle son
+    # attendu, comme un encaissement en especes.
+    received_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("cash_sessions.id", ondelete="SET NULL"), default=None, index=True
+    )
+
 
 class Payment(SyncBase, HotelScoped):
     """Encaissement ou remboursement (F1.4).

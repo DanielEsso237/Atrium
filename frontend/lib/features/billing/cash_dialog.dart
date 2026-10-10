@@ -8,6 +8,11 @@
 /// avoir 48 000 » puis demander de compter, c'est demander de confirmer un
 /// chiffre plutot que de compter. L'agent saisit ce qu'il a dans le tiroir, et
 /// l'ecart se revele ensuite.
+///
+/// **La caisse d'un point de vente se ferme en versant.** La reception est la
+/// caisse centrale : le soir, l'agent du point de vente declare ce qu'il lui
+/// remet, et c'est ce geste qui ferme son tiroir. La reception confirme
+/// ensuite ce qu'elle recoit, sur l'ecran Caisse.
 library;
 
 import 'package:flutter/material.dart';
@@ -24,12 +29,20 @@ import '../auth/session.dart';
 
 /// Le bouton de caisse du module Factures.
 class CashButton extends ConsumerWidget {
-  const CashButton({super.key});
+  const CashButton({super.key, this.outletId});
+
+  /// Le point de vente d'ou l'agent ouvre sa caisse, s'il y en a un.
+  ///
+  /// Ignore pour qui tient la caisse centrale : sa caisse est celle de la
+  /// reception, ou qu'il l'ouvre -- il se verserait a lui-meme.
+  final String? outletId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final agent = ref.watch(sessionProvider).agent?.id;
+    final session = ref.watch(sessionProvider);
+    final agent = session.agent?.id;
     if (agent == null) return const SizedBox.shrink();
+    final pointDeVente = session.acces.peut('cash.central') ? null : outletId;
 
     final caisse = ref.watch(currentCashProvider(agent));
 
@@ -41,13 +54,15 @@ class CashButton extends ConsumerWidget {
               label: 'Ouvrir la caisse',
               icon: PhosphorIconsLight.lockSimpleOpen,
               tone: PillTone.accent,
-              onPressed: () => _ouvrir(context, ref, agent),
+              onPressed: () => _ouvrir(context, ref, agent, pointDeVente),
             )
           // L'attendu n'est pas affiche ici : il se revele apres le
           // comptage, pas avant (voir l'en-tete du fichier).
           : PillButton(
-              label: 'Fermer la caisse',
-              icon: PhosphorIconsLight.cashRegister,
+              label: vue.ofOutlet ? 'Verser à la réception' : 'Fermer la caisse',
+              icon: vue.ofOutlet
+                  ? PhosphorIconsLight.coins
+                  : PhosphorIconsLight.cashRegister,
               tone: PillTone.quiet,
               onPressed: () => _fermer(context, ref, vue),
             ),
@@ -58,8 +73,9 @@ class CashButton extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     String agent,
+    String? pointDeVente,
   ) async {
-    final montant = await _demanderMontant(
+    final montant = await demanderMontant(
       context,
       titre: 'Ouvrir la caisse',
       question: 'Combien y a-t-il dans le tiroir en prenant votre poste ?',
@@ -71,7 +87,12 @@ class CashButton extends ConsumerWidget {
     try {
       await ref
           .read(cashRepositoryProvider)
-          .open(userId: agent, openingFloat: montant, by: agent);
+          .open(
+            userId: agent,
+            openingFloat: montant,
+            by: agent,
+            outletId: pointDeVente,
+          );
     } on StateError catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -91,15 +112,27 @@ class CashButton extends ConsumerWidget {
     WidgetRef ref,
     CashView vue,
   ) async {
-    final compte = await _demanderMontant(
-      context,
-      titre: 'Fermer la caisse',
-      question:
-          'Comptez le tiroir et saisissez ce que vous trouvez. '
-          "L'écart s'affichera ensuite.",
-      champ: 'Montant compte (FCFA)',
-      action: 'Fermer',
-    );
+    final versement = vue.ofOutlet;
+    final compte = versement
+        ? await demanderMontant(
+            context,
+            titre: 'Verser à la réception',
+            question:
+                'Comptez le tiroir et saisissez ce que vous remettez à la '
+                'réception. Votre caisse se ferme, et la réception confirmera '
+                "ce qu'elle reçoit.",
+            champ: 'Montant versé (FCFA)',
+            action: 'Verser',
+          )
+        : await demanderMontant(
+            context,
+            titre: 'Fermer la caisse',
+            question:
+                'Comptez le tiroir et saisissez ce que vous trouvez. '
+                "L'écart s'affichera ensuite.",
+            champ: 'Montant compte (FCFA)',
+            action: 'Fermer',
+          );
     if (compte == null || !context.mounted) return;
 
     final int ecart;
@@ -122,8 +155,12 @@ class CashButton extends ConsumerWidget {
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (_) =>
-          _Resultat(attendu: vue.expected, compte: compte, ecart: ecart),
+      builder: (_) => _Resultat(
+        attendu: vue.expected,
+        compte: compte,
+        ecart: ecart,
+        versement: versement,
+      ),
     );
   }
 }
@@ -134,11 +171,15 @@ class _Resultat extends StatelessWidget {
     required this.attendu,
     required this.compte,
     required this.ecart,
+    this.versement = false,
   });
 
   final int attendu;
   final int compte;
   final int ecart;
+
+  /// Le versement d'un point de vente, et non un simple comptage.
+  final bool versement;
 
   @override
   Widget build(BuildContext context) {
@@ -152,14 +193,14 @@ class _Resultat extends StatelessWidget {
         size: 34,
         color: couleur,
       ),
-      title: const Text('Caisse fermée'),
+      title: Text(versement ? 'Versement déclaré' : 'Caisse fermée'),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _Ligne(label: 'Attendu', montant: attendu),
-            _Ligne(label: 'Compté', montant: compte),
+            _Ligne(label: versement ? 'Versé' : 'Compté', montant: compte),
             const SizedBox(height: 14),
             Container(
               width: double.infinity,
@@ -172,7 +213,9 @@ class _Resultat extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    juste ? 'Caisse juste' : 'Écart',
+                    juste
+                        ? (versement ? 'Versement juste' : 'Caisse juste')
+                        : 'Écart',
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 15,
@@ -194,7 +237,9 @@ class _Resultat extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      ecart > 0 ? 'de trop dans le tiroir' : 'manquants',
+                      ecart > 0
+                          ? (versement ? 'de trop' : 'de trop dans le tiroir')
+                          : 'manquants',
                       style: TextStyle(
                         fontFamily: atriumFontFamily,
                         fontSize: 14,
@@ -205,6 +250,19 @@ class _Resultat extends StatelessWidget {
                 ],
               ),
             ),
+            if (versement) ...[
+              const SizedBox(height: 14),
+              Text(
+                'Remettez cette somme à la réception : elle confirmera ce '
+                "qu'elle reçoit.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 14,
+                  color: p.textSecondary,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -253,7 +311,8 @@ class _Ligne extends StatelessWidget {
   );
 }
 
-Future<int?> _demanderMontant(
+/// Demande un montant en francs CFA ; `null` si l'agent renonce.
+Future<int?> demanderMontant(
   BuildContext context, {
   required String titre,
   required String question,

@@ -28200,6 +28200,62 @@ class $CashSessionsTable extends CashSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _outletIdMeta = const VerificationMeta(
+    'outletId',
+  );
+  @override
+  late final GeneratedColumn<String> outletId = GeneratedColumn<String>(
+    'outlet_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedAmountMeta = const VerificationMeta(
+    'receivedAmount',
+  );
+  @override
+  late final GeneratedColumn<int> receivedAmount = GeneratedColumn<int>(
+    'received_amount',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedByMeta = const VerificationMeta(
+    'receivedBy',
+  );
+  @override
+  late final GeneratedColumn<String> receivedBy = GeneratedColumn<String>(
+    'received_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedSessionIdMeta = const VerificationMeta(
+    'receivedSessionId',
+  );
+  @override
+  late final GeneratedColumn<String> receivedSessionId =
+      GeneratedColumn<String>(
+        'received_session_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -28222,6 +28278,11 @@ class $CashSessionsTable extends CashSessions
     expectedAmount,
     variance,
     notes,
+    outletId,
+    receivedAmount,
+    receivedBy,
+    receivedAt,
+    receivedSessionId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -28362,6 +28423,42 @@ class $CashSessionsTable extends CashSessions
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('outlet_id')) {
+      context.handle(
+        _outletIdMeta,
+        outletId.isAcceptableOrUnknown(data['outlet_id']!, _outletIdMeta),
+      );
+    }
+    if (data.containsKey('received_amount')) {
+      context.handle(
+        _receivedAmountMeta,
+        receivedAmount.isAcceptableOrUnknown(
+          data['received_amount']!,
+          _receivedAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('received_by')) {
+      context.handle(
+        _receivedByMeta,
+        receivedBy.isAcceptableOrUnknown(data['received_by']!, _receivedByMeta),
+      );
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    }
+    if (data.containsKey('received_session_id')) {
+      context.handle(
+        _receivedSessionIdMeta,
+        receivedSessionId.isAcceptableOrUnknown(
+          data['received_session_id']!,
+          _receivedSessionIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -28455,6 +28552,26 @@ class $CashSessionsTable extends CashSessions
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      outletId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outlet_id'],
+      ),
+      receivedAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}received_amount'],
+      ),
+      receivedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}received_by'],
+      ),
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      ),
+      receivedSessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}received_session_id'],
+      ),
     );
   }
 
@@ -28498,6 +28615,24 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
   final int expectedAmount;
   final int variance;
   final String? notes;
+
+  /// Le point de vente dont c'est le tiroir. Nul : la caisse centrale, tenue
+  /// par la reception.
+  ///
+  /// Une caisse de point de vente ne se ferme pas sur un simple comptage : sa
+  /// fermeture *est* le versement du soir, et [countedAmount] le montant que
+  /// l'agent declare remettre.
+  final String? outletId;
+
+  /// Ce que la reception dit avoir recu. Nul tant qu'elle n'a pas confirme :
+  /// l'argent a quitte le point de vente sans etre encore entre nulle part.
+  final int? receivedAmount;
+  final String? receivedBy;
+  final DateTime? receivedAt;
+
+  /// La caisse centrale dans laquelle le versement est entre : il gonfle son
+  /// attendu, comme un encaissement en especes.
+  final String? receivedSessionId;
   const CashSessionRow({
     required this.id,
     required this.createdAt,
@@ -28519,6 +28654,11 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
     required this.expectedAmount,
     required this.variance,
     this.notes,
+    this.outletId,
+    this.receivedAmount,
+    this.receivedBy,
+    this.receivedAt,
+    this.receivedSessionId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -28571,6 +28711,21 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || outletId != null) {
+      map['outlet_id'] = Variable<String>(outletId);
+    }
+    if (!nullToAbsent || receivedAmount != null) {
+      map['received_amount'] = Variable<int>(receivedAmount);
+    }
+    if (!nullToAbsent || receivedBy != null) {
+      map['received_by'] = Variable<String>(receivedBy);
+    }
+    if (!nullToAbsent || receivedAt != null) {
+      map['received_at'] = Variable<DateTime>(receivedAt);
+    }
+    if (!nullToAbsent || receivedSessionId != null) {
+      map['received_session_id'] = Variable<String>(receivedSessionId);
+    }
     return map;
   }
 
@@ -28616,6 +28771,21 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      outletId: outletId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outletId),
+      receivedAmount: receivedAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedAmount),
+      receivedBy: receivedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedBy),
+      receivedAt: receivedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedAt),
+      receivedSessionId: receivedSessionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedSessionId),
     );
   }
 
@@ -28649,6 +28819,13 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
       expectedAmount: serializer.fromJson<int>(json['expectedAmount']),
       variance: serializer.fromJson<int>(json['variance']),
       notes: serializer.fromJson<String?>(json['notes']),
+      outletId: serializer.fromJson<String?>(json['outletId']),
+      receivedAmount: serializer.fromJson<int?>(json['receivedAmount']),
+      receivedBy: serializer.fromJson<String?>(json['receivedBy']),
+      receivedAt: serializer.fromJson<DateTime?>(json['receivedAt']),
+      receivedSessionId: serializer.fromJson<String?>(
+        json['receivedSessionId'],
+      ),
     );
   }
   @override
@@ -28679,6 +28856,11 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
       'expectedAmount': serializer.toJson<int>(expectedAmount),
       'variance': serializer.toJson<int>(variance),
       'notes': serializer.toJson<String?>(notes),
+      'outletId': serializer.toJson<String?>(outletId),
+      'receivedAmount': serializer.toJson<int?>(receivedAmount),
+      'receivedBy': serializer.toJson<String?>(receivedBy),
+      'receivedAt': serializer.toJson<DateTime?>(receivedAt),
+      'receivedSessionId': serializer.toJson<String?>(receivedSessionId),
     };
   }
 
@@ -28703,6 +28885,11 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
     int? expectedAmount,
     int? variance,
     Value<String?> notes = const Value.absent(),
+    Value<String?> outletId = const Value.absent(),
+    Value<int?> receivedAmount = const Value.absent(),
+    Value<String?> receivedBy = const Value.absent(),
+    Value<DateTime?> receivedAt = const Value.absent(),
+    Value<String?> receivedSessionId = const Value.absent(),
   }) => CashSessionRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -28728,6 +28915,15 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
     expectedAmount: expectedAmount ?? this.expectedAmount,
     variance: variance ?? this.variance,
     notes: notes.present ? notes.value : this.notes,
+    outletId: outletId.present ? outletId.value : this.outletId,
+    receivedAmount: receivedAmount.present
+        ? receivedAmount.value
+        : this.receivedAmount,
+    receivedBy: receivedBy.present ? receivedBy.value : this.receivedBy,
+    receivedAt: receivedAt.present ? receivedAt.value : this.receivedAt,
+    receivedSessionId: receivedSessionId.present
+        ? receivedSessionId.value
+        : this.receivedSessionId,
   );
   CashSessionRow copyWithCompanion(CashSessionsCompanion data) {
     return CashSessionRow(
@@ -28759,6 +28955,19 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
           : this.expectedAmount,
       variance: data.variance.present ? data.variance.value : this.variance,
       notes: data.notes.present ? data.notes.value : this.notes,
+      outletId: data.outletId.present ? data.outletId.value : this.outletId,
+      receivedAmount: data.receivedAmount.present
+          ? data.receivedAmount.value
+          : this.receivedAmount,
+      receivedBy: data.receivedBy.present
+          ? data.receivedBy.value
+          : this.receivedBy,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      receivedSessionId: data.receivedSessionId.present
+          ? data.receivedSessionId.value
+          : this.receivedSessionId,
     );
   }
 
@@ -28784,13 +28993,18 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
           ..write('countedAmount: $countedAmount, ')
           ..write('expectedAmount: $expectedAmount, ')
           ..write('variance: $variance, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('outletId: $outletId, ')
+          ..write('receivedAmount: $receivedAmount, ')
+          ..write('receivedBy: $receivedBy, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('receivedSessionId: $receivedSessionId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     createdAt,
     updatedAt,
@@ -28811,7 +29025,12 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
     expectedAmount,
     variance,
     notes,
-  );
+    outletId,
+    receivedAmount,
+    receivedBy,
+    receivedAt,
+    receivedSessionId,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -28835,7 +29054,12 @@ class CashSessionRow extends DataClass implements Insertable<CashSessionRow> {
           other.countedAmount == this.countedAmount &&
           other.expectedAmount == this.expectedAmount &&
           other.variance == this.variance &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.outletId == this.outletId &&
+          other.receivedAmount == this.receivedAmount &&
+          other.receivedBy == this.receivedBy &&
+          other.receivedAt == this.receivedAt &&
+          other.receivedSessionId == this.receivedSessionId);
 }
 
 class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
@@ -28859,6 +29083,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
   final Value<int> expectedAmount;
   final Value<int> variance;
   final Value<String?> notes;
+  final Value<String?> outletId;
+  final Value<int?> receivedAmount;
+  final Value<String?> receivedBy;
+  final Value<DateTime?> receivedAt;
+  final Value<String?> receivedSessionId;
   final Value<int> rowid;
   const CashSessionsCompanion({
     this.id = const Value.absent(),
@@ -28881,6 +29110,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
     this.expectedAmount = const Value.absent(),
     this.variance = const Value.absent(),
     this.notes = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.receivedAmount = const Value.absent(),
+    this.receivedBy = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.receivedSessionId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CashSessionsCompanion.insert({
@@ -28904,6 +29138,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
     this.expectedAmount = const Value.absent(),
     this.variance = const Value.absent(),
     this.notes = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.receivedAmount = const Value.absent(),
+    this.receivedBy = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.receivedSessionId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -28931,6 +29170,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
     Expression<int>? expectedAmount,
     Expression<int>? variance,
     Expression<String>? notes,
+    Expression<String>? outletId,
+    Expression<int>? receivedAmount,
+    Expression<String>? receivedBy,
+    Expression<DateTime>? receivedAt,
+    Expression<String>? receivedSessionId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -28954,6 +29198,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
       if (expectedAmount != null) 'expected_amount': expectedAmount,
       if (variance != null) 'variance': variance,
       if (notes != null) 'notes': notes,
+      if (outletId != null) 'outlet_id': outletId,
+      if (receivedAmount != null) 'received_amount': receivedAmount,
+      if (receivedBy != null) 'received_by': receivedBy,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (receivedSessionId != null) 'received_session_id': receivedSessionId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -28979,6 +29228,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
     Value<int>? expectedAmount,
     Value<int>? variance,
     Value<String?>? notes,
+    Value<String?>? outletId,
+    Value<int?>? receivedAmount,
+    Value<String?>? receivedBy,
+    Value<DateTime?>? receivedAt,
+    Value<String?>? receivedSessionId,
     Value<int>? rowid,
   }) {
     return CashSessionsCompanion(
@@ -29002,6 +29256,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
       expectedAmount: expectedAmount ?? this.expectedAmount,
       variance: variance ?? this.variance,
       notes: notes ?? this.notes,
+      outletId: outletId ?? this.outletId,
+      receivedAmount: receivedAmount ?? this.receivedAmount,
+      receivedBy: receivedBy ?? this.receivedBy,
+      receivedAt: receivedAt ?? this.receivedAt,
+      receivedSessionId: receivedSessionId ?? this.receivedSessionId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -29073,6 +29332,21 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (outletId.present) {
+      map['outlet_id'] = Variable<String>(outletId.value);
+    }
+    if (receivedAmount.present) {
+      map['received_amount'] = Variable<int>(receivedAmount.value);
+    }
+    if (receivedBy.present) {
+      map['received_by'] = Variable<String>(receivedBy.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (receivedSessionId.present) {
+      map['received_session_id'] = Variable<String>(receivedSessionId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -29102,6 +29376,11 @@ class CashSessionsCompanion extends UpdateCompanion<CashSessionRow> {
           ..write('expectedAmount: $expectedAmount, ')
           ..write('variance: $variance, ')
           ..write('notes: $notes, ')
+          ..write('outletId: $outletId, ')
+          ..write('receivedAmount: $receivedAmount, ')
+          ..write('receivedBy: $receivedBy, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('receivedSessionId: $receivedSessionId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -82575,6 +82854,11 @@ typedef $$CashSessionsTableCreateCompanionBuilder =
       Value<int> expectedAmount,
       Value<int> variance,
       Value<String?> notes,
+      Value<String?> outletId,
+      Value<int?> receivedAmount,
+      Value<String?> receivedBy,
+      Value<DateTime?> receivedAt,
+      Value<String?> receivedSessionId,
       Value<int> rowid,
     });
 typedef $$CashSessionsTableUpdateCompanionBuilder =
@@ -82599,6 +82883,11 @@ typedef $$CashSessionsTableUpdateCompanionBuilder =
       Value<int> expectedAmount,
       Value<int> variance,
       Value<String?> notes,
+      Value<String?> outletId,
+      Value<int?> receivedAmount,
+      Value<String?> receivedBy,
+      Value<DateTime?> receivedAt,
+      Value<String?> receivedSessionId,
       Value<int> rowid,
     });
 
@@ -82712,6 +83001,31 @@ class $$CashSessionsTableFilterComposer
     column: $table.notes,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get receivedAmount => $composableBuilder(
+    column: $table.receivedAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receivedBy => $composableBuilder(
+    column: $table.receivedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receivedSessionId => $composableBuilder(
+    column: $table.receivedSessionId,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$CashSessionsTableOrderingComposer
@@ -82822,6 +83136,31 @@ class $$CashSessionsTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get receivedAmount => $composableBuilder(
+    column: $table.receivedAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receivedBy => $composableBuilder(
+    column: $table.receivedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receivedSessionId => $composableBuilder(
+    column: $table.receivedSessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CashSessionsTableAnnotationComposer
@@ -82900,6 +83239,29 @@ class $$CashSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get outletId =>
+      $composableBuilder(column: $table.outletId, builder: (column) => column);
+
+  GeneratedColumn<int> get receivedAmount => $composableBuilder(
+    column: $table.receivedAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receivedBy => $composableBuilder(
+    column: $table.receivedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receivedSessionId => $composableBuilder(
+    column: $table.receivedSessionId,
+    builder: (column) => column,
+  );
 }
 
 class $$CashSessionsTableTableManager
@@ -82957,6 +83319,11 @@ class $$CashSessionsTableTableManager
                 Value<int> expectedAmount = const Value.absent(),
                 Value<int> variance = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> outletId = const Value.absent(),
+                Value<int?> receivedAmount = const Value.absent(),
+                Value<String?> receivedBy = const Value.absent(),
+                Value<DateTime?> receivedAt = const Value.absent(),
+                Value<String?> receivedSessionId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CashSessionsCompanion(
                 id: id,
@@ -82979,6 +83346,11 @@ class $$CashSessionsTableTableManager
                 expectedAmount: expectedAmount,
                 variance: variance,
                 notes: notes,
+                outletId: outletId,
+                receivedAmount: receivedAmount,
+                receivedBy: receivedBy,
+                receivedAt: receivedAt,
+                receivedSessionId: receivedSessionId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -83003,6 +83375,11 @@ class $$CashSessionsTableTableManager
                 Value<int> expectedAmount = const Value.absent(),
                 Value<int> variance = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> outletId = const Value.absent(),
+                Value<int?> receivedAmount = const Value.absent(),
+                Value<String?> receivedBy = const Value.absent(),
+                Value<DateTime?> receivedAt = const Value.absent(),
+                Value<String?> receivedSessionId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CashSessionsCompanion.insert(
                 id: id,
@@ -83025,6 +83402,11 @@ class $$CashSessionsTableTableManager
                 expectedAmount: expectedAmount,
                 variance: variance,
                 notes: notes,
+                outletId: outletId,
+                receivedAmount: receivedAmount,
+                receivedBy: receivedBy,
+                receivedAt: receivedAt,
+                receivedSessionId: receivedSessionId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

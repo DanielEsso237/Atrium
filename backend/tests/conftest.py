@@ -97,7 +97,7 @@ _PERMISSIONS_NEEDED = [
     "folio.read", "folio.write",
     "housekeeping.read", "housekeeping.manage",
     "maintenance.read", "maintenance.manage",
-    "cash.session",
+    "cash.session", "cash.central",
     "folio.override_limit",
     "hotel.write",
 ]

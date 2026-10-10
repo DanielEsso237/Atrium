@@ -7,6 +7,12 @@
 /// **L'attendu du tiroir n'apparait toujours pas avant le comptage** (voir
 /// `cash_dialog.dart`) : on montre ce qui est rentre tous moyens confondus, et
 /// l'ecart des caisses deja fermees, jamais « vous devriez avoir tant ».
+///
+/// **La reception est la caisse centrale.** Qui la tient voit ici le rapport
+/// du soir : ce que chaque point de vente lui doit, ce qu'il a verse, ce qui
+/// attend encore et les ecarts. C'est le seul endroit ou l'attendu d'un
+/// tiroir se lit avant son comptage -- et c'est celui d'un autre : la
+/// reception controle, elle ne compte pas a la place du point de vente.
 library;
 
 import 'package:flutter/material.dart';
@@ -34,6 +40,10 @@ final _caissesProvider = StreamProvider<List<CashSessionSummary>>(
   (ref) => ref.watch(cashRepositoryProvider).watchSessions(),
 );
 
+final _rapportDuSoirProvider = StreamProvider.family<EveningReport, String>(
+  (ref, jour) => ref.watch(cashRepositoryProvider).watchEveningReport(jour),
+);
+
 class CashScreen extends ConsumerWidget {
   const CashScreen({super.key});
 
@@ -46,6 +56,8 @@ class CashScreen extends ConsumerWidget {
     final total = liste.fold<int>(0, (t, p) => t + p.amount);
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 18.0 : 32.0;
+    // Le rapport du soir est celui de la caisse centrale.
+    final centrale = ref.watch(sessionProvider).acces.peut('cash.central');
 
     return ModuleScaffold(
       title: 'Caisse du jour',
@@ -71,6 +83,10 @@ class CashScreen extends ConsumerWidget {
           final droite = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (centrale) ...[
+                FadeUp(index: 1, child: _RapportDuSoir(jour: iso)),
+                const SizedBox(height: 14),
+              ],
               FadeUp(index: 1, child: _Encaissements(paiements: paiements)),
               const SizedBox(height: 14),
               const FadeUp(index: 2, child: _Historique()),
@@ -310,6 +326,294 @@ class _MaCaisse extends ConsumerWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Le rapport du soir : ce que chaque point de vente doit a la reception, ce
+/// qu'il a verse, ce qui attend encore, et les ecarts.
+class _RapportDuSoir extends ConsumerWidget {
+  const _RapportDuSoir({required this.jour});
+
+  final String jour;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final rapport = ref.watch(_rapportDuSoirProvider(jour)).value;
+    final points = rapport?.outlets ?? const <OutletEvening>[];
+    final aConfirmer = rapport?.toConfirm ?? 0;
+
+    return Bezel(
+      radius: 26,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Eyebrow(
+            'Versements des points de vente',
+            trailing: aConfirmer == 0
+                ? null
+                : Tag('$aConfirmer à confirmer', color: p.warning),
+          ),
+          const SizedBox(height: 10),
+          if (rapport == null || points.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Aucun point de vente n’a ouvert de caisse. Leurs recettes '
+                's’afficheront ici, avec ce qu’ils ont versé.',
+                style: _st(14, FontWeight.w500, p.textSecondary),
+              ),
+            )
+          else ...[
+            Wrap(
+              spacing: 22,
+              runSpacing: 10,
+              children: [
+                _Chiffre(label: 'Attendu', montant: rapport.expected),
+                _Chiffre(label: 'Versé', montant: rapport.paid),
+                _Chiffre(label: 'En attente', montant: rapport.pending),
+                _Chiffre(
+                  label: 'Écart',
+                  montant: rapport.variance,
+                  signe: true,
+                  couleur: rapport.variance == 0 ? p.success : p.error,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final point in points) ...[
+              Divider(height: 22, color: p.border),
+              _PointDuSoir(point: point),
+            ],
+            if (rapport.centralTakings != 0) ...[
+              Divider(height: 22, color: p.border),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Réception, encaissé sur place',
+                      style: _st(13.5, FontWeight.w600, p.textSecondary),
+                    ),
+                  ),
+                  Text(
+                    formatAmount(rapport.centralTakings),
+                    style: _st(13.5, FontWeight.w700, p.text),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Chiffre extends StatelessWidget {
+  const _Chiffre({
+    required this.label,
+    required this.montant,
+    this.signe = false,
+    this.couleur,
+  });
+
+  final String label;
+  final int montant;
+
+  /// Un ecart : le signe se lit, un excedent n'est pas un manque.
+  final bool signe;
+  final Color? couleur;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: _st(12.5, FontWeight.w600, p.textSecondary)),
+        const SizedBox(height: 2),
+        Text(
+          '${signe && montant > 0 ? '+' : ''}${formatAmount(montant)}',
+          style: _st(17, FontWeight.w700, couleur ?? p.text),
+        ),
+      ],
+    );
+  }
+}
+
+/// Un point de vente dans le rapport du soir : sa recette, puis ses caisses.
+class _PointDuSoir extends StatelessWidget {
+  const _PointDuSoir({required this.point});
+
+  final OutletEvening point;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final autres = point.takings - point.cashTakings;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                point.outletLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _st(15.5, FontWeight.w700, p.text),
+              ),
+            ),
+            Text(
+              'Recette ${formatAmount(point.takings)}',
+              style: _st(13.5, FontWeight.w700, p.text),
+            ),
+          ],
+        ),
+        Text(
+          autres == 0
+              ? 'dont ${formatAmount(point.cashTakings)} en espèces'
+              : 'dont ${formatAmount(point.cashTakings)} en espèces, '
+                    '${formatAmount(autres)} par d’autres moyens',
+          style: _st(12.5, FontWeight.w500, p.textSecondary),
+        ),
+        for (final v in point.remittances) _LigneVersement(versement: v),
+      ],
+    );
+  }
+}
+
+/// La caisse d'un point de vente : ce qu'elle doit, ce qu'elle a verse, et
+/// le bouton pour confirmer ce que la reception recoit.
+class _LigneVersement extends ConsumerWidget {
+  const _LigneVersement({required this.versement});
+
+  final Remittance versement;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final v = versement;
+    final ecart = v.variance;
+
+    final String detail;
+    final Widget etat;
+    switch (v.status) {
+      case RemittanceStatus.pending:
+        detail = 'Caisse ouverte, doit verser ${formatAmount(v.expected)}';
+        etat = const Tag('En attente');
+      case RemittanceStatus.declared:
+        detail =
+            'A déclaré ${formatAmount(v.declared!)} '
+            'pour ${formatAmount(v.expected)} attendus';
+        etat = Tag('À confirmer', color: p.warning);
+      case RemittanceStatus.received:
+        detail =
+            'Reçu ${formatAmount(v.received!)} '
+            'pour ${formatAmount(v.expected)} attendus'
+            '${v.declared != null && v.declared != v.received ? ', déclaré ${formatAmount(v.declared!)}' : ''}';
+        etat = ecart == 0
+            ? Tag('Juste', color: p.success)
+            : Tag(
+                '${ecart! > 0 ? '+' : ''}${formatAmount(ecart)}',
+                color: p.error,
+              );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Monogram(v.agentName, size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  v.agentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _st(14, FontWeight.w700, p.text),
+                ),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _st(12.5, FontWeight.w500, p.textSecondary),
+                ),
+                // Un ecart des la declaration : la reception le voit avant
+                // de compter ce qu'on lui tend.
+                if (v.status == RemittanceStatus.declared && ecart != 0)
+                  Text(
+                    'Écart déclaré : ${ecart! > 0 ? '+' : ''}'
+                    '${formatAmount(ecart)}',
+                    style: _st(12.5, FontWeight.w700, p.error),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (v.status == RemittanceStatus.declared)
+            PillButton(
+              label: 'Confirmer',
+              icon: PhosphorIconsLight.check,
+              tone: PillTone.accent,
+              compact: true,
+              onPressed: () => _confirmer(context, ref),
+            )
+          else
+            etat,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmer(BuildContext context, WidgetRef ref) async {
+    final v = versement;
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+
+    final recu = await demanderMontant(
+      context,
+      titre: 'Versement de ${v.outletLabel}',
+      question:
+          '${v.agentName} déclare vous remettre ${formatAmount(v.declared!)}. '
+          'Comptez ce que vous recevez et saisissez-le.',
+      champ: 'Montant reçu (FCFA)',
+      action: 'Confirmer',
+    );
+    if (recu == null || !context.mounted) return;
+
+    final int ecart;
+    try {
+      ecart = await ref
+          .read(cashRepositoryProvider)
+          .confirmRemittance(
+            sessionId: v.sessionId,
+            receivedAmount: recu,
+            by: agent,
+          );
+    } on StateError catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ecart == 0
+              ? 'Versement de ${v.outletLabel} reçu, juste.'
+              : 'Versement de ${v.outletLabel} reçu, écart de '
+                    '${ecart > 0 ? '+' : ''}${formatAmount(ecart)}.',
+        ),
       ),
     );
   }

@@ -34,6 +34,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
+import 'cash_repository.dart';
 import 'hotel_repository.dart';
 import 'settings_repository.dart' show depositRuleKey, notificationLevelsKey;
 import 'sync_repository.dart';
@@ -164,6 +165,12 @@ class Descente {
       final encaissements = await _siPermis(
         () => _catalog.fetchPayments(depuis),
       );
+      // Les caisses : celles de tout l'hotel pour la caisse centrale, qui y
+      // lit ce que chaque point de vente lui doit ; les siennes pour un
+      // autre agent, qui y voit son versement confirme.
+      final caisses = await _siPermis(
+        () => _catalog.fetchCashSessions(depuis),
+      );
       final regleArrhes = await _catalog.fetchDepositRule();
       final niveauxAlertes = await _catalog.fetchNotificationLevels();
       final agents = await _siPermis(_catalog.fetchUsers);
@@ -211,6 +218,7 @@ class Descente {
       );
       ecartees += ecartArdoises;
       ecartees += await _ecrireEncaissements(encaissements, maintenant);
+      ecartees += await _ecrireCaisses(caisses, maintenant);
 
       return PullReport(
         outlets: nPoints,
@@ -922,6 +930,80 @@ class Descente {
       }
     });
     return sautes;
+  }
+
+  // --- Les caisses -----------------------------------------------------------
+
+  /// Rend le nombre de caisses ecartees (en attente d'envoi ici).
+  ///
+  /// Une caisse ouverte, fermee ou confirmee sur cette tablette et pas encore
+  /// remontee garde sa version locale : le serveur la croit encore ouverte,
+  /// et l'ecrire rouvrirait un tiroir que l'agent vient de vider.
+  Future<int> _ecrireCaisses(
+    List<RemoteCashSession> caisses,
+    DateTime maintenant,
+  ) async {
+    final protegees = await _sync.lignesEnAttente(db.cashSessions);
+    var sautees = 0;
+
+    final depotCaisse = CashRepository(db);
+
+    await db.transaction(() async {
+      for (final c in caisses) {
+        if (protegees.contains(c.id)) {
+          sautees++;
+          continue;
+        }
+        // Un agent n'a qu'une caisse ouverte. Si la tablette lui en connait
+        // une autre -- ouverte ici avant que l'ouverture ne porte son
+        // identifiant, donc nee sous un autre sur le serveur -- c'est la
+        // meme : elle prend l'identifiant du serveur. Encore en attente
+        // d'envoi, elle le prendra a la reponse ; d'ici la, ecrire celle du
+        // serveur a cote ferait deux tiroirs ouverts pour un seul agent.
+        if (c.status == CashSessionStatus.OPEN.name) {
+          final locale = await depotCaisse.openSessionId(c.userId);
+          if (locale != null && locale != c.id) {
+            if (protegees.contains(locale)) {
+              sautees++;
+              continue;
+            }
+            await depotCaisse.adoptServerSession(
+              localId: locale,
+              serverId: c.id,
+            );
+          }
+        }
+        await db
+            .into(db.cashSessions)
+            .insertOnConflictUpdate(
+              CashSessionsCompanion.insert(
+                id: c.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                userId: c.userId,
+                status: Value(
+                  c.status == CashSessionStatus.OPEN.name
+                      ? CashSessionStatus.OPEN
+                      : CashSessionStatus.CLOSED,
+                ),
+                openedAt: Value(c.openedAt),
+                openingFloat: Value(c.openingFloat),
+                closedAt: Value(c.closedAt),
+                countedAmount: Value(c.countedAmount),
+                expectedAmount: Value(c.expectedAmount),
+                variance: Value(c.variance),
+                outletId: Value(c.outletId),
+                receivedAmount: Value(c.receivedAmount),
+                receivedBy: Value(c.receivedBy),
+                receivedAt: Value(c.receivedAt),
+                receivedSessionId: Value(c.receivedSessionId),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+    return sautees;
   }
 
   // --- Outils ----------------------------------------------------------------

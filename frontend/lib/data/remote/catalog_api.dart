@@ -651,6 +651,72 @@ class RemotePayment {
   }
 }
 
+/// Une caisse (`CashSessionOut`), pour le rapport du soir.
+class RemoteCashSession {
+  const RemoteCashSession({
+    required this.id,
+    required this.userId,
+    required this.status,
+    this.openedAt,
+    this.openingFloat = 0,
+    this.closedAt,
+    this.expectedAmount = 0,
+    this.countedAmount,
+    this.variance = 0,
+    this.outletId,
+    this.receivedAmount,
+    this.receivedBy,
+    this.receivedAt,
+    this.receivedSessionId,
+  });
+
+  final String id;
+  final String userId;
+  final String status;
+  final DateTime? openedAt;
+  final int openingFloat;
+  final DateTime? closedAt;
+  final int expectedAmount;
+  final int? countedAmount;
+  final int variance;
+
+  /// Le point de vente dont c'est le tiroir ; nul pour la caisse centrale.
+  final String? outletId;
+  final int? receivedAmount;
+  final String? receivedBy;
+  final DateTime? receivedAt;
+  final String? receivedSessionId;
+
+  static RemoteCashSession? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['user_id'] == null ||
+        raw['status'] == null) {
+      return null;
+    }
+    return RemoteCashSession(
+      id: '${raw['id']}',
+      userId: '${raw['user_id']}',
+      status: '${raw['status']}',
+      openedAt: _instant(raw['opened_at']),
+      openingFloat: _entier(raw['opening_float']),
+      closedAt: _instant(raw['closed_at']),
+      expectedAmount: _entier(raw['expected_amount']),
+      countedAmount: raw['counted_amount'] == null
+          ? null
+          : _entier(raw['counted_amount']),
+      variance: _entier(raw['variance']),
+      outletId: _texte(raw['outlet_id']),
+      receivedAmount: raw['received_amount'] == null
+          ? null
+          : _entier(raw['received_amount']),
+      receivedBy: _texte(raw['received_by']),
+      receivedAt: _instant(raw['received_at']),
+      receivedSessionId: _texte(raw['received_session_id']),
+    );
+  }
+}
+
 /// Une ardoise (`FolioOut`), avec ses lignes.
 ///
 /// **Les encaissements n'y sont pas** : le schema du serveur ne les expose
@@ -881,6 +947,15 @@ class CatalogApi {
   /// Les encaissements depuis la journee hoteliere `since`.
   Future<List<RemotePayment>> fetchPayments(DateTime since) =>
       _lire('/payments', RemotePayment.fromJson, query: {'since': _jour(since)});
+
+  /// Les caisses ouvertes depuis le jour `since`, plus celles encore
+  /// ouvertes et les versements a confirmer. Celles de tout l'hotel pour la
+  /// caisse centrale, les siennes pour un autre agent.
+  Future<List<RemoteCashSession>> fetchCashSessions(DateTime since) => _lire(
+    '/cash-sessions',
+    RemoteCashSession.fromJson,
+    query: {'since': _jour(since)},
+  );
 
   /// Lit une liste et en ecarte les lignes illisibles.
   Future<List<T>> _lire<T>(

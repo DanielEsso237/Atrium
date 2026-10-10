@@ -48,9 +48,15 @@ void main() {
     // d'envoi bloquee derriere.
     expect(acces.peut('housekeeping.read'), isTrue);
 
-    // Le coeur du 3.4 tient toujours : un receptionniste n'est pas un
-    // cuisinier, et ne repare pas la plomberie.
-    expect(acces.peut('order.read'), isFalse);
+    // La reception est la caisse centrale, et aussi un point de vente
+    // (decision du 8 octobre) : elle vend a son comptoir et recoit les
+    // versements du soir. Les points de vente sont donc entres dans son
+    // perimetre -- pour vendre, pas pour tenir la cuisine.
+    expect(acces.peut('order.read'), isTrue);
+    expect(acces.peut('cash.central'), isTrue);
+
+    // Le coeur du 3.4 tient toujours : un receptionniste ne repare pas la
+    // plomberie.
     expect(acces.peut('maintenance.read'), isFalse);
   });
 

@@ -24,6 +24,15 @@ from app.models import User, UserOutlet
 DEFAULT_OUTLET_CODE = "RESTO"
 DEFAULT_OUTLET_LABEL = "Restaurant"
 
+# La reception est aussi un point de vente : elle vend a son comptoir, et
+# c'est a elle que les autres versent leur recette le soir. Meme regle que
+# le restaurant : retrouvee par son code, donc ni renommee ni desactivee.
+RECEPTION_OUTLET_CODE = "RECEPTION"
+RECEPTION_OUTLET_LABEL = "Réception"
+
+# Les points de vente que chaque hotel possede d'office.
+PROTECTED_OUTLET_CODES = frozenset({DEFAULT_OUTLET_CODE, RECEPTION_OUTLET_CODE})
+
 
 async def allowed_outlet_ids(session: AsyncSession, user: User) -> set[uuid.UUID] | None:
     """Les points de vente de l'agent, ou None s'il n'est rattache a aucun (tous)."""

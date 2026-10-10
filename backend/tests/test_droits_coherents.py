@@ -67,6 +67,11 @@ IMPLICATIONS = [
     # Valider un transfert, c'est accepter de vider un magasin : il faut en
     # voir le stock avant.
     ("stock.transfer.approve", "stock.read"),
+    # Recevoir le versement d'un point de vente, c'est faire entrer des
+    # especes dans un tiroir : il faut une caisse ou les mettre.
+    ("cash.central", "cash.session"),
+    # Vendre a un comptoir suppose de lire les points de vente et leur carte.
+    ("order.create", "restaurant.read"),
 ]
 
 
@@ -121,3 +126,18 @@ def test_toute_permission_rattachee_existe():
     for role_id, perm_id in ROLE_PERMISSIONS:
         assert perm_id in connus, f"permission inconnue rattachee a {role_id}"
         assert role_id in LIBELLE_PAR_ID, f"role inconnu : {role_id}"
+
+
+def test_la_reception_tient_la_caisse_centrale_et_vend_a_son_comptoir():
+    """Decision du 8 octobre : les points de vente lui versent leur recette."""
+    reception = droits(next(r for r, lab in LIBELLE_PAR_ID.items() if lab == "Reception"))
+
+    assert "cash.central" in reception
+    assert {"order.read", "order.create", "folio.charge"} <= reception
+
+
+def test_un_point_de_vente_ne_confirme_pas_son_propre_versement():
+    """Celui qui verse ne peut pas etre celui qui dit avoir recu."""
+    comptoir = droits(next(r for r, lab in LIBELLE_PAR_ID.items() if lab == "Points de vente"))
+
+    assert "cash.central" not in comptoir

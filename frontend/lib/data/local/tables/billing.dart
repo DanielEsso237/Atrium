@@ -177,6 +177,24 @@ class CashSessions extends Table with SyncedTableColumns, HotelScoped {
   IntColumn get expectedAmount => integer().withDefault(const Constant(0))();
   IntColumn get variance => integer().withDefault(const Constant(0))();
   TextColumn get notes => text().nullable()();
+
+  /// Le point de vente dont c'est le tiroir. Nul : la caisse centrale, tenue
+  /// par la reception.
+  ///
+  /// Une caisse de point de vente ne se ferme pas sur un simple comptage : sa
+  /// fermeture *est* le versement du soir, et [countedAmount] le montant que
+  /// l'agent declare remettre.
+  TextColumn get outletId => text().nullable()();
+
+  /// Ce que la reception dit avoir recu. Nul tant qu'elle n'a pas confirme :
+  /// l'argent a quitte le point de vente sans etre encore entre nulle part.
+  IntColumn get receivedAmount => integer().nullable()();
+  TextColumn get receivedBy => text().nullable()();
+  DateTimeColumn get receivedAt => dateTime().nullable()();
+
+  /// La caisse centrale dans laquelle le versement est entre : il gonfle son
+  /// attendu, comme un encaissement en especes.
+  TextColumn get receivedSessionId => text().nullable()();
 }
 
 /// Encaissement ou remboursement (F1.4).
