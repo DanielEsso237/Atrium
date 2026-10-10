@@ -234,6 +234,103 @@ void main() {
     await client.get('/rooms');
     expect(adaptateur.enTetes['ngrok-skip-browser-warning'], '1');
   });
+
+  group('le jeton se renouvelle avant d expirer', () {
+    const tokens = TokenStore();
+    tearDown(tokens.clear);
+
+    test('expireBientot lit la date du jeton', () {
+      final maintenant = DateTime.utc(2026, 10, 10, 12);
+      expect(
+        ApiClient.expireBientot(
+          _jeton(maintenant.add(const Duration(minutes: 30))),
+          maintenant,
+        ),
+        isFalse,
+      );
+      expect(
+        ApiClient.expireBientot(
+          _jeton(maintenant.add(const Duration(seconds: 30))),
+          maintenant,
+        ),
+        isTrue,
+      );
+      expect(ApiClient.expireBientot('illisible', maintenant), isFalse);
+    });
+
+    test('un jeton qui expire part renouvele, sans passer par un 401',
+        () async {
+      final vieux = _jeton(DateTime.now().add(const Duration(seconds: 30)));
+      final neuf = _jeton(DateTime.now().add(const Duration(hours: 1)));
+      await tokens.save(accessToken: vieux, refreshToken: 'r1');
+      final serveur = _Serveur(neuf);
+      final client = ApiClient(
+        baseUrl: 'https://exemple.test',
+        tokens: tokens,
+        dio: Dio()..httpClientAdapter = serveur,
+      );
+
+      await client.post('/housekeeping-tasks', body: const {});
+
+      expect(serveur.vues.map((v) => v.$1), ['/auth/refresh', '/housekeeping-tasks']);
+      expect(serveur.vues.last.$2, 'Bearer $neuf');
+      expect(await tokens.readRefresh(), 'r2');
+    });
+
+    test('un jeton encore valide part tel quel', () async {
+      final bon = _jeton(DateTime.now().add(const Duration(minutes: 30)));
+      await tokens.save(accessToken: bon, refreshToken: 'r1');
+      final serveur = _Serveur('jamais');
+      final client = ApiClient(
+        baseUrl: 'https://exemple.test',
+        tokens: tokens,
+        dio: Dio()..httpClientAdapter = serveur,
+      );
+
+      await client.get('/rooms');
+
+      expect(serveur.vues.single, ('/rooms', 'Bearer $bon'));
+    });
+  });
+}
+
+/// Un faux jeton JWT dont seule la date d'expiration compte.
+String _jeton(DateTime expire, {String sujet = 'a'}) {
+  String part(Map<String, Object> m) =>
+      base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');
+  final exp = expire.toUtc().millisecondsSinceEpoch ~/ 1000;
+  return '${part({'alg': 'HS256'})}.${part({'sub': sujet, 'exp': exp})}.sig';
+}
+
+/// Repond au renouvellement par un jeton neuf, et note chaque requete avec
+/// le jeton qu'elle portait.
+class _Serveur implements HttpClientAdapter {
+  _Serveur(this.neuf);
+
+  final String neuf;
+  final vues = <(String, String?)>[];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    vues.add((options.path, options.headers['Authorization'] as String?));
+    final corps = options.path == '/auth/refresh'
+        ? {'access_token': neuf, 'refresh_token': 'r2'}
+        : <String, Object>{};
+    return ResponseBody.fromBytes(
+      utf8.encode(jsonEncode(corps)),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 /// Retient les en-tetes de la derniere requete.

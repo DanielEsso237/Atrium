@@ -30,6 +30,26 @@ class _ServeurQuiEchoue extends AuthApi {
   }) async => throw ApiException(echec, 'echec simule');
 }
 
+/// Un serveur revenu, qui accepte l'agent.
+class _ServeurRevenu extends AuthApi {
+  _ServeurRevenu()
+    : super(
+        ApiClient(baseUrl: 'http://serveur.invalide', tokens: const TokenStore()),
+        const TokenStore(),
+      );
+
+  @override
+  Future<AuthSession> login({
+    required String employeeCode,
+    required String secret,
+  }) async => const AuthSession(
+    accessToken: 'a',
+    refreshToken: 'r',
+    expiresIn: 3600,
+    userId: '01920000-0000-7000-8000-00000000c001',
+  );
+}
+
 void main() {
   late AtriumDatabase db;
   var verifieLocalement = false;
@@ -72,5 +92,41 @@ void main() {
   test('423 : compte verrouille', () async {
     expect((await connecter(ApiFailure.locked)).failure, LoginFailure.locked);
     expect(verifieLocalement, isFalse);
+  });
+
+  group('reprise en ligne apres une connexion hors ligne', () {
+    Future<Reprise> reprendre(AuthApi api) => AuthRepository(
+      db,
+      api,
+      (code, secret) async {
+        verifieLocalement = true;
+        return const LoginResult.failed(LoginFailure.offlineAndUnknown);
+      },
+    ).reconnecter(employeeCode: 'ADMIN01', secret: '1234');
+
+    test('serveur toujours absent : on retentera, sans verifier en local',
+        () async {
+      expect(
+        await reprendre(_ServeurQuiEchoue(ApiFailure.offline)),
+        Reprise.injoignable,
+      );
+      expect(verifieLocalement, isFalse);
+    });
+
+    for (final refus in [
+      ApiFailure.unauthorized,
+      ApiFailure.forbidden,
+      ApiFailure.locked,
+    ]) {
+      test('${refus.name} : on cesse, pour ne pas verrouiller le compte',
+          () async {
+        expect(await reprendre(_ServeurQuiEchoue(refus)), Reprise.refusee);
+      });
+    }
+
+    test('serveur revenu : en ligne, et l agent est recopie', () async {
+      expect(await reprendre(_ServeurRevenu()), Reprise.enLigne);
+      expect(await db.select(db.users).get(), hasLength(1));
+    });
   });
 }

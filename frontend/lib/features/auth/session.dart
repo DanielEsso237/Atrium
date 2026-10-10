@@ -83,8 +83,65 @@ class SessionState {
 }
 
 class SessionNotifier extends Notifier<SessionState> {
+  /// La prochaine tentative de reprise en ligne, apres une connexion faite
+  /// hors ligne.
+  Timer? _reprise;
+
+  /// Le code et le secret de l'agent connecte hors ligne, **en memoire
+  /// seulement** et le temps de la reprise : sans eux, impossible d'obtenir
+  /// un jeton du serveur une fois revenu. Effaces des que la reprise reussit,
+  /// echoue pour de bon, ou que l'agent se deconnecte.
+  (String, String)? _identifiants;
+
+  /// Premier essai rapide -- a froid, le tunnel et le HTTPS depassent
+  /// souvent le delai de la connexion --, puis toutes les 30 s.
+  static const premiereReprise = Duration(seconds: 5);
+  static const intervalleReprise = Duration(seconds: 30);
+
   @override
-  SessionState build() => const SessionState();
+  SessionState build() {
+    ref.onDispose(_oublierReprise);
+    return const SessionState();
+  }
+
+  void _oublierReprise() {
+    _reprise?.cancel();
+    _reprise = null;
+    _identifiants = null;
+  }
+
+  void _planifierReprise(Duration delai) {
+    _reprise?.cancel();
+    _reprise = Timer(delai, () => unawaited(_tenterEnLigne()));
+  }
+
+  Future<void> _tenterEnLigne() async {
+    final identifiants = _identifiants;
+    final agent = state.agent;
+    if (identifiants == null || agent == null || state.online) return;
+
+    final issue = await ref
+        .read(authRepositoryProvider)
+        .reconnecter(employeeCode: identifiants.$1, secret: identifiants.$2);
+    // L'agent a pu se deconnecter pendant l'essai.
+    if (_identifiants != identifiants || state.agent?.id != agent.id) return;
+
+    switch (issue) {
+      case Reprise.enLigne:
+        _oublierReprise();
+        state = SessionState(
+          agent: state.agent,
+          online: true,
+          // Les droits viennent du serveur a la connexion en ligne.
+          acces: await accessProfileFor(ref.read(databaseProvider), agent.id),
+        );
+        unawaited(ref.read(syncProvider.notifier).refresh());
+      case Reprise.injoignable:
+        _planifierReprise(intervalleReprise);
+      case Reprise.refusee:
+        _oublierReprise();
+    }
+  }
 
   Future<bool> connecter({
     required String codeAgent,
@@ -111,7 +168,13 @@ class SessionNotifier extends Notifier<SessionState> {
       // attendre. L'ecran s'affiche tout de suite avec ce que la base
       // contient deja, et se repeint quand les vraies donnees arrivent.
       if (resultat.online) {
+        _oublierReprise();
         unawaited(ref.read(syncProvider.notifier).refresh());
+      } else {
+        // Hors ligne : on retente le serveur en arriere-plan, et la session
+        // passe en ligne toute seule quand il revient.
+        _identifiants = (codeAgent, secret);
+        _planifierReprise(premiereReprise);
       }
       return true;
     }
@@ -123,6 +186,7 @@ class SessionNotifier extends Notifier<SessionState> {
   /// Deconnexion : sur une tablette en mode kiosque, c'est l'operation la plus
   /// frequente de la journee — dix agents se succedent sur le meme terminal.
   Future<void> deconnecter() async {
+    _oublierReprise();
     await ref.read(authRepositoryProvider).logout();
     state = const SessionState();
   }

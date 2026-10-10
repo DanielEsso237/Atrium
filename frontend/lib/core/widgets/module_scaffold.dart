@@ -22,6 +22,7 @@ import '../../features/sync/sync_status.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
 import '../ui/icons.dart';
+import 'atrium_puces.dart';
 
 class ModuleScaffold extends ConsumerWidget {
   const ModuleScaffold({
@@ -57,68 +58,90 @@ class ModuleScaffold extends ConsumerWidget {
     final etroit = largeur < 600;
     final marge = etroit ? 18.0 : 32.0;
 
-    final entete = Padding(
-      padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 28, marge, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: FadeUp(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Le titre en serif, comme une enseigne : c'est lui qui
-                  // dit ou l'on est, le reste de la page est en lineale.
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: atriumDisplay(etroit ? 32 : 42),
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AtriumColors.textSecondary,
-                        fontFeatures: tabularFigures,
+    final entete = LayoutBuilder(
+      builder: (context, contraintes) {
+        // La barre de synchronisation est plus large que l'ancien badge : a
+        // cote du titre et de l'action, elle debordait d'une tablette en
+        // portrait. Quand la place manque, elle monte au-dessus du titre,
+        // comme sur le plan des chambres.
+        final barreEnLigne = contraintes.maxWidth >= 1000;
+        final barre = BarreSynchronisation(compact: etroit);
+        final ligne = Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: FadeUp(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Le titre en serif, comme une enseigne : c'est lui qui
+                    // dit ou l'on est, le reste de la page est en lineale.
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: atriumDisplay(etroit ? 32 : 42),
                       ),
                     ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: AtriumColors.textSecondary,
+                          fontFeatures: tabularFigures,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const PendingWritesBadge(),
-          // Un metier a ecran unique ne passe jamais par le tableau de bord,
-          // ou vit le bouton de deconnexion : sans celui-ci, la femme de
-          // chambre etait prisonniere de sa liste. Sur une tablette que dix
-          // agents se passent dans la journee, pouvoir rendre la main est la
-          // premiere des choses.
-          if (ecranUnique) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Se déconnecter',
-              iconSize: 24,
-              icon: const Icon(PhosphorIconsLight.signOut),
-              onPressed: () => ref.read(sessionProvider.notifier).deconnecter(),
-            ),
+            if (barreEnLigne) barre,
+            // Un metier a ecran unique ne passe jamais par le tableau de bord,
+            // ou vit le bouton de deconnexion : sans celui-ci, la femme de
+            // chambre etait prisonniere de sa liste. Sur une tablette que dix
+            // agents se passent dans la journee, pouvoir rendre la main est la
+            // premiere des choses.
+            if (ecranUnique) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Se déconnecter',
+                iconSize: 24,
+                icon: const Icon(PhosphorIconsLight.signOut),
+                onPressed: () =>
+                    ref.read(sessionProvider.notifier).deconnecter(),
+              ),
+            ],
+            if (action != null && !etroit) ...[
+              const SizedBox(width: 14),
+              FadeUp(index: 1, child: action!),
+            ],
           ],
-          if (action != null && !etroit) ...[
-            const SizedBox(width: 14),
-            FadeUp(index: 1, child: action!),
-          ],
-        ],
-      ),
+        );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 28, marge, 20),
+          child: barreEnLigne
+              ? ligne
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Align(alignment: Alignment.centerRight, child: barre),
+                    const SizedBox(height: AtriumSpacing.sm),
+                    ligne,
+                  ],
+                ),
+        );
+      },
     );
 
     return Scaffold(

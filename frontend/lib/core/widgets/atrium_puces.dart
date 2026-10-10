@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/remote/outbox_sender.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
@@ -182,6 +183,137 @@ class AtriumBoutonCarre extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Echange avec le serveur, a la demande : on remonte, puis on rapatrie.
+///
+/// Un bouton en plus de la remontee automatique : la reception doit
+/// pouvoir decider quand elle echange, et surtout voir si ca a marche.
+/// Present sur tous les ecrans, pas seulement le plan des chambres.
+class BoutonSynchroniser extends ConsumerWidget {
+  const BoutonSynchroniser({super.key, this.compact = false});
+
+  /// Sur un telephone, l'icone seule : le libelle passe en info-bulle.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sync = ref.watch(syncProvider);
+
+    return Tooltip(
+      message: 'Échanger avec le serveur',
+      child: AtriumPuce(
+        icone: Icons.sync_rounded,
+        onTap: sync.running
+            ? null
+            : () async {
+                await ref.read(syncProvider.notifier).refresh();
+                if (!context.mounted) return;
+
+                final etat = ref.read(syncProvider);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(_resume(etat)),
+                    // Une file bloquee ne se resout pas toute seule : elle
+                    // reste affichee le temps d'etre lue, en rouge,
+                    // contrairement au reste.
+                    duration: etat.isBlocked
+                        ? const Duration(seconds: 10)
+                        : const Duration(seconds: 4),
+                    backgroundColor: etat.isBlocked ? AtriumColors.error : null,
+                  ),
+                );
+              },
+        child: sync.running
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AtriumDashColors.title,
+                ),
+              )
+            : (compact ? null : const Text('Synchroniser')),
+      ),
+    );
+  }
+}
+
+/// Ce que l'echange a donne, en une phrase pour la reception.
+///
+/// Les deux sens y figurent, et dans cet ordre : ce qui est parti compte plus
+/// que ce qui est arrive. Un receptionniste qui a enregistre six arrivees hors
+/// ligne veut d'abord savoir qu'elles sont remontees.
+String _resume(SyncUiState etat) {
+  final push = etat.push;
+  final pull = etat.last;
+
+  if (push != null && push.arret == DrainStop.bloque) {
+    return 'Une écriture est refusée par le serveur et bloque les suivantes : '
+        '${push.detail}';
+  }
+  if (push != null && push.arret == DrainStop.sessionInvalide) {
+    return 'Session expirée : reconnectez-vous pour remonter les écritures.';
+  }
+
+  final monte = push?.envoyees ?? 0;
+  final remonte = monte == 0
+      ? null
+      : '$monte écriture${monte > 1 ? 's' : ''} remontée${monte > 1 ? 's' : ''}';
+
+  if (pull == null || pull.offline) {
+    return remonte == null
+        ? 'Serveur injoignable : l’écran garde les données de la tablette.'
+        : '$remonte, puis le serveur a cessé de répondre.';
+  }
+  if (!pull.succeeded) {
+    return 'Échec : ${pull.error}';
+  }
+
+  // Les chambres et les donnees metier descendent ensemble ; on annonce le
+  // total, parce que c'est « la tablette a-t-elle rattrape le serveur » que
+  // la reception veut savoir, pas le detail par table.
+  final metier = etat.pull?.total ?? 0;
+  final descendu = metier == 0
+      ? '${pull.rooms} chambres rapatriées'
+      : '${pull.rooms + metier} lignes rapatriées';
+
+  final ecartees = etat.pull?.skipped ?? 0;
+  final reserve = ecartees == 0
+      ? ''
+      : ', $ecartees ligne${ecartees > 1 ? 's' : ''} épargnée'
+            '${ecartees > 1 ? 's' : ''}, pas encore remontée'
+            '${ecartees > 1 ? 's' : ''}';
+
+  return remonte == null
+      ? '$descendu$reserve.'
+      : '$remonte, $descendu$reserve.';
+}
+
+/// L'etat de l'echange avec le serveur, tel que tous les ecrans le montrent :
+/// en ligne ou non, les ecritures qui attendent, et le bouton pour echanger.
+///
+/// Un seul composant : le plan des chambres avait le bouton, les autres
+/// ecrans un simple badge, et l'agent ne savait pas ou synchroniser.
+class BarreSynchronisation extends StatelessWidget {
+  const BarreSynchronisation({super.key, this.compact = false});
+
+  /// Sur un ecran etroit : sans la pastille d'etat, bouton sans libelle.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AtriumSpacing.sm,
+      runSpacing: AtriumSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (!compact) const PuceEtatConnexion(),
+        const PuceEcritures(),
+        BoutonSynchroniser(compact: compact),
+      ],
     );
   }
 }

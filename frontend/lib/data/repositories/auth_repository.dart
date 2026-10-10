@@ -52,6 +52,18 @@ class LoginResult {
   bool get succeeded => user != null;
 }
 
+/// L'issue d'une reprise en ligne.
+enum Reprise {
+  /// Le serveur a accepte : la tablette a de nouveau ses jetons.
+  enLigne,
+
+  /// Le serveur ne repond toujours pas : on retentera.
+  injoignable,
+
+  /// Le serveur refuse ce secret : on cesse de retenter.
+  refusee,
+}
+
 class AuthRepository {
   const AuthRepository(this.db, this._api, this._localVerify);
 
@@ -98,6 +110,40 @@ class AuthRepository {
             '(${e.failure.name}) : ${e.message}. Verification locale.');
       }
       return _localVerify(employeeCode, secret);
+    }
+  }
+
+  /// Retente le serveur pour un agent deja connecte hors ligne.
+  ///
+  /// La deconnexion efface les jetons : un agent reconnecte hors ligne n'en
+  /// a plus aucun, et sans cette reprise la tablette restait « Hors ligne »
+  /// jusqu'a la prochaine connexion, meme serveur revenu.
+  ///
+  /// Jamais de verification locale ici : l'agent est deja dans la session.
+  Future<Reprise> reconnecter({
+    required String employeeCode,
+    required String secret,
+  }) async {
+    try {
+      final session = await _api.login(
+        employeeCode: employeeCode,
+        secret: secret,
+      );
+      final user = await _upsertFromServer(
+        session.userId,
+        employeeCode,
+        session.me,
+      );
+      return user == null ? Reprise.injoignable : Reprise.enLigne;
+    } on ApiException catch (e) {
+      return switch (e.failure) {
+        // Le serveur refuse ce secret (change ailleurs, compte desactive ou
+        // verrouille) : insister ferait verrouiller le compte.
+        ApiFailure.unauthorized ||
+        ApiFailure.forbidden ||
+        ApiFailure.locked => Reprise.refusee,
+        _ => Reprise.injoignable,
+      };
     }
   }
 

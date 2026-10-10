@@ -10,6 +10,8 @@
 /// UTC, identifiants generes par la tablette.
 library;
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -101,7 +103,18 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await _tokens.readAccess();
+          var token = await _tokens.readAccess();
+          // Renouveler avant l'expiration plutot qu'apres le refus : sinon
+          // chaque heure, une ecriture sur deux partait deux fois (401, puis
+          // renouvellement, puis renvoi), et le journal du serveur se
+          // remplissait de 401 qui ressemblaient a des pannes. Pas pour les
+          // routes d'authentification elles-memes : le renouvellement y
+          // passe, il ne doit pas se rappeler.
+          if (token != null &&
+              !options.path.startsWith('/auth/') &&
+              expireBientot(token, DateTime.now())) {
+            if (await _refresh()) token = await _tokens.readAccess();
+          }
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -109,6 +122,31 @@ class ApiClient {
         },
       ),
     );
+  }
+
+  /// Vrai si le jeton expire dans moins de deux minutes, ou s'il ne se lit
+  /// pas. Lu sans verifier la signature : c'est le serveur qui juge, la
+  /// tablette ne fait qu'anticiper.
+  @visibleForTesting
+  static bool expireBientot(String jeton, DateTime maintenant) {
+    try {
+      final parties = jeton.split('.');
+      if (parties.length != 3) return false;
+      final charge = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parties[1]))),
+      );
+      final exp = charge is Map ? charge['exp'] : null;
+      if (exp is! num) return false;
+      final limite = DateTime.fromMillisecondsSinceEpoch(
+        (exp * 1000).toInt(),
+        isUtc: true,
+      );
+      return limite.difference(maintenant.toUtc()) < const Duration(minutes: 2);
+    } on Object {
+      // Un jeton illisible n'est pas un jeton expire : on l'envoie, et le
+      // serveur dira.
+      return false;
+    }
   }
 
   final Dio _dio;

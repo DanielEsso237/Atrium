@@ -495,7 +495,12 @@ class _Bandeau extends ConsumerWidget {
           ],
         );
 
-        const puces = [_PuceDate(), PuceEtatConnexion(), PuceEcritures()];
+        const puces = [
+          _PuceDate(),
+          PuceEtatConnexion(),
+          PuceEcritures(),
+          BoutonSynchroniser(),
+        ];
         final bouton = _BoutonMenu(ouvert: menuOuvert, onTap: onMenu);
 
         final actions = Row(
