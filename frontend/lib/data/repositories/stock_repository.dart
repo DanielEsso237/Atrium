@@ -343,7 +343,8 @@ class StockRepository with OutboxWriter {
     return id;
   }
 
-  /// Valide un transfert : c'est maintenant que le stock bouge.
+  /// Valide un transfert : c'est maintenant que le stock bouge. Jamais par
+  /// celui qui l'a demande.
   Future<void> approve(String movementId, {String? note, String? by}) =>
       _decider(movementId, approuve: true, note: note, by: by);
 
@@ -366,6 +367,14 @@ class StockRepository with OutboxWriter {
         m.status == StockMovementStatus.APPROVED
             ? 'Ce transfert a déjà été validé.'
             : 'Ce transfert a déjà été refusé.',
+      );
+    }
+    // Le serveur refuse qu'on valide sa propre demande, quels que soient les
+    // droits (`approve_stock_movement`). Fait ici, avant d'ecrire : ce refus
+    // arrivant par la file la bloquerait, avec tout ce qui attend derriere.
+    if (approuve && by != null && m.movedBy == by) {
+      throw StateError(
+        'Celui qui demande un transfert ne peut pas le valider lui-même.',
       );
     }
     final now = DateTime.now().toUtc();

@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import get_current_user, permission_codes, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import StockLevel, StockLocation, StockMovement, User
@@ -105,10 +105,20 @@ async def create_stock_movement(
     payload: StockMovementIn,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("stock.movement")),
+    user: User = Depends(get_current_user),
 ) -> StockMovement:
     """Enregistre un mouvement. Un transfert attend sa validation ; les autres
     changent le stock tout de suite."""
+    # Deux droits pour une route : demander un transfert n'est pas tenir
+    # l'economat. Le barman demande son ravitaillement, il ne saisit ni
+    # livraison ni ajustement.
+    requise = (
+        "stock.transfer.request"
+        if payload.type == StockMovementType.TRANSFER
+        else "stock.manage"
+    )
+    if requise not in permission_codes(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, f"Permission manquante : {requise}")
     # Rejeu d'abord : un renvoi ne doit ni compter deux fois, ni etre refuse.
     if payload.id is not None:
         existing = await session.get(StockMovement, payload.id)
@@ -168,14 +178,23 @@ async def approve_stock_movement(
 ) -> StockMovement:
     """Valide un transfert : c'est maintenant que le stock bouge.
 
-    Une seule validation suffit, du controleur ou du comptable. Rejouee, elle
-    rend le transfert deja valide sans rien deplacer une seconde fois.
+    Une seule validation suffit, du controleur ou du comptable -- jamais de
+    celui qui a demande le transfert. Rejouee, elle rend le transfert deja
+    valide sans rien deplacer une seconde fois.
     """
     m = await _mouvement(session, movement_id, user)
     if m.status == StockMovementStatus.APPROVED:
         return m
     if m.status == StockMovementStatus.REJECTED:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce transfert a deja ete refuse.")
+    # Le second regard n'en est un que s'il vient de quelqu'un d'autre. Le
+    # droit ne suffit pas a l'assurer : l'administrateur porte les deux. La
+    # tablette fait le meme refus avant d'envoyer (`StockRepository._decider`).
+    if m.moved_by == user.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Celui qui demande un transfert ne peut pas le valider lui-meme.",
+        )
     await apply_movement(session, m)
     m.status = StockMovementStatus.APPROVED
     m.decided_by = user.id

@@ -89,6 +89,7 @@ _PERMISSIONS_NEEDED = [
     "room_types.read", "room_types.write",
     "restaurant.read", "restaurant.write",
     "stock.read", "stock.write", "stock.movement", "stock.transfer.approve",
+    "stock.manage", "stock.transfer.request",
     "printing.read", "printing.write",
     "users.read", "users.write",
     "order.read", "order.create",
