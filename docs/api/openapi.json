@@ -215,6 +215,20 @@
         "title": "Body_put_attachment_api_v1_attachments__attachment_id__put",
         "type": "object"
       },
+      "Body_put_logo_api_v1_hotel_logo_put": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_put_logo_api_v1_hotel_logo_put",
+        "type": "object"
+      },
       "CalendarCell": {
         "description": "Une chambre un jour donne ; champs de sejour a null si la chambre est libre.",
         "properties": {
@@ -456,6 +470,18 @@
             ],
             "title": "Device Id"
           },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
           "notes": {
             "anyOf": [
               {
@@ -472,6 +498,18 @@
             "minimum": 0.0,
             "title": "Opening Float",
             "type": "integer"
+          },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlet Id"
           }
         },
         "required": [
@@ -553,6 +591,65 @@
             "title": "Opening Float",
             "type": "integer"
           },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlet Id"
+          },
+          "received_amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Amount"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "received_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received By"
+          },
+          "received_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Session Id"
+          },
           "status": {
             "$ref": "#/components/schemas/CashSessionStatus"
           },
@@ -580,6 +677,21 @@
           "notes"
         ],
         "title": "CashSessionOut",
+        "type": "object"
+      },
+      "CashSessionReceiveIn": {
+        "properties": {
+          "received_amount": {
+            "description": "Especes recues par la reception, FCFA",
+            "minimum": 0.0,
+            "title": "Received Amount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "received_amount"
+        ],
+        "title": "CashSessionReceiveIn",
         "type": "object"
       },
       "CashSessionStatus": {
@@ -1145,6 +1257,19 @@
             "title": "Label",
             "type": "string"
           },
+          "menu_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Article de la carte vendu : fait sortir son produit du stock",
+            "title": "Menu Item Id"
+          },
           "night_date": {
             "anyOf": [
               {
@@ -1157,6 +1282,19 @@
             ],
             "description": "Nuitee : la nuit facturee. Une nuit deja portee au sejour n'est pas portee deux fois -- la reponse (200) designe la charge existante.",
             "title": "Night Date"
+          },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Point de vente qui a servi : c'est son stock qui baisse",
+            "title": "Outlet Id"
           },
           "override_by": {
             "anyOf": [
@@ -1238,9 +1376,44 @@
             ],
             "title": "Override By"
           },
+          "posted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted By"
+          },
           "quantity": {
             "title": "Quantity",
             "type": "integer"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Table"
           },
           "tax_amount": {
             "title": "Tax Amount",
@@ -1941,6 +2114,17 @@
               }
             ],
             "title": "Legal Name"
+          },
+          "logo_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Version"
           },
           "name": {
             "title": "Name",
@@ -3038,6 +3222,26 @@
             "title": "Price",
             "type": "integer"
           },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Produit en stock que la vente consomme ; absent = ne se stocke pas",
+            "title": "Product Id"
+          },
+          "stock_quantity": {
+            "default": 1,
+            "description": "Quantite du produit sortie par article vendu",
+            "minimum": 1.0,
+            "title": "Stock Quantity",
+            "type": "integer"
+          },
           "tax_rate": {
             "default": 0,
             "description": "Pourcentage",
@@ -3118,6 +3322,22 @@
             "title": "Price",
             "type": "integer"
           },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "stock_quantity": {
+            "title": "Stock Quantity",
+            "type": "integer"
+          },
           "tax_rate": {
             "title": "Tax Rate",
             "type": "integer"
@@ -3133,9 +3353,52 @@
           "price",
           "tax_rate",
           "is_available",
-          "preparation_minutes"
+          "preparation_minutes",
+          "product_id",
+          "stock_quantity"
         ],
         "title": "MenuItemOut",
+        "type": "object"
+      },
+      "NotificationLevels": {
+        "description": "Le niveau de chaque evenement d'alerte, fixe par l'administration.\n\n    {\"levels\": {\"ARRIVAL_EXPECTED\": \"SOUND\", \"LOW_STOCK\": \"SILENT\"}}\n\nLes niveaux sont stricts : une valeur inconnue serait lue par la tablette\ncomme le defaut, et l'administrateur croirait avoir regle ce qu'il n'a\npas regle. Les codes d'evenement, eux, sont libres : une tablette plus\nrecente que le serveur en connait d'autres, et un refus bloquerait sa\nfile d'envoi pour un simple reglage.",
+        "properties": {
+          "levels": {
+            "maxProperties": 40,
+            "patternProperties": {
+              "^[A-Z][A-Z_]{0,39}$": {
+                "enum": [
+                  "SILENT",
+                  "SOUND",
+                  "SOUND_VIBRATION"
+                ],
+                "type": "string"
+              }
+            },
+            "title": "Levels",
+            "type": "object"
+          }
+        },
+        "required": [
+          "levels"
+        ],
+        "title": "NotificationLevels",
+        "type": "object"
+      },
+      "NotificationLevelsOut": {
+        "properties": {
+          "levels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Levels",
+            "type": "object"
+          }
+        },
+        "required": [
+          "levels"
+        ],
+        "title": "NotificationLevelsOut",
         "type": "object"
       },
       "OccupancyStatus": {
@@ -3588,6 +3851,10 @@
             "description": "UUID v7 genere par la tablette ; absent = genere par le serveur",
             "title": "Id"
           },
+          "kind": {
+            "$ref": "#/components/schemas/OutletKind",
+            "default": "OUTLET"
+          },
           "label": {
             "maxLength": 80,
             "minLength": 1,
@@ -3618,6 +3885,15 @@
         ],
         "title": "OutletIn",
         "type": "object"
+      },
+      "OutletKind": {
+        "description": "Ce qu'on vend : des consommations (restaurant, bar, boutique) ou des\nprestations (spa, piscine, salle de conference). Les deux se saisissent\net se facturent pareil ; ils s'affichent dans deux onglets.",
+        "enum": [
+          "OUTLET",
+          "SERVICE"
+        ],
+        "title": "OutletKind",
+        "type": "string"
       },
       "OutletOut": {
         "properties": {
@@ -3650,6 +3926,9 @@
             "title": "Is Active",
             "type": "boolean"
           },
+          "kind": {
+            "$ref": "#/components/schemas/OutletKind"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -3679,7 +3958,8 @@
           "closes_at",
           "allows_room_charge",
           "sort_order",
-          "is_active"
+          "is_active",
+          "kind"
         ],
         "title": "OutletOut",
         "type": "object"
@@ -3733,6 +4013,16 @@
               }
             ],
             "title": "Is Active"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutletKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "label": {
             "anyOf": [
@@ -3853,6 +4143,121 @@
         ],
         "title": "PaymentMethod",
         "type": "string"
+      },
+      "PaymentOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Date"
+          },
+          "cash_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Session Id"
+          },
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_refund": {
+            "title": "Is Refund",
+            "type": "boolean"
+          },
+          "method": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "received_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received By"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "reservation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reservation Id"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "amount",
+          "reference",
+          "received_at",
+          "is_refund",
+          "folio_id",
+          "reservation_id"
+        ],
+        "title": "PaymentOut",
+        "type": "object"
       },
       "PendingDepositsOut": {
         "description": "Arrhes encaissees et encore rattachees a une reservation.\n\nNi sur une ardoise, ni reconnues : l'argent que l'hotel detient pour des\nclients pas encore arrives.",
@@ -6125,6 +6530,25 @@
         "title": "RoomUpdate",
         "type": "object"
       },
+      "StockDecisionIn": {
+        "description": "Validation ou refus d'un transfert : le motif est facultatif.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "StockDecisionIn",
+        "type": "object"
+      },
       "StockLevelOut": {
         "properties": {
           "last_movement_at": {
@@ -6213,6 +6637,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_central": {
+            "title": "Is Central",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -6229,6 +6657,18 @@
             ],
             "title": "Manager Id"
           },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlet Id"
+          },
           "sort_order": {
             "title": "Sort Order",
             "type": "integer"
@@ -6239,7 +6679,9 @@
           "code",
           "label",
           "manager_id",
-          "sort_order"
+          "sort_order",
+          "outlet_id",
+          "is_central"
         ],
         "title": "StockLocationOut",
         "type": "object"
@@ -6259,6 +6701,19 @@
             ],
             "description": "Obligatoire pour TRANSFER",
             "title": "Counterpart Location Id"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette : un renvoi du meme id ne compte pas deux fois",
+            "title": "Id"
           },
           "product_id": {
             "format": "uuid",
@@ -6331,6 +6786,41 @@
             ],
             "title": "Counterpart Location Id"
           },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -6380,6 +6870,9 @@
             ],
             "title": "Reason"
           },
+          "status": {
+            "$ref": "#/components/schemas/StockMovementStatus"
+          },
           "stock_location_id": {
             "format": "uuid",
             "title": "Stock Location Id",
@@ -6403,10 +6896,24 @@
           "reason",
           "counterpart_location_id",
           "moved_at",
-          "moved_by"
+          "moved_by",
+          "status",
+          "decided_by",
+          "decided_at",
+          "decision_note"
         ],
         "title": "StockMovementOut",
         "type": "object"
+      },
+      "StockMovementStatus": {
+        "description": "Un transfert attend la validation du controleur ou du comptable ; les\nautres mouvements sont appliques des leur enregistrement.",
+        "enum": [
+          "PENDING",
+          "APPROVED",
+          "REJECTED"
+        ],
+        "title": "StockMovementStatus",
+        "type": "string"
       },
       "StockMovementType": {
         "enum": [
@@ -6877,6 +7384,111 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WalkInItemIn": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ChargeCategory"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID v7 genere par la tablette",
+            "title": "Id"
+          },
+          "label": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "menu_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Article de la carte vendu : fait sortir son produit du stock",
+            "title": "Menu Item Id"
+          },
+          "quantity": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "unit_price": {
+            "description": "FCFA, TTC",
+            "exclusiveMinimum": 0.0,
+            "title": "Unit Price",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "label",
+          "unit_price"
+        ],
+        "title": "WalkInItemIn",
+        "type": "object"
+      },
+      "WalkInSaleIn": {
+        "description": "Vente au comptoir a un client sans chambre : tout en une requete.\n\nArdoise, consommations, encaissement et cloture arrivent ensemble. Une\nrequete par geste aurait laisse, au premier refus, une ardoise ouverte et\na moitie payee -- et une file d'envoi bloquee derriere.",
+        "properties": {
+          "id": {
+            "description": "Id de l'ardoise, genere par la tablette (rejeu)",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WalkInItemIn"
+            },
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "outlet_id": {
+            "format": "uuid",
+            "title": "Outlet Id",
+            "type": "string"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentIn"
+          }
+        },
+        "required": [
+          "id",
+          "outlet_id",
+          "items",
+          "payment"
+        ],
+        "title": "WalkInSaleIn",
+        "type": "object"
+      },
       "app__schemas__auth__UserOut": {
         "properties": {
           "email": {
@@ -6943,6 +7555,38 @@
           "roles"
         ],
         "title": "UserOut",
+        "type": "object"
+      },
+      "app__schemas__housekeeping__RevertIn": {
+        "properties": {
+          "from_status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          }
+        },
+        "required": [
+          "from_status",
+          "status"
+        ],
+        "title": "RevertIn",
+        "type": "object"
+      },
+      "app__schemas__maintenance__RevertIn": {
+        "properties": {
+          "from_status": {
+            "$ref": "#/components/schemas/TicketStatus"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TicketStatus"
+          }
+        },
+        "required": [
+          "from_status",
+          "status"
+        ],
+        "title": "RevertIn",
         "type": "object"
       },
       "app__schemas__room_types__RoomTypeOut": {
@@ -7385,6 +8029,59 @@
       }
     },
     "/api/v1/cash-sessions": {
+      "get": {
+        "description": "Les caisses depuis un jour, pour le rapport du soir.\n\nLa caisse centrale voit celles de tout l'hotel ; un autre agent ne voit\nque les siennes. Une caisse encore ouverte, ou un versement que la\nreception n'a pas encore confirme, descend quelle que soit son anciennete :\nc'est de l'argent en attente, pas de l'historique.",
+        "operationId": "list_cash_sessions_api_v1_cash_sessions_get",
+        "parameters": [
+          {
+            "description": "Premier jour inclus (ouverture de la caisse)",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "Premier jour inclus (ouverture de la caisse)",
+              "format": "date",
+              "title": "Since",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CashSessionOut"
+                  },
+                  "title": "Response List Cash Sessions Api V1 Cash Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Cash Sessions",
+        "tags": [
+          "caisse"
+        ]
+      },
       "post": {
         "operationId": "open_cash_session_api_v1_cash_sessions_post",
         "requestBody": {
@@ -7513,6 +8210,65 @@
           }
         ],
         "summary": "Close Cash Session",
+        "tags": [
+          "caisse"
+        ]
+      }
+    },
+    "/api/v1/cash-sessions/{session_id}/receive": {
+      "post": {
+        "description": "La reception confirme ce qu'elle recoit d'un point de vente.\n\nL'agent du point de vente a declare un montant en fermant sa caisse ;\nla reception saisit ce qu'elle a reellement en main. Les deux chiffres\nrestent, avec l'attendu : c'est leur comparaison qui dit ou l'argent\ns'est perdu -- au comptoir, ou entre le comptoir et la reception.",
+        "operationId": "receive_remittance_api_v1_cash_sessions__session_id__receive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashSessionReceiveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Receive Remittance",
         "tags": [
           "caisse"
         ]
@@ -7730,6 +8486,25 @@
               ],
               "title": "Guest Id"
             }
+          },
+          {
+            "description": "Ardoises closes depuis ce jour : les rapports d'une tablette comptent aussi les ventes faites et soldees ailleurs.",
+            "in": "query",
+            "name": "closed_since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ardoises closes depuis ce jour : les rapports d'une tablette comptent aussi les ventes faites et soldees ailleurs.",
+              "title": "Closed Since"
+            }
           }
         ],
         "responses": {
@@ -7764,6 +8539,56 @@
           }
         ],
         "summary": "List Folios",
+        "tags": [
+          "facturation"
+        ]
+      }
+    },
+    "/api/v1/folios/walk-in": {
+      "post": {
+        "description": "Client de passage : il consomme au bar ou au restaurant, paie et s'en va.\n\nUne ardoise WALK_IN sans sejour ni client, ses consommations, le paiement\ndu total dans la caisse ouverte de l'agent, puis la cloture -- en une\nseule transaction. Le paiement doit couvrir le total exactement : la\nmonnaie rendue est de la manipulation d'especes, pas une ligne d'ardoise.",
+        "operationId": "walk_in_sale_api_v1_folios_walk_in_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkInSaleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Vente deja enregistree (meme id) : etat de l'ardoise"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Walk In Sale",
         "tags": [
           "facturation"
         ]
@@ -8374,6 +9199,89 @@
         ]
       }
     },
+    "/api/v1/hotel/logo": {
+      "delete": {
+        "description": "Retire le logo : les factures reprennent le nom de l'hotel en tete.",
+        "operationId": "delete_logo_api_v1_hotel_logo_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Logo",
+        "tags": [
+          "etablissement"
+        ]
+      },
+      "get": {
+        "description": "Le logo, pour tout agent connecte : chaque poste l'imprime.",
+        "operationId": "get_logo_api_v1_hotel_logo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Logo",
+        "tags": [
+          "etablissement"
+        ]
+      },
+      "put": {
+        "description": "Remplace le logo de l'etablissement.\n\nLe nom du fichier est l'empreinte de son contenu : renvoyer la meme image\nne change rien, et `logo_version` ne bouge que si l'image change.",
+        "operationId": "put_logo_api_v1_hotel_logo_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_put_logo_api_v1_hotel_logo_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "description": "Logo trop lourd (512 Ko au plus)"
+          },
+          "422": {
+            "description": "Ni PNG ni JPEG, ou fichier vide"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Logo",
+        "tags": [
+          "etablissement"
+        ]
+      }
+    },
     "/api/v1/housekeeping-tasks": {
       "get": {
         "operationId": "list_tasks_api_v1_housekeeping_tasks_get",
@@ -8664,6 +9572,65 @@
           }
         ],
         "summary": "Inspect Task",
+        "tags": [
+          "housekeeping"
+        ]
+      }
+    },
+    "/api/v1/housekeeping-tasks/{task_id}/revert": {
+      "post": {
+        "description": "Corrige un avancement errone sans effacer la tache ni sa traçabilite.",
+        "operationId": "revert_task_api_v1_housekeeping_tasks__task_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__schemas__housekeeping__RevertIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HousekeepingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Revert Task",
         "tags": [
           "housekeeping"
         ]
@@ -9107,6 +10074,65 @@
           }
         ],
         "summary": "Resolve Ticket",
+        "tags": [
+          "maintenance"
+        ]
+      }
+    },
+    "/api/v1/maintenance-tickets/{ticket_id}/revert": {
+      "post": {
+        "description": "Ramene le ticket dans une colonne precedente apres une erreur.",
+        "operationId": "revert_ticket_api_v1_maintenance_tickets__ticket_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__schemas__maintenance__RevertIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceTicketOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Revert Ticket",
         "tags": [
           "maintenance"
         ]
@@ -9766,6 +10792,61 @@
         "summary": "Update Outlet",
         "tags": [
           "restauration"
+        ]
+      }
+    },
+    "/api/v1/payments": {
+      "get": {
+        "description": "Les encaissements depuis une journee, arrhes et remboursements compris.\n\nIls redescendent a part des ardoises : une ardoise soldee et close sur un\nautre poste n'apporterait ni l'agent ni le moyen de paiement, et les\nrapports filtres par l'un ou l'autre seraient faux d'une tablette a\nl'autre.",
+        "operationId": "list_payments_api_v1_payments_get",
+        "parameters": [
+          {
+            "description": "Premiere journee hoteliere incluse",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "Premiere journee hoteliere incluse",
+              "format": "date",
+              "title": "Since",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOut"
+                  },
+                  "title": "Response List Payments Api V1 Payments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Payments",
+        "tags": [
+          "facturation"
         ]
       }
     },
@@ -11823,6 +12904,78 @@
         ]
       }
     },
+    "/api/v1/settings/notification-levels": {
+      "get": {
+        "description": "Ouverte a tout agent : chaque tablette sonne selon ces niveaux.\n\nVide tant que l'administration n'a rien fixe : la tablette applique\nalors ses niveaux par defaut.",
+        "operationId": "get_notification_levels_api_v1_settings_notification_levels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationLevelsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Notification Levels",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "put": {
+        "description": "Remplace les niveaux. Rejouable : le meme corps ne change rien.",
+        "operationId": "put_notification_levels_api_v1_settings_notification_levels_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationLevels"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationLevelsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Notification Levels",
+        "tags": [
+          "reglages"
+        ]
+      }
+    },
     "/api/v1/stock-levels": {
       "get": {
         "operationId": "list_stock_levels_api_v1_stock_levels_get",
@@ -12033,6 +13186,7 @@
     },
     "/api/v1/stock-movements": {
       "get": {
+        "description": "L'historique ; `status_filter=PENDING` donne les transferts a valider.",
         "operationId": "list_stock_movements_api_v1_stock_movements_get",
         "parameters": [
           {
@@ -12067,6 +13221,22 @@
                 }
               ],
               "title": "Stock Location Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status_filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StockMovementStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
             }
           }
         ],
@@ -12107,6 +13277,7 @@
         ]
       },
       "post": {
+        "description": "Enregistre un mouvement. Un transfert attend sa validation ; les autres\nchangent le stock tout de suite.",
         "operationId": "create_stock_movement_api_v1_stock_movements_post",
         "requestBody": {
           "content": {
@@ -12119,6 +13290,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Mouvement deja enregistre (meme id) : etat actuel"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -12146,6 +13320,124 @@
           }
         ],
         "summary": "Create Stock Movement",
+        "tags": [
+          "mouvements de stock"
+        ]
+      }
+    },
+    "/api/v1/stock-movements/{movement_id}/approve": {
+      "post": {
+        "description": "Valide un transfert : c'est maintenant que le stock bouge.\n\nUne seule validation suffit, du controleur ou du comptable. Rejouee, elle\nrend le transfert deja valide sans rien deplacer une seconde fois.",
+        "operationId": "approve_stock_movement_api_v1_stock_movements__movement_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Movement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Approve Stock Movement",
+        "tags": [
+          "mouvements de stock"
+        ]
+      }
+    },
+    "/api/v1/stock-movements/{movement_id}/reject": {
+      "post": {
+        "description": "Refuse un transfert : rien ne bouge, et le motif reste.",
+        "operationId": "reject_stock_movement_api_v1_stock_movements__movement_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Movement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reject Stock Movement",
         "tags": [
           "mouvements de stock"
         ]

@@ -46,6 +46,11 @@ F1, F2, F3, F4, F5 = (f[0] for f in FLOORS)
 OUTLET_RESTO = uuid.UUID("01920000-0000-7000-8000-000000007001")
 OUTLET_RESTO_CODE = "RESTO"
 
+# La reception, point de vente a part entiere et caisse centrale. Meme
+# identifiant que dans la migration 0018.
+OUTLET_RECEPTION = uuid.UUID("01920000-0000-7000-8000-000000007002")
+OUTLET_RECEPTION_CODE = "RECEPTION"
+
 STANDARD = uuid.UUID("01920000-0000-7000-8000-000000000201")
 CLASSIC = uuid.UUID("01920000-0000-7000-8000-000000000202")
 VIP = uuid.UUID("01920000-0000-7000-8000-000000000203")
@@ -117,6 +122,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004132"), "folio.override_limit", "Autoriser une consommation au-dela du seuil du client", "folio"),
     (uuid.UUID("01920000-0000-7000-8000-000000004133"), "folio.charge", "Porter une consommation sur une ardoise (sans encaisser)", "folio"),
     (uuid.UUID("01920000-0000-7000-8000-000000004134"), "stock.transfer.approve", "Valider ou refuser un transfert de stock", "stock"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004135"), "cash.central", "Tenir la caisse centrale : recevoir les versements des points de vente", "cash"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -144,6 +150,7 @@ FOLIO_OVERRIDE_LIMIT = PERMISSIONS[31][0]
 FOLIO_CHARGE = PERMISSIONS[32][0]
 STOCK_TRANSFER_APPROVE = PERMISSIONS[33][0]
 STOCK_READ = PERMISSIONS[12][0]
+CASH_CENTRAL = PERMISSIONS[34][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -178,6 +185,18 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # etre rapprochee en fin de service. Troisieme occurrence du meme defaut
     # apres `folio.write` et `housekeeping.manage`.
     (RECEPTION_ROLE, CASH_SESSION),
+    # La reception est la caisse centrale (decision du 8 octobre) : chaque
+    # soir, les points de vente lui versent leur recette et elle confirme ce
+    # qu'elle recoit.
+    (RECEPTION_ROLE, CASH_CENTRAL),
+    # Elle est aussi un point de vente : elle vend a son comptoir, au client
+    # de passage comme sur la chambre. Il lui faut donc lire les points de
+    # vente et leur carte, et prendre une commande -- avec folio.charge, que
+    # la commande exige derriere elle.
+    (RECEPTION_ROLE, RESTAURANT_READ),
+    (RECEPTION_ROLE, ORDER_READ),
+    (RECEPTION_ROLE, ORDER_CREATE),
+    (RECEPTION_ROLE, FOLIO_CHARGE),
     (RECEPTION_ROLE, HOUSEKEEPING_READ),
     (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
     (RECEPTION_ROLE, PRINT_REPRINT),
@@ -285,6 +304,11 @@ async def seed(session: AsyncSession) -> None:
     await session.execute(
         insert(Outlet)
         .values([{"id": OUTLET_RESTO, "hotel_id": HOTEL, "code": OUTLET_RESTO_CODE, "label": "Restaurant", "allows_room_charge": True, "sort_order": 0}])
+        .on_conflict_do_nothing()
+    )
+    await session.execute(
+        insert(Outlet)
+        .values([{"id": OUTLET_RECEPTION, "hotel_id": HOTEL, "code": OUTLET_RECEPTION_CODE, "label": "Réception", "allows_room_charge": True, "sort_order": 0}])
         .on_conflict_do_nothing()
     )
     # L'economat, et le stock de chaque point de vente.

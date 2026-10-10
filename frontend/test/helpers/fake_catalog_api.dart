@@ -35,6 +35,7 @@ class FakeCatalogApi implements CatalogApi {
     this.logo,
     this.closedFolios = const [],
     this.payments = const [],
+    this.cashSessions = const [],
   });
 
   final List<RemoteRoom> rooms;
@@ -59,6 +60,7 @@ class FakeCatalogApi implements CatalogApi {
   final List<RemoteStockMovement> pendingTransfers;
   final List<RemoteFolio> closedFolios;
   final List<RemotePayment> payments;
+  final List<RemoteCashSession> cashSessions;
 
   /// `HotelOut` brut ; `null` : le serveur ne l'expose pas (ancien serveur).
   final Map<String, dynamic>? hotel;
@@ -123,6 +125,10 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<RemotePayment>> fetchPayments(DateTime since) async => payments;
+
+  @override
+  Future<List<RemoteCashSession>> fetchCashSessions(DateTime since) async =>
+      cashSessions;
 
   @override
   Future<List<RemoteOutlet>> fetchOutlets() async => outlets;
@@ -212,6 +218,10 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemotePayment>> fetchPayments(DateTime since) async =>
+      _couloir();
+
+  @override
+  Future<List<RemoteCashSession>> fetchCashSessions(DateTime since) async =>
       _couloir();
 
   @override

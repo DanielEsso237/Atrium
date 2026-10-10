@@ -117,7 +117,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne — le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -174,6 +174,15 @@ class AtriumDatabase extends _$AtriumDatabase {
       if (depuis < 6) {
         await m.addColumn(hotels, hotels.logoData);
         await m.addColumn(hotels, hotels.logoVersion);
+      }
+      // 6 -> 7 : la reception est la caisse centrale. Une caisse porte son
+      // point de vente, et ce que la reception confirme avoir recu de lui.
+      if (depuis < 7) {
+        await m.addColumn(cashSessions, cashSessions.outletId);
+        await m.addColumn(cashSessions, cashSessions.receivedAmount);
+        await m.addColumn(cashSessions, cashSessions.receivedBy);
+        await m.addColumn(cashSessions, cashSessions.receivedAt);
+        await m.addColumn(cashSessions, cashSessions.receivedSessionId);
       }
     },
     beforeOpen: (details) async {

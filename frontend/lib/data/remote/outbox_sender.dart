@@ -27,6 +27,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../repositories/cash_repository.dart';
 import '../repositories/folio_repository.dart';
 import '../repositories/invoice_repository.dart';
 import 'api_client.dart';
@@ -225,6 +226,10 @@ class OutboxSender {
   /// serveur a garde la premiere et designe la sienne ; la tablette remplace
   /// la sienne (voir `FolioRepository.adoptServerCharge`).
   ///
+  /// La **caisse retenue** a une ouverture : un agent n'en a qu'une, et le
+  /// serveur rend celle qu'il connaissait deja (voir
+  /// `CashRepository.adoptServerSession`).
+  ///
   /// Le **numero legal** d'une facture : la tablette
   /// hors ligne pose un numero provisoire -- elle ne peut pas connaitre la
   /// suite legale, qui n'a qu'une seule autorite. Sans cette recopie, la
@@ -264,6 +269,19 @@ class OutboxSender {
         await FolioRepository(
           db,
         ).adoptServerCharge(localId: entree.entityId, serverId: serveur);
+      }
+      return;
+    }
+    if (entree.entityTable == 'cash_sessions') {
+      // L'agent avait deja une caisse ouverte sur le serveur : il l'a rendue
+      // au lieu d'en ouvrir une seconde, et la tablette prend la sienne.
+      final serveur = reponse['id'] as String?;
+      if (entree.op == SyncOp.INSERT &&
+          serveur != null &&
+          serveur != entree.entityId) {
+        await CashRepository(
+          db,
+        ).adoptServerSession(localId: entree.entityId, serverId: serveur);
       }
       return;
     }
@@ -554,12 +572,26 @@ class OutboxSender {
         // menage : le serveur pose lui-meme les horodatages et recalcule
         // l'attendu a partir de ses propres paiements. C'est son calcul qui
         // fait foi sur un ecart de caisse.
+        //
+        // L'ouverture porte l'identifiant de la tablette : sans lui, la
+        // caisse naissait sous un autre sur le serveur, et la fermeture ne
+        // la retrouvait pas. Les suivantes visent `entityId` et non
+        // l'identifiant du corps : c'est lui qui suit la caisse quand le
+        // serveur en a retenu une autre (voir `_appliquerReponse`).
         if (entree.op == SyncOp.INSERT) {
           return _Envoi('/cash-sessions', {
+            'id': entree.entityId,
             'opening_float': p['opening_float'],
+            'outlet_id': p['outlet_id'],
           });
         }
-        return _Envoi('/cash-sessions/${p['id']}/close', {
+        // La reception confirme le versement d'un point de vente.
+        if (p['action'] == 'RECEIVE') {
+          return _Envoi('/cash-sessions/${entree.entityId}/receive', {
+            'received_amount': p['received_amount'],
+          });
+        }
+        return _Envoi('/cash-sessions/${entree.entityId}/close', {
           'counted_amount': p['counted_amount'],
         });
 

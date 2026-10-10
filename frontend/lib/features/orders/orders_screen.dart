@@ -23,6 +23,8 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/order_repository.dart';
+import '../../data/repositories/outlet_repository.dart'
+    show receptionOutletCode;
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../billing/cash_dialog.dart' show CashButton;
@@ -83,9 +85,18 @@ class OrdersScreen extends ConsumerWidget {
         final liste = [for (final o in tous) if (o.kind == kind) o];
         if (liste.isEmpty) return _AucunPointDeVente(titre: titre);
         final choisiId = ref.watch(_pointChoisiProvider);
+        // Sans choix encore, la reception ouvre sur son propre comptoir
+        // plutot que sur le premier onglet venu.
+        final aLaReception = ref
+            .watch(sessionProvider)
+            .acces
+            .peut('cash.central');
         final outlet = liste.firstWhere(
           (o) => o.id == choisiId,
-          orElse: () => liste.first,
+          orElse: () => liste.firstWhere(
+            (o) => aLaReception && o.code == receptionOutletCode,
+            orElse: () => liste.first,
+          ),
         );
         final etroit = MediaQuery.sizeOf(context).width < 600;
         final marge = etroit ? 18.0 : 32.0;
@@ -99,7 +110,9 @@ class OrdersScreen extends ConsumerWidget {
 
         return ModuleScaffold(
           title: titre,
-          action: caisse ? const CashButton() : null,
+          // La caisse s'ouvre sur ce point de vente : c'est lui qui versera
+          // sa recette a la reception le soir.
+          action: caisse ? CashButton(outletId: outlet.id) : null,
           subtitle: outlet.allowsRoomCharge
               ? '${outlet.label} porte sur la chambre$horaires'
               : '${outlet.label} encaisse sur place$horaires',

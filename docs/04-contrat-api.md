@@ -406,6 +406,41 @@ dans la caisse ouverte de l'agent et clôt l'ardoise.
 - Rejouée avec le même `id`, la vente rend l'ardoise existante (**200**),
   sans rien réécrire.
 
+## La réception, caisse centrale
+
+Décision du 8 octobre : la réception est la caisse centrale, et aussi un
+point de vente. Chaque soir, la recette de chaque point de vente, ventes de
+passage comprises, lui est versée.
+
+- Chaque hôtel a d'office un point de vente `RECEPTION`, comme `RESTO` : ni
+  désactivé, ni recodé (**409**), libellé libre.
+- `POST /cash-sessions` accepte l'`id` de la tablette et un `outlet_id`, le
+  point de vente dont la caisse est le tiroir. Rejouée avec le même `id`,
+  l'ouverture rend la caisse existante (**200**), même fermée depuis. Qui
+  porte `cash.central` tient la caisse centrale : son `outlet_id` est
+  ignoré. Un point de vente inconnu l'est aussi, plutôt que refusé.
+- `POST /cash-sessions/{id}/close` sur la caisse d'un point de vente **est
+  le versement** : `counted_amount` est ce que l'agent déclare remettre,
+  `expected_amount` ce qu'il devait (fond de caisse et ventes en espèces).
+- `POST /cash-sessions/{id}/receive` (`cash.central`), corps
+  `{"received_amount": n}` : la réception confirme ce qu'elle reçoit. Le
+  montant entre dans sa caisse ouverte (`received_session_id`) et gonfle
+  son attendu. Rejouée, la confirmation rend la caisse telle quelle
+  (**200**) : le premier montant fait foi. **409** si la caisse est encore
+  ouverte ou n'est pas celle d'un point de vente.
+- `GET /cash-sessions?since=AAAA-MM-JJ` (`cash.session`) : les caisses
+  ouvertes depuis ce jour, plus celles encore ouvertes et les versements non
+  confirmés quelle que soit leur ancienneté. Toutes celles de l'hôtel avec
+  `cash.central`, les siennes sinon.
+
+Trois chiffres restent sur la caisse d'un point de vente : `expected_amount`
+(l'attendu), `counted_amount` (le déclaré) et `received_amount` (le reçu).
+Le rapport du soir se calcule sur la tablette, à partir d'eux.
+
+La réception porte `cash.central` et, pour vendre à son comptoir,
+`restaurant.read`, `order.read`, `order.create` et `folio.charge`
+(migration `0018`).
+
 ## L'hôtel et son logo
 
 `GET /hotel` (tout agent connecté) rend le nom, les coordonnées et

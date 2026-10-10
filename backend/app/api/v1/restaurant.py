@@ -25,7 +25,7 @@ from app.schemas.restaurant import (
     RestaurantTableIn,
     RestaurantTableOut,
 )
-from app.services.outlets import DEFAULT_OUTLET_CODE, allowed_outlet_ids
+from app.services.outlets import PROTECTED_OUTLET_CODES, allowed_outlet_ids
 from app.services.stock_locations import ensure_outlet_location
 
 router = APIRouter(tags=["restauration"])
@@ -114,10 +114,11 @@ async def update_outlet(
     fields = payload.model_dump(exclude_unset=True)
     # `null` n'efface que les horaires ; ailleurs il ne veut rien dire.
     fields = {k: v for k, v in fields.items() if v is not None or k in ("opens_at", "closes_at")}
-    # Le point de vente par defaut est celui que la carte et les tablettes
-    # retrouvent par son code : le desactiver ou le renommer casserait tout
-    # ce qui s'y rattache. Le libelle, lui, reste libre.
-    if outlet.code == DEFAULT_OUTLET_CODE:
+    # Les points de vente d'office (restaurant, reception) sont ceux que la
+    # carte, la caisse centrale et les tablettes retrouvent par leur code :
+    # les desactiver ou les renommer casserait tout ce qui s'y rattache. Le
+    # libelle, lui, reste libre.
+    if outlet.code in PROTECTED_OUTLET_CODES:
         if fields.get("is_active") is False:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,

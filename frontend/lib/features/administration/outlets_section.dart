@@ -275,8 +275,9 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
   Widget build(BuildContext context) {
     final existant = widget.existant;
     final creation = existant == null;
-    // Le Restaurant par defaut : son activite ne se touche pas.
-    final parDefaut = existant?.code == defaultOutletCode;
+    // Les points de vente d'office (Restaurant, Reception) : leur activite
+    // ne se touche pas.
+    final parDefaut = protectedOutletCodes.contains(existant?.code);
     final p = AtriumPalette.current;
 
     return AlertDialog(

@@ -115,16 +115,17 @@ class OutletRepository with OutboxWriter {
     required int sortOrder,
     required bool isActive,
   }) async {
-    // Le Restaurant par defaut : ni desactive, ni recode -- le serveur les
-    // refuse (409), et un refus par la file la bloquerait.
+    // Les points de vente d'office (Restaurant, Reception) : ni desactives,
+    // ni recodes -- le serveur les refuse (409), et un refus par la file la
+    // bloquerait.
     final actuel = await _byId(id);
-    if (actuel.code == defaultOutletCode) {
+    if (protectedOutletCodes.contains(actuel.code)) {
       if (!isActive) {
         throw StateError(
           'Le point de vente par défaut ne peut pas être désactivé.',
         );
       }
-      if (code.trim() != defaultOutletCode) {
+      if (code.trim() != actuel.code) {
         throw StateError(
           'Le code du point de vente par défaut ne peut pas être modifié.',
         );
@@ -276,6 +277,14 @@ String codeDepuisLibelle(String label) {
 /// Le point de vente « Restaurant » que chaque hotel a d'office
 /// (`DEFAULT_OUTLET_CODE` cote serveur). La carte s'y rattache.
 const defaultOutletCode = 'RESTO';
+
+/// Le point de vente « Réception » que chaque hotel a d'office
+/// (`RECEPTION_OUTLET_CODE` cote serveur) : la reception vend a son comptoir,
+/// et c'est a elle que les autres versent leur recette le soir.
+const receptionOutletCode = 'RECEPTION';
+
+/// Les points de vente d'office : ni desactives, ni recodes.
+const protectedOutletCodes = {defaultOutletCode, receptionOutletCode};
 
 /// Une heure HH:MM valide, de 00:00 a 23:59.
 bool heureValide(String h) {
