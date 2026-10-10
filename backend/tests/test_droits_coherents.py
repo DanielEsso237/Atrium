@@ -67,6 +67,10 @@ IMPLICATIONS = [
     # Valider un transfert, c'est accepter de vider un magasin : il faut en
     # voir le stock avant.
     ("stock.transfer.approve", "stock.read"),
+    # Entrees, transferts et validations se font tous depuis l'ecran Stocks,
+    # que le routeur de la tablette n'ouvre qu'a qui lit le stock.
+    ("stock.manage", "stock.read"),
+    ("stock.transfer.request", "stock.read"),
     # Recevoir le versement d'un point de vente, c'est faire entrer des
     # especes dans un tiroir : il faut une caisse ou les mettre.
     ("cash.central", "cash.session"),
@@ -141,3 +145,35 @@ def test_un_point_de_vente_ne_confirme_pas_son_propre_versement():
     comptoir = droits(next(r for r, lab in LIBELLE_PAR_ID.items() if lab == "Points de vente"))
 
     assert "cash.central" not in comptoir
+
+
+def _role(code: str) -> set[str]:
+    return droits(next(rid for rid, c, _ in ROLES if c == code))
+
+
+def test_les_trois_metiers_du_stock_ont_chacun_leur_geste():
+    """L'econome tient l'economat, les points de vente demandent, le
+    controleur et le comptable valident."""
+    assert {"stock.manage", "stock.transfer.request"} <= _role("ECONOME")
+    assert "stock.transfer.request" in _role("RESTAURANT")
+    assert "stock.transfer.approve" in _role("CONTROLEUR")
+    assert "stock.transfer.approve" in _role("COMPTABLE")
+
+
+def test_seul_l_econome_tient_l_economat():
+    """Un point de vente qui saisirait ses propres entrees se ravitaillerait
+    sans que personne ne valide rien."""
+    for _, code, _ in ROLES:
+        if code not in ("ADMIN", "ECONOME"):
+            assert "stock.manage" not in _role(code), code
+
+
+def test_qui_demande_un_transfert_ne_le_valide_pas():
+    """Aucun metier ne porte les deux droits : le second regard vient d'un
+    autre. L'administrateur a tout par construction ; le serveur lui refuse
+    quand meme de valider sa propre demande."""
+    for _, code, _ in ROLES:
+        if code == "ADMIN":
+            continue
+        acquis = _role(code)
+        assert not {"stock.transfer.request", "stock.transfer.approve"} <= acquis, code

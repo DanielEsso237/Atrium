@@ -110,6 +110,52 @@ void main() {
     await expectLater(stocks.approve(t), throwsStateError);
   });
 
+  test('celui qui demande un transfert ne le valide pas lui-meme', () async {
+    // Le serveur le refuse ; un refus par la file la bloquerait. La tablette
+    // refuse donc avant d'ecrire, avec les memes mots.
+    await stocks.receive(placeId: economat, productId: biere, quantity: 48);
+    final t = await stocks.requestTransfer(
+      fromPlaceId: economat, toPlaceId: bar, productId: biere, quantity: 24,
+      by: 'econome',
+    );
+    final enFile = (await db.select(db.outboxEntries).get()).length;
+
+    await expectLater(
+      stocks.approve(t, by: 'econome'),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('ne peut pas le valider lui-même'),
+        ),
+      ),
+    );
+    // Rien n'a bouge, rien n'est parti, et le transfert attend toujours.
+    expect(await qte(bar), 0);
+    expect((await db.select(db.outboxEntries).get()).length, enFile);
+    expect((await stocks.watchPendingTransfers().first).single.id, t);
+
+    // Un autre que lui valide, et le stock bouge.
+    await stocks.approve(t, by: 'controleur');
+    expect(await qte(economat), 24);
+    expect(await qte(bar), 24);
+    final m = await (db.select(
+      db.stockMovements,
+    )..where((x) => x.id.equals(t))).getSingle();
+    expect((m.movedBy, m.decidedBy), ('econome', 'controleur'));
+  });
+
+  test('le demandeur peut retirer sa propre demande', () async {
+    // Refuser ne fait rien bouger : le serveur ne l'interdit pas, la
+    // tablette non plus.
+    final t = await stocks.requestTransfer(
+      fromPlaceId: economat, toPlaceId: bar, productId: biere, quantity: 5,
+      by: 'econome',
+    );
+    await stocks.reject(t, by: 'econome');
+    expect(await stocks.watchPendingTransfers().first, isEmpty);
+  });
+
   test('le stock bas et le stock negatif se voient', () async {
     await stocks.receive(placeId: economat, productId: biere, quantity: 10);
     var ligne = (await stocks.watchLines(economat, allProducts: true).first).single;

@@ -61,6 +61,9 @@ const _roleAdmin = '01920000-0000-7000-8000-000000004001';
 const _roleReception = '01920000-0000-7000-8000-000000004002';
 const _roleHousekeeping = '01920000-0000-7000-8000-000000004005';
 const _roleRestaurant = '01920000-0000-7000-8000-000000004004';
+const _roleEconome = '01920000-0000-7000-8000-000000004008';
+const _roleControleur = '01920000-0000-7000-8000-000000004009';
+const _roleComptable = '01920000-0000-7000-8000-000000004010';
 
 /// Un role, avec l'ecran sur lequel il ouvre apres connexion.
 ///
@@ -93,6 +96,12 @@ const _roles = <_RoleDemo>[
     'Manager / Direction',
     null,
   ),
+  // Les trois metiers du stock n'ont qu'un ecran, comme le menage : ils
+  // ouvrent dessus. C'est la que le controleur et le comptable trouvent la
+  // liste « A valider ».
+  (_roleEconome, 'ECONOME', 'Econome', '/stocks'),
+  (_roleControleur, 'CONTROLEUR', 'Controleur', '/stocks'),
+  (_roleComptable, 'COMPTABLE', 'Comptable', '/stocks'),
 ];
 
 /// Les permissions qui commandent les six boutons du tableau de bord.
@@ -171,6 +180,18 @@ const _permissions = <_PermissionDemo>[
     '01920000-0000-7000-8000-000000004153',
     'stock.transfer.approve',
     'Valider ou refuser un transfert de stock',
+    'stock',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004155',
+    'stock.manage',
+    "Tenir l'economat : entrees, sorties et ajustements de stock",
+    'stock',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004156',
+    'stock.transfer.request',
+    'Demander un transfert de stock',
     'stock',
   ),
   (
@@ -272,11 +293,24 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004154'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004154'),
   (_roleReception, '01920000-0000-7000-8000-000000004123'),
-  // Les stocks : l'administrateur, en attendant les roles econome,
-  // controleur et comptable.
+  // Les stocks, comme cote serveur. L'administrateur a tout.
   (_roleAdmin, '01920000-0000-7000-8000-000000004151'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004152'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004153'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004155'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004156'),
+  // L'econome tient l'economat et demande les transferts ; il ne les valide
+  // pas.
+  (_roleEconome, '01920000-0000-7000-8000-000000004151'),
+  (_roleEconome, '01920000-0000-7000-8000-000000004155'),
+  (_roleEconome, '01920000-0000-7000-8000-000000004156'),
+  // Le point de vente demande son ravitaillement.
+  (_roleRestaurant, '01920000-0000-7000-8000-000000004156'),
+  // Le second regard : lire le stock et valider, rien d'autre.
+  (_roleControleur, '01920000-0000-7000-8000-000000004151'),
+  (_roleControleur, '01920000-0000-7000-8000-000000004153'),
+  (_roleComptable, '01920000-0000-7000-8000-000000004151'),
+  (_roleComptable, '01920000-0000-7000-8000-000000004153'),
 ];
 
 Future<void> seedAccounts(AtriumDatabase db) async {

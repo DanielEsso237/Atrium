@@ -128,6 +128,71 @@ void main() {
     expect(reception.peut(permissionPour('/reservations')!), isTrue);
   });
 
+  group('les metiers du stock', () {
+    const roles = {
+      'ECONOME': '01920000-0000-7000-8000-000000004008',
+      'CONTROLEUR': '01920000-0000-7000-8000-000000004009',
+      'COMPTABLE': '01920000-0000-7000-8000-000000004010',
+    };
+
+    // Un agent cree a l'administration et rattache a ce role : aucun compte
+    // de demonstration ne porte ces metiers.
+    Future<AccessProfile> agent(String role) async {
+      final id = 'agent-$role';
+      await db.customStatement(
+        'INSERT INTO users (id, created_at, updated_at, hotel_id, '
+        'employee_code, first_name, last_name) '
+        "SELECT ?, created_at, updated_at, hotel_id, ?, 'Test', ? "
+        "FROM users WHERE employee_code = 'ADMIN01'",
+        [id, role, role],
+      );
+      await db.customStatement(
+        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
+        [id, roles[role]],
+      );
+      return accessProfileFor(db, id);
+    }
+
+    test('l ecran « A valider » s ouvre au controleur et au comptable', () async {
+      for (final role in ['CONTROLEUR', 'COMPTABLE']) {
+        final acces = await agent(role);
+
+        // Ils ouvrent sur les stocks, le routeur les y laisse entrer, et la
+        // liste a valider leur est montree.
+        expect(acces.homeRoute, '/stocks', reason: role);
+        expect(acces.peut(permissionPour('/stocks')!), isTrue, reason: role);
+        expect(acces.peut('stock.transfer.approve'), isTrue, reason: role);
+        // Le second regard ne demande pas et ne saisit pas.
+        expect(acces.peut('stock.transfer.request'), isFalse, reason: role);
+        expect(acces.peut('stock.manage'), isFalse, reason: role);
+        expect(acces.peut(permissionPour('/factures')!), isFalse, reason: role);
+      }
+    });
+
+    test('l econome tient l economat et demande, sans valider', () async {
+      final acces = await agent('ECONOME');
+
+      expect(acces.homeRoute, '/stocks');
+      expect(acces.peut('stock.read'), isTrue);
+      expect(acces.peut('stock.manage'), isTrue);
+      expect(acces.peut('stock.transfer.request'), isTrue);
+      expect(acces.peut('stock.transfer.approve'), isFalse);
+    });
+
+    test('l administrateur garde tous les gestes du stock', () async {
+      final acces = await accessProfileFor(db, await idDe('ADMIN01'));
+
+      for (final p in [
+        'stock.read',
+        'stock.manage',
+        'stock.transfer.request',
+        'stock.transfer.approve',
+      ]) {
+        expect(acces.peut(p), isTrue, reason: p);
+      }
+    });
+  });
+
   group('la barriere du routeur', () {
     test('chaque zone protegee exige sa permission', () {
       expect(permissionPour('/chambres'), 'reservation.read');

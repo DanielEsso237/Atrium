@@ -79,6 +79,10 @@ ROLES = [
     (uuid.UUID("01920000-0000-7000-8000-000000004005"), "HOUSEKEEPING", "Housekeeping"),
     (uuid.UUID("01920000-0000-7000-8000-000000004006"), "MAINTENANCE", "Maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004007"), "MANAGER", "Manager / Direction"),
+    # Les trois metiers du stock. Memes identifiants que la migration 0019.
+    (uuid.UUID("01920000-0000-7000-8000-000000004008"), "ECONOME", "Econome"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004009"), "CONTROLEUR", "Controleur"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004010"), "COMPTABLE", "Comptable"),
 ]
 ADMIN_ROLE, RECEPTION_ROLE = ROLES[0][0], ROLES[1][0]
 CAISSE_ROLE = ROLES[2][0]
@@ -86,6 +90,9 @@ RESTAURANT_ROLE = ROLES[3][0]
 HOUSEKEEPING_ROLE = ROLES[4][0]
 MAINTENANCE_ROLE = ROLES[5][0]
 MANAGER_ROLE = ROLES[6][0]
+ECONOME_ROLE = ROLES[7][0]
+CONTROLEUR_ROLE = ROLES[8][0]
+COMPTABLE_ROLE = ROLES[9][0]
 
 PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004101"), "reservation.create", "Creer une reservation", "reservation"),
@@ -123,6 +130,8 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004133"), "folio.charge", "Porter une consommation sur une ardoise (sans encaisser)", "folio"),
     (uuid.UUID("01920000-0000-7000-8000-000000004134"), "stock.transfer.approve", "Valider ou refuser un transfert de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004135"), "cash.central", "Tenir la caisse centrale : recevoir les versements des points de vente", "cash"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004136"), "stock.manage", "Tenir l'economat : entrees, sorties et ajustements de stock", "stock"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004137"), "stock.transfer.request", "Demander un transfert de stock", "stock"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -151,6 +160,8 @@ FOLIO_CHARGE = PERMISSIONS[32][0]
 STOCK_TRANSFER_APPROVE = PERMISSIONS[33][0]
 STOCK_READ = PERMISSIONS[12][0]
 CASH_CENTRAL = PERMISSIONS[34][0]
+STOCK_MANAGE = PERMISSIONS[35][0]
+STOCK_TRANSFER_REQUEST = PERMISSIONS[36][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -222,6 +233,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # Le barman voit le stock de son bar (retour du 9 octobre) : lecture
     # seulement, et la tablette ne lui montre que ses points de vente.
     (RESTAURANT_ROLE, STOCK_READ),
+    # Il demande son ravitaillement, il ne le valide pas : celui qui recoit
+    # la marchandise n'est pas celui qui dit qu'elle peut partir.
+    (RESTAURANT_ROLE, STOCK_TRANSFER_REQUEST),
     (RESTAURANT_ROLE, PRINT_REPRINT),
     (CAISSE_ROLE, FOLIO_READ),
     (CAISSE_ROLE, FOLIO_WRITE),
@@ -235,6 +249,18 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (HOUSEKEEPING_ROLE, HOUSEKEEPING_MANAGE),
     (MAINTENANCE_ROLE, MAINTENANCE_READ),
     (MAINTENANCE_ROLE, MAINTENANCE_MANAGE),
+    # L'econome tient l'economat : il fait entrer les livraisons, et demande
+    # les transferts qui ravitaillent les points de vente. Il ne les valide
+    # pas -- c'est le second regard du controleur ou du comptable.
+    (ECONOME_ROLE, STOCK_READ),
+    (ECONOME_ROLE, STOCK_MANAGE),
+    (ECONOME_ROLE, STOCK_TRANSFER_REQUEST),
+    # Un seul des deux suffit a valider un transfert. Ils lisent le stock
+    # pour voir ce qu'ils acceptent de vider ; ils n'y touchent pas.
+    (CONTROLEUR_ROLE, STOCK_READ),
+    (CONTROLEUR_ROLE, STOCK_TRANSFER_APPROVE),
+    (COMPTABLE_ROLE, STOCK_READ),
+    (COMPTABLE_ROLE, STOCK_TRANSFER_APPROVE),
 ]
 
 DEMO_ADMIN = uuid.UUID("01920000-0000-7000-8000-000000050001")

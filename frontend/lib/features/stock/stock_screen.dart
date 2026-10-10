@@ -41,7 +41,10 @@ class StockScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final magasins = ref.watch(stockPlacesProvider(session.agent?.id));
     final acces = session.acces;
-    final peutBouger = acces.peut('stock.movement');
+    // Deux gestes, deux droits, comme la route du serveur : l'econome fait
+    // entrer les livraisons, le point de vente ne fait que demander.
+    final peutGerer = acces.peut('stock.manage');
+    final peutDemander = acces.peut('stock.transfer.request');
     final peutValider = acces.peut('stock.transfer.approve');
 
     return magasins.when(
@@ -83,24 +86,26 @@ class StockScreen extends ConsumerWidget {
           subtitle: magasin.isCentral
               ? 'L’économat ravitaille les points de vente'
               : 'Stock du point de vente ${magasin.label}',
-          action: peutBouger
+          action: peutGerer || peutDemander
               ? Wrap(
                   spacing: 10,
                   runSpacing: 8,
                   children: [
-                    if (magasin.isCentral)
+                    if (peutGerer && magasin.isCentral)
                       PillButton(
                         label: 'Entrée',
                         icon: PhosphorIconsLight.plus,
                         tone: PillTone.accent,
                         onPressed: () => _entree(context, ref, magasin),
                       ),
-                    PillButton(
-                      label: 'Transfert',
-                      icon: PhosphorIconsLight.arrowsLeftRight,
-                      tone: PillTone.quiet,
-                      onPressed: () => _transfert(context, ref, magasin, liste),
-                    ),
+                    if (peutDemander)
+                      PillButton(
+                        label: 'Transfert',
+                        icon: PhosphorIconsLight.arrowsLeftRight,
+                        tone: PillTone.quiet,
+                        onPressed: () =>
+                            _transfert(context, ref, magasin, liste),
+                      ),
                   ],
                 )
               : null,
