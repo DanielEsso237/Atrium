@@ -23,7 +23,7 @@ LOIN_APRES = "2999-01-01"
 
 
 @pytest.fixture
-async def comptoir(client, session, hotel_a, login):
+async def comptoir(client, session, hotel_a, login, bar):
     hotel, _ = hotel_a
     await _agent(
         session,
@@ -33,8 +33,10 @@ async def comptoir(client, session, hotel_a, login):
     )
     agent = await session.scalar(select(User).where(User.employee_code == "BT_R"))
     auth = {"Authorization": f"Bearer {await login(client, 'BT_R')}"}
-    # Encaisser exige une caisse ouverte (409 sinon).
-    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth)
+    # Vendre exige le tiroir ouvert de ce point de vente (409 sinon).
+    r = await client.post(
+        "/api/v1/cash-sessions", json={"opening_float": 0, "outlet_id": bar}, headers=auth
+    )
     assert r.status_code in (200, 201), r.text
     return agent.id, auth
 

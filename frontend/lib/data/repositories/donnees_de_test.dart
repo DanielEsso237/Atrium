@@ -558,6 +558,13 @@ Future<String> _complement(
             .getSingleOrNull();
         articles.add((libelle, prix, quantite, article?.read<String>('id')));
       }
+      // Chaque point de vente a son tiroir : on l'ouvre avant d'y vendre.
+      await caisse.open(
+        userId: agentId,
+        openingFloat: 0,
+        by: agentId,
+        outletId: point.id,
+      );
       await commandes.sellWalkIn(
         outlet: point,
         lines: articles,

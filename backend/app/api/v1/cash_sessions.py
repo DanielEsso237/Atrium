@@ -1,6 +1,8 @@
 """Routes sessions de caisse : ouverture, consultation, fermeture (role Caissier).
 
-Une session par caissier a la fois (index unique partiel en base). Les
+Une session ouverte par caissier **et par tiroir** a la fois (index unique
+partiel en base) : chaque point de vente a son tiroir, la reception la caisse
+centrale, et un meme agent peut en tenir plusieurs (decision du 11 octobre). Les
 encaissements en especes enregistres pendant la session s'y rattachent
 (`payments.cash_session_id`, voir app/api/v1/billing.py) ; a la fermeture,
 l'attendu est recalcule depuis ces paiements et compare au comptage physique.
@@ -42,15 +44,24 @@ router = APIRouter(prefix="/cash-sessions", tags=["caisse"])
 
 
 async def open_session_id(
-    session: AsyncSession, user: User, *, for_update: bool = False
+    session: AsyncSession,
+    user: User,
+    *,
+    outlet_id: uuid.UUID | None = None,
+    for_update: bool = False,
 ) -> uuid.UUID | None:
-    """Session ouverte de l'utilisateur, s'il en a une (une seule possible).
+    """Session ouverte de l'utilisateur pour ce tiroir, s'il en a une.
 
-    `for_update` verrouille la session : un encaissement ne doit pas s'y
-    rattacher pendant qu'une fermeture calcule l'attendu.
+    `outlet_id` nul : la caisse centrale. Une seule session ouverte possible
+    par agent et par tiroir. `for_update` verrouille la session : un
+    encaissement ne doit pas s'y rattacher pendant qu'une fermeture calcule
+    l'attendu.
     """
     stmt = select(CashSession.id).where(
         CashSession.user_id == user.id,
+        CashSession.outlet_id.is_(None)
+        if outlet_id is None
+        else CashSession.outlet_id == outlet_id,
         CashSession.status == CashSessionStatus.OPEN,
         CashSession.deleted_at.is_(None),
     )
@@ -91,13 +102,13 @@ async def _outlet_for(
 ) -> uuid.UUID | None:
     """Le point de vente d'une caisse qui s'ouvre, ou rien pour la centrale.
 
-    Qui tient la caisse centrale n'a pas de caisse de point de vente : il se
-    verserait a lui-meme. Un point de vente inconnu est ignore plutot que
-    refuse -- un refus bloquerait la file d'envoi de la tablette, et avec elle
-    toutes les ventes de la soiree ; la caisse se fermera alors sur un simple
-    comptage, comme avant.
+    Chaque point de vente a son tiroir, quel que soit l'agent -- la reception
+    comprise, quand elle sert au bar : sa recette du bar reste celle du bar.
+    Un point de vente inconnu est ignore plutot que refuse -- un refus
+    bloquerait la file d'envoi de la tablette, et avec elle toutes les ventes
+    de la soiree ; la caisse se fermera alors sur un simple comptage.
     """
-    if outlet_id is None or CENTRAL in permission_codes(user):
+    if outlet_id is None:
         return None
     outlet = await session.get(Outlet, outlet_id)
     if outlet is None or outlet.hotel_id != user.hotel_id or outlet.deleted_at is not None:
@@ -167,7 +178,9 @@ async def open_cash_session(
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Session de caisse introuvable.")
             response.status_code = status.HTTP_200_OK
             return connue
-    deja = await open_session_id(session, user)
+    # Un tiroir deja ouvert par cet agent : c'est celui-la.
+    tiroir = await _outlet_for(session, user, payload.outlet_id)
+    deja = await open_session_id(session, user, outlet_id=tiroir)
     if deja is not None:
         response.status_code = status.HTTP_200_OK
         return await session.get(CashSession, deja)
@@ -180,7 +193,7 @@ async def open_cash_session(
         hotel_id=user.hotel_id,
         user_id=user.id,
         device_id=payload.device_id,
-        outlet_id=await _outlet_for(session, user, payload.outlet_id),
+        outlet_id=tiroir,
         status=CashSessionStatus.OPEN,
         opened_at=dt.datetime.now(dt.timezone.utc),
         opening_float=payload.opening_float,
@@ -198,7 +211,7 @@ async def open_cash_session(
         # celle qui a gagne plutot qu'une erreur que l'appelant ne saurait
         # pas traiter autrement qu'en la redemandant.
         await session.rollback()
-        gagnante = await open_session_id(session, user)
+        gagnante = await open_session_id(session, user, outlet_id=tiroir)
         if gagnante is None:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Une session de caisse est deja ouverte."
@@ -211,10 +224,13 @@ async def open_cash_session(
 
 @router.get("/current", response_model=CashSessionOut)
 async def current_cash_session(
+    outlet_id: uuid.UUID | None = Query(
+        None, description="Le tiroir d'un point de vente ; absent : la caisse centrale"
+    ),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("cash.session")),
 ) -> CashSession:
-    session_id = await open_session_id(session, user)
+    session_id = await open_session_id(session, user, outlet_id=outlet_id)
     if session_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucune session de caisse ouverte.")
     cash_session = await session.get(CashSession, session_id)

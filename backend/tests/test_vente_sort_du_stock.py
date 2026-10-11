@@ -135,8 +135,12 @@ async def test_un_plat_du_jour_ne_touche_a_aucun_stock(client, session, auth_a, 
 
 
 async def test_le_client_de_passage_fait_aussi_sortir_le_stock(client, session, auth_a, bar):
-    # Encaisser exige une caisse ouverte (409 sinon).
-    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth_a)
+    # Vendre exige le tiroir ouvert de ce point de vente (409 sinon).
+    r = await client.post(
+        "/api/v1/cash-sessions",
+        json={"opening_float": 0, "outlet_id": bar["outlet"]},
+        headers=auth_a,
+    )
     assert r.status_code in (200, 201), r.text
     vente = {
         "id": str(uuid7()),

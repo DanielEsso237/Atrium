@@ -89,8 +89,13 @@ final cashRepositoryProvider = Provider<CashRepository>(
 );
 
 /// La caisse ouverte de l'agent connecte, avec son attendu en direct.
-final currentCashProvider = StreamProvider.family<CashView?, String>(
-  (ref, userId) => ref.watch(cashRepositoryProvider).watchCurrent(userId),
+/// La caisse ouverte d'un agent : celle d'un point de vente, ou la caisse
+/// centrale quand le point de vente est nul.
+final currentCashProvider =
+    StreamProvider.family<CashView?, (String, String?)>(
+  (ref, cle) => ref
+      .watch(cashRepositoryProvider)
+      .watchCurrent(cle.$1, outletId: cle.$2),
 );
 
 final hotelRepositoryProvider = Provider<HotelRepository>(

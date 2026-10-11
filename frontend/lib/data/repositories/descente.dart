@@ -969,7 +969,10 @@ class Descente {
         // d'envoi, elle le prendra a la reponse ; d'ici la, ecrire celle du
         // serveur a cote ferait deux tiroirs ouverts pour un seul agent.
         if (c.status == CashSessionStatus.OPEN.name) {
-          final locale = await depotCaisse.openSessionId(c.userId);
+          final locale = await depotCaisse.openSessionId(
+            c.userId,
+            outletId: c.outletId,
+          );
           if (locale != null && locale != c.id) {
             if (protegees.contains(locale)) {
               sautees++;

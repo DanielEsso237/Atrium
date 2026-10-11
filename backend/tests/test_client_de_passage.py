@@ -57,12 +57,14 @@ async def bar(session, hotel_a):
 
 
 @pytest.fixture
-async def auth_comptoir(client, session, hotel_a, login):
+async def auth_comptoir(client, session, hotel_a, login, bar):
     hotel, _ = hotel_a
     await _agent(session, hotel, "BT_P", ["order.create", "folio.charge", "cash.session"])
     auth = {"Authorization": f"Bearer {await login(client, 'BT_P')}"}
-    # Encaisser exige une caisse ouverte (409 sinon).
-    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth)
+    # Vendre exige le tiroir ouvert de ce point de vente (409 sinon).
+    r = await client.post(
+        "/api/v1/cash-sessions", json={"opening_float": 0, "outlet_id": bar}, headers=auth
+    )
     assert r.status_code in (200, 201), r.text
     return auth
 

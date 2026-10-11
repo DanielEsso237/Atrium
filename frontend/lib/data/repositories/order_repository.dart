@@ -375,11 +375,16 @@ class OrderRepository with OutboxWriter {
         throw StateError('Le montant doit être supérieur à zéro.');
       }
     }
-    final caisse = await CashRepository(db).openSessionId(by);
+    // Le tiroir de ce point de vente, pas un autre : chaque point de vente a
+    // le sien, et la recette du bar ne doit pas tomber dans celle du
+    // restaurant.
+    final caisse = await CashRepository(
+      db,
+    ).openSessionId(by, outletId: outlet.id);
     if (caisse == null) {
       throw StateError(
-        "Ouvrez votre caisse avant d'encaisser : la vente doit tomber dans "
-        'un tiroir.',
+        'Ouvrez la caisse de ${outlet.label} avant d\'encaisser : la vente '
+        'doit tomber dans son tiroir.',
       );
     }
 
