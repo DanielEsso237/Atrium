@@ -148,14 +148,19 @@ class Descente {
       // La fenetre des arrivees, plus tous les sejours en cours : un client
       // arrive avant la fenetre est encore dans sa chambre. Le meme dossier
       // peut venir des deux appels ; il ne s'ecrit qu'une fois.
+      final enCours = await _siPermisOuRien(_catalog.fetchStaysInHouse);
       final dossiers = {
         for (final d in [
           ...await _siPermis(() => _catalog.fetchReservations()),
-          ...await _siPermis(_catalog.fetchStaysInHouse),
+          ...?enCours,
         ])
           d.id: d,
       }.values.toList();
       final ardoises = await _siPermis(_catalog.fetchOpenFolios);
+      // Qui ne lit pas les reservations -- le comptoir -- recoit a la place
+      // les chambres a qui il peut porter. `null` : rien a faire, ni a
+      // retirer (la reception lit deja tout, ou l'agent ne porte pas).
+      final aPorter = enCours == null ? await _sejoursAPorter() : null;
       // Les rapports : ventes closes ailleurs et encaissements de tous les
       // postes, sur une fenetre glissante.
       final depuis = _debutFenetreRapports();
@@ -217,8 +222,12 @@ class Descente {
         maintenant,
       );
       ecartees += ecartDossiers;
+      // Avant les ardoises : une ardoise ne s'accroche qu'a un sejour connu.
+      if (aPorter != null) {
+        ecartees += await _ecrireSejoursAPorter(aPorter, maintenant);
+      }
       final (nArdoises, nItems, ecartArdoises) = await _ecrireArdoises(
-        [...ardoises, ...ardoisesCloses],
+        [...ardoises, ...ardoisesCloses, ...?aPorter?.map((s) => s.folio)],
         maintenant,
       );
       ecartees += ecartArdoises;
@@ -904,6 +913,191 @@ class Descente {
     postedAt: Value.absentIfNull(i.postedAt),
     syncState: const Value(SyncState.synced),
   );
+
+  // --- Les chambres du comptoir -----------------------------------------------
+
+  /// Les sejours a qui l'agent peut porter, ou `null` s'il ne porte pas
+  /// (403) -- ou si le serveur ne connait pas encore la route (404).
+  Future<List<RemoteChargeableStay>?> _sejoursAPorter() async {
+    try {
+      return await _catalog.fetchChargeableStays();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.forbidden ||
+          e.failure == ApiFailure.notFound) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  /// Ecrit ce qu'il faut pour qu'une chambre se propose au comptoir ; rend
+  /// le nombre de sejours ecartes.
+  ///
+  /// Le strict minimum, et **jamais par-dessus une fiche complete** : une
+  /// tablette partagee avec la reception garde ce que la reception y a
+  /// descendu. Seuls changent ce que le comptoir doit savoir juste -- le
+  /// statut et la chambre du sejour (un changement de chambre), le nom et le
+  /// plafond du client.
+  ///
+  /// Un sejour encore en cours ici et absent de la liste est fini : le
+  /// client est parti, sa chambre ne doit plus se proposer -- une charge
+  /// portee dessus serait refusee par le serveur et bloquerait la file.
+  Future<int> _ecrireSejoursAPorter(
+    List<RemoteChargeableStay> sejours,
+    DateTime maintenant,
+  ) async {
+    final protegesClients = await _sync.lignesEnAttente(db.guests);
+    final protegesSejours = await _sync.lignesEnAttente(db.reservationRooms);
+    final typesConnus = await _identifiants('room_types');
+    final chambresConnues = await _identifiants('rooms');
+    final clientsConnus = await _identifiants('guests');
+    final dossiersConnus = await _identifiants('reservations');
+    final sejoursConnus = await _identifiants('reservation_rooms');
+    var sautes = 0;
+
+    await db.transaction(() async {
+      for (final s in sejours) {
+        if (!typesConnus.contains(s.roomTypeId)) {
+          await db
+              .into(db.roomTypes)
+              .insert(
+                RoomTypesCompanion.insert(
+                  id: s.roomTypeId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  code: s.roomTypeCode,
+                  label: s.roomTypeLabel,
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          typesConnus.add(s.roomTypeId);
+        }
+        if (!chambresConnues.contains(s.roomId)) {
+          await db
+              .into(db.rooms)
+              .insert(
+                RoomsCompanion.insert(
+                  id: s.roomId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  number: s.roomNumber,
+                  roomTypeId: s.roomTypeId,
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          chambresConnues.add(s.roomId);
+        }
+        if (!clientsConnus.contains(s.guestId)) {
+          await db
+              .into(db.guests)
+              .insert(
+                GuestsCompanion.insert(
+                  id: s.guestId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  code: s.guestCode,
+                  firstName: s.firstName,
+                  lastName: s.lastName,
+                  creditLimit: Value(s.creditLimit),
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          clientsConnus.add(s.guestId);
+        } else if (!protegesClients.contains(s.guestId)) {
+          await (db.update(db.guests)..where((g) => g.id.equals(s.guestId)))
+              .write(
+                GuestsCompanion(
+                  firstName: Value(s.firstName),
+                  lastName: Value(s.lastName),
+                  creditLimit: Value(s.creditLimit),
+                ),
+              );
+        }
+        if (!dossiersConnus.contains(s.reservationId)) {
+          await db
+              .into(db.reservations)
+              .insert(
+                ReservationsCompanion.insert(
+                  id: s.reservationId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  reference: s.reservationReference,
+                  guestId: s.guestId,
+                  status: const Value(ReservationStatus.CHECKED_IN),
+                  arrivalDate: s.arrivalDate,
+                  departureDate: s.departureDate,
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          dossiersConnus.add(s.reservationId);
+        }
+        if (protegesSejours.contains(s.stayId)) {
+          sautes++;
+        } else if (!sejoursConnus.contains(s.stayId)) {
+          await db
+              .into(db.reservationRooms)
+              .insert(
+                ReservationRoomsCompanion.insert(
+                  id: s.stayId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  reservationId: s.reservationId,
+                  roomTypeId: s.roomTypeId,
+                  roomId: Value(s.roomId),
+                  arrivalDate: s.arrivalDate,
+                  departureDate: s.departureDate,
+                  status: const Value(ReservationStatus.CHECKED_IN),
+                  checkedInAt: Value(s.checkedInAt),
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+        } else {
+          await (db.update(
+            db.reservationRooms,
+          )..where((rr) => rr.id.equals(s.stayId))).write(
+            ReservationRoomsCompanion(
+              roomId: Value(s.roomId),
+              departureDate: Value(s.departureDate),
+              status: const Value(ReservationStatus.CHECKED_IN),
+            ),
+          );
+        }
+      }
+
+      // Les sejours partis : encore en cours ici, absents du serveur.
+      final enCours = {for (final s in sejours) s.stayId};
+      final partis =
+          await (db.select(db.reservationRooms)..where(
+                (rr) =>
+                    rr.status.equalsValue(ReservationStatus.CHECKED_IN) &
+                    rr.deletedAt.isNull(),
+              ))
+              .get();
+      for (final rr in partis) {
+        if (enCours.contains(rr.id) || protegesSejours.contains(rr.id)) {
+          continue;
+        }
+        await (db.update(db.reservationRooms)
+              ..where((r) => r.id.equals(rr.id)))
+            .write(
+              const ReservationRoomsCompanion(
+                status: Value(ReservationStatus.CHECKED_OUT),
+              ),
+            );
+      }
+    });
+
+    return sautes;
+  }
 
   // --- Les ventes des points de vente -----------------------------------------
 

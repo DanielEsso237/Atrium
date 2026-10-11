@@ -489,6 +489,16 @@ jamais dans la liste des ardoises ouvertes.
   - `cash_sessions` : leurs tiroirs, **quel que soit l'agent** qui les tient,
     sur la même fenêtre que `GET /cash-sessions`.
 
+- `GET /chargeable-stays` (`folio.charge`) : les séjours en cours dont
+  l'ardoise est ouverte, par numéro de chambre — pour le comptoir, qui porte
+  sur la chambre sans lire les réservations. Chaque séjour donne sa chambre
+  et sa catégorie, son dossier, du client **le nom et le plafond seulement**,
+  et l'ardoise entière (`FolioOut`, lignes comprises : sur ses seules lignes
+  du bar, la tablette recalculerait un solde faux et laisserait passer une
+  charge refusée au-delà du plafond). La tablette ne l'appelle que si
+  `GET /reservations` lui est refusé ; un séjour absent de la liste est
+  terminé, et sa chambre ne se propose plus.
+
 Une consommation portée à la chambre par un point de vente
 (`POST /folios/{id}/items` avec `outlet_id`) enregistre désormais
 `source_table = "outlets"` et `source_id` comme une vente au comptoir. Avant,

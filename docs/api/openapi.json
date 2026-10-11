@@ -733,6 +733,118 @@
         "title": "ChargeCategory",
         "type": "string"
       },
+      "ChargeableStayOut": {
+        "description": "Un sejour en cours et son ardoise ouverte.\n\nDu client, le nom et le plafond seulement : le barman a besoin de savoir\na qui il porte, et la tablette de refuser avant le serveur une charge qui\ncreverait le plafond. Ni telephone, ni piece d'identite.",
+        "properties": {
+          "arrival_date": {
+            "format": "date",
+            "title": "Arrival Date",
+            "type": "string"
+          },
+          "checked_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked In At"
+          },
+          "departure_date": {
+            "format": "date",
+            "title": "Departure Date",
+            "type": "string"
+          },
+          "folio": {
+            "$ref": "#/components/schemas/FolioOut"
+          },
+          "guest_code": {
+            "title": "Guest Code",
+            "type": "string"
+          },
+          "guest_credit_limit": {
+            "title": "Guest Credit Limit",
+            "type": "integer"
+          },
+          "guest_first_name": {
+            "title": "Guest First Name",
+            "type": "string"
+          },
+          "guest_id": {
+            "format": "uuid",
+            "title": "Guest Id",
+            "type": "string"
+          },
+          "guest_last_name": {
+            "title": "Guest Last Name",
+            "type": "string"
+          },
+          "reservation_id": {
+            "format": "uuid",
+            "title": "Reservation Id",
+            "type": "string"
+          },
+          "reservation_reference": {
+            "title": "Reservation Reference",
+            "type": "string"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "room_number": {
+            "title": "Room Number",
+            "type": "string"
+          },
+          "room_type_code": {
+            "title": "Room Type Code",
+            "type": "string"
+          },
+          "room_type_id": {
+            "format": "uuid",
+            "title": "Room Type Id",
+            "type": "string"
+          },
+          "room_type_label": {
+            "title": "Room Type Label",
+            "type": "string"
+          },
+          "stay_id": {
+            "format": "uuid",
+            "title": "Stay Id",
+            "type": "string"
+          },
+          "stay_status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          }
+        },
+        "required": [
+          "stay_id",
+          "reservation_id",
+          "reservation_reference",
+          "stay_status",
+          "arrival_date",
+          "departure_date",
+          "checked_in_at",
+          "room_id",
+          "room_number",
+          "room_type_id",
+          "room_type_code",
+          "room_type_label",
+          "guest_id",
+          "guest_code",
+          "guest_first_name",
+          "guest_last_name",
+          "guest_credit_limit",
+          "folio"
+        ],
+        "title": "ChargeableStayOut",
+        "type": "object"
+      },
       "CheckInIn": {
         "properties": {
           "folio_id": {
@@ -8507,6 +8619,37 @@
         "summary": "Receive Remittance",
         "tags": [
           "caisse"
+        ]
+      }
+    },
+    "/api/v1/chargeable-stays": {
+      "get": {
+        "description": "Les sejours en cours dont l'ardoise est ouverte, par numero de chambre.",
+        "operationId": "chargeable_stays_api_v1_chargeable_stays_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChargeableStayOut"
+                  },
+                  "title": "Response Chargeable Stays Api V1 Chargeable Stays Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Chargeable Stays",
+        "tags": [
+          "points de vente"
         ]
       }
     },
