@@ -13,6 +13,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/remote/file_uploader.dart';
@@ -20,6 +21,7 @@ import '../../data/remote/outbox_sender.dart';
 import '../../data/repositories/descente.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/sync_repository.dart';
+import '../auth/session.dart';
 
 class SyncUiState {
   const SyncUiState({
@@ -103,7 +105,22 @@ class SyncNotifier extends Notifier<SyncUiState> {
     }
     state = state.copyWith(running: true);
 
-    final rapport = await ref.read(outboxSenderProvider).drain();
+    // Toujours rendre la main, meme sur une erreur imprevue : sans quoi
+    // `running` restait vrai pour toujours. Le bouton tournait sans fin, et
+    // chaque tentative suivante abandonnait en voyant un echange « en
+    // cours » -- les ecritures restaient dans la file.
+    DrainReport rapport;
+    try {
+      rapport = await ref.read(outboxSenderProvider).drain();
+    } catch (e, pile) {
+      debugPrint('Atrium : la remontee a echoue : $e\n$pile');
+      rapport = DrainReport(
+        envoyees: 0,
+        restantes: 0,
+        arret: DrainStop.horsLigne,
+        detail: '$e',
+      );
+    }
 
     state = state.copyWith(
       running: false,
@@ -130,15 +147,27 @@ class SyncNotifier extends Notifier<SyncUiState> {
     if (state.running) return const SyncOutcome.offline();
     state = state.copyWith(running: true);
 
-    // L'ordre n'est pas negociable : la descente ecrase, la montee non.
-    // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
-    // tablette sait avant qu'il ne lui reponde.
-    final rapport = await ref.read(outboxSenderProvider).drain();
+    final DrainReport rapport;
+    final SyncOutcome outcome;
+    final PullReport descendu;
+    try {
+      // L'ordre n'est pas negociable : la descente ecrase, la montee non.
+      // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
+      // tablette sait avant qu'il ne lui reponde.
+      rapport = await ref.read(outboxSenderProvider).drain();
 
-    // Le referentiel d'abord : les reservations s'accrochent aux categories
-    // de chambres, et une categorie absente ferait ecarter la ligne.
-    final outcome = await ref.read(syncRepositoryProvider).pullRooms();
-    final descendu = await ref.read(descenteProvider).pull();
+      // Le referentiel d'abord : les reservations s'accrochent aux
+      // categories de chambres, et une categorie absente ferait ecarter la
+      // ligne.
+      outcome = await ref.read(syncRepositoryProvider).pullRooms();
+      descendu = await ref.read(descenteProvider).pull();
+    } catch (e, pile) {
+      // Comme pour `push` : une erreur imprevue ne doit jamais laisser
+      // l'echange « en cours » pour toujours.
+      debugPrint('Atrium : la synchronisation a echoue : $e\n$pile');
+      state = state.copyWith(running: false, at: DateTime.now());
+      return const SyncOutcome.offline();
+    }
 
     state = SyncUiState(
       last: outcome,
@@ -181,6 +210,20 @@ class SyncScheduler extends Notifier<void> {
 
   @override
   void build() {
+    // La session repasse en ligne (connexion, ou reprise apres une connexion
+    // faite hors ligne) : l'automatisme repart. Sans cela, l'arret pris sur
+    // « session invalide » -- une tablette reconnectee hors ligne n'a plus
+    // de jeton -- durait jusqu'a la deconnexion, et les ecritures suivantes
+    // restaient dans la file.
+    ref.listen<bool>(sessionProvider.select((s) => s.online), (avant, enLigne) {
+      if (!enLigne || avant == true) return;
+      _echecs = 0;
+      _arrete = false;
+      if ((ref.read(pendingWritesProvider).value ?? 0) > 0) {
+        _planifier(_premierDelai);
+      }
+    });
+
     ref.listen<AsyncValue<int>>(pendingWritesProvider, (_, suivant) {
       final enAttente = suivant.value ?? 0;
       if (enAttente == 0) {
