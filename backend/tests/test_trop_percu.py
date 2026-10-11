@@ -32,7 +32,11 @@ DEPARTURE = dt.date(2030, 3, 12)
 
 @pytest.fixture
 async def auth_a(client, hotel_a, login):
-    return {"Authorization": f"Bearer {await login(client, 'ADMIN_A')}"}
+    auth = {"Authorization": f"Bearer {await login(client, 'ADMIN_A')}"}
+    # Encaisser exige une caisse ouverte (409 sinon).
+    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth)
+    assert r.status_code in (200, 201), r.text
+    return auth
 
 
 async def _folio_avec_note(client, session, hotel, auth, montant: int) -> str:
@@ -154,6 +158,23 @@ async def test_les_paiements_partiels_restent_possibles(client, session, hotel_a
     )
     assert b.status_code == 201 and b.json()["balance"] == 0
     assert await _paiements(session, folio) == 2
+
+
+async def test_un_renvoi_passe_meme_caisse_fermee_entre_temps(client, session, hotel_a, auth_a):
+    # La tablette renvoie un encaissement deja enregistre apres la fermeture
+    # de la caisse : le refuser bloquerait sa file d'envoi.
+    folio_id = await _folio_avec_note(client, session, hotel_a[0], auth_a, 50_000)
+    paiement = {"id": str(uuid7()), "method": "CASH", "amount": 50_000}
+    url = f"/api/v1/folios/{folio_id}/payments"
+    assert (await client.post(url, json=paiement, headers=auth_a)).status_code == 201
+    caisse = (await client.get("/api/v1/cash-sessions/current", headers=auth_a)).json()
+    r = await client.post(
+        f"/api/v1/cash-sessions/{caisse['id']}/close",
+        json={"counted_amount": 50_000},
+        headers=auth_a,
+    )
+    assert r.status_code == 200, r.text
+    assert (await client.post(url, json=paiement, headers=auth_a)).status_code == 200
 
 
 async def test_un_paiement_rejoue_repond_toujours_200(client, session, hotel_a, auth_a):

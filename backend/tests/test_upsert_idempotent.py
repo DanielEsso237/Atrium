@@ -234,6 +234,9 @@ async def _open_folio(client, session, hotel, auth) -> str:
 
 async def test_charge_et_paiement_rejoues_comptes_une_fois(client, session, hotel_a, auth_a):
     folio_id = await _open_folio(client, session, hotel_a[0], auth_a)
+    # Encaisser exige une caisse ouverte (409 sinon).
+    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth_a)
+    assert r.status_code in (200, 201), r.text
     item = {"id": str(uuid7()), "category": "MINIBAR", "label": "Coca", "unit_price": 1000}
     first = await client.post(f"/api/v1/folios/{folio_id}/items", json=item, headers=auth_a)
     again = await client.post(f"/api/v1/folios/{folio_id}/items", json=item, headers=auth_a)
