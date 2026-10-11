@@ -86,11 +86,15 @@ class AgentRepository with OutboxWriter {
   }
 
   /// Les roles que l'administration peut attribuer.
-  Future<List<RoleRow>> roles() =>
-      (db.select(db.roles)
-            ..where((r) => r.deletedAt.isNull() & r.isActive.equals(true))
-            ..orderBy([(r) => OrderingTerm(expression: r.label)]))
-          .get();
+  Future<List<RoleRow>> roles() => _roles().get();
+
+  /// Les roles, tenus a jour : un role descendu du serveur apres
+  /// l'ouverture de l'ecran (ECONOME, le 11 octobre) doit y apparaitre.
+  Stream<List<RoleRow>> watchRoles() => _roles().watch();
+
+  SimpleSelectStatement<$RolesTable, RoleRow> _roles() => db.select(db.roles)
+    ..where((r) => r.deletedAt.isNull() & r.isActive.equals(true))
+    ..orderBy([(r) => OrderingTerm(expression: r.label)]);
 
   /// Cree un agent. Le PIN part vers le serveur et n'est pas garde ici.
   Future<UserRow> create({
@@ -283,9 +287,16 @@ class AgentRepository with OutboxWriter {
     await db.transaction(() async {
       final local = await (db.select(
         db.roles,
-      )..where((r) => r.code.equals(code))).getSingleOrNull();
+      )..where((r) => r.code.equals(code))..limit(1)).getSingleOrNull();
       if (local?.syncState == SyncState.pending) return;
-      final roleId = await _role(code, (json['label'] as String?) ?? code);
+      final roleId = await _role(
+        code,
+        (json['label'] as String?) ?? code,
+        // L'identifiant du serveur, pas un neuf : sinon le meme role existait
+        // sous deux identifiants, et les comptes de demonstration en
+        // creaient un second exemplaire au demarrage suivant.
+        id: json['id'] as String?,
+      );
       if (json['permissions'] is List) {
         await _permissions(roleId, [
           for (final p in json['permissions'] as List)
@@ -329,7 +340,7 @@ class AgentRepository with OutboxWriter {
     for (final code in roleCodes) {
       final role = await (db.select(
         db.roles,
-      )..where((r) => r.code.equals(code))).getSingleOrNull();
+      )..where((r) => r.code.equals(code))..limit(1)).getSingleOrNull();
       if (role == null) continue;
       await db
           .into(db.userRoles)
@@ -348,18 +359,18 @@ class AgentRepository with OutboxWriter {
   }
 
   /// Le role de ce code, cree s'il n'existe pas encore sur la tablette.
-  Future<String> _role(String code, String label) async {
+  Future<String> _role(String code, String label, {String? id}) async {
     final existant = await (db.select(
       db.roles,
-    )..where((r) => r.code.equals(code))).getSingleOrNull();
+    )..where((r) => r.code.equals(code))..limit(1)).getSingleOrNull();
     if (existant != null) return existant.id;
-    final id = newId();
+    final ident = id ?? newId();
     final now = DateTime.now().toUtc();
     await db
         .into(db.roles)
         .insert(
           RolesCompanion.insert(
-            id: id,
+            id: ident,
             createdAt: now,
             updatedAt: now,
             code: code,
@@ -367,7 +378,7 @@ class AgentRepository with OutboxWriter {
             syncState: const Value(SyncState.synced),
           ),
         );
-    return id;
+    return ident;
   }
 
   /// Aligne les permissions d'un role sur celles du serveur.
@@ -427,7 +438,7 @@ class AgentRepository with OutboxWriter {
     }
     final role = await (db.select(
       db.roles,
-    )..where((r) => r.code.equals(roleCode))).getSingleOrNull();
+    )..where((r) => r.code.equals(roleCode))..limit(1)).getSingleOrNull();
     if (role == null) throw StateError('Choisissez un rôle.');
     final pris =
         await (db.select(db.users)..where(

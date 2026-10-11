@@ -23,6 +23,9 @@ import '../auth/session.dart';
 const _formatCarte = 85.6 / 54;
 const _rayon = 10.0;
 
+/// La plus large case possible, en points : celle de la fiche client.
+const _largeurVignette = 480.0;
+
 final _photosProvider =
     StreamProvider.family<Map<IdPhotoSide, AttachmentRow>, String>(
       (ref, guestId) => ref.watch(idPhotoRepositoryProvider).watch(guestId),
@@ -311,15 +314,17 @@ class _Apercu extends StatelessWidget {
               label: '${nom.toLowerCase()} de la pièce, agrandir',
               child: Hero(
                 tag: heroTag,
-                child: LayoutBuilder(
-                  // Decodee a la taille de la case : une image de 1600 pixels
-                  // pour une vignette de 220 occuperait la memoire pour rien.
-                  builder: (context, c) => Image.memory(
-                    image,
-                    fit: BoxFit.cover,
-                    cacheWidth: (c.maxWidth * ratio).round(),
-                    gaplessPlayback: true,
-                  ),
+                // Decodee a la taille d'une vignette : une image de 1600
+                // pixels pour une case de 220 occuperait la memoire pour rien.
+                // Une largeur fixe, et non un LayoutBuilder : la fenetre
+                // d'arrivee (AlertDialog) mesure son contenu par sa largeur
+                // intrinseque, que LayoutBuilder refuse de donner -- la
+                // fenetre restait blanche des qu'une photo existait.
+                child: Image.memory(
+                  image,
+                  fit: BoxFit.cover,
+                  cacheWidth: (_largeurVignette * ratio).round(),
+                  gaplessPlayback: true,
                 ),
               ),
             ),
