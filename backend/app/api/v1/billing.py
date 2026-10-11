@@ -368,6 +368,35 @@ async def post_stay_nights(
     return folio
 
 
+async def _caisse_ouverte(session: AsyncSession, user: User) -> uuid.UUID:
+    """La caisse ouverte de l'agent qui encaisse, ou 409.
+
+    Pas d'argent hors d'un tiroir : un encaissement sans caisse n'entrait
+    dans aucun attendu ni aucun ecart, et le versement du soir ne pouvait pas
+    le compter. La tablette fait le meme refus avant d'enfiler, pour ne pas
+    bloquer sa file. Un renvoi d'encaissement deja enregistre est reconnu
+    avant d'arriver ici : il passe meme si la caisse a ete fermee entre-temps.
+
+    La ligne de session est verrouillee pour ne pas croiser une fermeture en
+    cours.
+    """
+    cash_session_id = await session.scalar(
+        select(CashSession.id)
+        .where(
+            CashSession.user_id == user.id,
+            CashSession.status == CashSessionStatus.OPEN,
+            CashSession.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if cash_session_id is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Ouvrez votre caisse avant d'encaisser : l'argent doit tomber dans un tiroir.",
+        )
+    return cash_session_id
+
+
 @router.post(
     "/folios/{folio_id}/payments",
     response_model=FolioOut,
@@ -423,17 +452,8 @@ async def record_payment(
         )
 
     # Rattachement a la session de caisse ouverte du caissier : c'est ce qui
-    # permet de calculer l'attendu et l'ecart a la fermeture. La ligne de
-    # session est verrouillee pour ne pas croiser une fermeture en cours.
-    cash_session_id = await session.scalar(
-        select(CashSession.id)
-        .where(
-            CashSession.user_id == user.id,
-            CashSession.status == CashSessionStatus.OPEN,
-            CashSession.deleted_at.is_(None),
-        )
-        .with_for_update()
-    )
+    # permet de calculer l'attendu et l'ecart a la fermeture.
+    cash_session_id = await _caisse_ouverte(session, user)
 
     business_date = await current_business_date(session, user.hotel_id)
     payment = Payment(
@@ -501,6 +521,8 @@ async def walk_in_sale(
             status.HTTP_409_CONFLICT,
             f"Le paiement ({payload.payment.amount}) doit couvrir le total ({total}).",
         )
+    # Avant toute ecriture : sans caisse, rien n'est cree.
+    cash_session_id = await _caisse_ouverte(session, user)
 
     now = dt.datetime.now(dt.timezone.utc)
     business_date = await current_business_date(session, user.hotel_id)
@@ -547,15 +569,6 @@ async def walk_in_sale(
             folio_item_id=item_id,
             by=user.id,
         )
-    cash_session_id = await session.scalar(
-        select(CashSession.id)
-        .where(
-            CashSession.user_id == user.id,
-            CashSession.status == CashSessionStatus.OPEN,
-            CashSession.deleted_at.is_(None),
-        )
-        .with_for_update()
-    )
     session.add(
         Payment(
             id=payload.payment.id or uuid7(),

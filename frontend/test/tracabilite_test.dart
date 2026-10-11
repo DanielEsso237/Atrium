@@ -266,6 +266,9 @@ void main() {
   });
 
   group('folio', () {
+    // Encaisser exige la caisse ouverte de l'agent.
+    setUp(() => caisse.open(userId: agent, openingFloat: 0));
+
     test('addCharge : agent en local et dans la file', () async {
       await ouvrirArdoise();
       await folios.addCharge(
@@ -309,22 +312,21 @@ void main() {
       expect((await payloads('payments')).single['received_by'], agent);
     });
 
-    test('addPayment sans agent : auteur nul, encaissement accepte', () async {
+    test('addPayment sans agent : refuse, rien n est envoye', () async {
       await ouvrirArdoise();
       await porterUneCharge();
 
-      await folios.addPayment(
-        folioId: folioId,
-        method: PaymentMethod.CASH,
-        amount: 18500,
+      // Sans agent, pas de caisse a laquelle rattacher l'argent.
+      await expectLater(
+        folios.addPayment(
+          folioId: folioId,
+          method: PaymentMethod.CASH,
+          amount: 18500,
+        ),
+        throwsStateError,
       );
-
-      final paiement = await db.select(db.payments).getSingle();
-      expect(paiement.receivedBy, isNull);
-      expect(
-        (await payloads('payments')).single,
-        containsPair('received_by', isNull),
-      );
+      expect(await db.select(db.payments).get(), isEmpty);
+      expect(await payloads('payments'), isEmpty);
     });
 
     test('close : agent en local et dans la file', () async {
@@ -333,6 +335,7 @@ void main() {
       await folios.addPayment(
         folioId: folioId,
         method: PaymentMethod.CASH,
+        receivedBy: agent,
         amount: 18500,
       );
 
@@ -349,6 +352,7 @@ void main() {
       await folios.addPayment(
         folioId: folioId,
         method: PaymentMethod.CASH,
+        receivedBy: agent,
         amount: 18500,
       );
 

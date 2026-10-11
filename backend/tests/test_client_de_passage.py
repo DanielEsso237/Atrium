@@ -60,7 +60,11 @@ async def bar(session, hotel_a):
 async def auth_comptoir(client, session, hotel_a, login):
     hotel, _ = hotel_a
     await _agent(session, hotel, "BT_P", ["order.create", "folio.charge", "cash.session"])
-    return {"Authorization": f"Bearer {await login(client, 'BT_P')}"}
+    auth = {"Authorization": f"Bearer {await login(client, 'BT_P')}"}
+    # Encaisser exige une caisse ouverte (409 sinon).
+    r = await client.post("/api/v1/cash-sessions", json={"opening_float": 0}, headers=auth)
+    assert r.status_code in (200, 201), r.text
+    return auth
 
 
 def _vente(bar, montant=6_000, folio_id=None):
@@ -98,6 +102,16 @@ async def test_le_paiement_doit_couvrir_le_total(client, bar, auth_comptoir):
         "/api/v1/folios/walk-in", json=_vente(bar, montant=5_000), headers=auth_comptoir
     )
     assert r.status_code == 409
+
+
+async def test_caisse_fermee_pas_de_vente(client, session, hotel_a, login, bar):
+    # Le droit sans la caisse ouverte : la vente n'a pas de tiroir ou tomber.
+    hotel, _ = hotel_a
+    await _agent(session, hotel, "BT_F", ["order.create", "folio.charge", "cash.session"])
+    auth = {"Authorization": f"Bearer {await login(client, 'BT_F')}"}
+    r = await client.post("/api/v1/folios/walk-in", json=_vente(bar), headers=auth)
+    assert r.status_code == 409
+    assert "caisse" in r.json()["detail"]
 
 
 async def test_sans_caisse_pas_de_vente(client, session, hotel_a, login, bar):

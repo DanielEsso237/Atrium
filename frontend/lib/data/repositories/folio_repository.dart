@@ -366,6 +366,9 @@ class FolioRepository with OutboxWriter {
   /// 50 000 : les 10 000 rendus sont de la manipulation d'especes, pas une
   /// ligne d'ardoise.
   ///
+  /// Exige un agent et sa caisse ouverte : l'argent tombe toujours dans un
+  /// tiroir.
+  ///
   /// Leve une [StateError] dont le message est fait pour etre montre tel quel.
   Future<void> addPayment({
     required String folioId,
@@ -409,6 +412,22 @@ class FolioRepository with OutboxWriter {
           'l\'ardoise ${folio.number}.',
         );
       }
+      // Pas d'argent hors d'un tiroir : sans caisse ouverte, l'encaissement
+      // n'entrait dans aucun attendu ni aucun ecart, et le versement du soir
+      // ne pouvait pas le compter. Le serveur refuse de meme (409) : ce refus
+      // doit arriver ici, avant la file, sinon il la bloquerait.
+      if (receivedBy == null) {
+        throw StateError(
+          'Aucun agent connecte : reconnectez-vous pour encaisser.',
+        );
+      }
+      final caisse = await CashRepository(db).openSessionId(receivedBy);
+      if (caisse == null) {
+        throw StateError(
+          "Ouvrez votre caisse avant d'encaisser : l'argent doit tomber dans "
+          'un tiroir.',
+        );
+      }
 
       await db
           .into(db.payments)
@@ -428,11 +447,7 @@ class FolioRepository with OutboxWriter {
               // de fin de service ne peut pas se calculer, et l'ecart ne veut
               // plus rien dire. Le serveur fait le meme rattachement de son
               // cote, a partir de l'utilisateur du jeton.
-              cashSessionId: Value(
-                receivedBy == null
-                    ? null
-                    : await CashRepository(db).openSessionId(receivedBy),
-              ),
+              cashSessionId: Value(caisse),
               receivedAt: Value(now),
               businessDate: Value(businessDate),
               syncState: const Value(SyncState.pending),

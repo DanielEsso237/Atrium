@@ -15,6 +15,7 @@ import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/outbox_sender.dart';
 import 'package:atrium/data/remote/token_store.dart';
+import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/folio_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
 import 'package:atrium/data/repositories/reservation_repository.dart';
@@ -88,10 +89,14 @@ void main() {
       label: 'Cafe',
       unitPrice: 1500,
     );
+    // Encaisser exige la caisse ouverte de l'agent.
+    const agent = '01920000-0000-7000-8000-000000050002';
+    await CashRepository(db).open(userId: agent, openingFloat: 0);
     await folios.addPayment(
       folioId: locale.id,
       method: PaymentMethod.CASH,
       amount: 10000,
+      receivedBy: agent,
     );
     return (ligne.id, locale.id);
   }
