@@ -183,6 +183,9 @@ class FolioRepository with OutboxWriter {
               sourceTable: Value(sourceTable),
               sourceId: Value(sourceId),
               postedBy: Value(postedBy),
+              // L'heure de la saisie : `created_at` est reecrit par la
+              // descente, les heures de pointe se liraient sur elle.
+              postedAt: Value(now),
               syncState: const Value(SyncState.pending),
             ),
           );
