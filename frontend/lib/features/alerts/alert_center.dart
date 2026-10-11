@@ -181,9 +181,13 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         if (!avant.contains(a.cle) && !vues.contains(a.cle)) a,
     ];
 
-    // A la connexion, les arrivees et les stocks bas deja connus ne sonnent
-    // pas : l'agent les trouvera dans la cloche. Le reste sonne, meme deja
-    // ancien.
+    // A la connexion, les arrivees et les stocks bas deja connus vont dans la
+    // cloche sans bandeau ni rappel. Le reste sonne, meme deja ancien.
+    //
+    // Le stock bas sonne quand meme une fois, a la connexion (decision du
+    // 11 octobre) : une seule sonnerie pour tous les produits en manque, pas
+    // une par produit, et sans rappel ensuite.
+    final aLaConnexion = <Alerte>[];
     if (_premiere) {
       _premiere = false;
       vues = {
@@ -191,6 +195,9 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         for (final a in nouvelles)
           if (a.niveau == NiveauAlerte.info) a.cle,
       };
+      aLaConnexion.addAll(
+        nouvelles.where((a) => a.type == TypeEvenement.stockBas).take(1),
+      );
       nouvelles.removeWhere((a) => a.niveau == NiveauAlerte.info);
     }
 
@@ -203,7 +210,7 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         unawaited(_systeme.retirer(cle));
       }
     }
-    _signaler(nouvelles);
+    _signaler([...nouvelles, ...aLaConnexion]);
     _ajusterRappel();
   }
 

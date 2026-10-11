@@ -545,7 +545,10 @@ void main() {
     late _VoletNote volet;
     late _PremierPlan plan;
 
-    Future<ProviderContainer> centre({bool devant = true}) async {
+    Future<ProviderContainer> centre({
+      bool devant = true,
+      Set<String> droits = const {'maintenance.read'},
+    }) async {
       signal = _SignalNote();
       volet = _VoletNote();
       plan = _PremierPlan(devant);
@@ -575,7 +578,7 @@ void main() {
             () => _Session(
               SessionState(
                 agent: agent,
-                acces: const AccessProfile(permissions: {'maintenance.read'}),
+                acces: AccessProfile(permissions: droits),
               ),
             ),
           ),
@@ -589,6 +592,55 @@ void main() {
 
     Future<void> attendre() =>
         Future<void>.delayed(const Duration(milliseconds: 60));
+
+    test('le stock deja bas sonne une fois a la connexion, sans rappel',
+        () async {
+      // Deux produits sous leur minimum avant la connexion.
+      final bar = id();
+      await db
+          .into(db.stockLocations)
+          .insert(
+            StockLocationsCompanion.insert(
+              id: bar, createdAt: t0, updatedAt: t0, hotelId: _hotel,
+              code: 'BAR', label: 'Bar',
+            ),
+          );
+      for (final (ref, libelle) in [('B33', 'Bière'), ('JUS', 'Jus')]) {
+        final produit = id();
+        await db
+            .into(db.products)
+            .insert(
+              ProductsCompanion.insert(
+                id: produit, createdAt: t0, updatedAt: t0, hotelId: _hotel,
+                reference: ref, label: libelle, minStock: const Value(12),
+              ),
+            );
+        await db
+            .into(db.stockLevels)
+            .insert(
+              StockLevelsCompanion.insert(
+                id: id(), createdAt: t0, updatedAt: t0, productId: produit,
+                stockLocationId: bar, quantity: const Value(4),
+              ),
+            );
+      }
+      await SettingsRepository(db).setNiveauxAlertes(
+        const NiveauxAlertes().avec(
+          TypeEvenement.stockBas,
+          NiveauSignal.sonoreVibration,
+        ),
+      );
+
+      final conteneur = await centre(droits: const {'stock.read'});
+      await attendre();
+
+      // Une seule sonnerie pour les deux, et rien dans le bandeau : pas de
+      // rappel toutes les quelques minutes pour un stock deja connu.
+      expect(signal.emis, [NiveauAlerte.info]);
+      expect(signal.sons, [true]);
+      expect(conteneur.read(centreAlertesProvider).bandeau, isEmpty);
+      expect(conteneur.read(centreAlertesProvider).actives, hasLength(2));
+    });
 
     test('discret : ni bandeau ni bruit, mais dans la cloche', () async {
       await SettingsRepository(db).setNiveauxAlertes(
