@@ -31,10 +31,10 @@ import '../auth/session.dart';
 class CashButton extends ConsumerWidget {
   const CashButton({super.key, this.outletId});
 
-  /// Le point de vente d'ou l'agent ouvre sa caisse, s'il y en a un.
+  /// Le point de vente dont c'est le tiroir ; nul pour la caisse centrale.
   ///
-  /// Ignore pour qui tient la caisse centrale : sa caisse est celle de la
-  /// reception, ou qu'il l'ouvre -- il se verserait a lui-meme.
+  /// Un tiroir par point de vente, quel que soit l'agent : ouvrir le bar
+  /// n'ouvre plus la caisse de tous les points de vente.
   final String? outletId;
 
   @override
@@ -42,9 +42,9 @@ class CashButton extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final agent = session.agent?.id;
     if (agent == null) return const SizedBox.shrink();
-    final pointDeVente = session.acces.peut('cash.central') ? null : outletId;
+    final pointDeVente = outletId;
 
-    final caisse = ref.watch(currentCashProvider(agent));
+    final caisse = ref.watch(currentCashProvider((agent, pointDeVente)));
 
     return caisse.when(
       loading: () => const SizedBox.shrink(),

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.cash_sessions import open_session_id
 from app.api.deps import permission_codes, require_any_permission, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
@@ -368,8 +369,13 @@ async def post_stay_nights(
     return folio
 
 
-async def _caisse_ouverte(session: AsyncSession, user: User) -> uuid.UUID:
-    """La caisse ouverte de l'agent qui encaisse, ou 409.
+async def _caisse_ouverte(
+    session: AsyncSession, user: User, outlet_id: uuid.UUID | None = None
+) -> uuid.UUID:
+    """La caisse ouverte de l'agent pour ce tiroir, ou 409.
+
+    `outlet_id` : le point de vente de la vente ; nul pour un encaissement a
+    la reception, qui tombe dans la caisse centrale.
 
     Pas d'argent hors d'un tiroir : un encaissement sans caisse n'entrait
     dans aucun attendu ni aucun ecart, et le versement du soir ne pouvait pas
@@ -380,14 +386,8 @@ async def _caisse_ouverte(session: AsyncSession, user: User) -> uuid.UUID:
     La ligne de session est verrouillee pour ne pas croiser une fermeture en
     cours.
     """
-    cash_session_id = await session.scalar(
-        select(CashSession.id)
-        .where(
-            CashSession.user_id == user.id,
-            CashSession.status == CashSessionStatus.OPEN,
-            CashSession.deleted_at.is_(None),
-        )
-        .with_for_update()
+    cash_session_id = await open_session_id(
+        session, user, outlet_id=outlet_id, for_update=True
     )
     if cash_session_id is None:
         raise HTTPException(
@@ -521,8 +521,9 @@ async def walk_in_sale(
             status.HTTP_409_CONFLICT,
             f"Le paiement ({payload.payment.amount}) doit couvrir le total ({total}).",
         )
-    # Avant toute ecriture : sans caisse, rien n'est cree.
-    cash_session_id = await _caisse_ouverte(session, user)
+    # Avant toute ecriture : sans le tiroir de ce point de vente, rien n'est
+    # cree. La recette du bar tombe dans le tiroir du bar.
+    cash_session_id = await _caisse_ouverte(session, user, outlet.id)
 
     now = dt.datetime.now(dt.timezone.utc)
     business_date = await current_business_date(session, user.hotel_id)

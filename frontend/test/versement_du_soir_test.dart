@@ -114,7 +114,10 @@ void main() {
       );
       final centrale = await caisse.open(userId: _reception, openingFloat: 0);
 
-      expect((await caisse.watchCurrent(_barman).first)!.ofOutlet, isTrue);
+      expect(
+        (await caisse.watchCurrent(_barman, outletId: bar.id).first)!.ofOutlet,
+        isTrue,
+      );
       expect((await ligne(duBar)).outletId, bar.id);
       expect((await caisse.watchCurrent(_reception).first)!.ofOutlet, isFalse);
       expect((await ligne(centrale)).outletId, isNull);
@@ -292,9 +295,18 @@ void main() {
       expect(rapport.variance, -1500);
     });
 
-    test('range a part ce que la reception encaisse elle-meme', () async {
+    test('la reception qui vend au bar remplit le tiroir du bar', () async {
+      // Un tiroir par point de vente, quel que soit l'agent (decision du 11
+      // octobre) : ce que la reception vend au bar est la recette du bar,
+      // pas celle de la caisse centrale.
       await soireeDuBar();
-      await caisse.open(userId: _reception, openingFloat: 0);
+      final centrale = await caisse.open(userId: _reception, openingFloat: 0);
+      final tiroirDuBar = await caisse.open(
+        userId: _reception,
+        openingFloat: 0,
+        outletId: bar.id,
+      );
+      expect(tiroirDuBar, isNot(centrale));
       await commandes.sellWalkIn(
         outlet: bar,
         lines: [('Eau', 1000, 1, null)],
@@ -304,10 +316,14 @@ void main() {
 
       final rapport = await caisse.watchEveningReport(jour).first;
 
-      // La caisse centrale ne se verse rien : sa recette n'est due a personne.
-      expect(rapport.centralTakings, 1000);
-      expect(rapport.outlets.single.takings, 16000);
-      expect(rapport.expected, 17000);
+      expect(rapport.centralTakings, 0);
+      expect(rapport.outlets.single.takings, 17000);
+      expect(
+        (await caisse.watchCurrent(_reception, outletId: bar.id).first)!
+            .cashCollected,
+        1000,
+      );
+      expect((await caisse.watchCurrent(_reception).first)!.cashCollected, 0);
     });
   });
 
@@ -450,8 +466,15 @@ void main() {
           .get();
       expect(ouvertes.single.id, duServeur.id);
       expect(ouvertes.single.id, isNot(locale));
-      expect(await caisse.openSessionId(_barman), duServeur.id);
-      expect((await caisse.watchCurrent(_barman).first)!.cashCollected, 7000);
+      expect(
+        await caisse.openSessionId(_barman, outletId: bar.id),
+        duServeur.id,
+      );
+      expect(
+        (await caisse.watchCurrent(_barman, outletId: bar.id).first)!
+            .cashCollected,
+        7000,
+      );
     });
   });
 }

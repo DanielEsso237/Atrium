@@ -275,10 +275,15 @@ class _MaCaisse extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
-    final agent = ref.watch(sessionProvider).agent?.id;
+    final session = ref.watch(sessionProvider);
+    final agent = session.agent?.id;
     final vue = agent == null
         ? null
-        : ref.watch(currentCashProvider(agent)).value;
+        : ref.watch(currentCashProvider((agent, null))).value;
+    // L'attendu avant le comptage, pour la reception et la direction
+    // seulement (decision du 11 octobre). Les points de vente comptent a
+    // l'aveugle : leur ecart reste fiable.
+    final superviseur = session.acces.peut('cash.central');
     final ouverte = vue?.open ?? false;
     final depuis = vue?.session.openedAt?.toLocal();
 
@@ -317,6 +322,17 @@ class _MaCaisse extends ConsumerWidget {
               'Fond de caisse : ${formatAmount(vue!.session.openingFloat)}',
               style: _st(13.5, FontWeight.w500, p.textSecondary),
             ),
+            if (superviseur) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Devrait contenir : ${formatAmount(vue.expected)}',
+                style: _st(15, FontWeight.w700, p.text),
+              ),
+              Text(
+                'Fond, espèces encaissées et versements reçus.',
+                style: _st(12.5, FontWeight.w500, p.textSecondary),
+              ),
+            ],
           ] else ...[
             const SizedBox(height: 8),
             Text(

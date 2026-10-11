@@ -158,7 +158,10 @@ void main() {
   });
 
   test('le client de passage fait aussi sortir le stock', () async {
-    await CashRepository(db).open(userId: utilisateurDemo, openingFloat: 0);
+    // La vente tombe dans le tiroir de son point de vente.
+    await CashRepository(
+      db,
+    ).open(userId: utilisateurDemo, openingFloat: 0, outletId: bar.id);
     await OrderRepository(db).sellWalkIn(
       outlet: bar,
       lines: [('Biere', 1500, 3, articleBiere)],

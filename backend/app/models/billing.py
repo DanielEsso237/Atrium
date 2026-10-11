@@ -248,11 +248,13 @@ class CashSession(SyncBase, HotelScoped):
     __tablename__ = "cash_sessions"
     __table_args__ = (
         Index("ix_cash_sessions_user_status", "user_id", "status"),
-        # Une seule session ouverte par caissier, garanti par la base meme
-        # sous deux ouvertures simultanees (migration 0004).
+        # Une seule session ouverte par caissier et par tiroir, garanti par
+        # la base meme sous deux ouvertures simultanees (migration 0020). Le
+        # tiroir nul -- la caisse centrale -- compte comme un tiroir.
         Index(
-            "uq_cash_sessions_user_open",
+            "uq_cash_sessions_user_outlet_open",
             "user_id",
+            text("coalesce(outlet_id, '00000000-0000-0000-0000-000000000000'::uuid)"),
             unique=True,
             postgresql_where=text("status = 'OPEN' AND deleted_at IS NULL"),
         ),

@@ -150,11 +150,66 @@ async def test_renvoyer_une_ouverture_deja_fermee_ne_rouvre_rien(client, bar, au
     assert r.status_code == 404
 
 
-async def test_la_caisse_centrale_n_a_pas_de_point_de_vente(client, bar, auth_reception):
-    """Qui recoit les versements ne se verse pas a lui-meme."""
-    caisse = await _ouvrir(client, auth_reception, outlet_id=bar)
+async def test_la_reception_qui_sert_au_bar_ouvre_le_tiroir_du_bar(
+    client, bar, auth_reception
+):
+    """Un tiroir par point de vente, quel que soit l'agent (decision du 11
+    octobre) : la recette du bar reste celle du bar, et la caisse centrale
+    reste a part."""
+    centrale = await _ouvrir(client, auth_reception)
+    du_bar = await _ouvrir(client, auth_reception, outlet_id=bar)
 
-    assert caisse["outlet_id"] is None
+    assert centrale["outlet_id"] is None
+    assert du_bar["outlet_id"] == bar
+    assert du_bar["id"] != centrale["id"]
+
+
+async def test_deux_tiroirs_s_ouvrent_et_se_ferment_independamment(
+    client, session, hotel_a, bar, auth_bar
+):
+    """Paul tient le bar et le bar piscine ; il ferme la piscine a 22 h sans
+    fermer le bar, et chaque vente tombe dans le tiroir de son point de vente."""
+    hotel, _ = hotel_a
+    piscine = Outlet(hotel_id=hotel.id, code="PISCINE", label="Bar piscine")
+    session.add(piscine)
+    await session.commit()
+    au_bar = await _ouvrir(client, auth_bar, fond=10_000, outlet_id=bar)
+    a_la_piscine = await _ouvrir(client, auth_bar, fond=5_000, outlet_id=str(piscine.id))
+    assert au_bar["id"] != a_la_piscine["id"]
+    # Rouvrir le bar rend le meme tiroir, sans en ouvrir un troisieme.
+    assert (await _ouvrir(client, auth_bar, outlet_id=bar))["id"] == au_bar["id"]
+
+    for outlet, montant in ((bar, 3_000), (str(piscine.id), 2_000)):
+        r = await client.post(
+            "/api/v1/folios/walk-in", json=_vente(outlet, montant), headers=auth_bar
+        )
+        assert r.status_code == 201, r.text
+
+    piscine_fermee = await _verser(client, auth_bar, a_la_piscine, 7_000)
+    assert piscine_fermee["expected_amount"] == 7_000  # 5 000 + 2 000
+    assert piscine_fermee["variance"] == 0
+    r = await client.get(
+        "/api/v1/cash-sessions/current", params={"outlet_id": bar}, headers=auth_bar
+    )
+    assert r.status_code == 200
+    assert r.json()["expected_amount"] == 13_000  # 10 000 + 3 000, sans la piscine
+
+
+async def test_sans_le_tiroir_de_ce_point_de_vente_pas_de_vente(
+    client, session, hotel_a, bar, auth_bar
+):
+    """Le tiroir du bar ouvert ne suffit pas a vendre a la piscine."""
+    hotel, _ = hotel_a
+    piscine = Outlet(hotel_id=hotel.id, code="PISCINE", label="Bar piscine")
+    session.add(piscine)
+    await session.commit()
+    await _ouvrir(client, auth_bar, outlet_id=bar)
+
+    r = await client.post(
+        "/api/v1/folios/walk-in", json=_vente(str(piscine.id), 2_000), headers=auth_bar
+    )
+    assert r.status_code == 409
+    assert "caisse" in r.json()["detail"]
 
 
 async def test_un_point_de_vente_inconnu_n_empeche_pas_d_ouvrir(client, auth_bar):

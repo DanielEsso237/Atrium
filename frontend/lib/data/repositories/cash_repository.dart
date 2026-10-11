@@ -221,12 +221,15 @@ class CashRepository with OutboxWriter {
 
   static const hotelId = '01920000-0000-7000-8000-000000000001';
 
-  /// La caisse ouverte de cet agent, avec son attendu recalcule en continu.
-  Stream<CashView?> watchCurrent(String userId) {
+  /// La caisse ouverte de cet agent pour ce point de vente -- la caisse
+  /// centrale quand [outletId] est nul --, avec son attendu recalcule en
+  /// continu.
+  Stream<CashView?> watchCurrent(String userId, {String? outletId}) {
     return (db.select(db.cashSessions)
           ..where(
             (c) =>
                 c.userId.equals(userId) &
+                _tiroir(c, outletId) &
                 c.status.equalsValue(CashSessionStatus.OPEN) &
                 c.deletedAt.isNull(),
           )
@@ -380,9 +383,19 @@ class CashRepository with OutboxWriter {
     return t.isEmpty ? null : t;
   }
 
-  /// La session ouverte de l'agent, sans son attendu. Sert au rattachement
-  /// d'un encaissement, qui n'a pas besoin du calcul.
-  Future<String?> openSessionId(String userId) async {
+  /// Le tiroir voulu : celui d'un point de vente, ou la caisse centrale.
+  ///
+  /// **Un tiroir par point de vente** (decision du 11 octobre) : Paul tient
+  /// le Bar / Lounge et le Bar piscine, chacun son tiroir ; il ferme la
+  /// piscine a 22 h sans fermer le lounge, et chaque vente tombe dans le
+  /// tiroir du point de vente ou elle est faite.
+  static Expression<bool> _tiroir($CashSessionsTable c, String? outletId) =>
+      outletId == null ? c.outletId.isNull() : c.outletId.equals(outletId);
+
+  /// La session ouverte de l'agent pour ce point de vente -- la caisse
+  /// centrale quand [outletId] est nul --, sans son attendu. Sert au
+  /// rattachement d'un encaissement, qui n'a pas besoin du calcul.
+  Future<String?> openSessionId(String userId, {String? outletId}) async {
     // `limit(1)` : une seule est possible, mais une lecture qui leverait sur
     // deux lignes rendrait tout encaissement impossible pour cet agent.
     final s =
@@ -390,6 +403,7 @@ class CashRepository with OutboxWriter {
               ..where(
                 (c) =>
                     c.userId.equals(userId) &
+                    _tiroir(c, outletId) &
                     c.status.equalsValue(CashSessionStatus.OPEN) &
                     c.deletedAt.isNull(),
               )
@@ -410,9 +424,9 @@ class CashRepository with OutboxWriter {
   /// ouvre la caisse pour un agent. Ecrit dans `createdBy` (colonne fournie
   /// par `SyncedTableColumns`) et transmis au serveur en `created_by`.
   ///
-  /// [outletId] : le point de vente dont c'est le tiroir. A laisser nul pour
-  /// qui tient la caisse centrale -- il se verserait a lui-meme, et le
-  /// serveur l'ignorerait de toute facon.
+  /// [outletId] : le point de vente dont c'est le tiroir ; nul pour la caisse
+  /// centrale. Un agent peut tenir plusieurs tiroirs a la fois, un par point
+  /// de vente : l'idempotence vaut par tiroir.
   Future<String> open({
     required String userId,
     required int openingFloat,
@@ -423,7 +437,7 @@ class CashRepository with OutboxWriter {
       throw StateError('Le fond de caisse ne peut pas etre negatif.');
     }
 
-    final deja = await openSessionId(userId);
+    final deja = await openSessionId(userId, outletId: outletId);
     if (deja != null) return deja;
 
     final id = newId();
