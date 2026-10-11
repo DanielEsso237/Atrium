@@ -222,6 +222,84 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
 - **Stocks v1** : les produits de l'hôtel — bières, savons, serviettes.
 - Plusieurs tablettes sont prévues, sans nombre arrêté.
 
+## Ce qui a été décidé du 7 au 11 octobre
+
+Retours du client le 7 octobre, puis essais sur tablette avec Daniel :
+
+- **Économat et stocks** : l'économat ravitaille les points de vente ; un
+  transfert attend la validation du contrôleur ou du comptable, et celui qui
+  le demande ne le valide pas (second regard, des deux côtés). Rôles
+  Économe, Contrôleur, Comptable. Sur l'onglet d'un point de vente, le bouton
+  Transfert ouvre « Ravitailler … depuis » (l'économat d'abord). Le stock peut
+  passer sous zéro : on vend et on alerte, la file ne se bloque jamais.
+- **La réception est la caisse centrale.** Chaque soir, chaque point de vente
+  lui verse sa recette ; elle confirme ce qu'elle reçoit. Trois chiffres
+  restent : attendu, déclaré, reçu.
+- **Un tiroir par point de vente** (migration 0020) : ouvert et fermé
+  indépendamment, même tenu par le même agent ; une vente tombe dans le tiroir
+  de son point de vente. La caisse centrale est le tiroir sans point de vente.
+- **Pas d'argent hors d'un tiroir** : encaisser exige un agent et sa caisse
+  ouverte, à la réception comme au comptoir. Les arrhes restent hors tiroir.
+- **Caisse fermée, point de vente fermé** : rien ne se sert sans le tiroir
+  ouvert du point de vente, même « Porter à la chambre ». Le client logé peut
+  aussi « Payer maintenant » au comptoir. Après chaque vente encaissée, un
+  ticket PDF de 80 mm se partage (imprimer, envoyer).
+- **Comptage à l'aveugle** pour les points de vente : l'attendu ne s'affiche
+  avant le comptage que pour qui tient la caisse centrale (`cash.central`).
+- **Alertes** : à la connexion, toute alerte non lue sonne une fois (une seule
+  sonnerie pour l'ensemble, au niveau réglé de chaque type) ; « Stock bas »
+  est discret par défaut, réglable dans l'administration.
+- **Onglets Points de vente / Services** selon le genre des points de vente
+  auxquels l'agent est rattaché (`AccessProfile.genres`).
+- **Serveur d'essai** : le PC de Daniel publié par ngrok (voir « Lancer »).
+  L'heure des tablettes doit être automatique : elle date la journée
+  hôtelière, les départs et les caisses.
+
+## Prochain chantier : le tableau de bord des points de vente
+
+Demandé le 11 octobre, à faire dans une nouvelle discussion.
+
+**Le besoin.** Un tableau de bord complet des points de vente et services.
+Dans l'administration et à la réception, il couvre tout l'hôtel. Le même
+écran s'affiche, automatiquement, pour chaque point de vente existant ou créé
+plus tard, filtré sur le sien : l'agent d'un « salon de thé » créé demain ne
+voit que le salon de thé. Ensuite, un **onglet Caisse** pour les points de
+vente : chacun consulte sa caisse.
+
+**L'architecture retenue.** Un seul écran, paramétré par un périmètre, la
+même règle que les stocks et les onglets : sans rattachement à un point de
+vente (admin, réception, direction), tous, avec un filtre ; rattaché, les
+siens seulement (avec un filtre s'il en a plusieurs). Aucun code par point
+de vente : il suffit de le créer et d'y rattacher des agents.
+
+**À trancher avant le premier ticket :**
+
+1. **Les données d'un agent viennent de sa seule tablette.** Le tableau de
+   bord lit Drift, mais un agent de point de vente reçoit des 403 sur
+   `/folios` et `/payments` : il ne verrait que ce qui a été vendu sur sa
+   tablette. Proposition : faire descendre à l'agent les ventes,
+   encaissements et caisses de **ses** points de vente, filtrés côté serveur.
+2. **Comptage à l'aveugle** : ni le tableau de bord ni l'onglet Caisse d'un
+   point de vente ne montrent l'attendu avant le versement.
+3. **Les services** (salles, spa) : s'en tenir aux ventes et à l'argent ; des
+   indicateurs d'occupation demanderaient des données qui n'existent pas.
+
+**Contenu proposé, à valider :** recette du jour, nombre de ventes, ticket
+moyen, payé sur place ou porté aux chambres ; jour, semaine, mois et
+comparaison à la période précédente ; meilleures ventes et heures de pointe ;
+tiroirs et versements du soir ; stock bas du magasin et transferts en
+attente ; pour l'administration, le comparatif de tous les points de vente.
+
+**L'onglet Caisse** : `/caisse` exige aujourd'hui `folio.read`, que les agents
+de point de vente n'ont pas. Il leur montrera leurs tiroirs (ouverts depuis
+quand, fond, ventes encaissées, versements et écarts), sans l'attendu.
+
+**Autres tickets en attente** : le module Cuisine (stock de la cuisine,
+quantités utilisées déduites, ravitaillement par l'économat, pertes) ;
+séparer Points de vente et Services dans l'administration ; l'impression
+réelle des tickets ; ne plus demander à un agent les ressources qu'il n'a
+pas le droit de lire (les 403 du journal sont normaux, mais inutiles).
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
@@ -229,7 +307,8 @@ Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
   serveur et effacé de la file. `auth_locale.dart` ne vérifie que les
   empreintes `DEMO:` ; il faudrait bcrypt côté tablette et la descente des
   empreintes.
-- **Impression des factures**, brique rouverte.
+- **Impression des factures**, brique rouverte : les factures et le ticket du
+  comptoir existent en PDF (partage), pas encore l'envoi à une imprimante.
 - **Photos de CNI** : prises à l'arrivée, rangées sur la tablette, remontées
   par `PUT /attachments/{id}` via leur propre file (`file_uploads`,
   `FileUploader`) — jamais par la file d'envoi. Reste la **descente** : un
