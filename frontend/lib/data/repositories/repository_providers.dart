@@ -99,6 +99,12 @@ final currentCashProvider =
       .watchCurrent(cle.$1, outletId: cle.$2),
 );
 
+/// Les points de vente dont cet agent tient le tiroir ouvert.
+final tiroirsOuvertsProvider = StreamProvider.family<Set<String>, String>(
+  (ref, agentId) =>
+      ref.watch(cashRepositoryProvider).watchOpenOutletDrawers(agentId),
+);
+
 final hotelRepositoryProvider = Provider<HotelRepository>(
   (ref) => HotelRepository(ref.watch(databaseProvider)),
 );

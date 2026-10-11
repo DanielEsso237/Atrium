@@ -239,6 +239,22 @@ class CashRepository with OutboxWriter {
         .asyncMap((s) async => s == null ? null : _vue(s));
   }
 
+  /// Les points de vente dont cet agent tient le tiroir ouvert.
+  ///
+  /// Le comptage a l'aveugle en depend : tant que son tiroir est ouvert,
+  /// l'agent ne voit pas l'argent encaisse -- fond plus encaisse, c'est
+  /// l'attendu qu'il doit retrouver seul.
+  Stream<Set<String>> watchOpenOutletDrawers(String userId) =>
+      (db.select(db.cashSessions)..where(
+            (c) =>
+                c.userId.equals(userId) &
+                c.outletId.isNotNull() &
+                c.status.equalsValue(CashSessionStatus.OPEN) &
+                c.deletedAt.isNull(),
+          ))
+          .watch()
+          .map((caisses) => {for (final c in caisses) c.outletId!});
+
   Future<CashView> _vue(CashSessionRow s) async {
     final especes = await _cashCollected(s.id);
     return CashView(
