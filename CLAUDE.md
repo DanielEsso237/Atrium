@@ -257,7 +257,10 @@ Retours du client le 7 octobre, puis essais sur tablette avec Daniel :
 
 ## Prochain chantier : le tableau de bord des points de vente
 
-Demandé le 11 octobre, à faire dans une nouvelle discussion.
+Demandé le 11 octobre, commencé le même jour. Six tickets, dans l'ordre :
+`feature/descente-ventes-point-de-vente`, `feature/perimetre-et-chiffres-pdv`,
+`feature/ecran-tableau-de-bord-pdv`, `feature/tableau-de-bord-tiroirs-et-stock`,
+`feature/comparatif-points-de-vente`, `feature/onglet-caisse-pdv`.
 
 **Le besoin.** Un tableau de bord complet des points de vente et services.
 Dans l'administration et à la réception, il couvre tout l'hôtel. Le même
@@ -272,23 +275,35 @@ vente (admin, réception, direction), tous, avec un filtre ; rattaché, les
 siens seulement (avec un filtre s'il en a plusieurs). Aucun code par point
 de vente : il suffit de le créer et d'y rattacher des agents.
 
-**À trancher avant le premier ticket :**
+**Ce que Daniel a tranché le 11 octobre :**
 
-1. **Les données d'un agent viennent de sa seule tablette.** Le tableau de
-   bord lit Drift, mais un agent de point de vente reçoit des 403 sur
-   `/folios` et `/payments` : il ne verrait que ce qui a été vendu sur sa
-   tablette. Proposition : faire descendre à l'agent les ventes,
-   encaissements et caisses de **ses** points de vente, filtrés côté serveur.
-2. **Comptage à l'aveugle** : ni le tableau de bord ni l'onglet Caisse d'un
-   point de vente ne montrent l'attendu avant le versement.
-3. **Les services** (salles, spa) : s'en tenir aux ventes et à l'argent ; des
-   indicateurs d'occupation demanderaient des données qui n'existent pas.
+1. **Les données d'un agent descendent du serveur, filtrées sur ses points
+   de vente** : `GET /outlet-activity` (`order.read`) rend leurs lignes
+   vendues — pas les ardoises entières, l'ardoise d'une chambre ne regarde
+   pas le barman —, les encaissements de leurs tiroirs et leurs tiroirs,
+   **ceux des collègues compris**. Sans elle, l'agent ne voyait que les ventes
+   de sa tablette (403 sur `/folios` et `/payments`). Une ligne arrive avec
+   l'en-tête seul de son ardoise, écrit sans totaux si l'ardoise manque,
+   jamais par-dessus une ardoise complète.
+2. **Comptage à l'aveugle** : tant que son tiroir est ouvert, l'agent voit
+   le nombre de ventes, les articles et ce qui est porté aux chambres, **pas
+   l'argent encaissé** — fond plus encaissé, c'est l'attendu. Il le voit
+   après son versement. L'attendu reste à `cash.central`. L'attendu des
+   tiroirs descend quand même sur la tablette : la règle est à l'affichage.
+3. **Les services** : ventes, argent **et occupation** — « ça peut aider à
+   prendre des décisions ». Aujourd'hui un service se vend comme une
+   consommation, sans capacité ni créneau : la définition de l'occupation
+   reste à arrêter avec Daniel avant son ticket.
+4. **Un agent de point de vente ouvre toujours sur Commandes** ; tableau de
+   bord et Caisse sont à un clic. Il n'est donc plus un métier à écran
+   unique : il lui faut un menu.
 
-**Contenu proposé, à valider :** recette du jour, nombre de ventes, ticket
-moyen, payé sur place ou porté aux chambres ; jour, semaine, mois et
-comparaison à la période précédente ; meilleures ventes et heures de pointe ;
-tiroirs et versements du soir ; stock bas du magasin et transferts en
-attente ; pour l'administration, le comparatif de tous les points de vente.
+**Contenu retenu :** recette, nombre de ventes, ticket moyen, payé sur place
+(ardoise `WALK_IN`) ou porté aux chambres ; jour, semaine, mois et
+comparaison à la période précédente ; meilleures ventes et heures de pointe
+(`posted_at`) ; tiroirs et versements du soir ; stock bas du magasin et
+transferts en attente ; pour l'administration et la réception, le comparatif
+de tous les points de vente.
 
 **L'onglet Caisse** : `/caisse` exige aujourd'hui `folio.read`, que les agents
 de point de vente n'ont pas. Il leur montrera leurs tiroirs (ouverts depuis

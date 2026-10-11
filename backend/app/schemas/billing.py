@@ -57,6 +57,9 @@ class FolioItemOut(BaseModel):
     source_table: str | None = None
     source_id: uuid.UUID | None = None
     posted_by: uuid.UUID | None = None
+    # L'instant de la saisie : les heures de pointe d'un point de vente se
+    # lisent sur lui, pas sur l'instant ou la ligne est descendue.
+    posted_at: dt.datetime | None = None
 
 
 class FolioOut(BaseModel):

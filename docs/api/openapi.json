@@ -1376,6 +1376,18 @@
             ],
             "title": "Override By"
           },
+          "posted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted At"
+          },
           "posted_by": {
             "anyOf": [
               {
@@ -3813,6 +3825,38 @@
         "title": "OrderType",
         "type": "string"
       },
+      "OutletActivityOut": {
+        "properties": {
+          "cash_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/CashSessionOut"
+            },
+            "title": "Cash Sessions",
+            "type": "array"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentOut"
+            },
+            "title": "Payments",
+            "type": "array"
+          },
+          "sales": {
+            "items": {
+              "$ref": "#/components/schemas/OutletSaleOut"
+            },
+            "title": "Sales",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sales",
+          "payments",
+          "cash_sessions"
+        ],
+        "title": "OutletActivityOut",
+        "type": "object"
+      },
       "OutletIn": {
         "properties": {
           "allows_room_charge": {
@@ -3962,6 +4006,156 @@
           "kind"
         ],
         "title": "OutletOut",
+        "type": "object"
+      },
+      "OutletSaleOut": {
+        "description": "Une ligne vendue par un point de vente, avec l'en-tete de son ardoise.\n\nL'en-tete seul, sans les autres lignes ni les totaux : l'ardoise d'une\nchambre porte la nuitee et ce que le client a pris ailleurs, que le\nbarman n'a pas a voir. Le type suffit a distinguer le paye sur place\n(`WALK_IN`) du porte a la chambre.",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ChargeCategory"
+          },
+          "folio_id": {
+            "format": "uuid",
+            "title": "Folio Id",
+            "type": "string"
+          },
+          "folio_number": {
+            "title": "Folio Number",
+            "type": "string"
+          },
+          "folio_status": {
+            "$ref": "#/components/schemas/FolioStatus"
+          },
+          "folio_type": {
+            "$ref": "#/components/schemas/FolioType"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_void": {
+            "title": "Is Void",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override By"
+          },
+          "posted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted At"
+          },
+          "posted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted By"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Table"
+          },
+          "tax_amount": {
+            "title": "Tax Amount",
+            "type": "integer"
+          },
+          "tax_rate": {
+            "title": "Tax Rate",
+            "type": "integer"
+          },
+          "unit_price": {
+            "title": "Unit Price",
+            "type": "integer"
+          },
+          "void_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Void Reason"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "label",
+          "quantity",
+          "unit_price",
+          "amount",
+          "tax_amount",
+          "tax_rate",
+          "business_date",
+          "is_void",
+          "void_reason",
+          "folio_id",
+          "folio_number",
+          "folio_type",
+          "folio_status"
+        ],
+        "title": "OutletSaleOut",
         "type": "object"
       },
       "OutletUpdate": {
@@ -4197,6 +4391,17 @@
           },
           "method": {
             "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
           },
           "received_at": {
             "anyOf": [
@@ -8133,6 +8338,27 @@
     "/api/v1/cash-sessions/current": {
       "get": {
         "operationId": "current_cash_session_api_v1_cash_sessions_current_get",
+        "parameters": [
+          {
+            "description": "Le tiroir d'un point de vente ; absent : la caisse centrale",
+            "in": "query",
+            "name": "outlet_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Le tiroir d'un point de vente ; absent : la caisse centrale",
+              "title": "Outlet Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8143,6 +8369,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -10657,6 +10893,56 @@
         "summary": "Serve Order",
         "tags": [
           "commandes"
+        ]
+      }
+    },
+    "/api/v1/outlet-activity": {
+      "get": {
+        "operationId": "outlet_activity_api_v1_outlet_activity_get",
+        "parameters": [
+          {
+            "description": "Premiere journee hoteliere incluse",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "Premiere journee hoteliere incluse",
+              "format": "date",
+              "title": "Since",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutletActivityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Outlet Activity",
+        "tags": [
+          "points de vente"
         ]
       }
     },
@@ -13327,7 +13613,7 @@
     },
     "/api/v1/stock-movements/{movement_id}/approve": {
       "post": {
-        "description": "Valide un transfert : c'est maintenant que le stock bouge.\n\nUne seule validation suffit, du controleur ou du comptable. Rejouee, elle\nrend le transfert deja valide sans rien deplacer une seconde fois.",
+        "description": "Valide un transfert : c'est maintenant que le stock bouge.\n\nUne seule validation suffit, du controleur ou du comptable -- jamais de\ncelui qui a demande le transfert. Rejouee, elle rend le transfert deja\nvalide sans rien deplacer une seconde fois.",
         "operationId": "approve_stock_movement_api_v1_stock_movements__movement_id__approve_post",
         "parameters": [
           {

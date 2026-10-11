@@ -301,8 +301,19 @@ async def add_folio_item(
         posted_by=user.id,
         posted_at=dt.datetime.now(dt.timezone.utc),
         override_by=override_by,
-        source_table="stay_nights" if night is not None else None,
-        source_id=night.id if night is not None else None,
+        # Le point de vente qui a servi, comme pour une vente au comptoir. Sans
+        # lui, une consommation portee a la chambre n'appartenait a aucun point
+        # de vente hors de la tablette qui l'avait saisie : les rapports des
+        # autres postes et la descente d'un point de vente ne la voyaient pas.
+        source_table=(
+            "stay_nights" if night is not None
+            else "outlets" if payload.outlet_id is not None
+            else None
+        ),
+        source_id=(
+            night.id if night is not None
+            else payload.outlet_id
+        ),
     )
     if night is not None:
         night.is_posted = True

@@ -470,10 +470,29 @@ jamais dans la liste des ardoises ouvertes.
 - `GET /folios?closed_since=AAAA-MM-JJ` : les ardoises closes depuis ce
   jour, avec leurs lignes. Chaque ligne porte désormais `source_table`,
   `source_id` (le point de vente quand `source_table = "outlets"`) et
-  `posted_by` (l'agent qui l'a saisie).
+  `posted_by` (l'agent qui l'a saisie) et `posted_at` (l'instant de la
+  saisie, d'où se lisent les heures de pointe).
 - `GET /payments?since=AAAA-MM-JJ` : les encaissements depuis cette journée
   hôtelière, arrhes et remboursements compris, avec `received_by`,
   `business_date` et `cash_session_id`. Exige `folio.read`.
+- `GET /outlet-activity?since=AAAA-MM-JJ` (`order.read`) : l'activité des
+  points de vente de l'agent, pour leur tableau de bord. Un agent rattaché
+  (`user_outlets`) reçoit les siens, un agent sans rattachement tous.
+  Réponse `{sales, payments, cash_sessions}` :
+  - `sales` : les lignes vendues par ces points de vente
+    (`source_table = "outlets"`), chacune avec l'en-tête seul de son
+    ardoise (`folio_id`, `folio_number`, `folio_type`, `folio_status`) —
+    jamais les autres lignes ni les totaux d'une ardoise de chambre.
+    `folio_type = "WALK_IN"` : payé sur place ; sinon porté à la chambre ;
+  - `payments` : les encaissements passés dans les tiroirs de ces points de
+    vente ;
+  - `cash_sessions` : leurs tiroirs, **quel que soit l'agent** qui les tient,
+    sur la même fenêtre que `GET /cash-sessions`.
+
+Une consommation portée à la chambre par un point de vente
+(`POST /folios/{id}/items` avec `outlet_id`) enregistre désormais
+`source_table = "outlets"` et `source_id` comme une vente au comptoir. Avant,
+seule la tablette qui l'avait saisie savait d'où elle venait.
 
 La tablette relit une fenêtre glissante de 62 jours à chaque descente, de
 quoi couvrir le mois précédent en entier.

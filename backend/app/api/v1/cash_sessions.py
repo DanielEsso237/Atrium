@@ -116,6 +116,21 @@ async def _outlet_for(
     return outlet.id
 
 
+def in_window(since: dt.date):
+    """Les caisses ouvertes depuis ce jour, plus l'argent encore en attente.
+
+    Une caisse ouverte, ou un versement que la reception n'a pas confirme,
+    descend quelle que soit son anciennete : c'est de l'argent en attente,
+    pas de l'historique.
+    """
+    debut = dt.datetime.combine(since, dt.time.min, tzinfo=dt.timezone.utc)
+    return or_(
+        CashSession.opened_at >= debut,
+        CashSession.status == CashSessionStatus.OPEN,
+        and_(CashSession.outlet_id.is_not(None), CashSession.received_at.is_(None)),
+    )
+
+
 @router.get("", response_model=list[CashSessionOut])
 async def list_cash_sessions(
     since: dt.date = Query(description="Premier jour inclus (ouverture de la caisse)"),
@@ -129,15 +144,10 @@ async def list_cash_sessions(
     reception n'a pas encore confirme, descend quelle que soit son anciennete :
     c'est de l'argent en attente, pas de l'historique.
     """
-    debut = dt.datetime.combine(since, dt.time.min, tzinfo=dt.timezone.utc)
     stmt = select(CashSession).where(
         CashSession.hotel_id == user.hotel_id,
         CashSession.deleted_at.is_(None),
-        or_(
-            CashSession.opened_at >= debut,
-            CashSession.status == CashSessionStatus.OPEN,
-            and_(CashSession.outlet_id.is_not(None), CashSession.received_at.is_(None)),
-        ),
+        in_window(since),
     )
     if CENTRAL not in permission_codes(user):
         stmt = stmt.where(CashSession.user_id == user.id)
