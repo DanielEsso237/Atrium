@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local/database.dart';
 import '../local/database_provider.dart';
+import '../local/queries/outlet_dashboard_queries.dart';
 import '../local/queries/rooms_queries.dart';
 import '../local/files/photo_files.dart';
 import '../remote/file_uploader.dart';
@@ -126,6 +127,18 @@ final outletsProvider = StreamProvider.family<List<OutletRow>, String?>(
   (ref, agentId) =>
       ref.watch(orderRepositoryProvider).watchOutlets(agentId: agentId),
 );
+
+/// Le perimetre du tableau de bord des points de vente d'un agent.
+final perimetrePdvProvider = StreamProvider.family<PerimetrePdv, String>(
+  (ref, agentId) => ref.watch(orderRepositoryProvider).watchPerimetre(agentId),
+);
+
+/// Le tableau de bord des points de vente, en direct.
+final tableauDeBordPdvProvider =
+    StreamProvider.family<TableauDeBordPdv, FiltresPdv>(
+      (ref, filtres) =>
+          ref.watch(databaseProvider).watchTableauDeBordPdv(filtres),
+    );
 
 /// La carte d'un point de vente, en direct.
 final menuForOutletProvider = StreamProvider.family<List<MenuEntry>, String>(

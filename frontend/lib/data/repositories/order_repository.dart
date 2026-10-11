@@ -25,6 +25,24 @@ import 'guest_repository.dart' show codeFromId;
 import 'outbox.dart';
 import 'stock_repository.dart';
 
+/// Les points de vente que couvre le tableau de bord d'un agent.
+class PerimetrePdv {
+  const PerimetrePdv({required this.pointsDeVente, required this.rattache});
+
+  final List<OutletRow> pointsDeVente;
+
+  /// Rattache a des points de vente : il ne voit que les siens. Sinon il
+  /// couvre tout l'hotel -- et c'est a lui qu'on montre le comparatif.
+  final bool rattache;
+
+  /// Ceux d'un genre : l'onglet Points de vente ou l'onglet Services.
+  List<OutletRow> duGenre(OutletKind genre) =>
+      pointsDeVente.where((o) => o.kind == genre).toList(growable: false);
+
+  /// Faut-il un filtre ? Pas pour un seul point de vente.
+  bool get plusieurs => pointsDeVente.length > 1;
+}
+
 /// Une chambre a qui l'on peut porter une consommation.
 class ChargeableRoom {
   const ChargeableRoom({
@@ -189,6 +207,24 @@ class OrderRepository with OutboxWriter {
           ]))
         .watch();
   }
+
+  /// Le perimetre du tableau de bord des points de vente pour cet agent.
+  ///
+  /// La meme regle que les onglets et le stock : rattache, ses points de
+  /// vente ; sans rattachement (administration, reception, direction), tous.
+  /// Un point de vente cree demain y entre de lui-meme, sans code a ecrire.
+  Stream<PerimetrePdv> watchPerimetre(String agentId) =>
+      watchOutlets(agentId: agentId).asyncMap(
+        (pointsDeVente) async => PerimetrePdv(
+          pointsDeVente: pointsDeVente,
+          rattache:
+              await (db.select(db.userOutlets)
+                    ..where((uo) => uo.userId.equals(agentId))
+                    ..limit(1))
+                  .getSingleOrNull() !=
+              null,
+        ),
+      );
 
   /// La carte d'un point de vente, groupee par categorie.
   ///
@@ -456,6 +492,7 @@ class OrderRepository with OutboxWriter {
                 sourceTable: const Value('outlets'),
                 sourceId: Value(outlet.id),
                 postedBy: Value(by),
+                postedAt: Value(now),
                 // Remontee avec l'ardoise, pas a part.
                 syncState: const Value(SyncState.synced),
               ),
