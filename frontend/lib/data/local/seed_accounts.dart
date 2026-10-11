@@ -391,6 +391,39 @@ Future<void> seedAccounts(AtriumDatabase db) async {
           );
     }
 
+    // Un role seme peut deja exister sous un autre identifiant : descendu du
+    // serveur par une version qui en tirait un neuf. Vecu le 11 octobre avec
+    // ECONOME, CONTROLEUR et COMPTABLE : deux exemplaires de chacun, et la
+    // descente, qui cherche un role par son code, echouait. Le doublon est
+    // fondu dans le role seme -- ses agents y passent, il disparait.
+    for (final (id, code, _, _) in _roles) {
+      final doublons = await (db.select(db.roles)
+            ..where((r) => r.code.equals(code) & r.id.equals(id).not()))
+          .get();
+      for (final d in doublons) {
+        await db.customUpdate(
+          'UPDATE OR IGNORE user_roles SET role_id = ?1 WHERE role_id = ?2',
+          variables: [Variable.withString(id), Variable.withString(d.id)],
+          updates: {db.userRoles},
+        );
+        await db.customUpdate(
+          'DELETE FROM user_roles WHERE role_id = ?1',
+          variables: [Variable.withString(d.id)],
+          updates: {db.userRoles},
+        );
+        await db.customUpdate(
+          'DELETE FROM role_permissions WHERE role_id = ?1',
+          variables: [Variable.withString(d.id)],
+          updates: {db.rolePermissions},
+        );
+        await db.customUpdate(
+          'DELETE FROM roles WHERE id = ?1',
+          variables: [Variable.withString(d.id)],
+          updates: {db.roles},
+        );
+      }
+    }
+
     // Une permission deja connue sous un autre id -- creee par une connexion
     // en ligne, qui range les droits du serveur par leur code -- est reprise
     // telle quelle. La semer une seconde fois aurait fait deux lignes pour un

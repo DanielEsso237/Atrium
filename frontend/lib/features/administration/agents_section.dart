@@ -20,8 +20,8 @@ final _agents = StreamProvider<List<AgentView>>(
   (ref) => ref.watch(agentRepositoryProvider).watchAgents(),
 );
 
-final _roles = FutureProvider<List<RoleRow>>(
-  (ref) => ref.watch(agentRepositoryProvider).roles(),
+final _roles = StreamProvider<List<RoleRow>>(
+  (ref) => ref.watch(agentRepositoryProvider).watchRoles(),
 );
 
 final _pointsDeVente = StreamProvider<List<OutletRow>>(
@@ -313,8 +313,9 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
                 initialValue: _role,
                 decoration: const InputDecoration(labelText: 'Rôle'),
                 items: [
-                  for (final r in roles)
-                    DropdownMenuItem(value: r.code, child: Text(r.label)),
+                  for (final MapEntry(key: code, value: libelle)
+                      in _choixDeRoles(roles, _role).entries)
+                    DropdownMenuItem(value: code, child: Text(libelle)),
                 ],
                 // Changer de role vide les points de vente coches : ils ne
                 // valent que pour les commandes.
@@ -386,4 +387,18 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
       ],
     );
   }
+}
+
+/// Les roles proposes, un par code, et toujours celui de l'agent.
+///
+/// La liste deroulante exige que la valeur choisie y figure exactement une
+/// fois. Un role que la tablette ne connait pas encore (descendu plus tard,
+/// ou desactive) faisait planter la fiche ; il y figure desormais, sous son
+/// code.
+Map<String, String> _choixDeRoles(List<RoleRow> roles, String? actuel) {
+  final choix = <String, String>{for (final r in roles) r.code: r.label};
+  if (actuel != null && !choix.containsKey(actuel)) {
+    choix[actuel] = actuel;
+  }
+  return choix;
 }
