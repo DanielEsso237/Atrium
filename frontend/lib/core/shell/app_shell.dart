@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/ui/icons.dart';
 
+import '../../data/local/queries/access_queries.dart' show genreDeLaZone;
 import '../../data/local/queries/dashboard_queries.dart';
 import '../../features/auth/session.dart';
 import '../../features/dashboard/dashboard_screen.dart' show dashboardProvider;
@@ -260,6 +261,11 @@ List<Destination> destinationsPour(SessionState session) {
   return [
     for (final d in destinations)
       if ((d.permission == null || session.acces.peut(d.permission!)) &&
+          // Le barman ne voit pas Services, le maitre-nageur pas Points de
+          // vente : meme droit, mais pas les memes points de vente.
+          (d.route == null ||
+              genreDeLaZone(d.route!) == null ||
+              session.acces.voitGenre(genreDeLaZone(d.route!)!)) &&
           // Un metier a ecran unique (la femme de chambre) ne passe jamais
           // par l'accueil : lui montrer « Aujourd'hui » serait un detour.
           !(ecranUnique && (d.route == '/' || d.route == '/statistiques')))
