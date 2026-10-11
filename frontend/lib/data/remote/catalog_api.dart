@@ -562,6 +562,7 @@ class RemoteFolioItem {
     this.sourceTable,
     this.sourceId,
     this.postedBy,
+    this.postedAt,
   });
 
   final String id;
@@ -584,6 +585,10 @@ class RemoteFolioItem {
   /// L'agent qui a saisi la ligne.
   final String? postedBy;
 
+  /// L'instant de la saisie : les heures de pointe se lisent sur lui, pas
+  /// sur l'instant ou la ligne est descendue.
+  final DateTime? postedAt;
+
   static RemoteFolioItem? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null) return null;
     return RemoteFolioItem(
@@ -600,6 +605,65 @@ class RemoteFolioItem {
       sourceTable: _texte(raw['source_table']),
       sourceId: _texte(raw['source_id']),
       postedBy: _texte(raw['posted_by']),
+      postedAt: _instant(raw['posted_at']),
+    );
+  }
+}
+
+/// Une ligne vendue par un point de vente (`OutletSaleOut`), avec l'en-tete
+/// de son ardoise seulement : ni les autres lignes, ni les totaux.
+class RemoteOutletSale {
+  const RemoteOutletSale({
+    required this.item,
+    required this.folioId,
+    required this.folioNumber,
+    required this.folioType,
+    required this.folioStatus,
+  });
+
+  final RemoteFolioItem item;
+  final String folioId;
+  final String folioNumber;
+
+  /// `WALK_IN` : paye sur place. Autre : porte a la chambre.
+  final String folioType;
+  final String folioStatus;
+
+  static RemoteOutletSale? fromJson(Object? raw) {
+    final item = RemoteFolioItem.fromJson(raw);
+    if (item == null || raw is! Map || raw['folio_id'] == null) return null;
+    return RemoteOutletSale(
+      item: item,
+      folioId: '${raw['folio_id']}',
+      folioNumber: '${raw['folio_number'] ?? ''}',
+      folioType: '${raw['folio_type']}',
+      folioStatus: '${raw['folio_status']}',
+    );
+  }
+}
+
+/// L'activite des points de vente de l'agent (`OutletActivityOut`).
+class RemoteOutletActivity {
+  const RemoteOutletActivity({
+    this.sales = const [],
+    this.payments = const [],
+    this.cashSessions = const [],
+  });
+
+  final List<RemoteOutletSale> sales;
+  final List<RemotePayment> payments;
+  final List<RemoteCashSession> cashSessions;
+
+  static RemoteOutletActivity fromJson(Map<String, dynamic> raw) {
+    List<T> liste<T>(String cle, T? Function(Object?) lire) =>
+        (raw[cle] as List? ?? const [])
+            .map(lire)
+            .whereType<T>()
+            .toList(growable: false);
+    return RemoteOutletActivity(
+      sales: liste('sales', RemoteOutletSale.fromJson),
+      payments: liste('payments', RemotePayment.fromJson),
+      cashSessions: liste('cash_sessions', RemoteCashSession.fromJson),
     );
   }
 }
@@ -962,6 +1026,16 @@ class CatalogApi {
     RemoteCashSession.fromJson,
     query: {'since': _jour(since)},
   );
+
+  /// Ce que les points de vente de l'agent ont vendu et encaisse depuis la
+  /// journee hoteliere `since`, sur tous les postes, et leurs tiroirs.
+  ///
+  /// L'agent d'un point de vente ne lit ni `/folios` ni `/payments` : sans
+  /// cet appel, il ne voyait que les ventes de sa propre tablette.
+  Future<RemoteOutletActivity> fetchOutletActivity(DateTime since) async =>
+      RemoteOutletActivity.fromJson(
+        await _client.get('/outlet-activity', query: {'since': _jour(since)}),
+      );
 
   /// Lit une liste et en ecarte les lignes illisibles.
   Future<List<T>> _lire<T>(

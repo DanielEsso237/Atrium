@@ -171,6 +171,11 @@ class Descente {
       final caisses = await _siPermis(
         () => _catalog.fetchCashSessions(depuis),
       );
+      // L'activite des points de vente de l'agent, sur tous les postes. Pour
+      // qui lit deja ardoises et encaissements, elle redit une partie de ce
+      // qui precede ; pour l'agent d'un point de vente, c'est la seule source
+      // de son tableau de bord -- il ne lit ni `/folios` ni `/payments`.
+      final activite = await _activitePointsDeVente(depuis);
       final regleArrhes = await _catalog.fetchDepositRule();
       final niveauxAlertes = await _catalog.fetchNotificationLevels();
       final agents = await _siPermis(_catalog.fetchUsers);
@@ -217,8 +222,27 @@ class Descente {
         maintenant,
       );
       ecartees += ecartArdoises;
-      ecartees += await _ecrireEncaissements(encaissements, maintenant);
-      ecartees += await _ecrireCaisses(caisses, maintenant);
+      // Apres les ardoises completes : l'en-tete partiel d'une vente ne
+      // s'ecrit que si l'ardoise manque.
+      final (nVentes, ecartVentes) = await _ecrireVentesPointsDeVente(
+        activite.sales,
+        maintenant,
+      );
+      ecartees += ecartVentes;
+      // Un meme encaissement ou une meme caisse peut venir des deux appels :
+      // ecrits une fois.
+      ecartees += await _ecrireEncaissements(
+        {for (final p in [...encaissements, ...activite.payments]) p.id: p}
+            .values
+            .toList(),
+        maintenant,
+      );
+      ecartees += await _ecrireCaisses(
+        {for (final c in [...caisses, ...activite.cashSessions]) c.id: c}
+            .values
+            .toList(),
+        maintenant,
+      );
 
       return PullReport(
         outlets: nPoints,
@@ -228,7 +252,7 @@ class Descente {
         reservations: nDossiers,
         stayLines: nLignes,
         folios: nArdoises,
-        items: nItems,
+        items: nItems + nVentes,
         skipped: ecartees,
       );
     } on ApiException catch (e) {
@@ -845,35 +869,118 @@ class Descente {
           }
           await db
               .into(db.folioItems)
-              .insertOnConflictUpdate(
-                FolioItemsCompanion.insert(
-                  id: i.id,
-                  createdAt: maintenant,
-                  updatedAt: maintenant,
-                  folioId: f.id,
-                  category: _categorie(i.category),
-                  label: i.label,
-                  quantity: Value(i.quantity),
-                  unitPrice: Value(i.unitPrice),
-                  amount: Value(i.amount),
-                  taxRate: Value(i.taxRate),
-                  taxAmount: Value(i.taxAmount),
-                  businessDate: i.businessDate,
-                  isVoid: Value(i.isVoid),
-                  // Un serveur plus ancien ne les envoie pas : ne pas effacer
-                  // ce que la tablette savait deja de la provenance.
-                  sourceTable: Value.absentIfNull(i.sourceTable),
-                  sourceId: Value.absentIfNull(i.sourceId),
-                  postedBy: Value.absentIfNull(i.postedBy),
-                  syncState: const Value(SyncState.synced),
-                ),
-              );
+              .insertOnConflictUpdate(_ligne(i, f.id, maintenant));
           itemsEcrits++;
         }
       }
     });
 
     return (ardoisesEcrites, itemsEcrits, sautes);
+  }
+
+  FolioItemsCompanion _ligne(
+    RemoteFolioItem i,
+    String folioId,
+    DateTime maintenant,
+  ) => FolioItemsCompanion.insert(
+    id: i.id,
+    createdAt: maintenant,
+    updatedAt: maintenant,
+    folioId: folioId,
+    category: _categorie(i.category),
+    label: i.label,
+    quantity: Value(i.quantity),
+    unitPrice: Value(i.unitPrice),
+    amount: Value(i.amount),
+    taxRate: Value(i.taxRate),
+    taxAmount: Value(i.taxAmount),
+    businessDate: i.businessDate,
+    isVoid: Value(i.isVoid),
+    // Un serveur plus ancien ne les envoie pas : ne pas effacer ce que la
+    // tablette savait deja de la provenance.
+    sourceTable: Value.absentIfNull(i.sourceTable),
+    sourceId: Value.absentIfNull(i.sourceId),
+    postedBy: Value.absentIfNull(i.postedBy),
+    postedAt: Value.absentIfNull(i.postedAt),
+    syncState: const Value(SyncState.synced),
+  );
+
+  // --- Les ventes des points de vente -----------------------------------------
+
+  /// L'activite des points de vente de l'agent, ou rien s'il n'a pas le droit
+  /// de la lire -- ou si le serveur ne la connait pas encore (404) : une
+  /// tablette mise a jour avant son serveur ne doit pas perdre sa descente.
+  Future<RemoteOutletActivity> _activitePointsDeVente(DateTime depuis) async {
+    try {
+      return await _catalog.fetchOutletActivity(depuis);
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.forbidden ||
+          e.failure == ApiFailure.notFound) {
+        return const RemoteOutletActivity();
+      }
+      rethrow;
+    }
+  }
+
+  /// Ecrit les ventes des points de vente ; rend (lignes ecrites, ecartees).
+  ///
+  /// Une ligne arrive avec l'en-tete seul de son ardoise. S'il manque, il
+  /// s'ecrit **sans totaux ni client** : l'agent d'un point de vente ne lit
+  /// pas l'ardoise d'une chambre, et la descente complete d'un agent qui la
+  /// lit la remplacera. S'il est la, seul son statut suit le serveur --
+  /// ecrire des totaux a zero sur une ardoise complete fausserait son solde.
+  Future<(int, int)> _ecrireVentesPointsDeVente(
+    List<RemoteOutletSale> ventes,
+    DateTime maintenant,
+  ) async {
+    if (ventes.isEmpty) return (0, 0);
+    final protegesArdoises = await _sync.lignesEnAttente(db.folios);
+    final protegesLignes = await _sync.lignesEnAttente(db.folioItems);
+    final ardoisesConnues = await _identifiants('folios');
+
+    var ecrites = 0;
+    var sautees = 0;
+
+    await db.transaction(() async {
+      for (final v in ventes) {
+        if (protegesLignes.contains(v.item.id)) {
+          sautees++;
+          continue;
+        }
+        if (!ardoisesConnues.contains(v.folioId)) {
+          await db
+              .into(db.folios)
+              .insert(
+                FoliosCompanion.insert(
+                  id: v.folioId,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  number: v.folioNumber,
+                  type: Value(_folioType(v.folioType)),
+                  status: Value(_folioStatus(v.folioStatus)),
+                  syncState: const Value(SyncState.synced),
+                ),
+                // Une ardoise effacee ici n'est pas dans les identifiants
+                // connus : la laisser telle quelle plutot que faire tomber
+                // tout le lot sur la cle primaire.
+                mode: InsertMode.insertOrIgnore,
+              );
+          ardoisesConnues.add(v.folioId);
+        } else if (!protegesArdoises.contains(v.folioId)) {
+          await (db.update(db.folios)..where((f) => f.id.equals(v.folioId)))
+              .write(
+                FoliosCompanion(status: Value(_folioStatus(v.folioStatus))),
+              );
+        }
+        await db
+            .into(db.folioItems)
+            .insertOnConflictUpdate(_ligne(v.item, v.folioId, maintenant));
+        ecrites++;
+      }
+    });
+
+    return (ecrites, sautees);
   }
 
   // --- Les encaissements -----------------------------------------------------
