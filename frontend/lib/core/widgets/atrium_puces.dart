@@ -9,7 +9,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/local/database_provider.dart';
 import '../../data/remote/outbox_sender.dart';
+import '../../data/repositories/ecriture_refusee.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
@@ -136,7 +138,11 @@ class PuceEcritures extends ConsumerWidget {
       child: AtriumPuce(
         icone: bloque ? Icons.error_outline : Icons.cloud_upload_outlined,
         encre: bloque ? AtriumColors.error : AtriumDashColors.title,
-        onTap: () => ref.read(syncSchedulerProvider.notifier).maintenant(),
+        // Bloquee, la file attend une decision : on la propose, au lieu de
+        // renvoyer en boucle une ecriture que le serveur refusera encore.
+        onTap: bloque
+            ? () => montrerEcritureRefusee(context, ref)
+            : () => ref.read(syncSchedulerProvider.notifier).maintenant(),
         // Le nombre seul : le detail est dans l'info-bulle. Longue, la
         // pastille repoussait le sous-titre de l'accueil sur deux lignes.
         child: Text(bloque ? 'Bloqué ($attente)' : '$attente'),
@@ -315,5 +321,56 @@ class BarreSynchronisation extends StatelessWidget {
         BoutonSynchroniser(compact: compact),
       ],
     );
+  }
+}
+
+/// La fenetre d'une ecriture refusee : la raison du serveur, reessayer, et
+/// pour un encaissement, le retirer.
+Future<void> montrerEcritureRefusee(BuildContext context, WidgetRef ref) async {
+  final db = ref.read(databaseProvider);
+  final ecriture = await ecritureRefusee(db);
+  if (!context.mounted) return;
+  if (ecriture == null) {
+    await ref.read(syncSchedulerProvider.notifier).maintenant();
+    return;
+  }
+  final choix = await showDialog<String>(
+    context: context,
+    builder: (dialogue) => AlertDialog(
+      title: const Text('Écriture refusée'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(ecriture.raison ?? 'Le serveur refuse cette saisie.'),
+          const SizedBox(height: 12),
+          Text(
+            ecriture.retirable
+                ? 'Les saisies suivantes attendent derrière elle. Retirer cet '
+                      'encaissement le supprime de cette tablette et recalcule '
+                      'l’ardoise : encaissez ensuite le bon montant.'
+                : 'Les saisies suivantes attendent derrière elle. Celle-ci ne '
+                      'se retire pas depuis la tablette : prévenez '
+                      'l’administrateur.',
+            style: TextStyle(fontSize: 13.5, color: AtriumColors.textSecondary),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogue).pop('reessayer'),
+          child: const Text('Réessayer'),
+        ),
+        if (ecriture.retirable)
+          FilledButton(
+            onPressed: () => Navigator.of(dialogue).pop('retirer'),
+            child: const Text('Retirer cet encaissement'),
+          ),
+      ],
+    ),
+  );
+  if (choix == 'retirer') await retirerEcritureRefusee(db, ecriture);
+  if (choix != null) {
+    await ref.read(syncSchedulerProvider.notifier).maintenant();
   }
 }
