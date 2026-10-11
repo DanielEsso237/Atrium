@@ -24,6 +24,7 @@ import '../features/maintenance/maintenance_screen.dart';
 import '../features/stats/stats_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../data/local/enums.dart';
+import '../data/local/queries/access_queries.dart' show genreDeLaZone;
 import '../features/today/today_screen.dart';
 import 'shell/app_shell.dart';
 import '../features/rooms/room_board_screen.dart';
@@ -115,6 +116,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // de cette regle, il ne peut pas etre lui-meme refuse.
       final requise = permissionPour(etat.matchedLocation);
       if (requise != null && !session.acces.peut(requise)) return '/';
+      final genre = genreDeLaZone(etat.matchedLocation);
+      if (genre != null && !session.acces.voitGenre(genre)) {
+        return accueil ?? '/';
+      }
 
       return null;
     },

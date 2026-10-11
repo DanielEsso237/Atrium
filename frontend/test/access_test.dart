@@ -6,9 +6,13 @@
 library;
 
 import 'package:atrium/core/router.dart';
+import 'package:atrium/core/shell/app_shell.dart' show destinationsPour;
 import 'package:atrium/data/local/database.dart';
+import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/seed_accounts.dart';
+import 'package:atrium/data/repositories/outlet_repository.dart';
+import 'package:atrium/features/auth/session.dart';
 import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -249,5 +253,35 @@ void main() {
     final apres = await accessProfileFor(db, id);
     expect(apres.vide, isTrue);
     expect(apres.homeRoute, isNull);
+  });
+
+  test('les onglets suivent le genre des points de vente de l agent',
+      () async {
+    // Le rattachement seul compte ici : la base de demonstration n'a pas
+    // d'hotel complet, on laisse donc les cles etrangeres de cote.
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    final points = OutletRepository(db);
+    final bar = await points.create(code: 'BAR', label: 'Bar / Lounge');
+    await points.create(code: 'SPA', label: 'Spa', kind: OutletKind.SERVICE);
+    final barman = await idDe('RECEP01');
+    await db.customStatement(
+      'INSERT INTO user_outlets (user_id, outlet_id) VALUES '
+      "('$barman', '${bar.id}')",
+    );
+
+    final acces = await accessProfileFor(db, barman);
+    expect(acces.voitGenre('OUTLET'), isTrue);
+    expect(acces.voitGenre('SERVICE'), isFalse);
+    final routes = destinationsPour(SessionState(acces: acces))
+        .map((d) => d.route);
+    expect(routes, contains('/commandes'));
+    expect(routes, isNot(contains('/services')));
+
+    // Sans rattachement, l'administrateur voit les deux.
+    final admin = await accessProfileFor(db, await idDe('ADMIN01'));
+    expect(admin.voitGenre('OUTLET') && admin.voitGenre('SERVICE'), isTrue);
+    expect(genreDeLaZone('/services'), 'SERVICE');
+    expect(genreDeLaZone('/commandes/bar'), 'OUTLET');
+    expect(genreDeLaZone('/stocks'), isNull);
   });
 }

@@ -20,6 +20,7 @@ class AccessProfile {
     this.permissions = const {},
     this.homeRoute,
     this.roles = const [],
+    this.genres = const {},
   });
 
   /// Les codes de permission, tels que `rooms.read`.
@@ -35,11 +36,32 @@ class AccessProfile {
   /// Les intitules des roles, pour le dire a l'ecran.
   final List<String> roles;
 
+  /// Le genre (`OUTLET`, `SERVICE`) des points de vente auxquels l'agent est
+  /// rattache. Vide quand il n'est rattache a aucun : il les voit tous,
+  /// comme pour le stock.
+  final Set<String> genres;
+
   bool peut(String permission) => permissions.contains(permission);
+
+  /// L'agent a-t-il affaire a ce genre de point de vente ? Le barman n'a
+  /// rien a faire dans l'onglet Services, ni le maitre-nageur dans Points de
+  /// vente.
+  bool voitGenre(String genre) => genres.isEmpty || genres.contains(genre);
 
   /// Un agent sans aucun role. Le cas existe : un compte cree et pas encore
   /// rattache. Il ne doit pas planter, seulement ne rien pouvoir.
   bool get vide => permissions.isEmpty;
+}
+
+/// Le genre de point de vente qu'un ecran montre, ou `null`.
+///
+/// Points de vente et Services sont le meme ecran filtre sur le genre, sous
+/// le meme droit : seul le rattachement de l'agent les distingue.
+String? genreDeLaZone(String chemin) {
+  bool sous(String zone) => chemin == zone || chemin.startsWith('$zone/');
+  if (sous('/commandes')) return 'OUTLET';
+  if (sous('/services')) return 'SERVICE';
+  return null;
 }
 
 /// Lit les droits d'un agent.
@@ -78,8 +100,22 @@ Future<AccessProfile> accessProfileFor(AtriumDatabase db, String userId) async {
       )
       .get();
 
+  final genres = await db
+      .customSelect(
+        '''
+        SELECT DISTINCT o.kind AS kind
+          FROM user_outlets uo
+          JOIN outlets o ON o.id = uo.outlet_id
+         WHERE uo.user_id = ? AND o.deleted_at IS NULL
+        ''',
+        variables: [Variable.withString(userId)],
+        readsFrom: {db.userOutlets, db.outlets},
+      )
+      .get();
+
   return AccessProfile(
     permissions: lignes.map((l) => l.read<String>('code')).toSet(),
+    genres: genres.map((l) => l.read<String>('kind')).toSet(),
     roles: roles.map((l) => l.read<String>('label')).toList(),
     homeRoute: roles
         .map((l) => l.read<String?>('home_route'))
