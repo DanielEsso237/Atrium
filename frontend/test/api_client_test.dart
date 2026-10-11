@@ -277,6 +277,46 @@ void main() {
       expect(await tokens.readRefresh(), 'r2');
     });
 
+    test('une tablette en avance d une heure ne renouvelle pas en boucle',
+        () async {
+      // Le serveur est une heure derriere la tablette : chaque jeton qu'il
+      // donne parait expire depuis une demi-heure a l'horloge de la tablette.
+      final serveur = DateTime.now().toUtc().subtract(const Duration(hours: 1));
+      String jetonDuServeur() =>
+          _jeton(serveur.add(const Duration(minutes: 30)));
+      await tokens.save(accessToken: jetonDuServeur(), refreshToken: 'r1');
+      const mois = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
+        'Sep', 'Oct', 'Nov', 'Dec'];
+      String deux(int n) => n.toString().padLeft(2, '0');
+      final date = 'Mon, ${deux(serveur.day)} ${mois[serveur.month - 1]} '
+          '${serveur.year} ${deux(serveur.hour)}:${deux(serveur.minute)}:'
+          '${deux(serveur.second)} GMT';
+      final faux = _Serveur(jetonDuServeur(), heure: date);
+      final client = ApiClient(
+        baseUrl: 'https://exemple.test',
+        tokens: tokens,
+        dio: Dio()..httpClientAdapter = faux,
+      );
+
+      for (var i = 0; i < 5; i++) {
+        await client.get('/rooms');
+      }
+
+      // Un seul renouvellement : avant la premiere reponse, la tablette ne
+      // connait pas encore l'heure du serveur. Ensuite, elle sait que le
+      // jeton vaut encore 30 minutes. Avant, il y en avait un par requete.
+      expect(faux.vues.where((v) => v.$1 == '/auth/refresh'), hasLength(1));
+      expect(faux.vues.where((v) => v.$1 == '/rooms'), hasLength(5));
+    });
+
+    test('lireDateHttp lit l en-tete Date', () {
+      expect(
+        ApiClient.lireDateHttp('Sat, 11 Oct 2026 10:05:09 GMT'),
+        DateTime.utc(2026, 10, 11, 10, 5, 9),
+      );
+      expect(ApiClient.lireDateHttp('illisible'), isNull);
+    });
+
     test('un jeton encore valide part tel quel', () async {
       final bon = _jeton(DateTime.now().add(const Duration(minutes: 30)));
       await tokens.save(accessToken: bon, refreshToken: 'r1');
@@ -305,10 +345,13 @@ String _jeton(DateTime expire, {String sujet = 'a'}) {
 /// Repond au renouvellement par un jeton neuf, et note chaque requete avec
 /// le jeton qu'elle portait.
 class _Serveur implements HttpClientAdapter {
-  _Serveur(this.neuf);
+  _Serveur(this.neuf, {this.heure});
 
   final String neuf;
   final vues = <(String, String?)>[];
+
+  /// L'en-tete `Date` des reponses, si le serveur en donne un.
+  final String? heure;
 
   @override
   Future<ResponseBody> fetch(
@@ -325,6 +368,7 @@ class _Serveur implements HttpClientAdapter {
       200,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
+        if (heure != null) 'date': [heure!],
       },
     );
   }
