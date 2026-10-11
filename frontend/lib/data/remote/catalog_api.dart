@@ -845,6 +845,83 @@ class RemoteFolio {
   }
 }
 
+/// Un sejour en cours a qui un comptoir peut porter (`ChargeableStayOut`).
+///
+/// Du client, le nom et le plafond seulement. L'ardoise vient entiere : sur
+/// ses seules lignes du bar, la tablette recalculerait un solde faux, et
+/// laisserait passer une charge que le serveur refuse au-dela du plafond.
+class RemoteChargeableStay {
+  const RemoteChargeableStay({
+    required this.stayId,
+    required this.reservationId,
+    required this.reservationReference,
+    required this.arrivalDate,
+    required this.departureDate,
+    required this.roomId,
+    required this.roomNumber,
+    required this.roomTypeId,
+    required this.roomTypeCode,
+    required this.roomTypeLabel,
+    required this.guestId,
+    required this.guestCode,
+    required this.firstName,
+    required this.lastName,
+    required this.folio,
+    this.creditLimit = 0,
+    this.checkedInAt,
+  });
+
+  final String stayId;
+  final String reservationId;
+  final String reservationReference;
+
+  /// Dates seules, `AAAA-MM-JJ`.
+  final String arrivalDate;
+  final String departureDate;
+  final DateTime? checkedInAt;
+  final String roomId;
+  final String roomNumber;
+  final String roomTypeId;
+  final String roomTypeCode;
+  final String roomTypeLabel;
+  final String guestId;
+  final String guestCode;
+  final String firstName;
+  final String lastName;
+  final int creditLimit;
+  final RemoteFolio folio;
+
+  static RemoteChargeableStay? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final folio = RemoteFolio.fromJson(raw['folio']);
+    if (folio == null ||
+        raw['stay_id'] == null ||
+        raw['room_id'] == null ||
+        raw['guest_id'] == null) {
+      return null;
+    }
+    return RemoteChargeableStay(
+      stayId: '${raw['stay_id']}',
+      reservationId: '${raw['reservation_id']}',
+      reservationReference: '${raw['reservation_reference'] ?? ''}',
+      arrivalDate: '${raw['arrival_date']}',
+      departureDate: '${raw['departure_date']}',
+      checkedInAt: _instant(raw['checked_in_at']),
+      roomId: '${raw['room_id']}',
+      roomNumber: '${raw['room_number']}',
+      roomTypeId: '${raw['room_type_id']}',
+      roomTypeCode: '${raw['room_type_code']}',
+      roomTypeLabel: '${raw['room_type_label'] ?? ''}',
+      guestId: '${raw['guest_id']}',
+      guestCode: '${raw['guest_code'] ?? ''}',
+      firstName: '${raw['guest_first_name'] ?? ''}',
+      lastName: '${raw['guest_last_name'] ?? ''}',
+      creditLimit: _entier(raw['guest_credit_limit']),
+      folio: folio,
+    );
+  }
+}
+
 class CatalogApi {
   const CatalogApi(this._client);
 
@@ -1036,6 +1113,13 @@ class CatalogApi {
       RemoteOutletActivity.fromJson(
         await _client.get('/outlet-activity', query: {'since': _jour(since)}),
       );
+
+  /// Les chambres a qui un comptoir peut porter (`folio.charge`).
+  ///
+  /// Pour l'agent qui ne lit pas les reservations : sans elles, une tablette
+  /// qui ne sert qu'au bar ne proposait aucune chambre.
+  Future<List<RemoteChargeableStay>> fetchChargeableStays() =>
+      _lire('/chargeable-stays', RemoteChargeableStay.fromJson);
 
   /// Lit une liste et en ecarte les lignes illisibles.
   Future<List<T>> _lire<T>(

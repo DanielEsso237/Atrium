@@ -315,6 +315,14 @@ séparer Points de vente et Services dans l'administration ; l'impression
 réelle des tickets ; ne plus demander à un agent les ressources qu'il n'a
 pas le droit de lire (les 403 du journal sont normaux, mais inutiles).
 
+**Une tablette qui ne sert qu'au bar** ne proposait aucune chambre à
+« Porter à la chambre » : le comptoir porte (`folio.charge`) sans lire les
+réservations, et les chambres n'arrivaient que si la réception s'était
+connectée avant sur la même tablette. Corrigé par `GET /chargeable-stays`
+(branche `fix/chambres-pour-le-comptoir`). Les consommations portées en
+chambre avant le correctif du ticket 1 restent sans point de vente sur le
+serveur : données d'essai, non reprises (décision du 11 octobre).
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
