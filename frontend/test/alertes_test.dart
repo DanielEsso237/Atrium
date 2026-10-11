@@ -4,12 +4,15 @@
 /// volet de notifications quand l'application est en arriere-plan.
 library;
 
+import 'package:atrium/core/business_day.dart';
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/queries/alert_queries.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/repositories/guest_repository.dart';
+import 'package:atrium/data/repositories/reservation_repository.dart';
 import 'package:atrium/data/repositories/settings_repository.dart';
 import 'package:atrium/features/alerts/alert_center.dart';
 import 'package:atrium/features/alerts/alert_signal.dart';
@@ -642,6 +645,29 @@ void main() {
       expect(conteneur.read(centreAlertesProvider).actives, hasLength(2));
     });
 
+    test('une arrivee attendue non lue sonne aussi a la connexion', () async {
+      final client = await GuestRepository(
+        db,
+      ).create(firstName: 'Awa', lastName: 'Diallo');
+      await ReservationRepository(db).create(
+        guestId: client.id,
+        roomTypeId: roomTypeSeeds.first.id,
+        // La journee hoteliere, pas le calendrier : avant 6 h, c'est encore
+        // celle d'hier.
+        arrival: businessDayFor(DateTime.now()),
+        departure: businessDayFor(DateTime.now()).add(const Duration(days: 2)),
+        nightlyRate: 25000,
+      );
+
+      final conteneur = await centre(droits: const {'reservation.read'});
+      await attendre();
+
+      // L'arrivee est reglee « sonore » par defaut : elle sonne une fois,
+      // et reste dans la cloche sans rappel.
+      expect(signal.emis, [NiveauAlerte.info]);
+      expect(conteneur.read(centreAlertesProvider).bandeau, isEmpty);
+      expect(conteneur.read(centreAlertesProvider).actives, hasLength(1));
+    });
     test('discret : ni bandeau ni bruit, mais dans la cloche', () async {
       await SettingsRepository(db).setNiveauxAlertes(
         const NiveauxAlertes().avec(TypeEvenement.panne, NiveauSignal.discret),

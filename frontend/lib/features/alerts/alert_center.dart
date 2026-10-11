@@ -184,9 +184,10 @@ class CentreAlertes extends Notifier<EtatAlertes> {
     // A la connexion, les arrivees et les stocks bas deja connus vont dans la
     // cloche sans bandeau ni rappel. Le reste sonne, meme deja ancien.
     //
-    // Le stock bas sonne quand meme une fois, a la connexion (decision du
-    // 11 octobre) : une seule sonnerie pour tous les produits en manque, pas
-    // une par produit, et sans rappel ensuite.
+    // Mais toute alerte non lue sonne a la connexion (decision du 11
+    // octobre) : les arrivees et les stocks bas aussi, une seule sonnerie
+    // pour tout -- `_signaler` n'en emet qu'une --, chacune a son niveau
+    // regle (un type « Discret » reste muet), et sans rappel ensuite.
     final aLaConnexion = <Alerte>[];
     if (_premiere) {
       _premiere = false;
@@ -196,7 +197,7 @@ class CentreAlertes extends Notifier<EtatAlertes> {
           if (a.niveau == NiveauAlerte.info) a.cle,
       };
       aLaConnexion.addAll(
-        nouvelles.where((a) => a.type == TypeEvenement.stockBas).take(1),
+        nouvelles.where((a) => a.niveau == NiveauAlerte.info),
       );
       nouvelles.removeWhere((a) => a.niveau == NiveauAlerte.info);
     }
