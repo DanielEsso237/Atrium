@@ -214,6 +214,19 @@ class _Tableau extends ConsumerWidget {
                       _HeuresDePointe(tableau: t, aveugle: aveugle),
                       const SizedBox(height: 24),
                       _MeilleuresVentes(tableau: t, aveugle: aveugle),
+                      const SizedBox(height: 24),
+                      _Tiroirs(
+                        filtres: filtres,
+                        libelles: {for (final o in points) o.id: o.label},
+                        agentId: agentId,
+                        // L'attendu, c'est le chiffre que le comptage a
+                        // l'aveugle cache : a la caisse centrale seulement.
+                        voitAttendu: acces.peut('cash.central'),
+                      ),
+                      if (acces.peut('stock.read')) ...[
+                        const SizedBox(height: 24),
+                        _Stock(filtres: filtres),
+                      ],
                     ],
                   ),
                 ),
@@ -546,6 +559,210 @@ class _HeuresDePointe extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Les tiroirs ----------------------------------------------------------------
+
+/// Les tiroirs : qui tient la caisse, depuis quand, et ou en est le
+/// versement du soir -- declare par l'agent, recu par la reception.
+class _Tiroirs extends ConsumerWidget {
+  const _Tiroirs({
+    required this.filtres,
+    required this.libelles,
+    required this.agentId,
+    required this.voitAttendu,
+  });
+
+  final FiltresPdv filtres;
+  final Map<String, String> libelles;
+  final String agentId;
+  final bool voitAttendu;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final tiroirs = ref.watch(tiroirsPdvProvider(filtres)).value ?? const [];
+    final doux = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 13,
+      color: p.textSecondary,
+      fontFeatures: tabularFigures,
+    );
+
+    return Bezel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Eyebrow('Tiroirs et versements'),
+          const SizedBox(height: 8),
+          if (tiroirs.isEmpty)
+            Text('Aucun tiroir ouvert ni versement sur la période.', style: doux),
+          for (final t in tiroirs)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      t.ouvert
+                          ? PhosphorIconsLight.lockSimpleOpen
+                          : t.enAttente
+                          ? PhosphorIconsLight.hourglass
+                          : PhosphorIconsLight.checkCircle,
+                      size: 20,
+                      color: p.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${libelles[t.pointDeVente] ?? 'Point de vente'} · '
+                          '${_qui(t)}',
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: p.text,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(_etat(t), style: doux),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _qui(TiroirPdv t) =>
+      t.agentId == agentId ? 'Vous' : (t.agent ?? 'Un collègue');
+
+  String _etat(TiroirPdv t) {
+    final parts = <String>[];
+    if (t.ouvert) {
+      parts.add(
+        t.ouvertLe == null
+            ? 'Ouvert'
+            : 'Ouvert depuis ${_heure(t.ouvertLe!)}',
+      );
+      parts.add('fond ${formatAmount(t.fond)}');
+      if (voitAttendu) parts.add('attendu ${formatAmount(t.attendu)}');
+      return parts.join(' · ');
+    }
+    if (t.declare != null) parts.add('versé ${formatAmount(t.declare!)}');
+    if (t.enAttente) {
+      parts.add('en attente de la réception');
+      if (voitAttendu && t.declare != null) {
+        parts.add('attendu ${formatAmount(t.attendu)}');
+        final ecart = t.declare! - t.attendu;
+        if (ecart != 0) parts.add('écart ${_signe(ecart)}');
+      }
+    } else if (t.recu != null) {
+      parts.add('reçu ${formatAmount(t.recu!)}');
+      final ecart = t.declare == null ? 0 : t.recu! - t.declare!;
+      if (ecart != 0) parts.add('écart ${_signe(ecart)}');
+    }
+    return parts.isEmpty ? 'Fermé' : parts.join(' · ');
+  }
+
+  static String _signe(int montant) =>
+      '${montant > 0 ? '+' : '−'}${formatAmount(montant.abs())}';
+
+  static String _heure(DateTime instant) {
+    final l = instant.toLocal();
+    return '${l.hour} h ${l.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+// --- Le stock -------------------------------------------------------------------
+
+/// Ce qui manque au magasin du point de vente, et les ravitaillements qui
+/// attendent le controleur ou le comptable.
+class _Stock extends ConsumerWidget {
+  const _Stock({required this.filtres});
+
+  final FiltresPdv filtres;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final stock = ref.watch(stockPdvProvider(filtres)).value ?? const StockPdv();
+    final style = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14.5,
+      color: p.text,
+      fontFeatures: tabularFigures,
+    );
+    final doux = style.copyWith(fontSize: 13, color: p.textSecondary);
+
+    return Bezel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Eyebrow('Stock'),
+          const SizedBox(height: 8),
+          if (stock.bas.isEmpty)
+            Text('Rien sous le seuil.', style: doux)
+          else
+            for (final s in stock.bas)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      PhosphorIconsLight.warningCircle,
+                      size: 18,
+                      // Une alerte : le sens est aussi dans le texte.
+                      color: s.quantite < 0 ? p.error : p.warning,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${s.produit} · ${s.magasin}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
+                      ),
+                    ),
+                    Text(
+                      s.quantite < 0
+                          ? '${s.quantite} ${s.unite} (négatif)'
+                          : '${s.quantite} / ${s.seuil} ${s.unite}',
+                      style: style.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+          const SizedBox(height: 12),
+          Text(
+            stock.transferts.isEmpty
+                ? 'Aucun ravitaillement en attente.'
+                : 'Ravitaillements en attente de validation',
+            style: stock.transferts.isEmpty
+                ? doux
+                : style.copyWith(fontWeight: FontWeight.w600),
+          ),
+          for (final t in stock.transferts)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${t.quantite} ${t.unite} ${t.produit} · ${t.depuis} → ${t.vers}',
+                style: doux,
+              ),
+            ),
         ],
       ),
     );

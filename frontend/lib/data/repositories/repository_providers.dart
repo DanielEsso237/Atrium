@@ -146,6 +146,16 @@ final tableauDeBordPdvProvider =
           ref.watch(databaseProvider).watchTableauDeBordPdv(filtres),
     );
 
+/// Les tiroirs des points de vente du tableau de bord.
+final tiroirsPdvProvider = StreamProvider.family<List<TiroirPdv>, FiltresPdv>(
+  (ref, filtres) => ref.watch(databaseProvider).watchTiroirsPdv(filtres),
+);
+
+/// Le stock bas et les ravitaillements en attente du tableau de bord.
+final stockPdvProvider = StreamProvider.family<StockPdv, FiltresPdv>(
+  (ref, filtres) => ref.watch(databaseProvider).watchStockPdv(filtres),
+);
+
 /// La carte d'un point de vente, en direct.
 final menuForOutletProvider = StreamProvider.family<List<MenuEntry>, String>(
   (ref, outletId) => ref.watch(orderRepositoryProvider).watchMenu(outletId),
