@@ -924,6 +924,14 @@ class Descente {
                 receivedAt: Value(p.receivedAt),
                 businessDate: Value(p.businessDate),
                 isRefund: Value(p.isRefund),
+                // Sans la note, des arrhes ne se reconnaissaient plus au
+                // check-in : elles restaient hors de l'ardoise, la tablette
+                // croyait le sejour entier du, et l'encaissement du tout
+                // etait refuse par le serveur (vecu le 11 octobre). Un
+                // serveur qui ne l'envoie pas ne l'efface pas non plus.
+                notes: p.notes == null
+                    ? const Value.absent()
+                    : Value(p.notes),
                 syncState: const Value(SyncState.synced),
               ),
             );

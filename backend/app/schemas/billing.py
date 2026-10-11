@@ -126,6 +126,9 @@ class PaymentOut(BaseModel):
     received_by: uuid.UUID | None = None
     business_date: dt.date | None = None
     cash_session_id: uuid.UUID | None = None
+    # « Arrhes RES-... » : c'est a elle que la tablette reconnait les arrhes
+    # a basculer sur l'ardoise au check-in.
+    notes: str | None = None
 
 
 class InvoiceLineOut(BaseModel):

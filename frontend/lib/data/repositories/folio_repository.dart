@@ -725,6 +725,10 @@ class FolioRepository with OutboxWriter {
   ///
   /// En SQL et non en Dart : c'est SQLite qui fait la somme, donc le resultat
   /// ne depend pas de ce que l'application avait en memoire.
+  /// Recalcule les totaux d'une ardoise, apres le retrait d'un encaissement
+  /// refuse par le serveur (voir `ecriture_refusee.dart`).
+  Future<void> recalculer(String folioId) => _recomputeTotals(folioId);
+
   Future<void> _recomputeTotals(String folioId) async {
     await db.customUpdate(
       '''

@@ -617,12 +617,17 @@ class RemotePayment {
     this.businessDate,
     this.cashSessionId,
     this.reference,
+    this.notes,
   });
 
   final String id;
   final String method;
   final int amount;
   final bool isRefund;
+
+  /// « Arrhes RES-... » pour des arrhes : la tablette les reconnait a cela
+  /// au check-in.
+  final String? notes;
   final String? folioId;
   final String? receivedBy;
   final DateTime? receivedAt;
@@ -646,6 +651,7 @@ class RemotePayment {
       receivedAt: _instant(raw['received_at']),
       businessDate: _texte(raw['business_date']),
       cashSessionId: _texte(raw['cash_session_id']),
+      notes: _texte(raw['notes']),
       reference: _texte(raw['reference']),
     );
   }
