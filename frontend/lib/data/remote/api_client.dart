@@ -110,9 +110,21 @@ class ApiClient {
           // remplissait de 401 qui ressemblaient a des pannes. Pas pour les
           // routes d'authentification elles-memes : le renouvellement y
           // passe, il ne doit pas se rappeler.
+          //
+          // L'heure est celle du serveur, pas celle de la tablette : une
+          // tablette en avance d'une heure (fuseau mal regle) croyait chaque
+          // jeton neuf deja expire, et renouvelait avant chaque requete.
+          // Et jamais plus d'un renouvellement anticipe par minute, quoi
+          // qu'il arrive : au pire, le serveur dira 401 et on renouvellera
+          // alors.
+          final maintenant = DateTime.now();
+          final recent = _dernierAnticipe != null &&
+              maintenant.difference(_dernierAnticipe!) < const Duration(minutes: 1);
           if (token != null &&
+              !recent &&
               !options.path.startsWith('/auth/') &&
-              expireBientot(token, DateTime.now())) {
+              expireBientot(token, maintenant.add(_decalage))) {
+            _dernierAnticipe = maintenant;
             if (await _refresh()) token = await _tokens.readAccess();
           }
           if (token != null) {
@@ -120,7 +132,44 @@ class ApiClient {
           }
           handler.next(options);
         },
+        onResponse: (response, handler) {
+          // L'heure du serveur, a chaque reponse : c'est elle qui juge
+          // l'expiration du jeton.
+          final heure = lireDateHttp(response.headers.value('date'));
+          if (heure != null) _decalage = heure.difference(DateTime.now());
+          handler.next(response);
+        },
       ),
+    );
+  }
+
+  /// Ecart entre l'horloge du serveur et celle de la tablette.
+  Duration _decalage = Duration.zero;
+
+  /// Le dernier renouvellement anticipe, pour ne jamais en enchainer.
+  DateTime? _dernierAnticipe;
+
+  /// Lit un en-tete HTTP `Date` (« Sat, 11 Oct 2026 10:00:00 GMT »).
+  ///
+  /// A la main : `HttpDate` vient de `dart:io`, absent de la version web.
+  @visibleForTesting
+  static DateTime? lireDateHttp(String? valeur) {
+    if (valeur == null) return null;
+    const mois = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
+      'Sep', 'Oct', 'Nov', 'Dec'];
+    final m = RegExp(
+      r'(\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})',
+    ).firstMatch(valeur);
+    if (m == null) return null;
+    final rang = mois.indexOf(m.group(2)!);
+    if (rang < 0) return null;
+    return DateTime.utc(
+      int.parse(m.group(3)!),
+      rang + 1,
+      int.parse(m.group(1)!),
+      int.parse(m.group(4)!),
+      int.parse(m.group(5)!),
+      int.parse(m.group(6)!),
     );
   }
 
