@@ -330,6 +330,18 @@ class OrderRepository with OutboxWriter {
     if (unitPrice <= 0 || quantity <= 0) {
       throw StateError('Le montant doit etre superieur a zero.');
     }
+    // Caisse fermee, point de vente ferme (decision du 11 octobre) : rien ne
+    // se sert sans le tiroir ouvert, meme porte a la chambre. Le rapport du
+    // soir du point de vente compte alors tout ce qu'il a servi. Le serveur
+    // refuse de meme : ce refus doit arriver ici, avant la file.
+    if (by == null ||
+        await CashRepository(db).openSessionId(by, outletId: outlet.id) ==
+            null) {
+      throw StateError(
+        'Ouvrez la caisse de ${outlet.label} avant de servir : le point de '
+        'vente est fermé.',
+      );
+    }
 
     await FolioRepository(db).addCharge(
       folioId: folioId,

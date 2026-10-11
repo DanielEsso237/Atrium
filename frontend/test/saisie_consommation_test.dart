@@ -126,6 +126,8 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Consommation'), findsOneWidget);
     expect(find.text('Porter à la chambre'), findsOneWidget);
+    // Le client loge peut aussi payer tout de suite, au comptoir.
+    expect(find.text('Payer maintenant'), findsOneWidget);
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());

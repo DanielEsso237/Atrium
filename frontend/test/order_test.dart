@@ -8,10 +8,14 @@ library;
 
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/order_repository.dart';
 import 'package:atrium/data/repositories/reservation_repository.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+
+/// Un agent du jeu de demonstration.
+const _agent = '01920000-0000-7000-8000-000000050002';
 
 void main() {
   late AtriumDatabase db;
@@ -70,6 +74,10 @@ void main() {
             ),
           );
     }
+    // Le bar est ouvert : son tiroir l'est.
+    await CashRepository(
+      db,
+    ).open(userId: _agent, openingFloat: 0, outletId: barId);
   });
 
   tearDown(() => db.close());
@@ -164,6 +172,7 @@ void main() {
     await commandes.charge(
       outlet: await pointDeVente(barId),
       folioId: chambre.folioId,
+      by: _agent,
       label: 'Biere',
       unitPrice: 2000,
       quantity: 2,
@@ -180,6 +189,7 @@ void main() {
     await commandes.charge(
       outlet: await pointDeVente(barId),
       folioId: chambre.folioId,
+      by: _agent,
       label: 'Biere',
       unitPrice: 2000,
     );
@@ -202,6 +212,7 @@ void main() {
       commandes.charge(
         outlet: await pointDeVente(boutiqueId),
         folioId: chambre.folioId,
+        by: _agent,
         label: 'Tee-shirt',
         unitPrice: 5000,
       ),
@@ -222,6 +233,7 @@ void main() {
       commandes.charge(
         outlet: bar,
         folioId: chambre.folioId,
+        by: _agent,
         label: '   ',
         unitPrice: 2000,
       ),
@@ -231,6 +243,7 @@ void main() {
       commandes.charge(
         outlet: bar,
         folioId: chambre.folioId,
+        by: _agent,
         label: 'Biere',
         unitPrice: 0,
       ),
@@ -243,6 +256,7 @@ void main() {
     await commandes.charge(
       outlet: await pointDeVente(barId),
       folioId: chambre.folioId,
+      by: _agent,
       label: 'Biere',
       unitPrice: 2000,
     );
@@ -318,6 +332,7 @@ void main() {
       await commandes.charge(
         outlet: await pointDeVente(barId),
         folioId: chambre.folioId,
+        by: _agent,
         label: poulet.label,
         unitPrice: poulet.price,
       );
@@ -347,6 +362,7 @@ void main() {
       await commandes.charge(
         outlet: await pointDeVente(barId),
         folioId: chambre.folioId,
+        by: _agent,
         label: 'Plat du jour',
         unitPrice: 5000,
       );
@@ -363,5 +379,31 @@ void main() {
       final apres = await commandes.watchChargeableRooms().first;
       expect(apres.single.balance, avant + 5000);
     });
+  });
+
+  test('caisse du bar fermee : rien ne se porte a la chambre', () async {
+    final chambre = await installer();
+    final caisse = (await CashRepository(db).openSessionId(
+      _agent,
+      outletId: barId,
+    ))!;
+    await CashRepository(db).close(sessionId: caisse, countedAmount: 0);
+
+    await expectLater(
+      commandes.charge(
+        outlet: await pointDeVente(barId),
+        folioId: chambre.folioId,
+        by: _agent,
+        label: 'Biere',
+        unitPrice: 2000,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          startsWith('Ouvrez la caisse de Bar'),
+        ),
+      ),
+    );
   });
 }
