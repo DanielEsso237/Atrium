@@ -181,9 +181,14 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         if (!avant.contains(a.cle) && !vues.contains(a.cle)) a,
     ];
 
-    // A la connexion, les arrivees et les stocks bas deja connus ne sonnent
-    // pas : l'agent les trouvera dans la cloche. Le reste sonne, meme deja
-    // ancien.
+    // A la connexion, les arrivees et les stocks bas deja connus vont dans la
+    // cloche sans bandeau ni rappel. Le reste sonne, meme deja ancien.
+    //
+    // Mais toute alerte non lue sonne a la connexion (decision du 11
+    // octobre) : les arrivees et les stocks bas aussi, une seule sonnerie
+    // pour tout -- `_signaler` n'en emet qu'une --, chacune a son niveau
+    // regle (un type « Discret » reste muet), et sans rappel ensuite.
+    final aLaConnexion = <Alerte>[];
     if (_premiere) {
       _premiere = false;
       vues = {
@@ -191,6 +196,9 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         for (final a in nouvelles)
           if (a.niveau == NiveauAlerte.info) a.cle,
       };
+      aLaConnexion.addAll(
+        nouvelles.where((a) => a.niveau == NiveauAlerte.info),
+      );
       nouvelles.removeWhere((a) => a.niveau == NiveauAlerte.info);
     }
 
@@ -203,7 +211,7 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         unawaited(_systeme.retirer(cle));
       }
     }
-    _signaler(nouvelles);
+    _signaler([...nouvelles, ...aLaConnexion]);
     _ajusterRappel();
   }
 

@@ -4,12 +4,15 @@
 /// volet de notifications quand l'application est en arriere-plan.
 library;
 
+import 'package:atrium/core/business_day.dart';
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/queries/alert_queries.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/repositories/guest_repository.dart';
+import 'package:atrium/data/repositories/reservation_repository.dart';
 import 'package:atrium/data/repositories/settings_repository.dart';
 import 'package:atrium/features/alerts/alert_center.dart';
 import 'package:atrium/features/alerts/alert_signal.dart';
@@ -545,7 +548,10 @@ void main() {
     late _VoletNote volet;
     late _PremierPlan plan;
 
-    Future<ProviderContainer> centre({bool devant = true}) async {
+    Future<ProviderContainer> centre({
+      bool devant = true,
+      Set<String> droits = const {'maintenance.read'},
+    }) async {
       signal = _SignalNote();
       volet = _VoletNote();
       plan = _PremierPlan(devant);
@@ -575,7 +581,7 @@ void main() {
             () => _Session(
               SessionState(
                 agent: agent,
-                acces: const AccessProfile(permissions: {'maintenance.read'}),
+                acces: AccessProfile(permissions: droits),
               ),
             ),
           ),
@@ -590,6 +596,78 @@ void main() {
     Future<void> attendre() =>
         Future<void>.delayed(const Duration(milliseconds: 60));
 
+    test('le stock deja bas sonne une fois a la connexion, sans rappel',
+        () async {
+      // Deux produits sous leur minimum avant la connexion.
+      final bar = id();
+      await db
+          .into(db.stockLocations)
+          .insert(
+            StockLocationsCompanion.insert(
+              id: bar, createdAt: t0, updatedAt: t0, hotelId: _hotel,
+              code: 'BAR', label: 'Bar',
+            ),
+          );
+      for (final (ref, libelle) in [('B33', 'Bière'), ('JUS', 'Jus')]) {
+        final produit = id();
+        await db
+            .into(db.products)
+            .insert(
+              ProductsCompanion.insert(
+                id: produit, createdAt: t0, updatedAt: t0, hotelId: _hotel,
+                reference: ref, label: libelle, minStock: const Value(12),
+              ),
+            );
+        await db
+            .into(db.stockLevels)
+            .insert(
+              StockLevelsCompanion.insert(
+                id: id(), createdAt: t0, updatedAt: t0, productId: produit,
+                stockLocationId: bar, quantity: const Value(4),
+              ),
+            );
+      }
+      await SettingsRepository(db).setNiveauxAlertes(
+        const NiveauxAlertes().avec(
+          TypeEvenement.stockBas,
+          NiveauSignal.sonoreVibration,
+        ),
+      );
+
+      final conteneur = await centre(droits: const {'stock.read'});
+      await attendre();
+
+      // Une seule sonnerie pour les deux, et rien dans le bandeau : pas de
+      // rappel toutes les quelques minutes pour un stock deja connu.
+      expect(signal.emis, [NiveauAlerte.info]);
+      expect(signal.sons, [true]);
+      expect(conteneur.read(centreAlertesProvider).bandeau, isEmpty);
+      expect(conteneur.read(centreAlertesProvider).actives, hasLength(2));
+    });
+
+    test('une arrivee attendue non lue sonne aussi a la connexion', () async {
+      final client = await GuestRepository(
+        db,
+      ).create(firstName: 'Awa', lastName: 'Diallo');
+      await ReservationRepository(db).create(
+        guestId: client.id,
+        roomTypeId: roomTypeSeeds.first.id,
+        // La journee hoteliere, pas le calendrier : avant 6 h, c'est encore
+        // celle d'hier.
+        arrival: businessDayFor(DateTime.now()),
+        departure: businessDayFor(DateTime.now()).add(const Duration(days: 2)),
+        nightlyRate: 25000,
+      );
+
+      final conteneur = await centre(droits: const {'reservation.read'});
+      await attendre();
+
+      // L'arrivee est reglee « sonore » par defaut : elle sonne une fois,
+      // et reste dans la cloche sans rappel.
+      expect(signal.emis, [NiveauAlerte.info]);
+      expect(conteneur.read(centreAlertesProvider).bandeau, isEmpty);
+      expect(conteneur.read(centreAlertesProvider).actives, hasLength(1));
+    });
     test('discret : ni bandeau ni bruit, mais dans la cloche', () async {
       await SettingsRepository(db).setNiveauxAlertes(
         const NiveauxAlertes().avec(TypeEvenement.panne, NiveauSignal.discret),
