@@ -362,6 +362,131 @@ Future<Uint8List> factureTicket({
   return pdf.save();
 }
 
+/// Le ticket d'une vente encaissee au comptoir d'un point de vente : 80 mm,
+/// en noir et blanc, pour les imprimantes de tickets comme pour l'ecran.
+///
+/// [lignes] : `(libelle, prix unitaire, quantite)`.
+Future<Uint8List> ticketDeComptoir({
+  required HotelRow? hotel,
+  Uint8List? logoNoirBlanc,
+  required String pointDeVente,
+  required String numero,
+  required DateTime date,
+  required List<(String, int, int)> lignes,
+  required String moyen,
+  String? client,
+  String? agent,
+}) async {
+  final pdf = pw.Document(
+    title: 'Ticket $numero',
+    author: hotel?.name,
+    theme: await _theme(),
+  );
+  const noir = PdfColors.black;
+  const texte = pw.TextStyle(fontSize: 8.5, color: noir);
+  pw.Widget tirets() => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 5),
+    child: pw.Divider(
+      height: 1,
+      thickness: 0.6,
+      color: noir,
+      borderStyle: pw.BorderStyle.dashed,
+    ),
+  );
+  pw.Widget ligne(String gauche, String droite, {bool fort = false}) =>
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                gauche,
+                style: fort
+                    ? pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)
+                    : texte,
+              ),
+            ),
+            pw.Text(
+              droite,
+              style: fort
+                  ? pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)
+                  : texte,
+            ),
+          ],
+        ),
+      );
+  final total = lignes.fold(0, (t, l) => t + l.$2 * l.$3);
+  final local = date.toLocal();
+  String deux(int n) => n.toString().padLeft(2, '0');
+
+  pdf.addPage(
+    pw.Page(
+      pageFormat: PdfPageFormat.roll80.copyWith(
+        marginLeft: 3 * PdfPageFormat.mm,
+        marginRight: 3 * PdfPageFormat.mm,
+        marginTop: 4 * PdfPageFormat.mm,
+        marginBottom: 6 * PdfPageFormat.mm,
+      ),
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          if (logoNoirBlanc != null) ...[
+            pw.Center(
+              child: pw.Container(
+                width: 46 * PdfPageFormat.mm,
+                height: 20 * PdfPageFormat.mm,
+                child: pw.Image(
+                  pw.MemoryImage(logoNoirBlanc),
+                  fit: pw.BoxFit.contain,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 4),
+          ],
+          pw.Text(
+            hotel?.name ?? 'Hôtel',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          ),
+          for (final l in lignesCoordonnees(hotel))
+            pw.Text(l, textAlign: pw.TextAlign.center, style: texte),
+          tirets(),
+          pw.Text(
+            pointDeVente,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 3),
+          ligne('Ticket', numero),
+          ligne(
+            'Date',
+            '${formatShortDate(local)} ${deux(local.hour)}:${deux(local.minute)}',
+          ),
+          if (client != null) ligne('Client', client),
+          if (agent != null) ligne('Servi par', agent),
+          tirets(),
+          for (final (libelle, prix, quantite) in lignes)
+            ligne(
+              quantite > 1 ? '$libelle × $quantite' : libelle,
+              formatAmount(prix * quantite),
+            ),
+          tirets(),
+          ligne('Total', formatAmount(total), fort: true),
+          ligne('Payé', moyen),
+          pw.SizedBox(height: 6),
+          pw.Text(
+            'Merci de votre visite.',
+            textAlign: pw.TextAlign.center,
+            style: texte,
+          ),
+        ],
+      ),
+    ),
+  );
+  return pdf.save();
+}
+
 /// Remet le PDF : feuille de partage sur la tablette (imprimer, envoyer,
 /// enregistrer), telechargement dans un navigateur.
 Future<void> partagerPdf(

@@ -127,8 +127,11 @@ void main() {
 
   test('portee sur une chambre, la biere sort du bar tout de suite', () async {
     final folio = await ardoise();
+    await CashRepository(
+      db,
+    ).open(userId: utilisateurDemo, openingFloat: 0, outletId: bar.id);
     await OrderRepository(db).charge(
-      outlet: bar, folioId: folio, label: 'Biere', unitPrice: 1500,
+      outlet: bar, folioId: folio, by: utilisateurDemo, label: 'Biere', unitPrice: 1500,
       quantity: 2, menuItemId: articleBiere,
     );
     expect(await auBar(), 8);
@@ -141,8 +144,11 @@ void main() {
 
   test('un plat du jour ne touche a aucun stock', () async {
     final folio = await ardoise();
+    await CashRepository(
+      db,
+    ).open(userId: utilisateurDemo, openingFloat: 0, outletId: bar.id);
     await OrderRepository(db).charge(
-      outlet: bar, folioId: folio, label: 'Plat du jour', unitPrice: 4000,
+      outlet: bar, folioId: folio, by: utilisateurDemo, label: 'Plat du jour', unitPrice: 4000,
       menuItemId: platDuJour,
     );
     expect(await auBar(), 10);

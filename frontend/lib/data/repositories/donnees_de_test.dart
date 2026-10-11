@@ -415,6 +415,17 @@ Future<String?> _chargerVentesAuComptoir(
   };
   final aujourdhui = businessDayFor(DateTime.now());
   final ardoises = FolioRepository(db);
+  // Rien ne se sert, meme porte a la chambre, sans le tiroir ouvert du point
+  // de vente (decision du 11 octobre) : le serveur refuserait ces lignes, et
+  // la file se bloquerait derriere. Ouvert avant, il remonte avant elles.
+  for (final point in points.values) {
+    await CashRepository(db).open(
+      userId: agentId,
+      openingFloat: 0,
+      by: agentId,
+      outletId: point.id,
+    );
+  }
   var ventes = 0;
   var dejaPortees = 0;
   for (final (numero, code, ilYa, libelle, quantite, prix)

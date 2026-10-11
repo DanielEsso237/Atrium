@@ -11,6 +11,8 @@
 /// personne ne s'en apercoive.
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +24,7 @@ import '../../core/widgets/fiche_laterale.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/local/enums.dart';
+import '../../data/repositories/guest_repository.dart' show codeFromId;
 import '../../data/repositories/order_repository.dart';
 import '../../data/repositories/outlet_repository.dart'
     show receptionOutletCode;
@@ -29,7 +32,9 @@ import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../billing/cash_dialog.dart' show CashButton;
 import '../billing/charge_labels.dart';
+import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
+import '../hotel/logo_images.dart' show logoTicketProvider;
 
 /// Le point de vente choisi, et la chambre cherchee.
 class _PointChoisi extends Notifier<String?> {
@@ -358,13 +363,29 @@ class _Chambre extends ConsumerWidget {
   }
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
-    final lignes = await afficherFicheLaterale<List<(String, int, int, String?)>>(
+    final commande = await afficherFicheLaterale<_Commande>(
       context,
       libelleFermer: 'Fermer sans porter',
       fiche: (panneau) =>
           _Saisie(outlet: outlet, chambre: chambre, panneau: panneau),
     );
-    if (lignes == null || lignes.isEmpty || !context.mounted) return;
+    if (commande == null || commande.lignes.isEmpty || !context.mounted) {
+      return;
+    }
+    final lignes = commande.lignes;
+
+    // Le client paie tout de suite au comptoir, au lieu de porter sur sa
+    // chambre : l'argent va dans le tiroir du point de vente.
+    if (commande.payer) {
+      await _encaisserAuComptoir(
+        context,
+        ref,
+        outlet,
+        lignes,
+        client: '${chambre.guestName}, chambre ${chambre.roomNumber}',
+      );
+      return;
+    }
 
     // Une ligne apres l'autre : si le plafond du client arrete l'une d'elles,
     // celles d'avant sont bien portees, et le message dit ou l'on en est.
@@ -469,43 +490,121 @@ class _Passage extends ConsumerWidget {
   }
 
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
-    final agent = ref.read(sessionProvider).agent?.id;
-    if (agent == null) return;
-    final lignes = await afficherFicheLaterale<List<(String, int, int, String?)>>(
+    final commande = await afficherFicheLaterale<_Commande>(
       context,
       libelleFermer: 'Fermer sans encaisser',
       fiche: (panneau) =>
           _Saisie(outlet: outlet, chambre: null, panneau: panneau),
     );
-    if (lignes == null || lignes.isEmpty || !context.mounted) return;
-
-    final total = lignes.fold(0, (t, l) => t + l.$2 * l.$3);
-    final moyen = await showDialog<PaymentMethod>(
-      context: context,
-      builder: (_) => _MoyenPassage(total: total),
-    );
-    if (moyen == null || !context.mounted) return;
-
-    try {
-      await ref
-          .read(orderRepositoryProvider)
-          .sellWalkIn(outlet: outlet, lines: lignes, method: moyen, by: agent);
-    } on StateError catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+    if (commande == null || commande.lignes.isEmpty || !context.mounted) {
       return;
     }
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${formatAmount(total)} encaissés (${paymentMethodLabel(moyen)}).',
-        ),
+    await _encaisserAuComptoir(context, ref, outlet, commande.lignes);
+  }
+}
+
+/// Ce que la fiche de saisie rend : les lignes, et le geste choisi.
+class _Commande {
+  const _Commande(this.lignes, {this.payer = false});
+
+  /// `(libelle, prix unitaire, quantite, article)`.
+  final List<(String, int, int, String?)> lignes;
+
+  /// Le client paie tout de suite, au lieu de porter sur sa chambre.
+  final bool payer;
+}
+
+/// Encaisse au comptoir : le moyen de paiement, la vente dans le tiroir du
+/// point de vente, puis le ticket a remettre au client.
+///
+/// Pour le client de passage, et pour le client loge qui paie sur place.
+Future<void> _encaisserAuComptoir(
+  BuildContext context,
+  WidgetRef ref,
+  OutletRow outlet,
+  List<(String, int, int, String?)> lignes, {
+  String? client,
+}) async {
+  final session = ref.read(sessionProvider);
+  final agent = session.agent?.id;
+  if (agent == null) return;
+  final total = lignes.fold(0, (t, l) => t + l.$2 * l.$3);
+  final moyen = await showDialog<PaymentMethod>(
+    context: context,
+    builder: (_) => _MoyenPassage(total: total),
+  );
+  if (moyen == null || !context.mounted) return;
+
+  final String ardoise;
+  try {
+    ardoise = await ref
+        .read(orderRepositoryProvider)
+        .sellWalkIn(outlet: outlet, lines: lignes, method: moyen, by: agent);
+  } on StateError catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+    return;
+  }
+  if (!context.mounted) return;
+
+  // Le ticket se propose tout de suite : le client attend au comptoir.
+  final ticket = await showDialog<bool>(
+    context: context,
+    builder: (dialogue) => AlertDialog(
+      icon: const Icon(PhosphorIconsLight.checkCircle, size: 30),
+      title: Text('${formatAmount(total)} encaissés'),
+      content: Text(
+        '${paymentMethodLabel(moyen)}, dans la caisse de ${outlet.label}.',
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogue).pop(false),
+          child: const Text('Terminé'),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(dialogue).pop(true),
+          icon: const Icon(PhosphorIconsLight.receipt),
+          label: const Text('Ticket'),
+        ),
+      ],
+    ),
+  );
+  if (ticket != true || !context.mounted) return;
+
+  try {
+    final hotel = await ref.read(hotelProvider.future);
+    Uint8List? logo;
+    try {
+      logo = await ref.read(logoTicketProvider.future);
+    } on Object {
+      // Sans logo, le ticket reste lisible.
+    }
+    final numero = codeFromId(ardoise, 'FOL');
+    final octets = await ticketDeComptoir(
+      hotel: hotel,
+      logoNoirBlanc: logo,
+      pointDeVente: outlet.label,
+      numero: numero,
+      date: DateTime.now(),
+      lignes: [for (final (l, p, q, _) in lignes) (l, p, q)],
+      moyen: paymentMethodLabel(moyen),
+      client: client,
+      agent: session.nomAffiche,
     );
+    await partagerPdf(
+      octets,
+      nom: 'Ticket $numero',
+      sujet: 'Ticket ${outlet.label}',
+    );
+  } on Object catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Le ticket n’a pas pu être fait : $e')),
+      );
+    }
   }
 }
 
@@ -644,17 +743,19 @@ class _SaisieState extends ConsumerState<_Saisie> {
   /// Pret a porter : aucune ligne a moitie remplie.
   bool get _pret => _lignes.every((l) => l.complete);
 
-  void _valider() => Navigator.of(context).pop([
-    for (final l in _lignes)
-      (
-        l.libelle.text.trim(),
-        int.parse(l.prix.text.trim()),
-        l.quantite,
-        // L'article de la carte, s'il n'a pas ete retouche a la main : c'est
-        // lui qui fait sortir le stock.
-        l.articleId,
-      ),
-  ]);
+  void _valider({bool payer = false}) => Navigator.of(context).pop(
+    _Commande([
+      for (final l in _lignes)
+        (
+          l.libelle.text.trim(),
+          int.parse(l.prix.text.trim()),
+          l.quantite,
+          // L'article de la carte, s'il n'a pas ete retouche a la main : c'est
+          // lui qui fait sortir le stock.
+          l.articleId,
+        ),
+    ], payer: payer),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -704,6 +805,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
               lignes: _lignes.length,
               ardoise: chambre?.balance,
               onValider: _pret ? _valider : null,
+              onPayer: _pret ? () => _valider(payer: true) : null,
             ),
           ],
         ),
@@ -822,10 +924,14 @@ class _Barre extends StatelessWidget {
     required this.lignes,
     required this.ardoise,
     required this.onValider,
+    this.onPayer,
   });
 
   final int total;
   final int lignes;
+
+  /// Le client loge paie tout de suite au lieu de porter sur sa chambre.
+  final VoidCallback? onPayer;
 
   /// `null` : client de passage, sans ardoise.
   final int? ardoise;
@@ -928,8 +1034,17 @@ class _Barre extends StatelessWidget {
                     shape: forme,
                     textStyle: texteBouton,
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
+                  // Une chambre : payer tout de suite, a la place d'Annuler --
+                  // la fiche se ferme deja par son en-tete. Le client de
+                  // passage garde Annuler.
+                  onPressed: passage
+                      ? () => Navigator.of(context).pop()
+                      : onPayer,
+                  child: Text(
+                    passage ? 'Annuler' : 'Payer maintenant',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

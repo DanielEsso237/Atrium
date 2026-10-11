@@ -260,6 +260,17 @@ async def add_folio_item(
 
     if folio.status != FolioStatus.OPEN:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ce folio n'est plus ouvert.")
+    # Une consommation d'un point de vente, portee a la chambre : le point de
+    # vente doit etre ouvert -- son tiroir ouvert par cet agent (decision du
+    # 11 octobre). La tablette refuse de meme avant d'enfiler. Un renvoi de
+    # charge deja portee est reconnu plus haut, et passe.
+    if payload.outlet_id is not None:
+        await _caisse_ouverte(
+            session,
+            user,
+            payload.outlet_id,
+            message="Ouvrez la caisse du point de vente avant de servir : il est ferme.",
+        )
     if payload.category == ChargeCategory.DISCOUNT and "folio.discount" not in permission_codes(
         user
     ):
@@ -370,7 +381,10 @@ async def post_stay_nights(
 
 
 async def _caisse_ouverte(
-    session: AsyncSession, user: User, outlet_id: uuid.UUID | None = None
+    session: AsyncSession,
+    user: User,
+    outlet_id: uuid.UUID | None = None,
+    message: str = "Ouvrez votre caisse avant d'encaisser : l'argent doit tomber dans un tiroir.",
 ) -> uuid.UUID:
     """La caisse ouverte de l'agent pour ce tiroir, ou 409.
 
@@ -390,10 +404,7 @@ async def _caisse_ouverte(
         session, user, outlet_id=outlet_id, for_update=True
     )
     if cash_session_id is None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Ouvrez votre caisse avant d'encaisser : l'argent doit tomber dans un tiroir.",
-        )
+        raise HTTPException(status.HTTP_409_CONFLICT, message)
     return cash_session_id
 
 

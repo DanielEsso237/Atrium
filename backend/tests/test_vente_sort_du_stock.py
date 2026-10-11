@@ -59,8 +59,16 @@ async def bar(session, hotel_a):
 
 
 @pytest.fixture
-async def ardoise(client, session, hotel_a, auth_a):
+async def ardoise(client, session, hotel_a, auth_a, bar):
     hotel, _ = hotel_a
+    # Le bar est ouvert : rien ne s'y sert, meme porte a la chambre, sans son
+    # tiroir ouvert (decision du 11 octobre).
+    r = await client.post(
+        "/api/v1/cash-sessions",
+        json={"opening_float": 0, "outlet_id": bar["outlet"]},
+        headers=auth_a,
+    )
+    assert r.status_code in (200, 201), r.text
     room_type = RoomType(hotel_id=hotel.id, code="STD", label="Standard", default_rate=25_000)
     session.add(room_type)
     await session.flush()
@@ -121,6 +129,31 @@ async def test_portee_sur_la_chambre_la_biere_sort_du_bar(client, session, auth_
     r = await client.post(f"/api/v1/folios/{ardoise}/items", json=ligne, headers=auth_a)
     assert r.status_code == 200
     assert await _stock(session, bar["biere"], bar["magasin"]) == 8
+
+
+async def test_bar_ferme_rien_ne_se_porte_a_la_chambre(client, session, auth_a, bar, ardoise):
+    """Le tiroir du bar ferme, le bar est ferme : la consommation est refusee,
+    et rien ne sort du stock (decision du 11 octobre)."""
+    caisse = (
+        await client.get(
+            "/api/v1/cash-sessions/current", params={"outlet_id": bar["outlet"]}, headers=auth_a
+        )
+    ).json()
+    r = await client.post(
+        f"/api/v1/cash-sessions/{caisse['id']}/close",
+        json={"counted_amount": 0},
+        headers=auth_a,
+    )
+    assert r.status_code == 200, r.text
+
+    ligne = {
+        "id": str(uuid7()), "category": "FNB", "label": "Biere", "quantity": 2,
+        "unit_price": 1_500, "menu_item_id": bar["article"], "outlet_id": bar["outlet"],
+    }
+    r = await client.post(f"/api/v1/folios/{ardoise}/items", json=ligne, headers=auth_a)
+    assert r.status_code == 409
+    assert "caisse" in r.json()["detail"]
+    assert await _stock(session, bar["biere"], bar["magasin"]) == 10
 
 
 async def test_un_plat_du_jour_ne_touche_a_aucun_stock(client, session, auth_a, bar, ardoise):
