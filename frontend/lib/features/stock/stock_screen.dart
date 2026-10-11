@@ -40,6 +40,9 @@ class StockScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final magasins = ref.watch(stockPlacesProvider(session.agent?.id));
+    // Tous les magasins de l'hotel : ceux d'ou un point de vente peut se
+    // ravitailler, meme s'il ne les voit pas dans ses onglets.
+    final tousLesMagasins = ref.watch(stockPlacesProvider(null)).value;
     final acces = session.acces;
     // Deux gestes, deux droits, comme la route du serveur : l'econome fait
     // entrer les livraisons, le point de vente ne fait que demander.
@@ -104,7 +107,12 @@ class StockScreen extends ConsumerWidget {
                         icon: PhosphorIconsLight.arrowsLeftRight,
                         tone: PillTone.quiet,
                         onPressed: () =>
-                            _transfert(context, ref, magasin, liste),
+                            _transfert(
+                              context,
+                              ref,
+                              magasin,
+                              tousLesMagasins ?? liste,
+                            ),
                       ),
                   ],
                 )
@@ -171,30 +179,55 @@ class StockScreen extends ConsumerWidget {
     StockPlace depart,
     List<StockPlace> magasins,
   ) async {
-    final autres = [for (final m in magasins) if (m.id != depart.id) m];
-    if (autres.isEmpty) return;
+    // Tous les magasins de l'hotel, pas seulement ceux de l'agent : le
+    // barman ne voit que son bar, et ne se ravitaillait donc depuis rien --
+    // le bouton ne faisait rien, sans un mot (vecu le 11 octobre).
+    // Sur l'onglet d'un point de vente, on demande son ravitaillement : il
+    // recoit, depuis l'economat ou un autre point de vente. Sur celui de
+    // l'economat, on transfere vers un point de vente.
+    final ravitaillement = !depart.isCentral;
+    final autres = [
+      for (final m in magasins)
+        if (m.id != depart.id) m,
+    ]..sort((a, b) => (b.isCentral ? 1 : 0).compareTo(a.isCentral ? 1 : 0));
+    if (autres.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Aucun autre magasin connu sur cette tablette : lancez une '
+            'synchronisation.',
+          ),
+        ),
+      );
+      return;
+    }
     final saisie = await showDialog<_Saisie>(
       context: context,
       builder: (_) => _SaisieDialog(
-        titre: 'Transfert depuis ${depart.label}',
+        titre: ravitaillement
+            ? 'Ravitailler ${depart.label}'
+            : 'Transfert depuis ${depart.label}',
         entree: false,
         destinations: autres,
         depart: depart,
+        ravitaillement: ravitaillement,
       ),
     );
     if (saisie == null || !context.mounted) return;
+    final source = ravitaillement ? saisie.destination! : depart;
+    final cible = ravitaillement ? depart : saisie.destination!;
     await _faire(context, () async {
       await ref
           .read(stockRepositoryProvider)
           .requestTransfer(
-            fromPlaceId: depart.id,
-            toPlaceId: saisie.destination!.id,
+            fromPlaceId: source.id,
+            toPlaceId: cible.id,
             productId: saisie.produit.id,
             quantity: saisie.quantite,
             reason: saisie.motif,
             by: ref.read(sessionProvider).agent?.id,
           );
-      return 'Transfert vers ${saisie.destination!.label} demandé : il attend '
+      return 'Transfert de ${source.label} vers ${cible.label} demandé : il attend '
           'la validation du contrôleur ou du comptable.';
     });
   }
@@ -524,9 +557,14 @@ class _SaisieDialog extends ConsumerStatefulWidget {
     required this.entree,
     this.destinations = const [],
     this.depart,
+    this.ravitaillement = false,
   });
 
   final String titre;
+
+  /// Le point de vente se ravitaille : la liste est celle des magasins d'ou
+  /// la marchandise peut venir, et non de ceux ou elle peut aller.
+  final bool ravitaillement;
 
   /// Une entree (prix d'achat) ou un transfert (destination).
   final bool entree;
@@ -589,7 +627,9 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
               DropdownButtonFormField<StockPlace>(
                 initialValue: _destination,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Vers'),
+                decoration: InputDecoration(
+                  labelText: widget.ravitaillement ? 'Depuis' : 'Vers',
+                ),
                 items: [
                   for (final m in widget.destinations)
                     DropdownMenuItem(value: m, child: Text(m.label)),
@@ -620,9 +660,13 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                 ),
               ),
             ],
-            if (!widget.entree && _produit != null && widget.depart != null)
+            // Ce qu'a le magasin d'ou part la marchandise : le choisi pour
+            // un ravitaillement, celui de l'onglet pour un transfert.
+            if (!widget.entree &&
+                _produit != null &&
+                (widget.ravitaillement ? _destination : widget.depart) != null)
               _DisponibleAuDepart(
-                magasin: widget.depart!,
+                magasin: (widget.ravitaillement ? _destination : widget.depart)!,
                 produitId: _produit!.id,
                 demande: _q,
               ),
@@ -656,7 +700,13 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                     motif: _motif.text.trim().isEmpty ? null : _motif.text.trim(),
                   ),
                 ),
-          child: Text(widget.entree ? 'Enregistrer l’entrée' : 'Demander le transfert'),
+          child: Text(
+            widget.entree
+                ? 'Enregistrer l’entrée'
+                : widget.ravitaillement
+                ? 'Demander le ravitaillement'
+                : 'Demander le transfert',
+          ),
         ),
       ],
     );
