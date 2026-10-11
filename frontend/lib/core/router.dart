@@ -16,6 +16,7 @@ import '../features/billing/folios_screen.dart';
 import '../features/guests/guests_screen.dart';
 import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
+import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
@@ -53,6 +54,10 @@ const _permissionParZone = <String, String>{
   '/commandes': 'order.read',
   '/stocks': 'stock.read',
   '/services': 'order.read',
+  // Le tableau de bord des points de vente : le meme droit que leurs
+  // onglets. Chacun n'y voit que son perimetre, et a l'aveugle tant que son
+  // tiroir est ouvert.
+  '/ventes': 'order.read',
   // Le meme droit que le serveur exige pour creer un agent : tout ce que cet
   // ecran ecrit, il le refuserait sinon, et la file se bloquerait.
   '/administration': 'users.write',
@@ -154,6 +159,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
           GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),
+          GoRoute(
+            path: '/ventes',
+            builder: (_, _) => const OutletDashboardScreen(),
+          ),
           GoRoute(
             path: '/services',
             builder: (_, _) => const OrdersScreen(kind: OutletKind.SERVICE),

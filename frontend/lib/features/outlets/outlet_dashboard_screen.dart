@@ -1,0 +1,623 @@
+/// Le tableau de bord des points de vente et des services.
+///
+/// Un seul ecran pour tous, parametre par le perimetre de l'agent : la
+/// direction et la reception voient tout l'hotel, avec un filtre ; l'agent du
+/// bar ne voit que le bar. Un point de vente cree demain y apparait de
+/// lui-meme, sans une ligne de code.
+///
+/// **Comptage a l'aveugle** (decision du 11 octobre) : tant que son tiroir
+/// est ouvert, l'agent d'un point de vente ne voit pas l'argent encaisse --
+/// fond plus encaisse, c'est l'attendu qu'il doit retrouver seul en
+/// comptant. Il voit ce qu'il a servi, et ce qui est porte aux chambres.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/business_day.dart';
+import '../../core/formats.dart';
+import '../../core/tokens.dart';
+import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/icons.dart';
+import '../../core/widgets/module_scaffold.dart';
+import '../../data/local/enums.dart';
+import '../../data/local/queries/outlet_dashboard_queries.dart';
+import '../../data/repositories/order_repository.dart';
+import '../../data/repositories/repository_providers.dart';
+import '../auth/session.dart';
+
+/// Ce que l'agent a choisi de regarder.
+class _Choix {
+  const _Choix({this.genre, this.pointDeVente, this.periode = PeriodePdv.jour});
+
+  /// `null` : le premier genre que l'agent voit.
+  final OutletKind? genre;
+
+  /// `null` : tous les points de vente du genre.
+  final String? pointDeVente;
+  final PeriodePdv periode;
+}
+
+class _ChoixNotifier extends Notifier<_Choix> {
+  @override
+  _Choix build() => const _Choix();
+
+  void genre(OutletKind g) => state = _Choix(genre: g, periode: state.periode);
+
+  void pointDeVente(String? id) => state = _Choix(
+    genre: state.genre,
+    pointDeVente: id,
+    periode: state.periode,
+  );
+
+  void periode(PeriodePdv p) => state = _Choix(
+    genre: state.genre,
+    pointDeVente: state.pointDeVente,
+    periode: p,
+  );
+}
+
+final _choixProvider = NotifierProvider<_ChoixNotifier, _Choix>(
+  _ChoixNotifier.new,
+);
+
+const _titre = 'Ventes';
+
+class OutletDashboardScreen extends ConsumerWidget {
+  const OutletDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final agentId = session.agent?.id;
+    if (agentId == null) {
+      return const ModuleScaffold(title: _titre, body: SizedBox.shrink());
+    }
+
+    return ref
+        .watch(perimetrePdvProvider(agentId))
+        .when(
+          loading: () => const ModuleScaffold(
+            title: _titre,
+            body: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => ModuleScaffold(
+            title: _titre,
+            body: EmptyState(
+              icon: PhosphorIconsLight.warningCircle,
+              title: 'Lecture impossible',
+              message: '$e',
+            ),
+          ),
+          data: (perimetre) => _Tableau(perimetre: perimetre, agentId: agentId),
+        );
+  }
+}
+
+class _Tableau extends ConsumerWidget {
+  const _Tableau({required this.perimetre, required this.agentId});
+
+  final PerimetrePdv perimetre;
+  final String agentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final acces = ref.watch(sessionProvider).acces;
+    final choix = ref.watch(_choixProvider);
+
+    // Les onglets Points de vente / Services : seulement ceux qui ont
+    // quelque chose a montrer a cet agent.
+    final genres = [
+      for (final g in OutletKind.values)
+        if (perimetre.duGenre(g).isNotEmpty && acces.voitGenre(g.name)) g,
+    ];
+    if (genres.isEmpty) {
+      return const ModuleScaffold(
+        title: _titre,
+        body: EmptyState(
+          icon: PhosphorIconsLight.shoppingBagOpen,
+          title: 'Aucun point de vente',
+          message:
+              'Les points de vente arrivent du serveur : lancez une '
+              'synchronisation.',
+        ),
+      );
+    }
+    final genre = genres.contains(choix.genre) ? choix.genre! : genres.first;
+    final points = perimetre.duGenre(genre);
+    final choisi = points.where((o) => o.id == choix.pointDeVente).firstOrNull;
+    final filtres = FiltresPdv(
+      pointsDeVente: choisi == null ? [for (final o in points) o.id] : [choisi.id],
+      periode: choix.periode,
+      reference: businessDayFor(DateTime.now()),
+    );
+
+    // L'aveugle : l'agent rattache, sans la caisse centrale, dont un tiroir
+    // est ouvert sur l'un des points de vente regardes.
+    final tiroirs = ref.watch(tiroirsOuvertsProvider(agentId)).value ?? {};
+    final aveugle =
+        perimetre.rattache &&
+        !acces.peut('cash.central') &&
+        filtres.pointsDeVente.any(tiroirs.contains);
+
+    final etroit = MediaQuery.sizeOf(context).width < 600;
+    final marge = etroit ? 18.0 : 32.0;
+    final notifier = ref.read(_choixProvider.notifier);
+
+    return ModuleScaffold(
+      title: _titre,
+      subtitle: perimetre.rattache
+          ? points.map((o) => o.label).join(', ')
+          : 'Tous les points de vente de l’hôtel',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              children: [
+                if (genres.length > 1)
+                  FilterPills<OutletKind>(
+                    selected: genre,
+                    onChanged: notifier.genre,
+                    options: [
+                      for (final g in genres)
+                        FilterOption(
+                          g,
+                          g == OutletKind.OUTLET ? 'Points de vente' : 'Services',
+                        ),
+                    ],
+                  ),
+                if (points.length > 1)
+                  FilterPills<String?>(
+                    selected: choisi?.id,
+                    onChanged: notifier.pointDeVente,
+                    options: [
+                      const FilterOption(null, 'Tous'),
+                      for (final o in points) FilterOption(o.id, o.label),
+                    ],
+                  ),
+                FilterPills<PeriodePdv>(
+                  selected: choix.periode,
+                  onChanged: notifier.periode,
+                  options: const [
+                    FilterOption(PeriodePdv.jour, 'Aujourd’hui'),
+                    FilterOption(PeriodePdv.semaine, 'Cette semaine'),
+                    FilterOption(PeriodePdv.mois, 'Ce mois'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ref
+                .watch(tableauDeBordPdvProvider(filtres))
+                .when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => EmptyState(
+                    icon: PhosphorIconsLight.warningCircle,
+                    title: 'Lecture impossible',
+                    message: '$e',
+                  ),
+                  data: (t) => ListView(
+                    padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+                    children: [
+                      if (aveugle) ...[
+                        const _BandeauAveugle(),
+                        const SizedBox(height: 16),
+                      ],
+                      _Chiffres(tableau: t, aveugle: aveugle),
+                      const SizedBox(height: 24),
+                      _HeuresDePointe(tableau: t, aveugle: aveugle),
+                      const SizedBox(height: 24),
+                      _MeilleuresVentes(tableau: t, aveugle: aveugle),
+                    ],
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pourquoi des montants manquent : sans explication, l'agent croirait a
+/// une panne.
+class _BandeauAveugle extends StatelessWidget {
+  const _BandeauAveugle();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Bezel(
+      core: p.accentSoft,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(PhosphorIconsLight.lockSimple, size: 22, color: p.text),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Votre caisse est ouverte : l’argent encaissé s’affichera après '
+              'votre versement. Vous le comptez sans le connaître, c’est ce '
+              'qui rend le comptage juste.',
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 14,
+                color: p.text,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Les chiffres ---------------------------------------------------------------
+
+class _Chiffres extends StatelessWidget {
+  const _Chiffres({required this.tableau, required this.aveugle});
+
+  final TableauDeBordPdv tableau;
+  final bool aveugle;
+
+  String get _repere => switch (tableau.filtres.periode) {
+    PeriodePdv.jour => 'hier',
+    PeriodePdv.semaine => 'la semaine dernière',
+    PeriodePdv.mois => 'le mois dernier',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = tableau.chiffres;
+    final av = tableau.precedent;
+    final tuiles = [
+      _Tuile(
+        libelle: 'Recette',
+        valeur: aveugle ? null : formatAmount(c.recette),
+        variation: aveugle ? null : _variation(c.recette, av.recette),
+        repere: _repere,
+      ),
+      _Tuile(
+        libelle: 'Ventes',
+        valeur: '${c.ventes}',
+        variation: _variation(c.ventes, av.ventes),
+        repere: _repere,
+        aide: 'Un client servi dans la journée',
+      ),
+      _Tuile(
+        libelle: 'Ticket moyen',
+        valeur: aveugle ? null : formatAmount(c.ticketMoyen),
+        variation: aveugle ? null : _variation(c.ticketMoyen, av.ticketMoyen),
+        repere: _repere,
+      ),
+      _Tuile(
+        libelle: 'Articles',
+        valeur: '${c.articles}',
+        variation: _variation(c.articles, av.articles),
+        repere: _repere,
+      ),
+      _Tuile(
+        libelle: 'Payé sur place',
+        valeur: aveugle ? null : formatAmount(c.surPlace),
+        repere: _repere,
+      ),
+      _Tuile(
+        libelle: 'Porté aux chambres',
+        valeur: formatAmount(c.enChambre),
+        repere: _repere,
+        aide: 'Encaissé au départ du client',
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, zone) {
+        final colonnes = zone.maxWidth >= 900
+            ? 3
+            : zone.maxWidth >= 480
+            ? 2
+            : 1;
+        const ecart = 12.0;
+        final largeur = (zone.maxWidth - ecart * (colonnes - 1)) / colonnes;
+        return Wrap(
+          spacing: ecart,
+          runSpacing: ecart,
+          children: [
+            for (final t in tuiles) SizedBox(width: largeur, child: t),
+          ],
+        );
+      },
+    );
+  }
+
+  /// En pour cent, arrondi ; `null` sans repere (rien la periode d'avant).
+  static int? _variation(int maintenant, int avant) =>
+      avant == 0 ? null : ((maintenant - avant) * 100 / avant).round();
+}
+
+class _Tuile extends StatelessWidget {
+  const _Tuile({
+    required this.libelle,
+    required this.valeur,
+    required this.repere,
+    this.variation,
+    this.aide,
+  });
+
+  final String libelle;
+
+  /// `null` : masque par le comptage a l'aveugle.
+  final String? valeur;
+  final int? variation;
+  final String repere;
+  final String? aide;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final v = variation;
+    return Bezel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            libelle,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: p.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (valeur == null)
+            Semantics(
+              label: '$libelle masqué jusqu’au versement',
+              child: Row(
+                children: [
+                  Icon(PhosphorIconsLight.lockSimple, size: 22, color: p.textSecondary),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Après le versement',
+                      maxLines: 2,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 15,
+                        color: p.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Text(
+              valeur!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: atriumDisplay(28, color: p.text).copyWith(
+                fontFeatures: tabularFigures,
+              ),
+            ),
+          const SizedBox(height: 6),
+          Text(
+            v == null
+                ? (aide ?? '')
+                : '${v > 0 ? '+' : ''}$v % par rapport à $repere',
+            maxLines: 2,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              // Le sens se lit dans le signe, pas dans la couleur seule.
+              color: v == null
+                  ? p.textSecondary
+                  : v >= 0
+                  ? p.success
+                  : p.error,
+              fontFeatures: tabularFigures,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Les heures de pointe ----------------------------------------------------------
+
+/// Un histogramme de la journee type de la periode : une seule serie, une
+/// seule teinte, sans legende -- le titre la nomme. Le montant de chaque
+/// heure dans son info-bulle ; seule la pointe est etiquetee.
+class _HeuresDePointe extends StatelessWidget {
+  const _HeuresDePointe({required this.tableau, required this.aveugle});
+
+  final TableauDeBordPdv tableau;
+  final bool aveugle;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    // A l'aveugle, les articles servis plutot que l'argent.
+    int mesure(HeurePdv h) => aveugle ? h.articles : h.montant;
+    String dire(int n) => aveugle ? '$n article${n > 1 ? 's' : ''}' : formatAmount(n);
+
+    final actives = tableau.parHeure.where((h) => mesure(h) > 0).toList();
+    if (actives.isEmpty) {
+      return Bezel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Eyebrow('Heures de pointe'),
+            const SizedBox(height: 8),
+            Text(
+              'Aucune vente sur la période.',
+              style: TextStyle(fontFamily: atriumFontFamily, color: p.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+    // De la premiere a la derniere heure de vente : la nuit vide ne
+    // ecrase pas les barres du service.
+    final debut = actives.first.heure;
+    final fin = actives.last.heure;
+    final heures = tableau.parHeure.sublist(debut, fin + 1);
+    final max = heures.map(mesure).reduce((a, b) => a > b ? a : b);
+    final pointe = heures.firstWhere((h) => mesure(h) == max);
+
+    return Bezel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Eyebrow(
+            'Heures de pointe',
+            trailing: Text(
+              'Pointe à ${pointe.heure} h : ${dire(max)}',
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: p.text,
+                fontFeatures: tabularFigures,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 140,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final h in heures)
+                  Expanded(
+                    child: Tooltip(
+                      message: '${h.heure} h – ${h.heure + 1} h : ${dire(mesure(h))}',
+                      child: Padding(
+                        // L'espace de surface entre deux barres.
+                        padding: const EdgeInsets.symmetric(horizontal: 1),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Container(
+                              height: max == 0 ? 0 : 120 * mesure(h) / max,
+                              decoration: BoxDecoration(
+                                color: h == pointe
+                                    ? p.primary
+                                    : p.primary.withValues(alpha: 0.45),
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // La ligne de base et quelques reperes d'heure, en retrait.
+          Container(height: 1, color: p.border),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              for (final h in heures)
+                Expanded(
+                  child: Text(
+                    h.heure % 3 == 0 || h == pointe ? '${h.heure} h' : '',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 11,
+                      color: p.textSecondary,
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Les meilleures ventes ---------------------------------------------------------
+
+class _MeilleuresVentes extends StatelessWidget {
+  const _MeilleuresVentes({required this.tableau, required this.aveugle});
+
+  final TableauDeBordPdv tableau;
+  final bool aveugle;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final lignes = tableau.meilleuresVentes;
+    final style = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14.5,
+      color: p.text,
+      fontFeatures: tabularFigures,
+    );
+    return Bezel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Eyebrow('Meilleures ventes'),
+          const SizedBox(height: 8),
+          if (lignes.isEmpty)
+            Text(
+              'Aucune vente sur la période.',
+              style: style.copyWith(color: p.textSecondary),
+            ),
+          for (final (i, l) in lignes.indexed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '${i + 1}',
+                      style: style.copyWith(color: p.textSecondary),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      l.libelle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style,
+                    ),
+                  ),
+                  Text('× ${l.quantite}', style: style),
+                  if (!aveugle) ...[
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 110,
+                      child: Text(
+                        formatAmount(l.montant),
+                        textAlign: TextAlign.right,
+                        style: style.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

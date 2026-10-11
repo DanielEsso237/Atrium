@@ -208,6 +208,18 @@ final destinations = <Destination>[
     'order.read',
     Groupe.services,
   ),
+  // Le tableau de bord des points de vente et des services : tout l'hotel
+  // pour la direction et la reception, le sien pour l'agent d'un comptoir.
+  // Apres ses onglets : l'agent ouvre sur ses commandes, ses chiffres sont a
+  // un geste.
+  const Destination(
+    'Ventes',
+    PhosphorIconsLight.storefront,
+    PhosphorIconsLight.storefront,
+    '/ventes',
+    'order.read',
+    Groupe.services,
+  ),
   // L'economat et le stock de chaque point de vente. L'icone pleine est la
   // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
   const Destination(
