@@ -135,7 +135,7 @@ class SessionNotifier extends Notifier<SessionState> {
           // Les droits viennent du serveur a la connexion en ligne.
           acces: await accessProfileFor(ref.read(databaseProvider), agent.id),
         );
-        unawaited(ref.read(syncProvider.notifier).refresh());
+        unawaited(_synchroniserPuisRelire(agent.id));
       case Reprise.injoignable:
         _planifierReprise(intervalleReprise);
       case Reprise.refusee:
@@ -169,7 +169,7 @@ class SessionNotifier extends Notifier<SessionState> {
       // contient deja, et se repeint quand les vraies donnees arrivent.
       if (resultat.online) {
         _oublierReprise();
-        unawaited(ref.read(syncProvider.notifier).refresh());
+        unawaited(_synchroniserPuisRelire(resultat.user!.id));
       } else {
         // Hors ligne : on retente le serveur en arriere-plan, et la session
         // passe en ligne toute seule quand il revient.
@@ -181,6 +181,20 @@ class SessionNotifier extends Notifier<SessionState> {
 
     state = SessionState(echec: resultat.failure);
     return false;
+  }
+
+  /// Synchronise, puis relit les droits de l'agent.
+  ///
+  /// Sur un poste neuf, les droits se calculaient avant que les points de
+  /// vente ne descendent : le genre du bar etait inconnu, et le barman voyait
+  /// l'onglet Services jusqu'a sa connexion suivante (vu le 12 octobre).
+  Future<void> _synchroniserPuisRelire(String agentId) async {
+    await ref.read(syncProvider.notifier).refresh();
+    // L'agent a pu se deconnecter, ou un autre se connecter, entre-temps.
+    if (state.agent?.id != agentId) return;
+    final acces = await accessProfileFor(ref.read(databaseProvider), agentId);
+    if (state.agent?.id != agentId) return;
+    state = SessionState(agent: state.agent, online: state.online, acces: acces);
   }
 
   /// Deconnexion : sur une tablette en mode kiosque, c'est l'operation la plus

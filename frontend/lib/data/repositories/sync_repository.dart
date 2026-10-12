@@ -58,6 +58,11 @@ class SyncRepository {
     try {
       rooms = await _catalog.fetchRooms();
     } on ApiException catch (e) {
+      // Le comptoir ne lit pas le plan des chambres (`rooms.read`) : ses
+      // chambres lui arrivent par `GET /chargeable-stays`. Ce refus n'est
+      // pas une panne ; le compter comme un echec faisait afficher « erreur »
+      // a chaque synchronisation du barman (vu le 12 octobre).
+      if (e.failure == ApiFailure.forbidden) return const SyncOutcome.done(0);
       return e.isOffline
           ? const SyncOutcome.offline()
           : SyncOutcome.failed(e.message);
