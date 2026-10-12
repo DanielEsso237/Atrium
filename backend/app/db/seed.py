@@ -132,6 +132,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004135"), "cash.central", "Tenir la caisse centrale : recevoir les versements des points de vente", "cash"),
     (uuid.UUID("01920000-0000-7000-8000-000000004136"), "stock.manage", "Tenir l'economat : entrees, sorties et ajustements de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004137"), "stock.transfer.request", "Demander un transfert de stock", "stock"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004138"), "tab.cancel", "Annuler l'ardoise d'un client parti sans payer", "folio"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -162,6 +163,7 @@ STOCK_READ = PERMISSIONS[12][0]
 CASH_CENTRAL = PERMISSIONS[34][0]
 STOCK_MANAGE = PERMISSIONS[35][0]
 STOCK_TRANSFER_REQUEST = PERMISSIONS[36][0]
+TAB_CANCEL = PERMISSIONS[37][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -217,6 +219,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # Il doit voir le solde qu'il accepte de laisser filer, d'ou la lecture.
     (MANAGER_ROLE, FOLIO_READ),
     (MANAGER_ROLE, FOLIO_OVERRIDE_LIMIT),
+    # Un client parti sans payer : l'ardoise s'annule avec un motif, par un
+    # responsable -- celui qui a servi ne l'efface pas lui-meme.
+    (MANAGER_ROLE, TAB_CANCEL),
     (RESTAURANT_ROLE, RESTAURANT_READ),
     (RESTAURANT_ROLE, ORDER_READ),
     (RESTAURANT_ROLE, ORDER_CREATE),

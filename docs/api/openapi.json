@@ -1641,6 +1641,18 @@
             ],
             "title": "Opened At"
           },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlet Id"
+          },
           "payments_total": {
             "title": "Payments Total",
             "type": "integer"
@@ -1659,6 +1671,17 @@
           },
           "status": {
             "$ref": "#/components/schemas/FolioStatus"
+          },
+          "tab_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tab Number"
           },
           "type": {
             "$ref": "#/components/schemas/FolioType"
@@ -3959,6 +3982,14 @@
             },
             "title": "Sales",
             "type": "array"
+          },
+          "tabs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FolioOut"
+            },
+            "title": "Tabs",
+            "type": "array"
           }
         },
         "required": [
@@ -4268,6 +4299,105 @@
           "folio_status"
         ],
         "title": "OutletSaleOut",
+        "type": "object"
+      },
+      "OutletTabCancelIn": {
+        "description": "Annuler l'ardoise d'un client parti sans payer.",
+        "properties": {
+          "reason": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "OutletTabCancelIn",
+        "type": "object"
+      },
+      "OutletTabOpenIn": {
+        "description": "Ouvrir une ardoise au comptoir.\n\nL'identifiant et le numero viennent de la tablette : l'ardoise s'ouvre\nhors ligne, et le meme envoi rejoue doit retrouver la meme ardoise.",
+        "properties": {
+          "guest_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le client loge, s'il en est un ; nul : client de passage",
+            "title": "Guest Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "outlet_id": {
+            "format": "uuid",
+            "title": "Outlet Id",
+            "type": "string"
+          },
+          "tab_number": {
+            "description": "« Passage n°3 », par point de vente et par jour",
+            "minimum": 1.0,
+            "title": "Tab Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "outlet_id",
+          "tab_number"
+        ],
+        "title": "OutletTabOpenIn",
+        "type": "object"
+      },
+      "OutletTabSettleIn": {
+        "description": "Payer l'ardoise : le total, dans le tiroir du point de vente.",
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/PaymentIn"
+          }
+        },
+        "required": [
+          "payment"
+        ],
+        "title": "OutletTabSettleIn",
+        "type": "object"
+      },
+      "OutletTabToRoomIn": {
+        "description": "Porter toute l'ardoise sur la chambre, en un geste.",
+        "properties": {
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Responsable (folio.override_limit) qui autorise le depassement du seuil",
+            "title": "Override By"
+          },
+          "room_folio_id": {
+            "description": "L'ardoise ouverte du sejour",
+            "format": "uuid",
+            "title": "Room Folio Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_folio_id"
+        ],
+        "title": "OutletTabToRoomIn",
         "type": "object"
       },
       "OutletUpdate": {
@@ -11084,6 +11214,233 @@
           }
         ],
         "summary": "Outlet Activity",
+        "tags": [
+          "points de vente"
+        ]
+      }
+    },
+    "/api/v1/outlet-tabs": {
+      "post": {
+        "description": "Ouvre l'ardoise d'un client au comptoir : de passage, ou loge.",
+        "operationId": "open_tab_api_v1_outlet_tabs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletTabOpenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ardoise deja ouverte (meme id) : celle-la"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Open Tab",
+        "tags": [
+          "points de vente"
+        ]
+      }
+    },
+    "/api/v1/outlet-tabs/{tab_id}/cancel": {
+      "post": {
+        "description": "Le client est parti sans payer : l'ardoise s'annule, avec un motif.",
+        "operationId": "cancel_tab_api_v1_outlet_tabs__tab_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tab_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tab Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletTabCancelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Cancel Tab",
+        "tags": [
+          "points de vente"
+        ]
+      }
+    },
+    "/api/v1/outlet-tabs/{tab_id}/settle": {
+      "post": {
+        "description": "Le client paie sa note : le total, d'un coup, et l'ardoise se clot.",
+        "operationId": "settle_tab_api_v1_outlet_tabs__tab_id__settle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tab_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tab Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletTabSettleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Ardoise payee, ou deja payee par ce paiement"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Settle Tab",
+        "tags": [
+          "points de vente"
+        ]
+      }
+    },
+    "/api/v1/outlet-tabs/{tab_id}/to-room": {
+      "post": {
+        "description": "Porte toute l'ardoise sur la chambre : le client paiera au depart.\n\nLes lignes changent d'ardoise sans changer de point de vente : le chiffre\ndu bar reste au bar, et le client retrouve sa biere sur sa facture de\nsejour.",
+        "operationId": "tab_to_room_api_v1_outlet_tabs__tab_id__to_room_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tab_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tab Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletTabToRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Tab To Room",
         "tags": [
           "points de vente"
         ]

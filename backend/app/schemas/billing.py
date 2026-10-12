@@ -76,6 +76,10 @@ class FolioOut(BaseModel):
     balance: int
     opened_at: dt.datetime | None
     closed_at: dt.datetime | None
+    # L'ardoise d'un comptoir : son point de vente et son numero
+    # (« Passage n°3 »). Nuls pour une ardoise de sejour.
+    outlet_id: uuid.UUID | None = None
+    tab_number: int | None = None
     items: list[FolioItemOut]
 
 

@@ -507,6 +507,35 @@ seule la tablette qui l'avait saisie savait d'où elle venait.
 La tablette relit une fenêtre glissante de 62 jours à chaque descente, de
 quoi couvrir le mois précédent en entier.
 
+## Les ardoises du comptoir
+
+Au bar, un client consomme au fil de la soirée et paie à la fin (décision du
+12 octobre). Son ardoise est un folio `WALK_IN` qui porte `outlet_id` et
+`tab_number` (« Passage n°3 »), et `guest_id` pour un client logé. Toutes les
+routes sont rejouables.
+
+- `POST /outlet-tabs` (`folio.charge`) : `{id, outlet_id, tab_number,
+  guest_id?}`. L'identifiant et le numéro viennent de la tablette, qui ouvre
+  l'ardoise hors ligne. Exige le tiroir ouvert du point de vente (409 sinon).
+- Les consommations : `POST /folios/{id}/items` avec `outlet_id`, comme une
+  consommation portée à la chambre.
+- `POST /outlet-tabs/{id}/settle` (`cash.session`) : `{payment}`, le total
+  exact, dans le tiroir du point de vente ; l'ardoise se clôt.
+- `POST /outlet-tabs/{id}/to-room` (`folio.charge`) : `{room_folio_id,
+  override_by?}`. Toutes les lignes passent sur l'ardoise du séjour **en
+  gardant leur point de vente** ; l'ardoise du bar se clôt, vide. Refusé si
+  le point de vente ne porte pas sur la chambre, ou si le séjour n'a plus
+  d'ardoise ouverte.
+- `POST /outlet-tabs/{id}/cancel` (`tab.cancel`, un responsable) :
+  `{reason}`. Les lignes sont annulées avec le motif, l'ardoise se clôt ; le
+  stock reste sorti (servi, pas payé).
+- `GET /outlet-activity` rend aussi `tabs` : les ardoises des points de vente
+  de l'agent, ouvertes ou closes sur la fenêtre, avec leurs lignes.
+
+**Le seuil de consommation compte toutes les ardoises ouvertes du client** —
+celle de sa chambre et celles des comptoirs. Sans cela, il passait sous son
+plafond en consommant au bar.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

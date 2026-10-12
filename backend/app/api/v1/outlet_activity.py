@@ -22,7 +22,8 @@ from app.api.deps import require_permission
 from app.api.v1.cash_sessions import in_window
 from app.db.session import get_session
 from app.models import CashSession, Folio, FolioItem, Payment, User
-from app.schemas.billing import FolioItemOut, PaymentOut
+from app.models.enums import FolioStatus
+from app.schemas.billing import FolioItemOut, FolioOut, PaymentOut
 from app.schemas.cash_sessions import CashSessionOut
 from app.schemas.outlet_activity import OutletActivityOut, OutletSaleOut
 from app.services.outlets import allowed_outlet_ids
@@ -103,8 +104,25 @@ async def outlet_activity(
         .order_by(CashSession.opened_at.asc().nullsfirst(), CashSession.id)
     )
 
+    # Les ardoises du comptoir : celles encore ouvertes, quel que soit leur
+    # age -- un client qui n'a pas paye --, et celles closes sur la fenetre.
+    # Une ardoise portee a la chambre n'a plus de lignes : sans son en-tete,
+    # les autres tablettes du bar la croiraient encore ouverte.
+    debut = dt.datetime.combine(since, dt.time.min, tzinfo=dt.timezone.utc)
+    ardoises = await session.scalars(
+        select(Folio)
+        .where(
+            Folio.hotel_id == user.hotel_id,
+            Folio.deleted_at.is_(None),
+            du_perimetre(Folio.outlet_id),
+            or_(Folio.status == FolioStatus.OPEN, Folio.closed_at >= debut),
+        )
+        .order_by(Folio.opened_at.asc().nullsfirst(), Folio.id)
+    )
+
     return OutletActivityOut(
         sales=sales,
         payments=[PaymentOut.model_validate(p) for p in encaissements],
         cash_sessions=[CashSessionOut.model_validate(c) for c in caisses],
+        tabs=[FolioOut.model_validate(f) for f in ardoises],
     )

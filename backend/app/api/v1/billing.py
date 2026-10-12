@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.cash_sessions import open_session_id
@@ -95,14 +95,27 @@ async def _check_credit_limit(
     limit = await session.scalar(select(Guest.credit_limit).where(Guest.id == folio.guest_id))
     if not limit:
         return None
-    after = folio.balance + amount
+    # Tout ce que le client doit : l'ardoise de sa chambre et celles qu'il a
+    # ouvertes aux comptoirs (decision du 12 octobre). Sans elles, il passait
+    # sous le plafond en consommant au bar, ardoise par ardoise.
+    du = await session.scalar(
+        select(func.coalesce(func.sum(Folio.balance), 0)).where(
+            Folio.hotel_id == folio.hotel_id,
+            Folio.guest_id == folio.guest_id,
+            Folio.status == FolioStatus.OPEN,
+            Folio.deleted_at.is_(None),
+            Folio.id != folio.id,
+        )
+    )
+    du = int(du or 0) + folio.balance
+    after = du + amount
     if after <= limit:
         return None
 
     if override_by is None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"Seuil depasse : solde {_fcfa(folio.balance)} + {_fcfa(amount)} = {_fcfa(after)}, "
+            f"Seuil depasse : solde {_fcfa(du)} + {_fcfa(amount)} = {_fcfa(after)}, "
             f"seuil {_fcfa(limit)}, depassement {_fcfa(after - limit)}. "
             "Un responsable doit autoriser.",
         )
