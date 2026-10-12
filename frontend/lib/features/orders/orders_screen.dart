@@ -16,6 +16,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
@@ -26,6 +27,7 @@ import '../../data/local/database.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/guest_repository.dart' show codeFromId;
 import '../../data/repositories/order_repository.dart';
+import '../../data/repositories/outlet_tab_repository.dart';
 import '../../data/repositories/outlet_repository.dart'
     show receptionOutletCode;
 import '../../data/repositories/repository_providers.dart';
@@ -205,86 +207,125 @@ class _Onglet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chambres = ref.watch(chargeableRoomsProvider);
+    final chambres = outlet.allowsRoomCharge
+        ? ref.watch(chargeableRoomsProvider).value ?? const <ChargeableRoom>[]
+        : const <ChargeableRoom>[];
+    final ardoises =
+        ref.watch(ardoisesProvider(outlet.id)).value ?? const <Ardoise>[];
+    final filtre = ref.watch(_filtreProvider);
     final recherche = ref.watch(_rechercheProvider).trim().toLowerCase();
-    // Le client de passage paie sur place : il faut une caisse a tenir.
-    final passage = ref.watch(sessionProvider).acces.peut('cash.session');
+    // Ouvrir une ardoise, c'est servir : il faut une caisse a tenir.
+    final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
 
-    if (!outlet.allowsRoomCharge) {
-      if (passage) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
-            child: SizedBox(
-              width: 250,
-              height: 150,
-              child: _Passage(outlet: outlet),
-            ),
-          ),
-        );
-      }
-      return EmptyState(
-        icon: PhosphorIconsLight.money,
-        title: '${outlet.label} encaisse sur place',
-        message: "Ses ventes ne se portent pas sur l'ardoise d'un séjour.",
-      );
-    }
+    // Le debut de la journee hoteliere : « payees aujourd'hui » commence a
+    // l'heure de bascule, pas a minuit.
+    final jour = businessDayFor(DateTime.now());
+    final debut = DateTime(
+      jour.year,
+      jour.month,
+      jour.day,
+      heureBasculeParDefaut,
+    ).toUtc();
+    bool trouve(String texte) =>
+        recherche.isEmpty || texte.toLowerCase().contains(recherche);
 
-    return chambres.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => EmptyState(
-        icon: PhosphorIconsLight.warningCircle,
-        title: 'Lecture impossible',
-        message: '$e',
-      ),
-      data: (liste) {
-        final visibles = recherche.isEmpty
-            ? liste
-            : liste
-                  .where(
-                    (c) =>
-                        c.roomNumber.toLowerCase().contains(recherche) ||
-                        c.guestName.toLowerCase().contains(recherche),
-                  )
-                  .toList();
-        if (liste.isEmpty && !passage) {
-          return const EmptyState(
-            icon: PhosphorIconsLight.bed,
-            title: 'Aucun client en chambre',
-            message: 'Une consommation ne se porte que sur un séjour en cours.',
-          );
-        }
-        if (visibles.isEmpty && recherche.isNotEmpty) {
-          return EmptyState(
-            icon: PhosphorIconsLight.magnifyingGlass,
-            title: 'Aucune chambre ne correspond',
-            message: '« $recherche » ne correspond à aucun séjour en cours.',
-          );
-        }
-        return GridView.builder(
-          padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 250,
-            mainAxisExtent: 150,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
+    final enCours = ardoises.where((a) => a.ouverte).toList();
+    final payees = ardoises
+        .where(
+          (a) =>
+              a.etat == EtatArdoise.payee &&
+              a.fermeeLe != null &&
+              !a.fermeeLe!.isBefore(debut),
+        )
+        .toList();
+    final montrees = switch (filtre) {
+      _Filtre.enCours => enCours,
+      _Filtre.payees => payees,
+      _Filtre.toutes => ardoises,
+    }.where((a) => trouve(a.titre)).toList();
+    // Les chambres a qui ouvrir une ardoise : dans la vue du service en
+    // cours seulement.
+    final lesChambres = filtre == _Filtre.enCours
+        ? chambres
+              .where((c) => trouve(c.roomNumber) || trouve(c.guestName))
+              .toList()
+        : const <ChargeableRoom>[];
+    final nouveau = caisse && filtre == _Filtre.enCours;
+
+    final tuiles = <Widget>[
+      if (nouveau) _Passage(outlet: outlet),
+      for (final a in montrees) _TuileArdoise(outlet: outlet, ardoise: a),
+      for (final c in lesChambres) _Chambre(outlet: outlet, chambre: c),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
+          child: FilterPills<_Filtre>(
+            selected: filtre,
+            onChanged: ref.read(_filtreProvider.notifier).choisir,
+            options: [
+              FilterOption(
+                _Filtre.enCours,
+                'En cours, non payées',
+                count: enCours.length,
+              ),
+              FilterOption(
+                _Filtre.payees,
+                'Payées aujourd’hui',
+                count: payees.length,
+              ),
+              FilterOption(_Filtre.toutes, 'Toutes', count: ardoises.length),
+            ],
           ),
-          itemCount: visibles.length + (passage ? 1 : 0),
-          itemBuilder: (_, i) => FadeUp(
-            index: i.clamp(0, 8),
-            child: passage && i == 0
-                ? _Passage(outlet: outlet)
-                : _Chambre(
-                    outlet: outlet,
-                    chambre: visibles[passage ? i - 1 : i],
+        ),
+        Expanded(
+          child: tuiles.isEmpty
+              ? EmptyState(
+                  icon: recherche.isEmpty
+                      ? PhosphorIconsLight.receipt
+                      : PhosphorIconsLight.magnifyingGlass,
+                  title: recherche.isEmpty
+                      ? 'Aucune ardoise'
+                      : 'Rien ne correspond',
+                  message: recherche.isEmpty
+                      ? 'Les ardoises de ${outlet.label} apparaissent ici.'
+                      : '« $recherche » ne correspond à aucune ardoise ni '
+                            'aucun séjour.',
+                )
+              : GridView.builder(
+                  padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 250,
+                    mainAxisExtent: 150,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
                   ),
-          ),
-        );
-      },
+                  itemCount: tuiles.length,
+                  itemBuilder: (_, i) =>
+                      FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
+                ),
+        ),
+      ],
     );
   }
 }
+
+/// Ce que montre l'ecran Commandes.
+enum _Filtre { enCours, payees, toutes }
+
+class _FiltreNotifier extends Notifier<_Filtre> {
+  @override
+  _Filtre build() => _Filtre.enCours;
+
+  void choisir(_Filtre f) => state = f;
+}
+
+final _filtreProvider = NotifierProvider<_FiltreNotifier, _Filtre>(
+  _FiltreNotifier.new,
+);
 
 class _Chambre extends ConsumerWidget {
   const _Chambre({required this.outlet, required this.chambre});
@@ -387,45 +428,78 @@ class _Chambre extends ConsumerWidget {
       return;
     }
 
-    // Une ligne apres l'autre : si le plafond du client arrete l'une d'elles,
-    // celles d'avant sont bien portees, et le message dit ou l'on en est.
-    var portees = 0;
-    var total = 0;
-    for (final (libelle, prix, quantite, article) in lignes) {
-      try {
-        await ref
-            .read(orderRepositoryProvider)
-            .charge(
-              outlet: outlet,
-              folioId: chambre.folioId,
-              label: libelle,
-              unitPrice: prix,
-              quantity: quantite,
-              by: ref.read(sessionProvider).agent?.id,
-              menuItemId: article,
-            );
-      } on StateError catch (e) {
-        if (!context.mounted) return;
-        final deja = portees == 0
-            ? ''
-            : '$portees ligne(s) portée(s) (${formatAmount(total)}). ';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$deja« $libelle » refusé : ${e.message}')),
-        );
-        return;
-      }
-      portees++;
-      total += prix * quantite;
+    // Sinon, sur l'ardoise du bar a son nom (decision du 12 octobre) : il
+    // paie a la fin, ou on la porte a sa chambre en un geste.
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    final String ardoise;
+    try {
+      ardoise = await ref
+          .read(outletTabRepositoryProvider)
+          .ouvrir(pointDeVente: outlet, by: agent, guestId: chambre.guestId);
+    } on StateError catch (e) {
+      if (context.mounted) _dire(context, e.message);
+      return;
     }
-
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${formatAmount(total)} porté à la chambre ${chambre.roomNumber}.',
-        ),
-      ),
+    await _servirSurArdoise(
+      context,
+      ref,
+      outlet,
+      ardoise,
+      lignes,
+      ou: 'l’ardoise de ${chambre.guestName}',
     );
+  }
+}
+
+/// Un message en bas de l'ecran.
+void _dire(BuildContext context, String message) => ScaffoldMessenger.of(
+  context,
+).showSnackBar(SnackBar(content: Text(message)));
+
+/// Sert des lignes sur une ardoise, une apres l'autre : si le plafond du
+/// client arrete l'une d'elles, celles d'avant sont servies, et le message
+/// dit ou l'on en est.
+Future<void> _servirSurArdoise(
+  BuildContext context,
+  WidgetRef ref,
+  OutletRow outlet,
+  String ardoise,
+  List<(String, int, int, String?)> lignes, {
+  required String ou,
+}) async {
+  final agent = ref.read(sessionProvider).agent?.id;
+  if (agent == null) return;
+  var servies = 0;
+  var total = 0;
+  for (final (libelle, prix, quantite, article) in lignes) {
+    try {
+      await ref
+          .read(outletTabRepositoryProvider)
+          .servir(
+            pointDeVente: outlet,
+            ardoiseId: ardoise,
+            libelle: libelle,
+            prixUnitaire: prix,
+            quantite: quantite,
+            by: agent,
+            categorie: OrderRepository.categoriePour(outlet.code),
+            menuItemId: article,
+          );
+    } on StateError catch (e) {
+      if (!context.mounted) return;
+      final deja = servies == 0
+          ? ''
+          : '$servies ligne(s) servie(s) (${formatAmount(total)}). ';
+      _dire(context, '$deja« $libelle » refusé : ${e.message}');
+      return;
+    }
+    servies++;
+    total += prix * quantite;
+  }
+  if (context.mounted) {
+    _dire(context, '${formatAmount(total)} ajouté à $ou.');
   }
 }
 
@@ -467,7 +541,7 @@ class _Passage extends ConsumerWidget {
           ),
           const Spacer(),
           Text(
-            'Client de passage',
+            'Nouveau client',
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 14.5,
@@ -477,7 +551,9 @@ class _Passage extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Sans chambre, paie sur place',
+            'De passage, sans chambre',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 12.5,
@@ -499,7 +575,469 @@ class _Passage extends ConsumerWidget {
     if (commande == null || commande.lignes.isEmpty || !context.mounted) {
       return;
     }
-    await _encaisserAuComptoir(context, ref, outlet, commande.lignes);
+    if (commande.payer) {
+      await _encaisserAuComptoir(context, ref, outlet, commande.lignes);
+      return;
+    }
+    // Il consomme et paiera a la fin : une ardoise « Passage n°N ».
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    final String ardoise;
+    try {
+      ardoise = await ref
+          .read(outletTabRepositoryProvider)
+          .ouvrir(pointDeVente: outlet, by: agent);
+    } on StateError catch (e) {
+      if (context.mounted) _dire(context, e.message);
+      return;
+    }
+    if (!context.mounted) return;
+    await _servirSurArdoise(
+      context,
+      ref,
+      outlet,
+      ardoise,
+      commande.lignes,
+      ou: 'une nouvelle ardoise',
+    );
+  }
+}
+
+/// L'ardoise d'un client au comptoir : son nom ou son numero de passage, ce
+/// qu'il doit, et ou elle en est. Toucher la tuile ouvre sa fiche.
+class _TuileArdoise extends ConsumerWidget {
+  const _TuileArdoise({required this.outlet, required this.ardoise});
+
+  final OutletRow outlet;
+  final Ardoise ardoise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final a = ardoise;
+    final (etat, couleur) = switch (a.etat) {
+      EtatArdoise.aPayer => ('À payer', p.warning),
+      EtatArdoise.payee => ('Payée', p.success),
+      EtatArdoise.enChambre => ('Sur la chambre', p.textSecondary),
+      EtatArdoise.annulee => ('Annulée', p.error),
+    };
+    return Bezel(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      onTap: () => _ouvrir(context, ref),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                a.client == null
+                    ? PhosphorIconsLight.receipt
+                    : PhosphorIconsLight.bed,
+                size: 28,
+                color: p.text,
+              ),
+              const Spacer(),
+              // L'etat en toutes lettres : la couleur n'est qu'un renfort.
+              Tag(etat, color: couleur),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            a.titre,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: p.text,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${a.lignes} consommation${a.lignes > 1 ? 's' : ''} · '
+            '${formatAmount(a.ouverte ? a.reste : a.total)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 12.5,
+              color: p.textSecondary,
+              fontFeatures: tabularFigures,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _ouvrir(BuildContext context, WidgetRef ref) async {
+    final geste = await afficherFicheLaterale<_Geste>(
+      context,
+      fiche: (panneau) =>
+          _FicheArdoise(outlet: outlet, ardoise: ardoise, panneau: panneau),
+    );
+    if (geste == null || !context.mounted) return;
+    switch (geste) {
+      case _Geste.ajouter:
+        await _ajouter(context, ref);
+      case _Geste.payer:
+        await _payer(context, ref);
+      case _Geste.chambre:
+        await _porterALaChambre(context, ref);
+      case _Geste.annuler:
+        await _annuler(context, ref);
+    }
+  }
+
+  Future<void> _ajouter(BuildContext context, WidgetRef ref) async {
+    final commande = await afficherFicheLaterale<_Commande>(
+      context,
+      libelleFermer: 'Fermer sans servir',
+      fiche: (panneau) => _Saisie(
+        outlet: outlet,
+        chambre: null,
+        ardoise: ardoise,
+        panneau: panneau,
+      ),
+    );
+    if (commande == null || commande.lignes.isEmpty || !context.mounted) {
+      return;
+    }
+    await _servirSurArdoise(
+      context,
+      ref,
+      outlet,
+      ardoise.id,
+      commande.lignes,
+      ou: ardoise.titre,
+    );
+  }
+
+  Future<void> _payer(BuildContext context, WidgetRef ref) async {
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    final total = ardoise.reste;
+    final moyen = await showDialog<PaymentMethod>(
+      context: context,
+      builder: (_) => _MoyenPassage(total: total),
+    );
+    if (moyen == null || !context.mounted) return;
+    // Les lignes, lues avant le paiement : le ticket les reprend.
+    final lignes = await ref.read(lignesArdoiseProvider(ardoise.id).future);
+    try {
+      await ref
+          .read(outletTabRepositoryProvider)
+          .payer(
+            pointDeVente: outlet,
+            ardoiseId: ardoise.id,
+            moyen: moyen,
+            by: agent,
+          );
+    } on StateError catch (e) {
+      if (context.mounted) _dire(context, e.message);
+      return;
+    }
+    if (!context.mounted) return;
+    await _proposerTicket(
+      context,
+      ref,
+      outlet,
+      ardoise: ardoise.id,
+      total: total,
+      moyen: moyen,
+      lignes: [
+        for (final l in lignes)
+          if (!l.annulee) (l.libelle, l.montant ~/ l.quantite, l.quantite),
+      ],
+      client: ardoise.client == null ? null : ardoise.titre,
+    );
+  }
+
+  Future<void> _porterALaChambre(BuildContext context, WidgetRef ref) async {
+    final depot = ref.read(outletTabRepositoryProvider);
+    final client = ardoise.clientId;
+    final sejour = client == null ? null : await depot.ardoiseDuSejour(client);
+    if (!context.mounted) return;
+    if (sejour == null) {
+      _dire(
+        context,
+        'Ce client n’a plus de séjour en cours : son ardoise se paie au '
+        'comptoir.',
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogue) => AlertDialog(
+        icon: const Icon(PhosphorIconsLight.bed, size: 30),
+        title: Text('Porter ${formatAmount(ardoise.reste)} sur la chambre ?'),
+        content: Text(
+          '${ardoise.titre} paiera à son départ. L’ardoise du bar se ferme.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogue).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogue).pop(true),
+            child: const Text('Porter sur la chambre'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await depot.porterALaChambre(
+        pointDeVente: outlet,
+        ardoiseId: ardoise.id,
+        ardoiseChambreId: sejour,
+      );
+    } on StateError catch (e) {
+      if (context.mounted) _dire(context, e.message);
+      return;
+    }
+    if (context.mounted) {
+      _dire(
+        context,
+        '${formatAmount(ardoise.reste)} porté sur la chambre de '
+        '${ardoise.titre}.',
+      );
+    }
+  }
+
+  Future<void> _annuler(BuildContext context, WidgetRef ref) async {
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    final motif = await showDialog<String>(
+      context: context,
+      builder: (_) => const _MotifAnnulation(),
+    );
+    if (motif == null || !context.mounted) return;
+    try {
+      await ref
+          .read(outletTabRepositoryProvider)
+          .annuler(ardoiseId: ardoise.id, motif: motif, by: agent);
+    } on StateError catch (e) {
+      if (context.mounted) _dire(context, e.message);
+      return;
+    }
+    if (context.mounted) _dire(context, '${ardoise.titre} annulée : $motif.');
+  }
+}
+
+/// Ce que l'on fait d'une ardoise depuis sa fiche.
+enum _Geste { ajouter, payer, chambre, annuler }
+
+/// La fiche d'une ardoise : ses consommations, et les gestes permis.
+class _FicheArdoise extends ConsumerWidget {
+  const _FicheArdoise({
+    required this.outlet,
+    required this.ardoise,
+    required this.panneau,
+  });
+
+  final OutletRow outlet;
+  final Ardoise ardoise;
+  final bool panneau;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final lignes =
+        ref.watch(lignesArdoiseProvider(ardoise.id)).value ??
+        const <LigneArdoise>[];
+    final acces = ref.watch(sessionProvider).acces;
+    final ouverte = ardoise.ouverte;
+    final peutPayer = ouverte && ardoise.reste > 0;
+    // Porter a la chambre : un client loge, un point de vente qui porte.
+    final peutPorter =
+        ouverte && ardoise.clientId != null && outlet.allowsRoomCharge;
+    // Annuler : un responsable, et rien de paye.
+    final peutAnnuler = ouverte && acces.peut('tab.cancel');
+    final style = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14.5,
+      color: p.text,
+      fontFeatures: tabularFigures,
+    );
+
+    return FicheSurface(
+      panneau: panneau,
+      child: Column(
+        children: [
+          FicheEnTete(
+            panneau: panneau,
+            titre: ardoise.titre,
+            sousTitre: switch (ardoise.etat) {
+              EtatArdoise.aPayer => 'Il paie à la fin',
+              EtatArdoise.payee => 'Payée',
+              EtatArdoise.enChambre => 'Portée sur la chambre',
+              EtatArdoise.annulee => 'Annulée',
+            },
+            badge: _BadgePoint(outlet: outlet),
+            valeur: formatAmount(ouverte ? ardoise.reste : ardoise.total),
+            legendeValeur: ouverte ? 'à payer' : 'au total',
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              children: [
+                FicheCarte(
+                  titre: 'Consommations',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (lignes.isEmpty)
+                        Text(
+                          'Rien encore.',
+                          style: style.copyWith(color: p.textSecondary),
+                        ),
+                      for (final l in lignes)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${l.quantite} × ${l.libelle}',
+                                  style: style.copyWith(
+                                    decoration: l.annulee
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: l.annulee ? p.textSecondary : p.text,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                formatAmount(l.montant),
+                                style: style.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (ouverte)
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                14,
+                20,
+                14 + MediaQuery.paddingOf(context).bottom,
+              ),
+              decoration: BoxDecoration(
+                color: AtriumDashColors.card,
+                border: Border(
+                  top: BorderSide(color: AtriumDashColors.cardBorder),
+                ),
+              ),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: peutPayer
+                        ? () => Navigator.of(context).pop(_Geste.payer)
+                        : null,
+                    icon: const Icon(PhosphorIconsLight.coins),
+                    label: Text('Payer ${formatAmount(ardoise.reste)}'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(_Geste.ajouter),
+                    icon: const Icon(PhosphorIconsLight.plus),
+                    label: const Text('Ajouter'),
+                  ),
+                  if (peutPorter)
+                    OutlinedButton.icon(
+                      onPressed: ardoise.reste > 0
+                          ? () => Navigator.of(context).pop(_Geste.chambre)
+                          : null,
+                      icon: const Icon(PhosphorIconsLight.bed),
+                      label: const Text('Porter à la chambre'),
+                    ),
+                  if (peutAnnuler)
+                    TextButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_Geste.annuler),
+                      icon: const Icon(PhosphorIconsLight.x),
+                      label: const Text('Annuler l’ardoise'),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Le motif d'une annulation : client parti sans payer, erreur de saisie.
+class _MotifAnnulation extends StatefulWidget {
+  const _MotifAnnulation();
+
+  @override
+  State<_MotifAnnulation> createState() => _MotifAnnulationState();
+}
+
+class _MotifAnnulationState extends State<_MotifAnnulation> {
+  final _motif = TextEditingController();
+
+  @override
+  void dispose() {
+    _motif.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valide = _motif.text.trim().length >= 3;
+    return AlertDialog(
+      icon: const Icon(PhosphorIconsLight.warningCircle, size: 30),
+      title: const Text('Annuler l’ardoise'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Ce qui a été servi reste sorti du stock. Le motif est gardé.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _motif,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Motif',
+                hintText: 'Parti sans payer',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Retour'),
+        ),
+        FilledButton(
+          onPressed: valide
+              ? () => Navigator.of(context).pop(_motif.text.trim())
+              : null,
+          child: const Text('Annuler l’ardoise'),
+        ),
+      ],
+    );
   }
 }
 
@@ -549,8 +1087,31 @@ Future<void> _encaisserAuComptoir(
     return;
   }
   if (!context.mounted) return;
+  await _proposerTicket(
+    context,
+    ref,
+    outlet,
+    ardoise: ardoise,
+    total: total,
+    moyen: moyen,
+    lignes: [for (final (l, p, q, _) in lignes) (l, p, q)],
+    client: client,
+  );
+}
 
-  // Le ticket se propose tout de suite : le client attend au comptoir.
+/// Apres un encaissement au comptoir : le ticket se propose tout de suite,
+/// le client attend.
+Future<void> _proposerTicket(
+  BuildContext context,
+  WidgetRef ref,
+  OutletRow outlet, {
+  required String ardoise,
+  required int total,
+  required PaymentMethod moyen,
+  required List<(String, int, int)> lignes,
+  String? client,
+}) async {
+  final session = ref.read(sessionProvider);
   final ticket = await showDialog<bool>(
     context: context,
     builder: (dialogue) => AlertDialog(
@@ -589,7 +1150,7 @@ Future<void> _encaisserAuComptoir(
       pointDeVente: outlet.label,
       numero: numero,
       date: DateTime.now(),
-      lignes: [for (final (l, p, q, _) in lignes) (l, p, q)],
+      lignes: lignes,
       moyen: paymentMethodLabel(moyen),
       client: client,
       agent: session.nomAffiche,
@@ -696,12 +1257,16 @@ class _Saisie extends ConsumerStatefulWidget {
     required this.outlet,
     required this.chambre,
     required this.panneau,
+    this.ardoise,
   });
 
   final OutletRow outlet;
 
-  /// `null` : client de passage, qui paie sur place.
+  /// `null` : client de passage, ou ardoise deja ouverte.
   final ChargeableRoom? chambre;
+
+  /// L'ardoise ouverte que l'on complete, s'il y en a une.
+  final Ardoise? ardoise;
 
   /// Panneau lateral (tablette couchee) ou feuille (telephone).
   final bool panneau;
@@ -760,6 +1325,12 @@ class _SaisieState extends ConsumerState<_Saisie> {
   @override
   Widget build(BuildContext context) {
     final chambre = widget.chambre;
+    final ardoise = widget.ardoise;
+    final mode = ardoise != null
+        ? _ModeSaisie.ardoise
+        : chambre != null
+        ? _ModeSaisie.chambre
+        : _ModeSaisie.passage;
 
     return FicheSurface(
       panneau: widget.panneau,
@@ -771,20 +1342,30 @@ class _SaisieState extends ConsumerState<_Saisie> {
           children: [
             FicheEnTete(
               panneau: widget.panneau,
-              titre: chambre == null
-                  ? 'Client de passage'
+              titre: ardoise != null
+                  ? ardoise.titre
+                  : chambre == null
+                  ? 'Nouveau client'
                   : 'Chambre ${chambre.roomNumber}',
-              sousTitre: chambre == null
-                  ? 'Il paie sur place, avant de partir'
+              sousTitre: ardoise != null
+                  ? 'Ajouter à son ardoise'
+                  : chambre == null
+                  ? 'De passage : il paie à la fin, ou tout de suite'
                   : chambre.departDepasse
                   ? '${chambre.guestName} · départ dépassé'
                   : chambre.guestName,
               badge: _BadgePoint(outlet: widget.outlet),
-              valeur: chambre == null ? null : formatAmount(chambre.balance),
-              legendeValeur: chambre == null ? null : 'à l’ardoise',
-              libelleFermer: chambre == null
-                  ? 'Fermer sans encaisser'
-                  : 'Fermer sans porter',
+              valeur: ardoise != null
+                  ? formatAmount(ardoise.reste)
+                  : chambre == null
+                  ? null
+                  : formatAmount(chambre.balance),
+              legendeValeur: ardoise != null
+                  ? 'à payer'
+                  : chambre == null
+                  ? null
+                  : 'à l’ardoise de la chambre',
+              libelleFermer: 'Fermer sans servir',
             ),
             Expanded(
               child: ListView(
@@ -803,7 +1384,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
             _Barre(
               total: _total,
               lignes: _lignes.length,
-              ardoise: chambre?.balance,
+              mode: mode,
               onValider: _pret ? _valider : null,
               onPayer: _pret ? () => _valider(payer: true) : null,
             ),
@@ -918,28 +1499,39 @@ class _BadgePoint extends StatelessWidget {
 /// La barre du bas, toujours visible : le total de la commande, l'ardoise
 /// apres coup, et le geste. Le comptoir voit ou il emmene le client avant
 /// de valider, pas apres.
+/// Pour qui l'on saisit : il decide des gestes de la barre.
+enum _ModeSaisie {
+  /// Un client loge : sur son ardoise du bar, ou payer tout de suite.
+  chambre,
+
+  /// Un nouveau client de passage : ouvrir une ardoise, ou payer tout de
+  /// suite.
+  passage,
+
+  /// Une ardoise deja ouverte : y ajouter.
+  ardoise,
+}
+
 class _Barre extends StatelessWidget {
   const _Barre({
     required this.total,
     required this.lignes,
-    required this.ardoise,
+    required this.mode,
     required this.onValider,
     this.onPayer,
   });
 
   final int total;
   final int lignes;
+  final _ModeSaisie mode;
 
-  /// Le client loge paie tout de suite au lieu de porter sur sa chambre.
+  /// Payer tout de suite, au lieu de mettre sur l'ardoise.
   final VoidCallback? onPayer;
-
-  /// `null` : client de passage, sans ardoise.
-  final int? ardoise;
   final VoidCallback? onValider;
 
   @override
   Widget build(BuildContext context) {
-    final passage = ardoise == null;
+    final ajout = mode == _ModeSaisie.ardoise;
     final forme = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AtriumRadii.md),
     );
@@ -968,8 +1560,7 @@ class _Barre extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '${passage ? 'À encaisser' : 'À porter'}'
-                '${lignes > 1 ? ', $lignes lignes' : ''}',
+                'À servir${lignes > 1 ? ', $lignes lignes' : ''}',
                 style: TextStyle(
                   fontSize: 15,
                   color: AtriumColors.textSecondary,
@@ -998,30 +1589,6 @@ class _Barre extends StatelessWidget {
               ),
             ],
           ),
-          if (!passage) ...[
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Text(
-                  'Ardoise après',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AtriumColors.textSecondary,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  formatAmount(ardoise! + total),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AtriumDashColors.title,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -1034,14 +1601,14 @@ class _Barre extends StatelessWidget {
                     shape: forme,
                     textStyle: texteBouton,
                   ),
-                  // Une chambre : payer tout de suite, a la place d'Annuler --
-                  // la fiche se ferme deja par son en-tete. Le client de
-                  // passage garde Annuler.
-                  onPressed: passage
+                  // Payer tout de suite, a la place d'Annuler -- la fiche se
+                  // ferme deja par son en-tete. Ajouter a une ardoise ouverte
+                  // garde Annuler : elle se paie depuis sa tuile.
+                  onPressed: ajout
                       ? () => Navigator.of(context).pop()
                       : onPayer,
                   child: Text(
-                    passage ? 'Annuler' : 'Payer maintenant',
+                    ajout ? 'Annuler' : 'Payer maintenant',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1059,13 +1626,13 @@ class _Barre extends StatelessWidget {
                     textStyle: texteBouton,
                   ),
                   onPressed: onValider,
-                  icon: Icon(
-                    passage
-                        ? PhosphorIconsLight.coins
-                        : PhosphorIconsLight.receipt,
-                  ),
+                  icon: const Icon(PhosphorIconsLight.receipt),
                   label: Text(
-                    passage ? 'Choisir le paiement' : 'Porter à la chambre',
+                    switch (mode) {
+                      _ModeSaisie.chambre => 'Sur son ardoise',
+                      _ModeSaisie.passage => 'Ouvrir une ardoise',
+                      _ModeSaisie.ardoise => 'Ajouter à l’ardoise',
+                    },
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

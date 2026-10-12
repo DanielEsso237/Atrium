@@ -125,8 +125,8 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Consommation'), findsOneWidget);
-    expect(find.text('Porter à la chambre'), findsOneWidget);
-    // Le client loge peut aussi payer tout de suite, au comptoir.
+    // Sur son ardoise du bar (il paie a la fin), ou payer tout de suite.
+    expect(find.text('Sur son ardoise'), findsOneWidget);
     expect(find.text('Payer maintenant'), findsOneWidget);
 
     await tester.runAsync(db.close);
@@ -157,7 +157,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Client de passage'));
+    await tester.tap(find.text('Nouveau client'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
     );
@@ -165,7 +165,9 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Consommation'), findsOneWidget);
-    expect(find.text('Choisir le paiement'), findsOneWidget);
+    // Une ardoise ouverte (il paie a la fin), ou payer tout de suite.
+    expect(find.text('Ouvrir une ardoise'), findsOneWidget);
+    expect(find.text('Payer maintenant'), findsOneWidget);
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
