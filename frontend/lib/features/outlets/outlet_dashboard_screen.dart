@@ -210,6 +210,18 @@ class _Tableau extends ConsumerWidget {
                         const SizedBox(height: 16),
                       ],
                       _Chiffres(tableau: t, aveugle: aveugle),
+                      // Le comparatif : pour qui couvre tout l'hotel, quand
+                      // il regarde tous les points de vente a la fois.
+                      if (!perimetre.rattache &&
+                          choisi == null &&
+                          points.length > 1) ...[
+                        const SizedBox(height: 24),
+                        _Comparatif(
+                          filtres: filtres,
+                          libelles: {for (final o in points) o.id: o.label},
+                          onChoisir: notifier.pointDeVente,
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       _HeuresDePointe(tableau: t, aveugle: aveugle),
                       const SizedBox(height: 24),
@@ -439,6 +451,113 @@ class _Tuile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// --- Le comparatif ----------------------------------------------------------------
+
+/// Tous les points de vente cote a cote. Une seule mesure en barre -- la
+/// part de la recette --, une seule teinte : ce n'est pas l'identite du
+/// point de vente qui se lit dans la couleur, c'est son poids. Toucher une
+/// ligne ouvre ce point de vente.
+class _Comparatif extends ConsumerWidget {
+  const _Comparatif({
+    required this.filtres,
+    required this.libelles,
+    required this.onChoisir,
+  });
+
+  final FiltresPdv filtres;
+  final Map<String, String> libelles;
+  final ValueChanged<String?> onChoisir;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final lignes = ref.watch(comparatifPdvProvider(filtres)).value ?? const [];
+    final total = lignes.fold(0, (s, l) => s + l.chiffres.recette);
+    final style = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14.5,
+      color: p.text,
+      fontFeatures: tabularFigures,
+    );
+    final doux = style.copyWith(fontSize: 12.5, color: p.textSecondary);
+
+    return Bezel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Eyebrow('Comparatif des points de vente'),
+          const SizedBox(height: 4),
+          for (final l in lignes)
+            HoverRow(
+              onTap: () => onChoisir(l.pointDeVente),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: Semantics(
+                button: true,
+                label: 'Ouvrir ${libelles[l.pointDeVente] ?? 'ce point de vente'}',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            libelles[l.pointDeVente] ?? 'Point de vente',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          formatAmount(l.chiffres.recette),
+                          style: style.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // La part de la recette de l'hotel.
+                    LayoutBuilder(
+                      builder: (context, zone) => Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          height: 8,
+                          width: total == 0
+                              ? 0
+                              : zone.maxWidth * l.chiffres.recette / total,
+                          decoration: BoxDecoration(
+                            color: p.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      [
+                        if (total > 0)
+                          '${(l.chiffres.recette * 100 / total).round()} % de la recette',
+                        '${l.chiffres.ventes} vente${l.chiffres.ventes > 1 ? 's' : ''}',
+                        'ticket moyen ${formatAmount(l.chiffres.ticketMoyen)}',
+                        if (_variation(l) case final v?) v,
+                      ].join(' · '),
+                      style: doux,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String? _variation(LigneComparatif l) {
+    final avant = l.precedent.recette;
+    if (avant == 0) return null;
+    final v = ((l.chiffres.recette - avant) * 100 / avant).round();
+    return '${v > 0 ? '+' : ''}$v % sur la période précédente';
   }
 }
 

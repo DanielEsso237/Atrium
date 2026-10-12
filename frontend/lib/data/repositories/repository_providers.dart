@@ -146,6 +146,12 @@ final tableauDeBordPdvProvider =
           ref.watch(databaseProvider).watchTableauDeBordPdv(filtres),
     );
 
+/// Le comparatif des points de vente, pour l'administration et la reception.
+final comparatifPdvProvider =
+    StreamProvider.family<List<LigneComparatif>, FiltresPdv>(
+      (ref, filtres) => ref.watch(databaseProvider).watchComparatifPdv(filtres),
+    );
+
 /// Les tiroirs des points de vente du tableau de bord.
 final tiroirsPdvProvider = StreamProvider.family<List<TiroirPdv>, FiltresPdv>(
   (ref, filtres) => ref.watch(databaseProvider).watchTiroirsPdv(filtres),

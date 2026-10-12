@@ -272,7 +272,76 @@ class StockPdv {
   final List<TransfertPdv> transferts;
 }
 
+/// Un point de vente dans le comparatif de l'administration.
+class LigneComparatif {
+  const LigneComparatif({
+    required this.pointDeVente,
+    required this.chiffres,
+    required this.precedent,
+  });
+
+  final String pointDeVente;
+  final ChiffresPdv chiffres;
+  final ChiffresPdv precedent;
+}
+
 extension OutletDashboardQueries on AtriumDatabase {
+  /// Tous les points de vente cote a cote, le plus gros d'abord -- ceux qui
+  /// n'ont rien vendu compris : un point de vente muet est un renseignement.
+  Stream<List<LigneComparatif>> watchComparatifPdv(FiltresPdv f) async* {
+    yield await _comparatif(f);
+    yield* tableUpdates(
+      TableUpdateQuery.onAllTables([folioItems, folios]),
+    ).asyncMap((_) => _comparatif(f));
+  }
+
+  Future<List<LigneComparatif>> _comparatif(FiltresPdv f) async {
+    if (f.pointsDeVente.isEmpty) return const [];
+    final maintenant = await _parPointDeVente(f);
+    final avant = await _parPointDeVente(f.precedente);
+    final lignes = [
+      for (final id in f.pointsDeVente)
+        LigneComparatif(
+          pointDeVente: id,
+          chiffres: maintenant[id] ?? const ChiffresPdv(),
+          precedent: avant[id] ?? const ChiffresPdv(),
+        ),
+    ];
+    // Tri stable : a recette egale, l'ordre des onglets.
+    final ordre = {for (final (i, id) in f.pointsDeVente.indexed) id: i};
+    lignes.sort((a, b) {
+      final c = b.chiffres.recette.compareTo(a.chiffres.recette);
+      return c != 0 ? c : ordre[a.pointDeVente]!.compareTo(ordre[b.pointDeVente]!);
+    });
+    return lignes;
+  }
+
+  Future<Map<String, ChiffresPdv>> _parPointDeVente(FiltresPdv f) async {
+    final lignes = await customSelect(
+      '''
+      SELECT fi.source_id                  AS pdv,
+             COALESCE(SUM(fi.amount), 0)   AS recette,
+             COUNT(DISTINCT fi.folio_id || '|' || fi.business_date) AS ventes,
+             COALESCE(SUM(fi.quantity), 0) AS articles,
+             COALESCE(SUM(CASE WHEN f.type = 'WALK_IN'
+                               THEN fi.amount ELSE 0 END), 0) AS sur_place
+        ${_ventes(f)}
+       GROUP BY fi.source_id
+      ''',
+      variables: _variables(f),
+      readsFrom: {folioItems, folios},
+    ).get();
+    return {
+      for (final l in lignes)
+        l.read<String>('pdv'): ChiffresPdv(
+          recette: l.read<int>('recette'),
+          ventes: l.read<int>('ventes'),
+          articles: l.read<int>('articles'),
+          surPlace: l.read<int>('sur_place'),
+        ),
+    };
+  }
+
   /// Les tiroirs des points de vente : ceux qui sont ouverts, les versements
   /// que la reception n'a pas encore confirmes -- quel que soit leur age,
   /// c'est de l'argent en attente --, et ceux fermes sur la periode.
