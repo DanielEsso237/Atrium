@@ -68,6 +68,11 @@ void main() {
             hotelId: _hotel,
             number: 'FOL-$compteur',
             type: Value(type),
+            // Une vente de passage payee a son ardoise close ; une ardoise
+            // de comptoir encore ouverte est « a payer ».
+            status: Value(
+              type == FolioType.WALK_IN ? FolioStatus.CLOSED : FolioStatus.OPEN,
+            ),
           ),
         );
     return id;
@@ -207,6 +212,26 @@ void main() {
       // Le samedi d'avant est apres le jeudi : hors de la comparaison.
       expect(t.precedent.recette, 3000);
     });
+  });
+
+  test("une ardoise du comptoir encore ouverte est a payer, pas payee", () async {
+    final ouverte = await ardoise(FolioType.WALK_IN);
+    await db.customStatement(
+      "UPDATE folios SET status = 'OPEN' WHERE id = '$ouverte'",
+    );
+    await vendre(ouverte, _bar, _jeudi, prix: 3000);
+    final payee = await ardoise(FolioType.WALK_IN);
+    await db.customStatement(
+      "UPDATE folios SET status = 'CLOSED' WHERE id = '$payee'",
+    );
+    await vendre(payee, _bar, _jeudi, prix: 1000);
+
+    final c = await db.chiffresPdv(filtres([_bar], PeriodePdv.jour));
+
+    expect(c.recette, 4000);
+    expect(c.aPayer, 3000);
+    expect(c.surPlace, 1000);
+    expect(c.enChambre, 0);
   });
 
   group('meilleures ventes et heures de pointe', () {

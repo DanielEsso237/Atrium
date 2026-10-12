@@ -113,6 +113,45 @@ class CashButton extends ConsumerWidget {
     CashView vue,
   ) async {
     final versement = vue.ofOutlet;
+    // Des clients n'ont pas encore paye : le dire avant de fermer, sans
+    // bloquer (decision du 12 octobre). Bloquer empecherait de fermer le
+    // soir ; leurs ardoises restent ouvertes pour le service suivant.
+    final pointDeVente = vue.session.outletId;
+    if (versement && pointDeVente != null) {
+      final (nombre, reste) = await ref
+          .read(outletTabRepositoryProvider)
+          .nonPayees(pointDeVente);
+      if (nombre > 0) {
+        if (!context.mounted) return;
+        final quandMeme = await showDialog<bool>(
+          context: context,
+          builder: (dialogue) => AlertDialog(
+            icon: const Icon(PhosphorIconsLight.warningCircle, size: 30),
+            title: Text(
+              '$nombre ardoise${nombre > 1 ? 's' : ''} non payée'
+              '${nombre > 1 ? 's' : ''}, ${formatAmount(reste)}',
+            ),
+            content: const Text(
+              'Ces clients n’ont pas encore payé. Leurs ardoises restent '
+              'ouvertes pour le service suivant ; ce qu’ils paieront tombera '
+              'dans le tiroir qui sera alors ouvert.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogue).pop(false),
+                child: const Text('Revenir'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogue).pop(true),
+                child: const Text('Verser quand même'),
+              ),
+            ],
+          ),
+        );
+        if (quandMeme != true || !context.mounted) return;
+      }
+    }
+    if (!context.mounted) return;
     final compte = versement
         ? await demanderMontant(
             context,

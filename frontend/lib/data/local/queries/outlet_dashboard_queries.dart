@@ -108,6 +108,7 @@ class ChiffresPdv {
     this.ventes = 0,
     this.articles = 0,
     this.surPlace = 0,
+    this.aPayer = 0,
   });
 
   /// Tout ce qui a ete vendu, paye ou non.
@@ -122,8 +123,12 @@ class ChiffresPdv {
   /// Paye au comptoir (ardoise de passage, « Payer maintenant » compris).
   final int surPlace;
 
+  /// Servi sur une ardoise du comptoir encore ouverte : le client n'a pas
+  /// encore paye (decision du 12 octobre). Ni sur place, ni sur la chambre.
+  final int aPayer;
+
   /// Porte sur l'ardoise d'une chambre : encaisse au depart du client.
-  int get enChambre => recette - surPlace;
+  int get enChambre => recette - surPlace - aPayer;
 
   int get ticketMoyen => ventes == 0 ? 0 : (recette / ventes).round();
 }
@@ -323,8 +328,8 @@ extension OutletDashboardQueries on AtriumDatabase {
              COALESCE(SUM(fi.amount), 0)   AS recette,
              COUNT(DISTINCT fi.folio_id || '|' || fi.business_date) AS ventes,
              COALESCE(SUM(fi.quantity), 0) AS articles,
-             COALESCE(SUM(CASE WHEN f.type = 'WALK_IN'
-                               THEN fi.amount ELSE 0 END), 0) AS sur_place
+             $_surPlace,
+             $_aPayer
         ${_ventes(f)}
        GROUP BY fi.source_id
       ''',
@@ -338,6 +343,7 @@ extension OutletDashboardQueries on AtriumDatabase {
           ventes: l.read<int>('ventes'),
           articles: l.read<int>('articles'),
           surPlace: l.read<int>('sur_place'),
+          aPayer: l.read<int>('a_payer'),
         ),
     };
   }
@@ -501,8 +507,8 @@ extension OutletDashboardQueries on AtriumDatabase {
       SELECT COALESCE(SUM(fi.amount), 0)   AS recette,
              COUNT(DISTINCT fi.folio_id || '|' || fi.business_date) AS ventes,
              COALESCE(SUM(fi.quantity), 0) AS articles,
-             COALESCE(SUM(CASE WHEN f.type = 'WALK_IN'
-                               THEN fi.amount ELSE 0 END), 0) AS sur_place
+             $_surPlace,
+             $_aPayer
         ${_ventes(f)}
       ''',
       variables: _variables(f),
@@ -513,8 +519,19 @@ extension OutletDashboardQueries on AtriumDatabase {
       ventes: l.read<int>('ventes'),
       articles: l.read<int>('articles'),
       surPlace: l.read<int>('sur_place'),
+      aPayer: l.read<int>('a_payer'),
     );
   }
+
+  /// Paye au comptoir : une ardoise du comptoir close (payee).
+  static const _surPlace = '''
+      COALESCE(SUM(CASE WHEN f.type = 'WALK_IN' AND f.status <> 'OPEN'
+                        THEN fi.amount ELSE 0 END), 0) AS sur_place''';
+
+  /// Servi sur une ardoise du comptoir encore ouverte : pas encore paye.
+  static const _aPayer = '''
+      COALESCE(SUM(CASE WHEN f.type = 'WALK_IN' AND f.status = 'OPEN'
+                        THEN fi.amount ELSE 0 END), 0) AS a_payer''';
 
   Future<List<LigneVentePdv>> _meilleuresVentes(
     FiltresPdv f, {
