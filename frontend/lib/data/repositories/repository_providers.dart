@@ -28,6 +28,7 @@ import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outbox.dart';
 import 'outlet_repository.dart';
+import 'outlet_tab_repository.dart';
 import 'reservation_repository.dart';
 import 'role_repository.dart';
 import 'settings_repository.dart';
@@ -165,6 +166,22 @@ final tiroirsPdvProvider = StreamProvider.family<List<TiroirPdv>, FiltresPdv>(
 /// Le stock bas et les ravitaillements en attente du tableau de bord.
 final stockPdvProvider = StreamProvider.family<StockPdv, FiltresPdv>(
   (ref, filtres) => ref.watch(databaseProvider).watchStockPdv(filtres),
+);
+
+final outletTabRepositoryProvider = Provider<OutletTabRepository>(
+  (ref) => OutletTabRepository(ref.watch(databaseProvider)),
+);
+
+/// Les ardoises du comptoir d'un point de vente, en direct.
+final ardoisesProvider = StreamProvider.family<List<Ardoise>, String>(
+  (ref, outletId) =>
+      ref.watch(outletTabRepositoryProvider).watchArdoises(outletId),
+);
+
+/// Les consommations d'une ardoise, en direct.
+final lignesArdoiseProvider = StreamProvider.family<List<LigneArdoise>, String>(
+  (ref, ardoiseId) =>
+      ref.watch(outletTabRepositoryProvider).watchLignes(ardoiseId),
 );
 
 /// La carte d'un point de vente, en direct.

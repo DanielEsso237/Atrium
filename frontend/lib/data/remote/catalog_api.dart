@@ -648,11 +648,15 @@ class RemoteOutletActivity {
     this.sales = const [],
     this.payments = const [],
     this.cashSessions = const [],
+    this.tabs = const [],
   });
 
   final List<RemoteOutletSale> sales;
   final List<RemotePayment> payments;
   final List<RemoteCashSession> cashSessions;
+
+  /// Les ardoises du comptoir de ces points de vente, avec leurs lignes.
+  final List<RemoteFolio> tabs;
 
   static RemoteOutletActivity fromJson(Map<String, dynamic> raw) {
     List<T> liste<T>(String cle, T? Function(Object?) lire) =>
@@ -664,6 +668,7 @@ class RemoteOutletActivity {
       sales: liste('sales', RemoteOutletSale.fromJson),
       payments: liste('payments', RemotePayment.fromJson),
       cashSessions: liste('cash_sessions', RemoteCashSession.fromJson),
+      tabs: liste('tabs', RemoteFolio.fromJson),
     );
   }
 }
@@ -808,12 +813,18 @@ class RemoteFolio {
     this.stayLineId,
     this.openedAt,
     this.closedAt,
+    this.outletId,
+    this.tabNumber,
   });
 
   final String id;
   final String number;
   final String status;
   final String type;
+
+  /// L'ardoise d'un comptoir : son point de vente et son numero.
+  final String? outletId;
+  final int? tabNumber;
   final int chargesTotal;
   final int paymentsTotal;
   final int balance;
@@ -841,6 +852,8 @@ class RemoteFolio {
       stayLineId: _texte(raw['reservation_room_id']),
       openedAt: _instant(raw['opened_at']),
       closedAt: _instant(raw['closed_at']),
+      outletId: _texte(raw['outlet_id']),
+      tabNumber: raw['tab_number'] == null ? null : _entier(raw['tab_number']),
     );
   }
 }

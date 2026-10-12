@@ -227,7 +227,14 @@ class Descente {
         ecartees += await _ecrireSejoursAPorter(aPorter, maintenant);
       }
       final (nArdoises, nItems, ecartArdoises) = await _ecrireArdoises(
-        [...ardoises, ...ardoisesCloses, ...?aPorter?.map((s) => s.folio)],
+        [
+          ...ardoises,
+          ...ardoisesCloses,
+          ...?aPorter?.map((s) => s.folio),
+          // Les ardoises du comptoir : le barman ne lit pas `/folios`, elles
+          // lui arrivent avec l'activite de ses points de vente.
+          ...activite.tabs,
+        ],
         maintenant,
       );
       ecartees += ecartArdoises;
@@ -866,6 +873,10 @@ class Descente {
                 balance: Value(f.balance),
                 openedAt: Value(f.openedAt),
                 closedAt: Value(f.closedAt),
+                // Un serveur plus ancien ne les envoie pas : ne pas effacer
+                // ce que la tablette sait de l'ardoise d'un comptoir.
+                outletId: Value.absentIfNull(f.outletId),
+                tabNumber: Value.absentIfNull(f.tabNumber),
                 syncState: const Value(SyncState.synced),
               ),
             );

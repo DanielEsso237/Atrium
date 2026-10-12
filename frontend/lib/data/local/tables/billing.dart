@@ -31,6 +31,12 @@ class Folios extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get companyId => text().nullable()();
   TextColumn get restaurantTableId => text().nullable()();
 
+  /// L'ardoise d'un comptoir (decision du 12 octobre) : le point de vente a
+  /// qui elle appartient, et son numero au comptoir (« Passage n°3 »). Le
+  /// client y consomme au fil de la soiree et paie a la fin.
+  TextColumn get outletId => text().nullable()();
+  IntColumn get tabNumber => integer().nullable()();
+
   /// Totaux tenus a jour a chaque ecriture, en francs CFA, entiers.
   ///
   /// Redondants avec la somme des lignes, mais un ecran de tablette doit
