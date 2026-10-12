@@ -167,6 +167,19 @@ void main() {
     expect(find.text('Après le versement'), findsNWidgets(3));
     // Ce qu'il a servi reste visible.
     expect(find.text('Biere'), findsOneWidget);
+    // Son tiroir, son fond -- jamais l'attendu.
+    await tester.scrollUntilVisible(
+      find.text('Bar · Vous'),
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.textContaining('fond'), findsOneWidget);
+    expect(find.textContaining('attendu'), findsNothing);
     await fermer(tester);
   });
 

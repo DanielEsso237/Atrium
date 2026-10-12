@@ -283,4 +283,156 @@ void main() {
       expect(p.duGenre(OutletKind.OUTLET), hasLength(2));
     });
   });
+
+  group('les tiroirs', () {
+    Future<void> caisse(
+      String pointDeVente, {
+      bool ouverte = false,
+      DateTime? fermee,
+      DateTime? recue,
+    }) async {
+      await db
+          .into(db.users)
+          .insertOnConflictUpdate(
+            UsersCompanion.insert(
+              id: _barman,
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: _hotel,
+              employeeCode: 'BARMAN',
+              firstName: 'Paul',
+              lastName: 'Bar',
+            ),
+          );
+      await db
+          .into(db.cashSessions)
+          .insert(
+            CashSessionsCompanion.insert(
+              id: ident(),
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: _hotel,
+              userId: _barman,
+              outletId: Value(pointDeVente),
+              status: Value(
+                ouverte ? CashSessionStatus.OPEN : CashSessionStatus.CLOSED,
+              ),
+              openingFloat: const Value(5000),
+              expectedAmount: const Value(12000),
+              closedAt: Value(fermee),
+              countedAmount: Value(ouverte ? null : 11500),
+              receivedAt: Value(recue),
+              receivedAmount: Value(recue == null ? null : 11500),
+            ),
+          );
+    }
+
+    test('ouverts, en attente, ou fermes sur la periode -- pas avant', () async {
+      final midi = DateTime(2026, 10, 15, 12).toUtc();
+      await caisse(_bar, ouverte: true);
+      // Versee il y a un mois, jamais confirmee : de l'argent en attente.
+      await caisse(_bar, fermee: DateTime(2026, 9, 10, 23).toUtc());
+      // Versee et recue aujourd'hui.
+      await caisse(_bar, fermee: midi, recue: midi);
+      // Versee et recue la semaine derniere : de l'histoire.
+      final avant = DateTime(2026, 10, 8, 23).toUtc();
+      await caisse(_bar, fermee: avant, recue: avant);
+      // Le restaurant n'est pas regarde.
+      await caisse(_resto, ouverte: true);
+
+      final tiroirs = await db
+          .watchTiroirsPdv(filtres([_bar], PeriodePdv.jour))
+          .first;
+
+      expect(tiroirs, hasLength(3));
+      expect(tiroirs.first.ouvert, isTrue);
+      expect(tiroirs.first.agent, 'Paul Bar');
+      expect(tiroirs.where((t) => t.enAttente), hasLength(1));
+      expect(tiroirs.where((t) => t.recu == 11500), hasLength(1));
+    });
+  });
+
+  group('le stock', () {
+    Future<void> magasin(String id, String? pointDeVente) => db
+        .into(db.stockLocations)
+        .insert(
+          StockLocationsCompanion.insert(
+            id: id,
+            createdAt: t0,
+            updatedAt: t0,
+            hotelId: _hotel,
+            code: id.substring(30),
+            label: pointDeVente == null ? 'Économat' : 'Stock $pointDeVente',
+            outletId: Value(pointDeVente),
+            isCentral: Value(pointDeVente == null),
+          ),
+        );
+
+    test('ce qui manque au bar, et ses ravitaillements en attente', () async {
+      const economat = '01920000-0000-7000-8000-00000000e001';
+      const stockBar = '01920000-0000-7000-8000-00000000e002';
+      const stockResto = '01920000-0000-7000-8000-00000000e003';
+      await magasin(economat, null);
+      await magasin(stockBar, _bar);
+      await magasin(stockResto, _resto);
+      final produits = <String, String>{};
+      for (final nom in ['Biere', 'Soda', 'Vin']) {
+        produits[nom] = ident();
+        await db
+            .into(db.products)
+            .insert(
+              ProductsCompanion.insert(
+                id: produits[nom]!,
+                createdAt: t0,
+                updatedAt: t0,
+                hotelId: _hotel,
+                reference: nom.toUpperCase(),
+                label: nom,
+                minStock: const Value(6),
+              ),
+            );
+      }
+      Future<void> niveau(String produit, String lieu, int n) => db
+          .into(db.stockLevels)
+          .insert(
+            StockLevelsCompanion.insert(
+              id: ident(),
+              createdAt: t0,
+              updatedAt: t0,
+              productId: produits[produit]!,
+              stockLocationId: lieu,
+              quantity: Value(n),
+            ),
+          );
+      await niveau('Biere', stockBar, 2); // sous le seuil
+      await niveau('Soda', stockBar, -1); // negatif
+      await niveau('Vin', stockBar, 12); // assez
+      await niveau('Vin', stockResto, 0); // pas le bar
+      await db
+          .into(db.stockMovements)
+          .insert(
+            StockMovementsCompanion.insert(
+              id: ident(),
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: _hotel,
+              productId: produits['Biere']!,
+              stockLocationId: economat,
+              counterpartLocationId: const Value(stockBar),
+              type: StockMovementType.TRANSFER,
+              quantity: 24,
+              status: const Value(StockMovementStatus.PENDING),
+            ),
+          );
+
+      final stock = await db
+          .watchStockPdv(filtres([_bar], PeriodePdv.jour))
+          .first;
+
+      // Le plus en manque d'abord : le negatif.
+      expect(stock.bas.map((s) => s.produit), ['Soda', 'Biere']);
+      expect(stock.transferts.single.quantite, 24);
+      expect(stock.transferts.single.vers, 'Stock $_bar');
+    });
+  });
 }

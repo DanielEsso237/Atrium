@@ -12,8 +12,10 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../../core/business_day.dart' show heureBasculeParDefaut;
 import '../../../core/formats.dart';
 import '../database.dart';
+import '../enums.dart';
 
 /// La periode regardee. Toujours « a date » : la semaine depuis lundi, le
 /// mois depuis le 1er, compares au meme nombre de jours de la periode
@@ -182,7 +184,230 @@ class TableauDeBordPdv {
   }
 }
 
+/// Un tiroir d'un point de vente : ouvert, ou verse et pas encore confirme,
+/// ou ferme sur la periode.
+class TiroirPdv {
+  const TiroirPdv({
+    required this.id,
+    required this.pointDeVente,
+    required this.agentId,
+    required this.ouvert,
+    required this.fond,
+    required this.attendu,
+    this.agent,
+    this.ouvertLe,
+    this.fermeLe,
+    this.declare,
+    this.recu,
+    this.recuLe,
+  });
+
+  final String id;
+  final String pointDeVente;
+  final String agentId;
+
+  /// `null` : l'agent n'est pas connu de cette tablette (un collegue dont
+  /// la fiche ne descend pas ici).
+  final String? agent;
+  final bool ouvert;
+  final DateTime? ouvertLe;
+  final DateTime? fermeLe;
+  final int fond;
+
+  /// Fond plus especes encaissees, plus ce qui a ete recu. A ne montrer
+  /// qu'a la caisse centrale : comptage a l'aveugle.
+  final int attendu;
+
+  /// Ce que l'agent a declare remettre en fermant.
+  final int? declare;
+
+  /// Ce que la reception a confirme avoir recu.
+  final int? recu;
+  final DateTime? recuLe;
+
+  /// Verse, et la reception ne l'a pas encore confirme.
+  bool get enAttente => !ouvert && recuLe == null;
+}
+
+/// Un produit qui manque dans le magasin d'un point de vente.
+class StockBasPdv {
+  const StockBasPdv({
+    required this.magasin,
+    required this.produit,
+    required this.unite,
+    required this.quantite,
+    required this.seuil,
+  });
+
+  final String magasin;
+  final String produit;
+  final String unite;
+  final int quantite;
+  final int seuil;
+}
+
+/// Un ravitaillement demande pour un point de vente, ou depuis lui.
+class TransfertPdv {
+  const TransfertPdv({
+    required this.produit,
+    required this.unite,
+    required this.quantite,
+    required this.depuis,
+    required this.vers,
+    this.demandeLe,
+  });
+
+  final String produit;
+  final String unite;
+  final int quantite;
+  final String depuis;
+  final String vers;
+  final DateTime? demandeLe;
+}
+
+class StockPdv {
+  const StockPdv({this.bas = const [], this.transferts = const []});
+
+  final List<StockBasPdv> bas;
+  final List<TransfertPdv> transferts;
+}
+
 extension OutletDashboardQueries on AtriumDatabase {
+  /// Les tiroirs des points de vente : ceux qui sont ouverts, les versements
+  /// que la reception n'a pas encore confirmes -- quel que soit leur age,
+  /// c'est de l'argent en attente --, et ceux fermes sur la periode.
+  Stream<List<TiroirPdv>> watchTiroirsPdv(FiltresPdv f) {
+    if (f.pointsDeVente.isEmpty) return Stream.value(const []);
+    // Le debut de la premiere journee hoteliere de la periode, a l'heure
+    // de bascule : une caisse fermee a 2 h appartient encore a la veille.
+    final debut = DateTime(
+      f.du.year,
+      f.du.month,
+      f.du.day,
+      heureBasculeParDefaut,
+    ).toUtc();
+    final q = select(cashSessions)
+      ..where(
+        (c) =>
+            c.deletedAt.isNull() &
+            c.outletId.isIn(f.pointsDeVente) &
+            (c.status.equalsValue(CashSessionStatus.OPEN) |
+                c.receivedAt.isNull() |
+                c.closedAt.isBiggerOrEqualValue(debut)),
+      )
+      ..orderBy([
+        (c) => OrderingTerm.desc(c.status),
+        (c) => OrderingTerm.desc(c.openedAt),
+      ]);
+    return q.watch().asyncMap((caisses) async {
+      final noms = {
+        for (final u in await select(users).get())
+          u.id: '${u.firstName} ${u.lastName}'.trim(),
+      };
+      return [
+        for (final c in caisses)
+          TiroirPdv(
+            id: c.id,
+            pointDeVente: c.outletId!,
+            agentId: c.userId,
+            agent: noms[c.userId],
+            ouvert: c.status == CashSessionStatus.OPEN,
+            ouvertLe: c.openedAt,
+            fermeLe: c.closedAt,
+            fond: c.openingFloat,
+            attendu: c.expectedAmount,
+            declare: c.countedAmount,
+            recu: c.receivedAmount,
+            recuLe: c.receivedAt,
+          ),
+      ];
+    });
+  }
+
+  /// Ce qui manque dans les magasins de ces points de vente, et les
+  /// ravitaillements qui attendent leur validation.
+  Stream<StockPdv> watchStockPdv(FiltresPdv f) async* {
+    if (f.pointsDeVente.isEmpty) {
+      yield const StockPdv();
+      return;
+    }
+    yield await _stockPdv(f);
+    yield* tableUpdates(
+      TableUpdateQuery.onAllTables([
+        stockLevels,
+        stockMovements,
+        stockLocations,
+        products,
+      ]),
+    ).asyncMap((_) => _stockPdv(f));
+  }
+
+  Future<StockPdv> _stockPdv(FiltresPdv f) async {
+    final dans = [
+      for (var i = 0; i < f.pointsDeVente.length; i++) '?${i + 1}',
+    ].join(', ');
+    final variables = [
+      for (final id in f.pointsDeVente) Variable.withString(id),
+    ];
+    // Sous le seuil, ou negatif : le stock est theorique, une vente ne se
+    // refuse pas (decision du 8 octobre), mais il faut ravitailler.
+    final bas = await customSelect(
+      '''
+      SELECT m.label AS magasin, p.label AS produit, p.unit AS unite,
+             l.quantity AS quantite, p.min_stock AS seuil
+        FROM stock_levels l
+        JOIN stock_locations m ON m.id = l.stock_location_id
+        JOIN products p        ON p.id = l.product_id
+       WHERE m.deleted_at IS NULL
+         AND p.deleted_at IS NULL
+         AND m.outlet_id IN ($dans)
+         AND (l.quantity < 0 OR (p.min_stock > 0 AND l.quantity < p.min_stock))
+       ORDER BY l.quantity - p.min_stock, p.label
+      ''',
+      variables: variables,
+      readsFrom: {stockLevels, stockLocations, products},
+    ).get();
+    final transferts = await customSelect(
+      '''
+      SELECT p.label AS produit, p.unit AS unite, mv.quantity AS quantite,
+             src.label AS depuis, dst.label AS vers, mv.moved_at AS le
+        FROM stock_movements mv
+        JOIN products p          ON p.id = mv.product_id
+        JOIN stock_locations src ON src.id = mv.stock_location_id
+        JOIN stock_locations dst ON dst.id = mv.counterpart_location_id
+       WHERE mv.deleted_at IS NULL
+         AND mv.type = 'TRANSFER' AND mv.status = 'PENDING'
+         AND (src.outlet_id IN ($dans) OR dst.outlet_id IN ($dans))
+       ORDER BY mv.moved_at
+      ''',
+      variables: variables,
+      readsFrom: {stockMovements, stockLocations, products},
+    ).get();
+    return StockPdv(
+      bas: [
+        for (final l in bas)
+          StockBasPdv(
+            magasin: l.read<String>('magasin'),
+            produit: l.read<String>('produit'),
+            unite: l.read<String>('unite'),
+            quantite: l.read<int>('quantite'),
+            seuil: l.read<int>('seuil'),
+          ),
+      ],
+      transferts: [
+        for (final t in transferts)
+          TransfertPdv(
+            produit: t.read<String>('produit'),
+            unite: t.read<String>('unite'),
+            quantite: t.read<int>('quantite'),
+            depuis: t.read<String>('depuis'),
+            vers: t.read<String>('vers'),
+            demandeLe: t.readNullable<DateTime>('le'),
+          ),
+      ],
+    );
+  }
+
   /// Le tableau de bord, recalcule a chaque vente ecrite ou descendue.
   Stream<TableauDeBordPdv> watchTableauDeBordPdv(FiltresPdv f) async* {
     yield await chargerTableauDeBordPdv(f);
