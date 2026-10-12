@@ -51,12 +51,16 @@ class ChargeableRoom {
     required this.guestName,
     required this.folioId,
     required this.balance,
+    this.guestId = '',
     this.departure,
   });
 
   final String roomId;
   final String roomNumber;
   final String guestName;
+
+  /// Le client : son ardoise du bar se rattache a lui.
+  final String guestId;
   final String folioId;
 
   /// Ce que le client doit deja.
@@ -136,6 +140,7 @@ class OrderRepository with OutboxWriter {
           '''
       SELECT r.id            AS room_id,
              r.number        AS room_number,
+             g.id            AS guest_id,
              g.first_name    AS first_name,
              g.last_name     AS last_name,
              f.id            AS folio_id,
@@ -167,6 +172,7 @@ class OrderRepository with OutboxWriter {
                 (l) => ChargeableRoom(
                   roomId: l.read<String>('room_id'),
                   roomNumber: l.read<String>('room_number'),
+                  guestId: l.read<String>('guest_id'),
                   guestName:
                       '${l.read<String>('first_name')} '
                       '${l.read<String>('last_name')}',
@@ -559,6 +565,8 @@ class OrderRepository with OutboxWriter {
   /// Un rapprochement volontairement grossier : le plan comptable de l'hotel
   /// n'a pas une categorie par point de vente, et `MISC` est un aveu honnete
   /// pour ce qui ne rentre pas dans les autres.
+  static ChargeCategory categoriePour(String code) => _categoriePour(code);
+
   static ChargeCategory _categoriePour(String code) {
     final c = code.toUpperCase();
     if (c.contains('BAR') || c.contains('RESTAURANT') || c.contains('NUIT')) {

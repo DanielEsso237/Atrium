@@ -237,6 +237,28 @@ class OutletTabRepository with OutboxWriter {
     return f?.id;
   }
 
+  /// L'ardoise ouverte du sejour de ce client : c'est la que se porte son
+  /// ardoise du bar. `null` s'il est parti.
+  Future<String?> ardoiseDuSejour(String guestId) async {
+    final r = await db
+        .customSelect(
+          '''
+      SELECT f.id AS id
+        FROM folios f
+        JOIN reservation_rooms rr ON rr.id = f.reservation_room_id
+        JOIN reservations r ON r.id = rr.reservation_id
+       WHERE f.status = 'OPEN' AND f.deleted_at IS NULL
+         AND rr.status = 'CHECKED_IN'
+         AND COALESCE(f.guest_id, r.guest_id) = ?1
+       LIMIT 1
+      ''',
+          variables: [Variable.withString(guestId)],
+          readsFrom: {db.folios, db.reservationRooms, db.reservations},
+        )
+        .getSingleOrNull();
+    return r?.read<String>('id');
+  }
+
   /// Le prochain numero de passage : par point de vente et par journee
   /// hoteliere. Deux tablettes du meme bar, hors ligne au meme instant,
   /// peuvent tirer le meme numero ; l'ardoise reste distincte, seul le
