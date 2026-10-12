@@ -331,6 +331,14 @@ class _Chiffres extends StatelessWidget {
         valeur: aveugle ? null : formatAmount(c.surPlace),
         repere: _repere,
       ),
+      // Pas encore paye : ce n'est pas dans le tiroir, l'aveugle ne le cache
+      // pas.
+      _Tuile(
+        libelle: 'Ardoises à payer',
+        valeur: formatAmount(c.aPayer),
+        repere: _repere,
+        aide: 'Servi, le client paiera à la fin',
+      ),
       _Tuile(
         libelle: 'Porté aux chambres',
         valeur: formatAmount(c.enChambre),

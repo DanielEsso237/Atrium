@@ -237,6 +237,23 @@ class OutletTabRepository with OutboxWriter {
     return f?.id;
   }
 
+  /// Les ardoises encore ouvertes d'un point de vente : (combien, ce qui
+  /// reste a payer). Le versement du soir le dit avant de fermer le tiroir.
+  Future<(int, int)> nonPayees(String outletId) async {
+    final r = await db
+        .customSelect(
+          '''
+      SELECT COUNT(*) AS nombre, COALESCE(SUM(balance), 0) AS reste
+        FROM folios
+       WHERE outlet_id = ?1 AND status = 'OPEN' AND deleted_at IS NULL
+      ''',
+          variables: [Variable.withString(outletId)],
+          readsFrom: {db.folios},
+        )
+        .getSingle();
+    return (r.read<int>('nombre'), r.read<int>('reste'));
+  }
+
   /// L'ardoise ouverte du sejour de ce client : c'est la que se porte son
   /// ardoise du bar. `null` s'il est parti.
   Future<String?> ardoiseDuSejour(String guestId) async {

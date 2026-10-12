@@ -247,6 +247,22 @@ void main() {
         'Parti sans payer');
   });
 
+  test('le versement sait combien d\'ardoises restent a payer', () async {
+    await ouvrirCaisse();
+    final une = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+    final deux = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+    await servir(une, 1500);
+    await servir(deux, 6000);
+    await ardoises.payer(
+      pointDeVente: bar,
+      ardoiseId: une,
+      moyen: PaymentMethod.CASH,
+      by: utilisateurDemo,
+    );
+
+    expect(await ardoises.nonPayees(bar.id), (1, 6000));
+  });
+
   test('la file envoie chaque geste a sa route, dans l\'ordre', () async {
     await ouvrirCaisse();
     final id = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);

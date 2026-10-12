@@ -327,6 +327,27 @@ séparer Points de vente et Services dans l'administration ; l'impression
 réelle des tickets ; ne plus demander à un agent les ressources qu'il n'a
 pas le droit de lire (les 403 du journal sont normaux, mais inutiles).
 
+## Les ardoises du comptoir (12 octobre)
+
+Au bar, un client consomme au fil de la soirée et paie à la fin. Son
+**ardoise du comptoir** est un folio `WALK_IN` qui porte `outlet_id` et
+`tab_number` (« Passage n°3 ») ; un client logé a la sienne, à son nom
+(`guest_id`), une seule ouverte par comptoir. Elle se **paie** au comptoir
+(le total, dans le tiroir du point de vente), se **porte à la chambre** en un
+geste (les lignes passent sur l'ardoise du séjour en gardant leur point de
+vente) ou s'**annule** avec un motif (`tab.cancel`, un responsable).
+Serveur : `POST /outlet-tabs…` ; tablette : `OutletTabRepository`, hors ligne.
+
+- **Le plafond du client compte toutes ses ardoises ouvertes**, chambre et
+  comptoirs, des deux côtés. Sinon il passait sous son plafond au bar.
+- L'écran Commandes filtre : en cours, non payées (défaut) · payées
+  aujourd'hui · toutes. « Payer maintenant » reste possible.
+- Verser avec des ardoises ouvertes : on prévient (« 2 ardoises non payées,
+  7 500 FCFA »), on ne bloque pas.
+- Écran Ventes : « Payé sur place » ne compte que les ardoises closes ;
+  « Ardoises à payer » ce qui est servi et pas encore payé (visible à
+  l'aveugle : ce n'est pas dans le tiroir).
+
 **Une tablette qui ne sert qu'au bar** ne proposait aucune chambre à
 « Porter à la chambre » : le comptoir porte (`folio.charge`) sans lire les
 réservations, et les chambres n'arrivaient que si la réception s'était
