@@ -7,7 +7,7 @@ import uuid
 from pydantic import BaseModel
 
 from app.models.enums import FolioStatus, FolioType
-from app.schemas.billing import FolioItemOut, PaymentOut
+from app.schemas.billing import FolioItemOut, FolioOut, PaymentOut
 from app.schemas.cash_sessions import CashSessionOut
 
 
@@ -32,3 +32,7 @@ class OutletActivityOut(BaseModel):
     payments: list[PaymentOut]
     # Les tiroirs de ces points de vente, quel que soit l'agent qui les tient.
     cash_sessions: list[CashSessionOut]
+    # Leurs ardoises de comptoir : ouvertes, ou closes sur la fenetre. Une
+    # ardoise de comptoir ne porte que des lignes de son point de vente : elle
+    # descend entiere.
+    tabs: list[FolioOut] = []

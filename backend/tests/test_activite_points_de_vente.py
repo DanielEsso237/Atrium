@@ -266,7 +266,7 @@ async def test_un_autre_hotel_ne_voit_rien(client, hotel_b, login, soiree):
 
     activite = await _activite(client, auth_b)
 
-    assert activite == {"sales": [], "payments": [], "cash_sessions": []}
+    assert activite == {"sales": [], "payments": [], "cash_sessions": [], "tabs": []}
 
 
 async def test_sans_le_droit_des_commandes_refuse(client, agents, soiree):

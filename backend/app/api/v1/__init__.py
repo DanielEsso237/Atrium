@@ -16,6 +16,7 @@ from app.api.v1.housekeeping import router as housekeeping_router
 from app.api.v1.maintenance import router as maintenance_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.outlet_activity import router as outlet_activity_router
+from app.api.v1.outlet_tabs import router as outlet_tabs_router
 from app.api.v1.print_jobs import router as print_jobs_router
 from app.api.v1.printing import router as printing_router
 from app.api.v1.reservations import router as reservations_router
@@ -40,6 +41,7 @@ router.include_router(housekeeping_router)
 router.include_router(maintenance_router)
 router.include_router(orders_router)
 router.include_router(outlet_activity_router)
+router.include_router(outlet_tabs_router)
 router.include_router(print_jobs_router)
 router.include_router(printing_router)
 router.include_router(reservations_router)
