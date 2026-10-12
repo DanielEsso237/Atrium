@@ -216,11 +216,15 @@ async def open_cash_session(
     try:
         await session.commit()
     except IntegrityError as exc:
-        # Deux ouvertures simultanees : l'index unique partiel a tranche.
         # Deux ouvertures simultanees : l'index unique a tranche, on rend
         # celle qui a gagne plutot qu'une erreur que l'appelant ne saurait
         # pas traiter autrement qu'en la redemandant.
         await session.rollback()
+        # Le rollback expire tous les objets de la session, l'agent compris :
+        # relire `user.id` declenchait un chargement implicite, interdit en
+        # asynchrone (MissingGreenlet). Le serveur repondait 500 au lieu de
+        # rendre la caisse gagnante -- vu le 12 octobre.
+        await session.refresh(user)
         gagnante = await open_session_id(session, user, outlet_id=tiroir)
         if gagnante is None:
             raise HTTPException(
