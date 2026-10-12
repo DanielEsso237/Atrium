@@ -284,6 +284,25 @@ void main() {
     });
   });
 
+  group('le comparatif', () {
+    test('le plus gros d abord, le point de vente muet compris', () async {
+      final f = await ardoise(FolioType.WALK_IN);
+      await vendre(f, _resto, _jeudi, prix: 9000);
+      await vendre(f, _bar, _jeudi, prix: 3000);
+      await vendre(f, _bar, _jeudi.subtract(const Duration(days: 1)), prix: 2000);
+
+      final lignes = await db
+          .watchComparatifPdv(filtres([_bar, _resto, _spa], PeriodePdv.jour))
+          .first;
+
+      expect(lignes.map((l) => l.pointDeVente), [_resto, _bar, _spa]);
+      expect(lignes[1].chiffres.recette, 3000);
+      // Hier, pour la variation.
+      expect(lignes[1].precedent.recette, 2000);
+      expect(lignes[2].chiffres.recette, 0);
+    });
+  });
+
   group('les tiroirs', () {
     Future<void> caisse(
       String pointDeVente, {

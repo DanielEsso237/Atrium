@@ -201,6 +201,36 @@ void main() {
     await fermer(tester);
   });
 
+  testWidgets("le barman n'a pas de comparatif", (tester) async {
+    await afficher(tester);
+
+    expect(find.text('Comparatif des points de vente'), findsNothing);
+    await fermer(tester);
+  });
+
+  testWidgets("l'administration compare tous les points de vente", (
+    tester,
+  ) async {
+    barman = await tester.runAsync(
+      () => (db.select(db.users)
+            ..where((u) => u.employeeCode.equals('ADMIN01')))
+          .getSingle(),
+    ) as UserRow;
+    await afficher(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Comparatif des points de vente'), findsOneWidget);
+    // Toucher une ligne ouvre ce point de vente : le comparatif s'efface.
+    await tester.tap(find.text('Terrasse').last);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Comparatif des points de vente'), findsNothing);
+    expect(find.text('Plat'), findsOneWidget);
+    await fermer(tester);
+  });
+
   testWidgets('le menu du barman propose Ventes', (tester) async {
     final acces = (await tester.runAsync(() => accessProfileFor(db, barman.id)))!;
     final menu = destinationsPour(SessionState(agent: barman, acces: acces));

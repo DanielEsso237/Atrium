@@ -99,6 +99,11 @@ final currentCashProvider =
       .watchCurrent(cle.$1, outletId: cle.$2),
 );
 
+/// Les tiroirs de points de vente d'un agent, pour son onglet Caisse.
+final mesTiroirsProvider = StreamProvider.family<List<TiroirAgent>, String>(
+  (ref, agentId) => ref.watch(cashRepositoryProvider).watchMesTiroirs(agentId),
+);
+
 /// Les points de vente dont cet agent tient le tiroir ouvert.
 final tiroirsOuvertsProvider = StreamProvider.family<Set<String>, String>(
   (ref, agentId) =>
@@ -144,6 +149,12 @@ final tableauDeBordPdvProvider =
     StreamProvider.family<TableauDeBordPdv, FiltresPdv>(
       (ref, filtres) =>
           ref.watch(databaseProvider).watchTableauDeBordPdv(filtres),
+    );
+
+/// Le comparatif des points de vente, pour l'administration et la reception.
+final comparatifPdvProvider =
+    StreamProvider.family<List<LigneComparatif>, FiltresPdv>(
+      (ref, filtres) => ref.watch(databaseProvider).watchComparatifPdv(filtres),
     );
 
 /// Les tiroirs des points de vente du tableau de bord.
