@@ -83,7 +83,7 @@ void main() {
     test('l\'exemple dit la somme en francs', () {
       expect(
         describeRule(const DepositRule.percent(3000), 25000),
-        '30 % — soit ${formatAmount(7500)} sur une chambre à '
+        '30 %, soit ${formatAmount(7500)} sur une chambre à '
         '${formatAmount(25000)} la nuit.',
       );
       expect(formatRate(1250), '12,5 %');

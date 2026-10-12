@@ -106,53 +106,61 @@ void main() {
 
   tearDown(() => dossier.deleteSync(recursive: true));
 
-  test('la reference de la photo survit a un redemarrage', () async {
-    final fichier = File('${dossier.path}/atrium.sqlite');
+  // Un vrai fichier SQLite, pas une base en memoire : semer le jeu de
+  // demonstration y prend plus de 30 s sur un poste lent. Coupe au bout de
+  // 30 s, le test laissait la base ouverte, et le nettoyage echouait sur un
+  // fichier verrouille -- trois erreurs pour une simple lenteur de disque.
+  test(
+    'la reference de la photo survit a un redemarrage',
+    timeout: const Timeout(Duration(minutes: 3)),
+    () async {
+      final fichier = File('${dossier.path}/atrium.sqlite');
 
-    // Avant le redemarrage : un client remonte, puis sa piece est
-    // photographiee, et la tablette s'eteint avant d'avoir pu l'envoyer.
-    var db = AtriumDatabase(NativeDatabase(fichier));
-    await seedDemoData(db);
-    final clientId = (await GuestRepository(
-      db,
-    ).create(firstName: 'Awa', lastName: 'Diallo')).id;
-    await OutboxSender(db: db, api: serveur).drain();
-    await IdPhotoRepository(
-      db,
-      disque,
-    ).save(guestId: clientId, side: IdPhotoSide.front, jpeg: _jpeg(7));
-    await db.close();
+      // Avant le redemarrage : un client remonte, puis sa piece est
+      // photographiee, et la tablette s'eteint avant d'avoir pu l'envoyer.
+      var db = AtriumDatabase(NativeDatabase(fichier));
+      await seedDemoData(db);
+      final clientId = (await GuestRepository(
+        db,
+      ).create(firstName: 'Awa', lastName: 'Diallo')).id;
+      await OutboxSender(db: db, api: serveur).drain();
+      await IdPhotoRepository(
+        db,
+        disque,
+      ).save(guestId: clientId, side: IdPhotoSide.front, jpeg: _jpeg(7));
+      await db.close();
 
-    // Apres : une nouvelle base sur le meme fichier.
-    db = AtriumDatabase(NativeDatabase(fichier));
-    addTearDown(db.close);
-    final photos = IdPhotoRepository(db, disque);
+      // Apres : une nouvelle base sur le meme fichier.
+      db = AtriumDatabase(NativeDatabase(fichier));
+      addTearDown(db.close);
+      final photos = IdPhotoRepository(db, disque);
 
-    final recto = (await photos.watch(clientId).first)[IdPhotoSide.front]!;
-    expect(recto.filePathLocal, startsWith('pieces/'));
-    expect(await photos.read(recto), _jpeg(7));
-    expect(recto.uploadState, UploadState.PENDING);
+      final recto = (await photos.watch(clientId).first)[IdPhotoSide.front]!;
+      expect(recto.filePathLocal, startsWith('pieces/'));
+      expect(await photos.read(recto), _jpeg(7));
+      expect(recto.uploadState, UploadState.PENDING);
 
-    // La remontee n'a pas ete oubliee : elle part au premier passage.
-    final rapport = await FileUploader(
-      db: db,
-      api: serveur,
-      files: disque,
-    ).drain();
-    expect(rapport.envoyees, 1);
+      // La remontee n'a pas ete oubliee : elle part au premier passage.
+      final rapport = await FileUploader(
+        db: db,
+        api: serveur,
+        files: disque,
+      ).drain();
+      expect(rapport.envoyees, 1);
 
-    final envoi = serveur.photos['/attachments/${recto.id}']!;
-    expect(_champ(envoi, 'entity_table'), 'guests');
-    expect(_champ(envoi, 'entity_id'), clientId);
-    expect(_champ(envoi, 'kind'), 'ID_FRONT');
-    expect(await _octets(envoi), _jpeg(7));
+      final envoi = serveur.photos['/attachments/${recto.id}']!;
+      expect(_champ(envoi, 'entity_table'), 'guests');
+      expect(_champ(envoi, 'entity_id'), clientId);
+      expect(_champ(envoi, 'kind'), 'ID_FRONT');
+      expect(await _octets(envoi), _jpeg(7));
 
-    final apres = await (db.select(
-      db.attachments,
-    )..where((a) => a.id.equals(recto.id))).getSingle();
-    expect(apres.uploadState, UploadState.UPLOADED);
-    expect(apres.fileUrl, '/api/v1/attachments/${recto.id}/file');
-  });
+      final apres = await (db.select(
+        db.attachments,
+      )..where((a) => a.id.equals(recto.id))).getSingle();
+      expect(apres.uploadState, UploadState.UPLOADED);
+      expect(apres.fileUrl, '/api/v1/attachments/${recto.id}/file');
+    },
+  );
 
   group('une photo en echec', () {
     late AtriumDatabase db;

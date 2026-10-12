@@ -36,9 +36,11 @@ void main() {
   const lignes = [('Bière', 1500, 2, null), ('Brochettes', 3000, 1, null)];
 
   test('vendue, payee et close, une seule entree de file', () async {
+    // Le tiroir du bar : la recette du bar tombe dans le sien (un tiroir par
+    // point de vente, migration 0020), pas dans la caisse centrale.
     final caisse = await CashRepository(
       db,
-    ).open(userId: utilisateurDemo, openingFloat: 0);
+    ).open(userId: utilisateurDemo, openingFloat: 0, outletId: bar.id);
     final avant = (await db.select(db.outboxEntries).get()).length;
 
     final id = await commandes.sellWalkIn(
