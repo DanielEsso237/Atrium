@@ -560,6 +560,36 @@ class OutboxSender {
             'payment': p['payment'],
           });
         }
+        // Les ardoises du comptoir (decision du 12 octobre) : ouvrir, payer,
+        // porter a la chambre, annuler. Chaque route est rejouable.
+        switch (p['action']) {
+          case 'TAB_OPEN':
+            return _Envoi(
+              '/outlet-tabs',
+              _sansNuls({
+                'id': p['id'],
+                'outlet_id': p['outlet_id'],
+                'tab_number': p['tab_number'],
+                'guest_id': p['guest_id'],
+              }),
+            );
+          case 'TAB_SETTLE':
+            return _Envoi('/outlet-tabs/${p['id']}/settle', {
+              'payment': p['payment'],
+            });
+          case 'TAB_TO_ROOM':
+            return _Envoi(
+              '/outlet-tabs/${p['id']}/to-room',
+              _sansNuls({
+                'room_folio_id': p['room_folio_id'],
+                'override_by': p['override_by'],
+              }),
+            );
+          case 'TAB_CANCEL':
+            return _Envoi('/outlet-tabs/${p['id']}/cancel', {
+              'reason': p['reason'],
+            });
+        }
         // Sinon, la fermeture ; le folio d'un sejour nait au check-in.
         if (p['status'] != 'CLOSED') return null;
         return _Envoi('/folios/${p['id']}/close', const {});

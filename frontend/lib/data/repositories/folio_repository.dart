@@ -308,6 +308,11 @@ class FolioRepository with OutboxWriter {
   ///
   /// Leve une [StateError] dont le message est fait pour etre lu au
   /// telephone : c'est ce que l'agent va repeter a son responsable.
+  /// Le meme controle, pour un geste qui n'ecrit pas de ligne : porter une
+  /// ardoise du comptoir sur la chambre d'un autre client.
+  Future<void> verifierSeuil(String folioId, int amount, String? overrideBy) =>
+      _verifierSeuil(folioId, amount, overrideBy);
+
   Future<void> _verifierSeuil(
     String folioId,
     int amount,
@@ -318,16 +323,31 @@ class FolioRepository with OutboxWriter {
     final ligne = await db
         .customSelect(
           """
-      SELECT f.balance AS balance,
-             COALESCE(g.credit_limit, gs.credit_limit, 0) AS seuil
-        FROM folios f
-        LEFT JOIN guests g ON g.id = f.guest_id
-        -- Une ardoise ouverte par la tablette avant que le check-in ne
-        -- pose son client : on le retrouve par le sejour.
-        LEFT JOIN reservation_rooms rr ON rr.id = f.reservation_room_id
-        LEFT JOIN reservations r ON r.id = rr.reservation_id
-        LEFT JOIN guests gs ON gs.id = r.guest_id
-       WHERE f.id = ?1
+      WITH cible AS (
+        -- Une ardoise ouverte par la tablette avant que le check-in ne pose
+        -- son client : on le retrouve par le sejour.
+        SELECT f.id, f.balance, COALESCE(f.guest_id, r.guest_id) AS client
+          FROM folios f
+          LEFT JOIN reservation_rooms rr ON rr.id = f.reservation_room_id
+          LEFT JOIN reservations r ON r.id = rr.reservation_id
+         WHERE f.id = ?1
+      )
+      -- Tout ce que le client doit : cette ardoise et ses autres ardoises
+      -- ouvertes, celle de sa chambre comme celles des comptoirs (decision
+      -- du 12 octobre). Le serveur compte de meme.
+      SELECT c.balance + COALESCE((
+               SELECT SUM(o.balance)
+                 FROM folios o
+                 LEFT JOIN reservation_rooms orr ON orr.id = o.reservation_room_id
+                 LEFT JOIN reservations ores ON ores.id = orr.reservation_id
+                WHERE o.id <> c.id
+                  AND o.status = 'OPEN'
+                  AND o.deleted_at IS NULL
+                  AND COALESCE(o.guest_id, ores.guest_id) = c.client
+             ), 0) AS balance,
+             COALESCE(g.credit_limit, 0) AS seuil
+        FROM cible c
+        LEFT JOIN guests g ON g.id = c.client
       """,
           variables: [Variable.withString(folioId)],
           readsFrom: {
@@ -738,14 +758,18 @@ class FolioRepository with OutboxWriter {
       UPDATE folios
          SET charges_total = COALESCE((SELECT SUM(amount) FROM folio_items
                                         WHERE folio_id = ?1
-                                          AND deleted_at IS NULL), 0),
+                                          AND deleted_at IS NULL
+                                          AND is_void = 0), 0),
              payments_total = COALESCE((SELECT SUM(amount) FROM payments
                                          WHERE folio_id = ?1
                                            AND deleted_at IS NULL
                                            AND is_refund = 0), 0),
+             -- Une ligne annulee ne se doit plus : le serveur l'exclut de
+             -- meme. Sans ce filtre, une ardoise annulee gardait son solde.
              balance = COALESCE((SELECT SUM(amount) FROM folio_items
                                   WHERE folio_id = ?1
-                                    AND deleted_at IS NULL), 0)
+                                    AND deleted_at IS NULL
+                                    AND is_void = 0), 0)
                      - COALESCE((SELECT SUM(amount) FROM payments
                                   WHERE folio_id = ?1
                                     AND deleted_at IS NULL
