@@ -71,7 +71,12 @@ class Destination {
     this.filtre,
     this.raccourci = false,
     this.indicateur,
+    this.sauf,
   });
+
+  /// Masquee a qui a cette permission : il a deja mieux ailleurs. « Ma
+  /// caisse » n'a rien a apprendre a la reception, qui voit la caisse du jour.
+  final String? sauf;
 
   /// Le nom sous l'icone du rail, ou la place manque.
   String get court => switch (label) {
@@ -247,6 +252,17 @@ final destinations = <Destination>[
     Groupe.finances,
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
+  // L'onglet Caisse des points de vente : leurs tiroirs et leurs
+  // versements, sans l'attendu.
+  const Destination(
+    'Ma caisse',
+    PhosphorIconsLight.cashRegister,
+    PhosphorIconsLight.cashRegister,
+    '/ma-caisse',
+    'cash.session',
+    Groupe.finances,
+    sauf: 'folio.read',
+  ),
   // Une periode, des filtres, et de quoi la remettre au comptable.
   const Destination(
     'Rapports',
@@ -273,6 +289,7 @@ List<Destination> destinationsPour(SessionState session) {
   return [
     for (final d in destinations)
       if ((d.permission == null || session.acces.peut(d.permission!)) &&
+          (d.sauf == null || !session.acces.peut(d.sauf!)) &&
           // Le barman ne voit pas Services, le maitre-nageur pas Points de
           // vente : meme droit, mais pas les memes points de vente.
           (d.route == null ||

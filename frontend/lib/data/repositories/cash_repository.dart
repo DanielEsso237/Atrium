@@ -213,6 +213,22 @@ class CashSessionSummary {
   final String agentName;
 }
 
+/// Un tiroir de point de vente, vu par l'agent qui le tient.
+class TiroirAgent {
+  const TiroirAgent({required this.session, required this.parMoyen});
+
+  final CashSessionRow session;
+
+  /// Par moyen de paiement : (nombre, montant net). Les especes ne se
+  /// montrent pas tant que le tiroir est ouvert -- c'est l'ecran qui le
+  /// decide, le chiffre est ici pour apres le versement.
+  final Map<PaymentMethod, (int, int)> parMoyen;
+
+  bool get ouvert => session.status == CashSessionStatus.OPEN;
+
+  int get nombre => parMoyen.values.fold(0, (s, v) => s + v.$1);
+}
+
 class CashRepository with OutboxWriter {
   CashRepository(this.db);
 
@@ -254,6 +270,71 @@ class CashRepository with OutboxWriter {
           ))
           .watch()
           .map((caisses) => {for (final c in caisses) c.outletId!});
+
+  /// Les tiroirs de points de vente de cet agent, ouverts d'abord, puis
+  /// les derniers verses -- chacun avec ses encaissements par moyen.
+  Stream<List<TiroirAgent>> watchMesTiroirs(
+    String userId, {
+    int limit = 20,
+  }) async* {
+    yield await _mesTiroirs(userId, limit);
+    yield* db
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([db.cashSessions, db.payments]),
+        )
+        .asyncMap((_) => _mesTiroirs(userId, limit));
+  }
+
+  Future<List<TiroirAgent>> _mesTiroirs(String userId, int limit) async {
+    final caisses =
+        await (db.select(db.cashSessions)
+              ..where(
+                (c) =>
+                    c.userId.equals(userId) &
+                    c.outletId.isNotNull() &
+                    c.deletedAt.isNull(),
+              )
+              ..orderBy([
+                (c) => OrderingTerm.desc(c.status),
+                (c) => OrderingTerm.desc(c.openedAt),
+              ])
+              ..limit(limit))
+            .get();
+    return [
+      for (final c in caisses)
+        TiroirAgent(session: c, parMoyen: await _parMoyen(c.id)),
+    ];
+  }
+
+  /// Les encaissements d'un tiroir par moyen : (nombre, montant net).
+  Future<Map<PaymentMethod, (int, int)>> _parMoyen(String sessionId) async {
+    final lignes = await db
+        .customSelect(
+          '''
+      SELECT method,
+             COUNT(*) AS nombre,
+             COALESCE(SUM(CASE WHEN is_refund = 1 THEN -amount ELSE amount END), 0)
+               AS montant
+        FROM payments
+       WHERE cash_session_id = ?1 AND deleted_at IS NULL
+       GROUP BY method
+      ''',
+          variables: [Variable.withString(sessionId)],
+          readsFrom: {db.payments},
+        )
+        .get();
+    final parMoyen = <PaymentMethod, (int, int)>{};
+    for (final l in lignes) {
+      final code = l.read<String>('method');
+      final moyen = PaymentMethod.values
+          .where((m) => m.name == code)
+          .firstOrNull;
+      if (moyen != null) {
+        parMoyen[moyen] = (l.read<int>('nombre'), l.read<int>('montant'));
+      }
+    }
+    return parMoyen;
+  }
 
   Future<CashView> _vue(CashSessionRow s) async {
     final especes = await _cashCollected(s.id);

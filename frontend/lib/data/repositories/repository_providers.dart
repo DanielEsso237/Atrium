@@ -99,6 +99,11 @@ final currentCashProvider =
       .watchCurrent(cle.$1, outletId: cle.$2),
 );
 
+/// Les tiroirs de points de vente d'un agent, pour son onglet Caisse.
+final mesTiroirsProvider = StreamProvider.family<List<TiroirAgent>, String>(
+  (ref, agentId) => ref.watch(cashRepositoryProvider).watchMesTiroirs(agentId),
+);
+
 /// Les points de vente dont cet agent tient le tiroir ouvert.
 final tiroirsOuvertsProvider = StreamProvider.family<Set<String>, String>(
   (ref, agentId) =>

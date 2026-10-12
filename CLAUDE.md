@@ -255,12 +255,19 @@ Retours du client le 7 octobre, puis essais sur tablette avec Daniel :
   L'heure des tablettes doit être automatique : elle date la journée
   hôtelière, les départs et les caisses.
 
-## Prochain chantier : le tableau de bord des points de vente
+## Le tableau de bord des points de vente (11-12 octobre)
 
-Demandé le 11 octobre, commencé le même jour. Six tickets, dans l'ordre :
+Demandé le 11 octobre, livré en six tickets les 11 et 12 :
 `feature/descente-ventes-point-de-vente`, `feature/perimetre-et-chiffres-pdv`,
 `feature/ecran-tableau-de-bord-pdv`, `feature/tableau-de-bord-tiroirs-et-stock`,
-`feature/comparatif-points-de-vente`, `feature/onglet-caisse-pdv`.
+`feature/comparatif-points-de-vente`, `feature/onglet-caisse-pdv`. Reste
+l'**occupation des services**, reportée par Daniel (« on verra plus tard »).
+
+**Où regarder** : l'écran Ventes (`/ventes`,
+`features/outlets/outlet_dashboard_screen.dart`) et ses requêtes
+(`data/local/queries/outlet_dashboard_queries.dart`) ; Ma caisse
+(`/ma-caisse`, `outlet_cash_screen.dart`) ; le périmètre d'un agent
+(`OrderRepository.watchPerimetre`).
 
 **Le besoin.** Un tableau de bord complet des points de vente et services.
 Dans l'administration et à la réception, il couvre tout l'hôtel. Le même
@@ -305,9 +312,14 @@ comparaison à la période précédente ; meilleures ventes et heures de pointe
 transferts en attente ; pour l'administration et la réception, le comparatif
 de tous les points de vente.
 
-**L'onglet Caisse** : `/caisse` exige aujourd'hui `folio.read`, que les agents
-de point de vente n'ont pas. Il leur montrera leurs tiroirs (ouverts depuis
-quand, fond, ventes encaissées, versements et écarts), sans l'attendu.
+**L'onglet Caisse des points de vente** : « Ma caisse » (`/ma-caisse`,
+`cash.session`), et non la « Caisse du jour » (`/caisse`, `folio.read`), qui
+est celle de la caisse centrale : tous les encaissements de l'hôtel et
+l'écart de chacun. Le comptoir y voit ses tiroirs, les ouvre et les ferme,
+ses encaissements par moyen — **les espèces sans montant tant que le tiroir
+est ouvert**, la carte et le mobile money ne sont pas dans le tiroir — et
+ses versements jusqu'à leur réception. L'entrée est masquée à qui lit déjà
+la caisse du jour (`Destination.sauf`).
 
 **Autres tickets en attente** : le module Cuisine (stock de la cuisine,
 quantités utilisées déduites, ravitaillement par l'économat, pertes) ;
