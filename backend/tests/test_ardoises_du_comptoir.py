@@ -324,3 +324,104 @@ async def test_l_ardoise_ouverte_descend_aux_tablettes_du_bar(client, agents, ba
     ardoises = {a["id"]: a for a in activite.json()["tabs"]}
     assert ardoises[ardoise]["tab_number"] == 7
     assert ardoises[ardoise]["status"] == "OPEN"
+
+
+# --- Renommer -------------------------------------------------------------------
+
+
+async def _renommer(client, auth, ardoise, label):
+    return await client.patch(
+        f"/api/v1/outlet-tabs/{ardoise}", json={"label": label}, headers=auth
+    )
+
+
+async def test_le_comptoir_donne_un_nom_a_l_ardoise(client, agents, bar):
+    await _ouvrir_caisse(client, agents["BARMAN"], bar)
+    ouverte = (await _ouvrir_ardoise(client, agents["BARMAN"], bar, numero=3)).json()
+    assert ouverte["tab_label"] is None
+
+    r = await _renommer(client, agents["BARMAN"], ouverte["id"], "  Table 4  ")
+
+    assert r.status_code == 200, r.text
+    assert r.json()["tab_label"] == "Table 4"
+    # Le numero reste : c'est lui qui identifie l'ardoise.
+    assert r.json()["tab_number"] == 3
+
+
+async def test_renommer_deux_fois_puis_effacer_le_nom(client, agents, bar):
+    await _ouvrir_caisse(client, agents["BARMAN"], bar)
+    ardoise = (await _ouvrir_ardoise(client, agents["BARMAN"], bar)).json()["id"]
+
+    # Le meme envoi, rejoue par la file : le meme resultat.
+    premier = await _renommer(client, agents["BARMAN"], ardoise, "Table 4")
+    second = await _renommer(client, agents["BARMAN"], ardoise, "Table 4")
+    assert (premier.status_code, second.status_code) == (200, 200)
+    assert second.json()["tab_label"] == "Table 4"
+
+    r = await _renommer(client, agents["BARMAN"], ardoise, "Monsieur au chapeau")
+    assert r.json()["tab_label"] == "Monsieur au chapeau"
+
+    # Un libelle vide remet le nom par defaut.
+    r = await _renommer(client, agents["BARMAN"], ardoise, "   ")
+    assert r.status_code == 200, r.text
+    assert r.json()["tab_label"] is None
+
+    r = await _renommer(client, agents["BARMAN"], ardoise, "x" * 61)
+    assert r.status_code == 422
+
+
+async def test_une_ardoise_close_ne_se_renomme_plus(client, agents, bar):
+    await _ouvrir_caisse(client, agents["BARMAN"], bar)
+    ardoise = (await _ouvrir_ardoise(client, agents["BARMAN"], bar)).json()["id"]
+    await _renommer(client, agents["BARMAN"], ardoise, "Table 4")
+    await _servir(client, agents["BARMAN"], ardoise, bar, 1_500)
+    r = await client.post(
+        f"/api/v1/outlet-tabs/{ardoise}/settle",
+        json={"payment": {"id": str(uuid7()), "method": "CASH", "amount": 1_500}},
+        headers=agents["BARMAN"],
+    )
+    assert r.status_code == 200, r.text
+
+    r = await _renommer(client, agents["BARMAN"], ardoise, "Table 5")
+    assert r.status_code == 409
+    # Le renvoi du nom deja pose n'est pas un refus : il bloquerait la file.
+    r = await _renommer(client, agents["BARMAN"], ardoise, "Table 4")
+    assert r.status_code == 200, r.text
+    assert r.json()["tab_label"] == "Table 4"
+
+
+async def test_on_ne_renomme_que_les_ardoises_de_ses_points_de_vente(
+    client, session, hotel_a, login, agents, bar
+):
+    hotel, _ = hotel_a
+    boite = Outlet(hotel_id=hotel.id, code="BOITE", label="Boite de nuit")
+    session.add(boite)
+    await session.commit()
+    await _agent(session, hotel, "DJ", COMPTOIR, [str(boite.id)])
+    await _agent(session, hotel, "LECTEUR", ["order.read"])
+    await _ouvrir_caisse(client, agents["BARMAN"], bar)
+    ardoise = (await _ouvrir_ardoise(client, agents["BARMAN"], bar)).json()["id"]
+
+    # Rattache a un autre point de vente.
+    dj = {"Authorization": f"Bearer {await login(client, 'DJ')}"}
+    assert (await _renommer(client, dj, ardoise, "Table 4")).status_code == 403
+    # Sans le droit de porter une consommation.
+    lecteur = {"Authorization": f"Bearer {await login(client, 'LECTEUR')}"}
+    assert (await _renommer(client, lecteur, ardoise, "Table 4")).status_code == 403
+    # Une ardoise qui n'existe pas.
+    assert (await _renommer(client, agents["BARMAN"], str(uuid7()), "Table 4")).status_code == 404
+
+
+async def test_le_nom_descend_aux_tablettes_du_bar(client, agents, bar):
+    await _ouvrir_caisse(client, agents["BARMAN"], bar)
+    ardoise = (await _ouvrir_ardoise(client, agents["BARMAN"], bar, numero=2)).json()["id"]
+    await _renommer(client, agents["BARMAN"], ardoise, "Table 4")
+
+    r = await client.get(
+        "/api/v1/outlet-activity?since=2000-01-01", headers=agents["BARMAN"]
+    )
+
+    assert r.status_code == 200, r.text
+    (descendue,) = [t for t in r.json()["tabs"] if t["id"] == ardoise]
+    assert descendue["tab_label"] == "Table 4"
+    assert descendue["tab_number"] == 2

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.billing import PaymentIn
 
@@ -18,10 +18,26 @@ class OutletTabOpenIn(BaseModel):
 
     id: uuid.UUID
     outlet_id: uuid.UUID
-    tab_number: int = Field(ge=1, description="« Passage n°3 », par point de vente et par jour")
+    tab_number: int = Field(ge=1, description="« Client divers n°3 », par point de vente et par jour")
     guest_id: uuid.UUID | None = Field(
         default=None, description="Le client loge, s'il en est un ; nul : client de passage"
     )
+
+
+class OutletTabRenameIn(BaseModel):
+    """Donner un nom a l'ardoise, pour reconnaitre le client (« Table 4 »)."""
+
+    label: str | None = Field(
+        default=None,
+        max_length=60,
+        description="Le nom de l'ardoise ; vide ou nul : le nom par defaut revient",
+    )
+
+    @field_validator("label")
+    @classmethod
+    def _sans_blancs(cls, v: str | None) -> str | None:
+        # Un nom fait d'espaces est un nom efface.
+        return (v or "").strip() or None
 
 
 class OutletTabSettleIn(BaseModel):

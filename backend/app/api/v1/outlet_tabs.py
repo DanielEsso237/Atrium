@@ -12,6 +12,9 @@ point de vente et cumule ses consommations (`POST /folios/{id}/items`, avec
   sans payer. Les lignes restent, annulees : ce qui a ete servi est sorti du
   stock, et la piste d'audit garde qui a annule et pourquoi.
 
+En attendant, le comptoir peut lui donner un nom (`PATCH`, « Table 4 ») pour
+reconnaitre son client ; son numero reste.
+
 Chaque route est rejouable : la tablette ouvre et complete l'ardoise hors
 ligne, et sa file d'envoi peut renvoyer un geste deja enregistre.
 """
@@ -38,6 +41,7 @@ from app.schemas.billing import FolioOut
 from app.schemas.outlet_tabs import (
     OutletTabCancelIn,
     OutletTabOpenIn,
+    OutletTabRenameIn,
     OutletTabSettleIn,
     OutletTabToRoomIn,
 )
@@ -110,9 +114,34 @@ async def open_tab(
         tab_number=payload.tab_number,
         guest_id=payload.guest_id,
         opened_at=dt.datetime.now(dt.timezone.utc),
-        notes=f"Ardoise n°{payload.tab_number} - {outlet.label}",
+        notes=f"Client divers n°{payload.tab_number} - {outlet.label}",
     )
     session.add(folio)
+    await session.commit()
+    return await _rendre(session, folio)
+
+
+@router.patch("/{tab_id}", response_model=FolioOut)
+async def rename_tab(
+    tab_id: uuid.UUID,
+    payload: OutletTabRenameIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("folio.charge")),
+) -> Folio:
+    """Nomme l'ardoise (« Table 4 ») ; un nom vide rend le nom par defaut.
+
+    Le numero ne change pas : c'est lui qui identifie l'ardoise, le nom aide
+    seulement a reconnaitre le client.
+    """
+    folio = await _ardoise(session, tab_id, user)
+    await ensure_outlet_allowed(session, user, folio.outlet_id)
+    if folio.tab_label == payload.label:
+        # Renvoi par la file d'un nom deja pose : rien a refaire, meme si
+        # l'ardoise a ete payee entre-temps. Le refuser bloquerait la file.
+        return await _rendre(session, folio)
+    if folio.status != FolioStatus.OPEN:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette ardoise n'est plus ouverte.")
+    folio.tab_label = payload.label
     await session.commit()
     return await _rendre(session, folio)
 

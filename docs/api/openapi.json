@@ -1672,6 +1672,17 @@
           "status": {
             "$ref": "#/components/schemas/FolioStatus"
           },
+          "tab_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tab Label"
+          },
           "tab_number": {
             "anyOf": [
               {
@@ -4528,7 +4539,7 @@
             "type": "string"
           },
           "tab_number": {
-            "description": "« Passage n°3 », par point de vente et par jour",
+            "description": "« Client divers n°3 », par point de vente et par jour",
             "minimum": 1.0,
             "title": "Tab Number",
             "type": "integer"
@@ -4540,6 +4551,26 @@
           "tab_number"
         ],
         "title": "OutletTabOpenIn",
+        "type": "object"
+      },
+      "OutletTabRenameIn": {
+        "description": "Donner un nom a l'ardoise, pour reconnaitre le client (« Table 4 »).",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le nom de l'ardoise ; vide ou nul : le nom par defaut revient",
+            "title": "Label"
+          }
+        },
+        "title": "OutletTabRenameIn",
         "type": "object"
       },
       "OutletTabSettleIn": {
@@ -11827,6 +11858,65 @@
           }
         ],
         "summary": "Open Tab",
+        "tags": [
+          "points de vente"
+        ]
+      }
+    },
+    "/api/v1/outlet-tabs/{tab_id}": {
+      "patch": {
+        "description": "Nomme l'ardoise (« Table 4 ») ; un nom vide rend le nom par defaut.\n\nLe numero ne change pas : c'est lui qui identifie l'ardoise, le nom aide\nseulement a reconnaitre le client.",
+        "operationId": "rename_tab_api_v1_outlet_tabs__tab_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tab_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tab Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutletTabRenameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Rename Tab",
         "tags": [
           "points de vente"
         ]

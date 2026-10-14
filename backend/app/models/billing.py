@@ -85,13 +85,17 @@ class Folio(SyncBase, HotelScoped):
     )
     # L'ardoise d'un comptoir (decision du 12 octobre) : un client consomme
     # au bar au fil de la soiree et paie a la fin. Elle appartient a son
-    # point de vente ; `tab_number` la designe au comptoir (« Passage n°3 »).
+    # point de vente ; `tab_number` la designe au comptoir (« Client divers n°3 »).
     # Le client loge a la sienne aussi, avec son `guest_id` : elle se paie au
     # bar ou se porte a la chambre en un geste.
     outlet_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("outlets.id", ondelete="SET NULL"), default=None, index=True
     )
     tab_number: Mapped[int | None] = mapped_column(Integer, default=None)
+    # Le nom que le comptoir donne a l'ardoise pour reconnaitre son client
+    # (« Table 4 »), a la place de « Client divers n°3 ». Nul : le nom par
+    # defaut. Le numero reste a cote : c'est lui qui identifie l'ardoise.
+    tab_label: Mapped[str | None] = mapped_column(String(60), default=None)
 
     # Totaux tenus a jour a chaque ecriture. Redondants avec la somme des
     # lignes, mais une tablette doit afficher un solde instantanement sans

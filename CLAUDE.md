@@ -338,6 +338,10 @@ geste (les lignes passent sur l'ardoise du séjour en gardant leur point de
 vente) ou s'**annule** avec un motif (`tab.cancel`, un responsable).
 Serveur : `POST /outlet-tabs…` ; tablette : `OutletTabRepository`, hors ligne.
 
+- **Le comptoir nomme une ardoise** pour reconnaître son client (« Table 4 »,
+  14 octobre) : `PATCH /outlet-tabs/{id}`, `folios.tab_label` (migration
+  0023). Le numéro reste ; « Passage n°N » devient « Client divers n°N ».
+  Serveur fait ; la tablette suit (ticket D5).
 - **Le plafond du client compte toutes ses ardoises ouvertes**, chambre et
   comptoirs, des deux côtés. Sinon il passait sous son plafond au bar.
 - L'écran Commandes filtre : en cours, non payées (défaut) · payées

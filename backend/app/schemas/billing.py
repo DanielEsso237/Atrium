@@ -77,9 +77,12 @@ class FolioOut(BaseModel):
     opened_at: dt.datetime | None
     closed_at: dt.datetime | None
     # L'ardoise d'un comptoir : son point de vente et son numero
-    # (« Passage n°3 »). Nuls pour une ardoise de sejour.
+    # (« Client divers n°3 »). Nuls pour une ardoise de sejour. `tab_label`
+    # est le nom que le comptoir lui a donne (« Table 4 ») ; nul : le nom par
+    # defaut, que la tablette compose avec le numero.
     outlet_id: uuid.UUID | None = None
     tab_number: int | None = None
+    tab_label: str | None = None
     items: list[FolioItemOut]
 
 
