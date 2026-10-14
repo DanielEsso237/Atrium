@@ -378,6 +378,7 @@ extension AlertQueries on AtriumDatabase {
     final lignes = await customSelect(
       '''
       SELECT rr.id AS id, rr.departure_date AS depart, r.number AS chambre,
+             rr.stay_unit AS unite, rr.departure_at AS depart_a,
              g.first_name AS prenom, g.last_name AS nom,
              (SELECT COALESCE(SUM(fi.quantity), 0)
                 FROM folios f
@@ -392,7 +393,10 @@ extension AlertQueries on AtriumDatabase {
         LEFT JOIN guests g       ON g.id = d.guest_id
        WHERE rr.deleted_at IS NULL
          AND rr.status = 'CHECKED_IN'
-         AND rr.departure_date <= ?1
+         -- Un sejour en heures part a son heure, quel que soit le jour : sa
+         -- date de depart vaut le lendemain et ne veut rien dire.
+         AND (rr.departure_date <= ?1
+              OR (rr.stay_unit = 'HOURS' AND rr.departure_at IS NOT NULL))
       ''',
       variables: [
         Variable.withString(formatIsoDate(c.maintenant)),
@@ -403,12 +407,21 @@ extension AlertQueries on AtriumDatabase {
     ).get();
     final alertes = <Alerte>[];
     for (final l in lignes) {
-      final jourDepart = parseIsoDate(l.read<String>('depart'))!;
-      final limite = limiteDeDepart(
-        jourDepart,
-        heureDepart: heureDepart,
-        heuresProlongees: l.read<int>('heures'),
-      );
+      final departA = l.readNullable<DateTime>('depart_a');
+      final enHeures =
+          l.readNullable<String>('unite') == 'HOURS' && departA != null;
+      // En heures : l'heure convenue, plus les heures de prolongation. En
+      // nuits : l'heure de depart de l'hotel, le jour du depart.
+      final jourDepart = enHeures
+          ? businessDayFor(departA)
+          : parseIsoDate(l.read<String>('depart'))!;
+      final limite = enHeures
+          ? departA.toLocal().add(Duration(hours: l.read<int>('heures')))
+          : limiteDeDepart(
+              jourDepart,
+              heureDepart: heureDepart,
+              heuresProlongees: l.read<int>('heures'),
+            );
       if (!c.maintenant.isAfter(limite)) continue;
       // Une nuit de plus sans depart ni prolongation : la chambre n'est
       // peut-etre plus occupee du tout, ou le client dort sans etre facture.

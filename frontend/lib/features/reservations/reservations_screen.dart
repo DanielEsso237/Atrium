@@ -137,6 +137,7 @@ class ReservationsScreen extends ConsumerWidget {
     final filter = ref.watch(reservationFilterProvider);
     final toutes = ref.watch(_toutesReservationsProvider).value ?? const [];
     final recherche = ref.watch(reservationSearchProvider).trim();
+    final acces = ref.watch(sessionProvider).acces;
 
     final jour = formatIsoDate(businessDayFor(DateTime.now()));
     int compte(ReservationFilter f) =>
@@ -173,11 +174,26 @@ class ReservationsScreen extends ConsumerWidget {
           '$enCours séjour${enCours > 1 ? 's' : ''} en cours, '
           '$arriventAujourdhui arrivée${arriventAujourdhui > 1 ? 's' : ''} '
           "attendue${arriventAujourdhui > 1 ? 's' : ''} aujourd'hui",
-      action: PillButton(
-        label: 'Nouvelle réservation',
-        icon: PhosphorIconsLight.plus,
-        tone: PillTone.accent,
-        onPressed: () => context.go('/reservations/nouvelle'),
+      action: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        children: [
+          // Un voyageur sans reservation : les deux droits que le serveur
+          // exige, sinon l'arrivee bloquerait la file.
+          if (acces.peut('reservation.create') && acces.peut('folio.write'))
+            PillButton(
+              label: 'Arrivée directe',
+              icon: PhosphorIconsLight.doorOpen,
+              tone: PillTone.quiet,
+              onPressed: () => context.go('/reservations/arrivee-directe'),
+            ),
+          PillButton(
+            label: 'Nouvelle réservation',
+            icon: PhosphorIconsLight.plus,
+            tone: PillTone.accent,
+            onPressed: () => context.go('/reservations/nouvelle'),
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

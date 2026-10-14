@@ -81,6 +81,30 @@ class AvailableRoom {
   final String number;
 }
 
+/// Une chambre ou installer un voyageur sans reservation.
+class ChambreLibre {
+  const ChambreLibre({
+    required this.id,
+    required this.numero,
+    required this.categorie,
+    required this.tarif,
+    required this.propre,
+  });
+
+  final String id;
+  final String numero;
+  final String categorie;
+
+  /// Le tarif de la nuit de sa categorie : le prix propose en nuits.
+  final int tarif;
+  final bool propre;
+}
+
+/// Comment se compte un sejour d'arrivee directe. Les noms sont ceux du
+/// contrat (`unit` de `POST /stays/walk-in`).
+// ignore: constant_identifier_names
+enum UniteSejour { NIGHTS, HOURS }
+
 class ReservationRepository with OutboxWriter {
   ReservationRepository(this.db, {this.hotelId = defaultHotelId});
 
@@ -454,6 +478,344 @@ class ReservationRepository with OutboxWriter {
     });
 
     return reservationId;
+  }
+
+  /// Les chambres ou installer un voyageur tout de suite : libres, en
+  /// service, par numero. L'etat du menage est dit, pas impose : la
+  /// reception sait si la chambre peut se donner.
+  Stream<List<ChambreLibre>> watchChambresLibres() {
+    return db
+        .customSelect(
+          '''
+      SELECT r.id, r.number, r.housekeeping_status AS menage,
+             t.label AS categorie, t.default_rate AS tarif
+        FROM rooms r
+        JOIN room_types t ON t.id = r.room_type_id
+       WHERE r.deleted_at IS NULL
+         AND r.is_active = 1
+         AND r.is_out_of_order = 0
+         AND r.occupancy_status <> 'OCCUPIED'
+         AND NOT EXISTS (
+               SELECT 1 FROM reservation_rooms rr
+                WHERE rr.room_id = r.id AND rr.status = 'CHECKED_IN'
+                  AND rr.deleted_at IS NULL)
+       ORDER BY r.number
+      ''',
+          readsFrom: {db.rooms, db.roomTypes, db.reservationRooms},
+        )
+        .watch()
+        .map(
+          (rows) => [
+            for (final r in rows)
+              ChambreLibre(
+                id: r.read<String>('id'),
+                numero: r.read<String>('number'),
+                categorie: r.read<String>('categorie'),
+                tarif: r.read<int>('tarif'),
+                propre: const ['CLEAN', 'INSPECTED'].contains(
+                  r.read<String>('menage'),
+                ),
+              ),
+          ],
+        );
+  }
+
+  /// Verifie qu'une arrivee directe passera, sans rien ecrire.
+  ///
+  /// Ce que le serveur refuserait (`POST /stays/walk-in`) est refuse ici
+  /// d'abord : un refus par la file la bloquerait, l'arrivee du client avec.
+  /// L'ecran l'appelle avant de creer la fiche d'un nouveau client, pour ne
+  /// pas laisser une fiche orpheline derriere un refus.
+  Future<void> verifierArriveeDirecte({
+    required String roomId,
+    required UniteSejour unite,
+    required int duree,
+    required int prix,
+    String? guestId,
+  }) async {
+    if (unite == UniteSejour.NIGHTS && (duree < 1 || duree > 365)) {
+      throw StateError('Indiquez entre 1 et 365 nuits.');
+    }
+    if (unite == UniteSejour.HOURS && (duree < 1 || duree > 24)) {
+      throw StateError('Indiquez entre 1 et 24 heures.');
+    }
+    if (prix < 0) throw StateError('Le prix ne peut pas être négatif.');
+
+    final chambre = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingleOrNull();
+    if (chambre == null || chambre.deletedAt != null || !chambre.isActive) {
+      throw StateError('Chambre introuvable.');
+    }
+    if (chambre.isOutOfOrder) {
+      throw StateError('La chambre ${chambre.number} est hors service.');
+    }
+    final occupee = await db
+        .customSelect(
+          '''
+      SELECT 1 FROM reservation_rooms
+       WHERE room_id = ?1 AND status = 'CHECKED_IN' AND deleted_at IS NULL
+       LIMIT 1
+      ''',
+          variables: [Variable.withString(roomId)],
+          readsFrom: {db.reservationRooms},
+        )
+        .getSingleOrNull();
+    if (occupee != null ||
+        chambre.occupancyStatus == OccupancyStatus.OCCUPIED) {
+      throw StateError('La chambre ${chambre.number} est occupée.');
+    }
+
+    // En nuits, la categorie doit avoir une chambre libre chaque nuit : une
+    // chambre libre mais promise a une reservation ce soir est refusee. En
+    // heures, le client sera parti avant le soir.
+    if (unite == UniteSejour.NIGHTS) {
+      final arrivee = businessDayFor(DateTime.now());
+      final depart = DateTime(arrivee.year, arrivee.month, arrivee.day + duree);
+      final libres = await availableRooms(
+        roomTypeId: chambre.roomTypeId,
+        arrival: arrivee,
+        departure: depart,
+      );
+      if (!libres.any((r) => r.id == roomId)) {
+        throw StateError(
+          'La chambre ${chambre.number} est promise à une réservation sur '
+          'ces nuits : choisissez-en une autre.',
+        );
+      }
+      final total = await db
+          .customSelect(
+            '''
+        SELECT COUNT(*) AS n FROM rooms
+         WHERE room_type_id = ?1 AND deleted_at IS NULL
+           AND is_active = 1 AND is_out_of_order = 0
+        ''',
+            variables: [Variable.withString(chambre.roomTypeId)],
+            readsFrom: {db.rooms},
+          )
+          .getSingle();
+      final chambres = total.read<int>('n');
+      for (var i = 0; i < duree; i++) {
+        final nuit = formatIsoDate(
+          DateTime(arrivee.year, arrivee.month, arrivee.day + i),
+        );
+        final prises = await db
+            .customSelect(
+              '''
+          SELECT COUNT(*) AS n FROM reservation_rooms
+           WHERE room_type_id = ?1 AND deleted_at IS NULL
+             AND status IN ('PENDING','CONFIRMED','CHECKED_IN')
+             AND COALESCE(stay_unit, 'NIGHTS') <> 'HOURS'
+             AND arrival_date <= ?2 AND departure_date > ?2
+          ''',
+              variables: [
+                Variable.withString(chambre.roomTypeId),
+                Variable.withString(nuit),
+              ],
+              readsFrom: {db.reservationRooms},
+            )
+            .getSingle();
+        if (prises.read<int>('n') >= chambres) {
+          throw StateError(
+            'Plus de chambre libre dans cette catégorie la nuit du '
+            '${formatShortDate(parseIsoDate(nuit)!)} : elles sont toutes '
+            'réservées.',
+          );
+        }
+      }
+    }
+
+    // Le plafond d'un client connu : tout ce qu'il doit deja, plus ce sejour.
+    if (guestId != null) {
+      final r = await db
+          .customSelect(
+            '''
+        SELECT COALESCE(g.credit_limit, 0) AS seuil,
+               COALESCE((SELECT SUM(f.balance) FROM folios f
+                          WHERE f.guest_id = g.id AND f.status = 'OPEN'
+                            AND f.deleted_at IS NULL), 0) AS du
+          FROM guests g WHERE g.id = ?1
+        ''',
+            variables: [Variable.withString(guestId)],
+            readsFrom: {db.guests, db.folios},
+          )
+          .getSingleOrNull();
+      if (r == null) throw StateError('Client introuvable.');
+      final seuil = r.read<int>('seuil');
+      final du = r.read<int>('du');
+      if (seuil > 0 && du + prix > seuil) {
+        throw StateError(
+          'Seuil dépassé : ce client doit déjà ${formatAmount(du)}, plus '
+          '${formatAmount(prix)} de séjour, pour un plafond de '
+          '${formatAmount(seuil)}. Un responsable doit autoriser.',
+        );
+      }
+    }
+  }
+
+  /// L'arrivee directe (demande du 14 octobre) : un voyageur sans
+  /// reservation prend une chambre, pour des nuits ou quelques heures, a un
+  /// prix convenu -- le prix du sejour entier.
+  ///
+  /// En un geste, comme le serveur (`POST /stays/walk-in`) : le dossier, la
+  /// ligne arrivee, la chambre occupee, l'ardoise et une seule charge
+  /// « Sejour 3 h » ou « Sejour 2 nuits ». Ses nuits ne se portent pas une a
+  /// une : la charge les couvre. Une seule entree de file remonte le tout,
+  /// avec les identifiants choisis ici. Rend l'identifiant de la ligne.
+  Future<String> arriveeDirecte({
+    required String guestId,
+    required String roomId,
+    required UniteSejour unite,
+    required int duree,
+    required int prix,
+    required String by,
+  }) async {
+    await verifierArriveeDirecte(
+      roomId: roomId,
+      unite: unite,
+      duree: duree,
+      prix: prix,
+      guestId: guestId,
+    );
+    final chambre = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingle();
+    final categorie = await (db.select(
+      db.roomTypes,
+    )..where((t) => t.id.equals(chambre.roomTypeId))).getSingleOrNull();
+
+    final reservationId = newId();
+    final lineId = newId();
+    final folioId = newId();
+    final chargeId = newId();
+    final now = DateTime.now().toUtc();
+    final arrivee = businessDayFor(now);
+    final enHeures = unite == UniteSejour.HOURS;
+    // En heures, la date de depart vaut le lendemain parce que le schema
+    // exige depart > arrivee ; c'est `departureAt` qui fait foi.
+    final depart = DateTime(
+      arrivee.year,
+      arrivee.month,
+      arrivee.day + (enHeures ? 1 : duree),
+    );
+    final departA = enHeures ? now.add(Duration(hours: duree)) : null;
+    final parNuit = enHeures ? 0 : prix ~/ duree;
+    // Qui a fixe le prix, quand il n'est pas le tarif : toujours en heures,
+    // qui n'ont pas de tarif.
+    final tarif = (categorie?.defaultRate ?? 0) * duree;
+    final prixFixe = enHeures || prix != tarif;
+    final libelle = enHeures
+        ? 'Séjour $duree h'
+        : 'Séjour $duree nuit${duree > 1 ? 's' : ''}';
+    final reference = codeFromId(reservationId, 'RES');
+
+    await db.transaction(() async {
+      await db
+          .into(db.reservations)
+          .insert(
+            ReservationsCompanion.insert(
+              id: reservationId,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotelId,
+              reference: reference,
+              guestId: guestId,
+              status: const Value(ReservationStatus.CHECKED_IN),
+              source: const Value(ReservationSource.WALK_IN),
+              arrivalDate: formatIsoDate(arrivee),
+              departureDate: formatIsoDate(depart),
+              estimatedTotal: Value(prix),
+              createdBy: Value(by),
+              // Protege jusqu'a la remontee : c'est l'entree de la file.
+              syncState: const Value(SyncState.pending),
+            ),
+          );
+      await db
+          .into(db.reservationRooms)
+          .insert(
+            ReservationRoomsCompanion.insert(
+              id: lineId,
+              createdAt: now,
+              updatedAt: now,
+              reservationId: reservationId,
+              roomTypeId: chambre.roomTypeId,
+              roomId: Value(roomId),
+              arrivalDate: formatIsoDate(arrivee),
+              departureDate: formatIsoDate(depart),
+              nightlyRate: Value(parNuit),
+              status: const Value(ReservationStatus.CHECKED_IN),
+              checkedInAt: Value(now),
+              checkedInBy: Value(by),
+              isWalkIn: const Value(true),
+              stayUnit: Value(unite.name),
+              departureAt: Value(departA),
+              rateSetBy: Value(prixFixe ? by : null),
+              createdBy: Value(by),
+              // Remonte avec le dossier, pas a part.
+              syncState: const Value(SyncState.synced),
+            ),
+          );
+      await (db.update(db.rooms)..where((r) => r.id.equals(roomId))).write(
+        RoomsCompanion(
+          occupancyStatus: const Value(OccupancyStatus.OCCUPIED),
+          updatedAt: Value(now),
+        ),
+      );
+      await db
+          .into(db.folios)
+          .insert(
+            FoliosCompanion.insert(
+              id: folioId,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotelId,
+              number: codeFromId(folioId, 'FOL'),
+              type: const Value(FolioType.GUEST),
+              status: const Value(FolioStatus.OPEN),
+              reservationRoomId: Value(lineId),
+              guestId: Value(guestId),
+              openedAt: Value(now),
+              syncState: const Value(SyncState.synced),
+            ),
+          );
+      await db
+          .into(db.folioItems)
+          .insert(
+            FolioItemsCompanion.insert(
+              id: chargeId,
+              createdAt: now,
+              updatedAt: now,
+              folioId: folioId,
+              category: ChargeCategory.ROOM,
+              label: libelle,
+              unitPrice: Value(prix),
+              amount: Value(prix),
+              businessDate: formatIsoDate(arrivee),
+              postedBy: Value(by),
+              postedAt: Value(now),
+              syncState: const Value(SyncState.synced),
+            ),
+          );
+      await FolioRepository(db, hotelId: hotelId).recalculer(folioId);
+      await enqueue(
+        table: 'reservations',
+        id: reservationId,
+        operation: SyncOp.INSERT,
+        payload: {
+          'id': reservationId,
+          'action': 'WALK_IN',
+          'line_id': lineId,
+          'folio_id': folioId,
+          'charge_id': chargeId,
+          'guest_id': guestId,
+          'room_id': roomId,
+          'unit': unite.name,
+          'duration': duree,
+          'price': prix,
+        },
+      );
+    });
+    return lineId;
   }
 
   /// Attribue une chambre a une ligne de sejour (F1.3).

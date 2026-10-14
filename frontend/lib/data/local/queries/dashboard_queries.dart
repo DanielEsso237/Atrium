@@ -15,6 +15,14 @@ import '../../../core/business_day.dart';
 import '../../../core/formats.dart';
 import '../database.dart';
 
+/// Le jour de depart d'une ligne de sejour, en SQL : sa date de depart, ou
+/// pour un sejour en heures la journee hoteliere de son heure de depart
+/// (`departure_at`, instant UTC ; avant l'heure de bascule, c'est la veille).
+const _jourDeDepart =
+    "(CASE WHEN stay_unit = 'HOURS' AND departure_at IS NOT NULL "
+    "THEN date(departure_at, 'localtime', '-$heureBasculeParDefaut hours') "
+    'ELSE departure_date END)';
+
 /// Ce que montre le haut de l'ecran d'accueil.
 class DashboardSummary {
   const DashboardSummary({
@@ -102,14 +110,17 @@ extension DashboardQueries on AtriumDatabase {
             AND arrival_date = ?1
             AND status IN ('PENDING','CONFIRMED'))               AS arrivees_restantes,
 
+        -- Un sejour en heures part le jour de son heure de depart (journee
+        -- hoteliere : avant 6 h, c'est encore la veille) ; sa date de depart
+        -- vaut le lendemain et ne veut rien dire.
         (SELECT COUNT(*) FROM reservation_rooms
           WHERE deleted_at IS NULL
-            AND departure_date = ?1
+            AND $_jourDeDepart = ?1
             AND status IN ('CHECKED_IN','CHECKED_OUT'))          AS departs,
 
         (SELECT COUNT(*) FROM reservation_rooms
           WHERE deleted_at IS NULL
-            AND departure_date = ?1
+            AND $_jourDeDepart = ?1
             AND status = 'CHECKED_IN')                           AS departs_restants,
 
         (SELECT COALESCE(SUM(amount), 0) FROM folio_items

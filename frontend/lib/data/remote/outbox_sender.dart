@@ -488,6 +488,27 @@ class OutboxSender {
         );
 
       case 'reservations':
+        // L'arrivee directe : le client, le dossier, la ligne, l'arrivee,
+        // l'ardoise et la charge du sejour en une requete, avec les
+        // identifiants choisis ici -- la tablette a tout cree hors ligne.
+        if (p['action'] == 'WALK_IN') {
+          return _Envoi(
+            '/stays/walk-in',
+            _sansNuls({
+              'id': p['id'],
+              'line_id': p['line_id'],
+              'folio_id': p['folio_id'],
+              'charge_id': p['charge_id'],
+              'guest_id': p['guest_id'],
+              'guest': p['guest'],
+              'room_id': p['room_id'],
+              'unit': p['unit'],
+              'duration': p['duration'],
+              'price': p['price'],
+              'override_by': p['override_by'],
+            }),
+          );
+        }
         // L'annulation a son endpoint ; le serveur y conserve les arrhes sur
         // l'ardoise d'indemnite dont la tablette a choisi l'id.
         if (p['action'] == 'CANCEL') {

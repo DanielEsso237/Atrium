@@ -74,6 +74,9 @@ class TodayScreen extends ConsumerWidget {
           prenom: session.agent?.firstName ?? '',
           jour: jour,
           peutReserver: session.acces.peut('rooms.read'),
+          peutArriveeDirecte:
+              session.acces.peut('reservation.create') &&
+              session.acces.peut('folio.write'),
         );
         const occupation = _Occupation();
         const chiffres = _Chiffres();
@@ -163,11 +166,15 @@ class _EnTete extends StatelessWidget {
     required this.prenom,
     required this.jour,
     required this.peutReserver,
+    this.peutArriveeDirecte = false,
   });
 
   final String prenom;
   final DateTime jour;
   final bool peutReserver;
+
+  /// Un voyageur sans reservation : les deux droits que le serveur exige.
+  final bool peutArriveeDirecte;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +215,15 @@ class _EnTete extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const NotificationBell(),
+            if (peutArriveeDirecte) ...[
+              const SizedBox(width: 10),
+              PillButton(
+                label: 'Arrivée directe',
+                icon: PhosphorIconsLight.doorOpen,
+                tone: PillTone.quiet,
+                onPressed: () => context.go('/reservations/arrivee-directe'),
+              ),
+            ],
             if (peutReserver) ...[
               const SizedBox(width: 10),
               PillButton(
