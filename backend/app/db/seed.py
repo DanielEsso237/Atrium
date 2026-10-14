@@ -133,6 +133,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004136"), "stock.manage", "Tenir l'economat : entrees, sorties et ajustements de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004137"), "stock.transfer.request", "Demander un transfert de stock", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004138"), "tab.cancel", "Annuler l'ardoise d'un client parti sans payer", "folio"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004139"), "accounting.read", "Lire les marges et la valeur du stock", "accounting"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -164,6 +165,7 @@ CASH_CENTRAL = PERMISSIONS[34][0]
 STOCK_MANAGE = PERMISSIONS[35][0]
 STOCK_TRANSFER_REQUEST = PERMISSIONS[36][0]
 TAB_CANCEL = PERMISSIONS[37][0]
+ACCOUNTING_READ = PERMISSIONS[38][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -222,6 +224,11 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # Un client parti sans payer : l'ardoise s'annule avec un motif, par un
     # responsable -- celui qui a servi ne l'efface pas lui-meme.
     (MANAGER_ROLE, TAB_CANCEL),
+    # Les marges et la valeur du stock : la direction, et les deux metiers
+    # qui controlent les comptes. Pas le comptoir, qui compte son tiroir a
+    # l'aveugle -- une marge lui donnerait sa recette --, ni l'econome, dont
+    # ce sont les achats qu'on y juge.
+    (MANAGER_ROLE, ACCOUNTING_READ),
     (RESTAURANT_ROLE, RESTAURANT_READ),
     (RESTAURANT_ROLE, ORDER_READ),
     (RESTAURANT_ROLE, ORDER_CREATE),
@@ -266,6 +273,8 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (CONTROLEUR_ROLE, STOCK_TRANSFER_APPROVE),
     (COMPTABLE_ROLE, STOCK_READ),
     (COMPTABLE_ROLE, STOCK_TRANSFER_APPROVE),
+    (CONTROLEUR_ROLE, ACCOUNTING_READ),
+    (COMPTABLE_ROLE, ACCOUNTING_READ),
 ]
 
 DEMO_ADMIN = uuid.UUID("01920000-0000-7000-8000-000000050001")

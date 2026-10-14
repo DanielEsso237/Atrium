@@ -356,6 +356,24 @@ connectée avant sur la même tablette. Corrigé par `GET /chargeable-stays`
 chambre avant le correctif du ticket 1 restent sans point de vente sur le
 serveur : données d'essai, non reprises (décision du 11 octobre).
 
+## Prix, marges et valeur du stock (14 octobre)
+
+« La compta en gros », côté serveur seulement — l'écran de la tablette reste
+à faire, et ses rapports calculent encore la marge au prix d'achat
+(`report_queries.dart`).
+
+- **Coût moyen pondéré** : `products.average_cost` (migration 0022),
+  recalculé à chaque entrée `IN` qui dit son prix, pour tout l'hôtel
+  (`app/services/costing.py`). À zéro, le coût est le `purchase_price`.
+- **Le coût d'une vente est figé sur sa sortie de stock** (`unit_cost`,
+  `deduct_for_sale`) : une livraison ne change pas la marge déjà faite.
+- `GET /accounting/margins`, `/accounting/product-margins`,
+  `/accounting/stock-value`, sous `accounting.read` (administrateur,
+  direction, contrôleur, comptable — **pas le comptoir** : une marge lui
+  donnerait la recette d'un tiroir qu'il compte à l'aveugle).
+- Ce qui ne sort d'aucun stock n'a pas de coût connu : sa recette reste hors
+  de la marge (`uncosted_revenue`).
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis

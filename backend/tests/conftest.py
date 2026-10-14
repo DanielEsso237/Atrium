@@ -101,6 +101,7 @@ _PERMISSIONS_NEEDED = [
     "cash.session", "cash.central",
     "folio.override_limit",
     "hotel.write",
+    "accounting.read",
 ]
 
 

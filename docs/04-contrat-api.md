@@ -536,6 +536,41 @@ routes sont rejouables.
 celle de sa chambre et celles des comptoirs. Sans cela, il passait sous son
 plafond en consommant au bar.
 
+## Prix, marges et valeur du stock
+
+« La compta en gros » : trois lectures, sous le droit `accounting.read`
+(administrateur, direction, contrôleur, comptable). Pas le comptoir : il lit
+son stock, mais compte son tiroir à l'aveugle, et une marge lui donnerait sa
+recette.
+
+**Le coût moyen pondéré.** `products.average_cost` est tenu par le serveur :
+chaque entrée en stock (`POST /stock-movements`, type `IN`) qui dit son prix
+(`unit_cost`) le recalcule —
+`(stock d'avant × coût d'avant + quantité × prix) / (stock d'avant + quantité)`,
+arrondi au franc. Le stock est celui de tout l'hôtel : un transfert ne change
+pas ce qu'une bouteille a coûté. Une entrée sans prix ne change rien ; un
+stock vide ou négatif ne pèse rien. Tant qu'aucune entrée n'a dit son prix,
+`average_cost` vaut 0 et le coût du produit est son `purchase_price`.
+`GET /products` rend `average_cost` ; il ne se saisit pas.
+
+**Le coût d'une vente est celui du jour de la vente.** La sortie de stock
+d'une ligne vendue garde le coût moyen du moment dans son `unit_cost` : la
+marge d'une semaine passée ne bouge pas à la livraison suivante.
+
+- `GET /accounting/product-margins` : par produit, `purchase_price`,
+  `average_cost`, `unit_cost` (le coût retenu), `sale_price`, `margin`
+  (prix de vente − coût) et `margin_rate_bp` (points de base).
+- `GET /accounting/margins?date_from=&date_to=&outlet_id=` : par point de
+  vente, `revenue`, `cost`, `margin`, `margin_rate_bp`, et le détail par
+  article vendu. Les dates sont des journées hôtelières, bornes incluses ;
+  sans elles, les sept dernières, celle en cours comprise. Ce qui ne sort
+  d'aucun stock (plat du jour, service) n'a pas de coût connu : sa recette
+  est dans `revenue` et dans `uncosted_revenue`, **hors de la marge**. Une
+  ligne annulée ne compte ni en recette ni en coût.
+- `GET /accounting/stock-value?stock_location_id=` : par magasin, l'économat
+  d'abord, `value` et le détail par produit (quantité × coût). Un stock
+  négatif vaut zéro : c'est une livraison pas encore saisie, pas une dette.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

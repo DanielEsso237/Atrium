@@ -74,6 +74,10 @@ class ProductOut(BaseModel):
     barcode: str | None
     purchase_price: int
     sale_price: int
+    # Cout moyen pondere, tenu par le serveur a chaque entree en stock ;
+    # zero tant qu'aucune entree n'a dit son prix (le cout est alors
+    # `purchase_price`). Jamais saisi : `ProductIn` ne le porte pas.
+    average_cost: int
     min_stock: int
     is_sellable: bool
     default_supplier_id: uuid.UUID | None

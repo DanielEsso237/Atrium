@@ -2925,6 +2925,61 @@
         "title": "InvoiceStatus",
         "type": "string"
       },
+      "LocationStockValueOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "is_central": {
+            "title": "Is Central",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "outlet_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlet Id"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/StockValueLineOut"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "stock_location_id": {
+            "format": "uuid",
+            "title": "Stock Location Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stock_location_id",
+          "code",
+          "label",
+          "outlet_id",
+          "is_central",
+          "value",
+          "products"
+        ],
+        "title": "LocationStockValueOut",
+        "type": "object"
+      },
       "LoginIn": {
         "description": "Connexion par identifiant employe + mot de passe (exigence 6.2).",
         "properties": {
@@ -3206,6 +3261,66 @@
           "blocks_room"
         ],
         "title": "MaintenanceTicketOut",
+        "type": "object"
+      },
+      "MarginReportOut": {
+        "properties": {
+          "cost": {
+            "title": "Cost",
+            "type": "integer"
+          },
+          "date_from": {
+            "format": "date",
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "format": "date",
+            "title": "Date To",
+            "type": "string"
+          },
+          "margin": {
+            "title": "Margin",
+            "type": "integer"
+          },
+          "margin_rate_bp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Rate Bp"
+          },
+          "outlets": {
+            "items": {
+              "$ref": "#/components/schemas/OutletMarginOut"
+            },
+            "title": "Outlets",
+            "type": "array"
+          },
+          "revenue": {
+            "title": "Revenue",
+            "type": "integer"
+          },
+          "uncosted_revenue": {
+            "title": "Uncosted Revenue",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date_from",
+          "date_to",
+          "revenue",
+          "uncosted_revenue",
+          "cost",
+          "margin",
+          "margin_rate_bp",
+          "outlets"
+        ],
+        "title": "MarginReportOut",
         "type": "object"
       },
       "MenuCategoryIn": {
@@ -4081,6 +4196,75 @@
         ],
         "title": "OutletKind",
         "type": "string"
+      },
+      "OutletMarginOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "cost": {
+            "description": "Cout de ce qui est sorti du stock pour ces ventes",
+            "title": "Cost",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "margin": {
+            "description": "(revenue - uncosted_revenue) - cost",
+            "title": "Margin",
+            "type": "integer"
+          },
+          "margin_rate_bp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Marge / recette dont le cout est connu",
+            "title": "Margin Rate Bp"
+          },
+          "outlet_id": {
+            "format": "uuid",
+            "title": "Outlet Id",
+            "type": "string"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/SoldProductMarginOut"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "revenue": {
+            "description": "Tout ce que le point de vente a vendu",
+            "title": "Revenue",
+            "type": "integer"
+          },
+          "uncosted_revenue": {
+            "description": "La part de la recette sans cout connu",
+            "title": "Uncosted Revenue",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "outlet_id",
+          "code",
+          "label",
+          "revenue",
+          "uncosted_revenue",
+          "cost",
+          "margin",
+          "margin_rate_bp",
+          "products"
+        ],
+        "title": "OutletMarginOut",
+        "type": "object"
       },
       "OutletOut": {
         "properties": {
@@ -5575,8 +5759,78 @@
         "title": "ProductIn",
         "type": "object"
       },
+      "ProductMarginOut": {
+        "description": "Ce qu'une unite du produit rapporte au prix de la carte.",
+        "properties": {
+          "average_cost": {
+            "description": "Cout moyen pondere ; 0 sans entree valorisee",
+            "title": "Average Cost",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "margin": {
+            "description": "sale_price - unit_cost",
+            "title": "Margin",
+            "type": "integer"
+          },
+          "margin_rate_bp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Marge / prix de vente ; nul sans prix de vente",
+            "title": "Margin Rate Bp"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "purchase_price": {
+            "title": "Purchase Price",
+            "type": "integer"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "sale_price": {
+            "title": "Sale Price",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "description": "Le cout retenu : cout moyen, sinon prix d'achat",
+            "title": "Unit Cost",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id",
+          "reference",
+          "label",
+          "purchase_price",
+          "average_cost",
+          "unit_cost",
+          "sale_price",
+          "margin",
+          "margin_rate_bp"
+        ],
+        "title": "ProductMarginOut",
+        "type": "object"
+      },
       "ProductOut": {
         "properties": {
+          "average_cost": {
+            "title": "Average Cost",
+            "type": "integer"
+          },
           "barcode": {
             "anyOf": [
               {
@@ -5655,6 +5909,7 @@
           "barcode",
           "purchase_price",
           "sale_price",
+          "average_cost",
           "min_stock",
           "is_sellable",
           "default_supplier_id"
@@ -6977,6 +7232,69 @@
         "title": "RoomUpdate",
         "type": "object"
       },
+      "SoldProductMarginOut": {
+        "description": "Un article vendu par un point de vente sur la periode.",
+        "properties": {
+          "cost": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nul quand le cout n'est pas connu",
+            "title": "Cost"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le produit sorti du stock ; nul si l'article ne se stocke pas",
+            "title": "Product Id"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "revenue": {
+            "title": "Revenue",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id",
+          "label",
+          "quantity",
+          "revenue",
+          "cost",
+          "margin"
+        ],
+        "title": "SoldProductMarginOut",
+        "type": "object"
+      },
       "StockDecisionIn": {
         "description": "Validation ou refus d'un transfert : le motif est facultatif.",
         "properties": {
@@ -7373,6 +7691,66 @@
         ],
         "title": "StockMovementType",
         "type": "string"
+      },
+      "StockValueLineOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "unit_cost": {
+            "title": "Unit Cost",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id",
+          "reference",
+          "label",
+          "quantity",
+          "unit_cost",
+          "value"
+        ],
+        "title": "StockValueLineOut",
+        "type": "object"
+      },
+      "StockValueOut": {
+        "properties": {
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationStockValueOut"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "locations"
+        ],
+        "title": "StockValueOut",
+        "type": "object"
       },
       "SupplierIn": {
         "properties": {
@@ -8220,6 +8598,191 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/accounting/margins": {
+      "get": {
+        "description": "La marge de chaque point de vente sur la periode, article par article.\n\nSans dates : les sept dernieres journees hotelieres, celle en cours\ncomprise. Une ligne annulee ne compte ni en recette ni en cout.",
+        "operationId": "margins_api_v1_accounting_margins_get",
+        "parameters": [
+          {
+            "description": "Premiere journee hoteliere incluse ; par defaut, six jours avant `date_to`",
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Premiere journee hoteliere incluse ; par defaut, six jours avant `date_to`",
+              "title": "Date From"
+            }
+          },
+          {
+            "description": "Derniere journee hoteliere incluse ; par defaut, la journee en cours",
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Derniere journee hoteliere incluse ; par defaut, la journee en cours",
+              "title": "Date To"
+            }
+          },
+          {
+            "description": "Un seul point de vente",
+            "in": "query",
+            "name": "outlet_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Un seul point de vente",
+              "title": "Outlet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarginReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Margins",
+        "tags": [
+          "comptabilite"
+        ]
+      }
+    },
+    "/api/v1/accounting/product-margins": {
+      "get": {
+        "description": "La marge d'une unite de chaque produit : prix de vente moins cout.",
+        "operationId": "product_margins_api_v1_accounting_product_margins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductMarginOut"
+                  },
+                  "title": "Response Product Margins Api V1 Accounting Product Margins Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Product Margins",
+        "tags": [
+          "comptabilite"
+        ]
+      }
+    },
+    "/api/v1/accounting/stock-value": {
+      "get": {
+        "description": "Ce que vaut le stock de chaque magasin, au cout moyen de chaque produit.",
+        "operationId": "stock_value_api_v1_accounting_stock_value_get",
+        "parameters": [
+          {
+            "description": "Un seul magasin",
+            "in": "query",
+            "name": "stock_location_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Un seul magasin",
+              "title": "Stock Location Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockValueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Stock Value",
+        "tags": [
+          "comptabilite"
+        ]
+      }
+    },
     "/api/v1/attachments/{attachment_id}": {
       "put": {
         "description": "Recoit une piece jointe et son fichier, ou remplace le fichier.\n\n201 a la creation, 200 sur un renvoi ou une reprise. Une photo **plus\nancienne** que celle deja tenue ne remplace rien et repond 200 : deux\ntablettes qui photographient le meme client, la derniere prise l'emporte,\nquel que soit l'ordre d'arrivee.",

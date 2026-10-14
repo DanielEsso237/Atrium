@@ -17,8 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ids import uuid7
-from app.models import MenuItem, Outlet, StockLevel, StockMovement
+from app.models import MenuItem, Outlet, Product, StockLevel, StockMovement
 from app.models.enums import StockMovementStatus, StockMovementType
+from app.services.costing import unit_cost_of
 from app.services.stock_locations import ensure_outlet_location
 
 
@@ -93,6 +94,7 @@ async def deduct_for_sale(
     if outlet is None or outlet.hotel_id != hotel_id:
         return None
     magasin = await ensure_outlet_location(session, outlet)
+    produit = await session.get(Product, article.product_id)
     movement = StockMovement(
         id=uuid7(),
         hotel_id=hotel_id,
@@ -100,6 +102,9 @@ async def deduct_for_sale(
         stock_location_id=magasin.id,
         type=StockMovementType.OUT,
         quantity=quantity * article.stock_quantity,
+        # Le cout du jour de la vente, fige sur la sortie : la marge d'une
+        # semaine passee ne doit pas bouger a la prochaine livraison.
+        unit_cost=unit_cost_of(produit) if produit is not None else 0,
         reason=f"Vente : {article.label}",
         source_table="folio_items",
         source_id=folio_item_id,
