@@ -22,7 +22,9 @@ import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
-import '../../data/repositories/repository_providers.dart' show stayRulesProvider;
+import '../../core/ui/confirmation.dart';
+import '../../data/repositories/repository_providers.dart'
+    show housekeepingRepositoryProvider, stayRulesProvider;
 import '../billing/add_charge_dialog.dart';
 import '../auth/session.dart';
 import '../billing/charge_labels.dart';
@@ -145,10 +147,9 @@ class _EnTete extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final peutSignaler = ref
-        .watch(sessionProvider)
-        .acces
-        .peut('maintenance.manage');
+    final acces = ref.watch(sessionProvider).acces;
+    final peutSignaler = acces.peut('maintenance.manage');
+    final peutDemanderMenage = acces.peut('housekeeping.manage');
     final lieu = [
       chambre.typeLabel,
       if (chambre.floorLabel != null) chambre.floorLabel!.toLowerCase(),
@@ -160,6 +161,14 @@ class _EnTete extends ConsumerWidget {
       sousTitre: lieu,
       badge: PastilleEtat(apparence: vue, surFonce: true),
       actions: [
+        // Le menage se demande la ou on voit la chambre : un client appelle
+        // pour un passage, la reception ouvre sa fiche (demande du 14 oct.).
+        if (peutDemanderMenage)
+          FicheBoutonRond(
+            icone: Icons.cleaning_services_outlined,
+            libelle: 'Demander le ménage',
+            onTap: () => _demanderMenage(context, ref),
+          ),
         // Signaler un probleme la ou on le decouvre : un client appelle, la
         // reception a la fiche sous les yeux.
         if (peutSignaler)
@@ -176,6 +185,31 @@ class _EnTete extends ConsumerWidget {
       valeur: formatAmount(chambre.rate),
       legendeValeur: 'la nuit',
     );
+  }
+
+  Future<void> _demanderMenage(BuildContext context, WidgetRef ref) async {
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    try {
+      final cree = await ref
+          .read(housekeepingRepositoryProvider)
+          .demanderMenage(chambre.roomId, by: agent);
+      if (!context.mounted) return;
+      if (cree) {
+        montrerSucces(
+          context,
+          'Ménage demandé pour la chambre ${chambre.number}.',
+        );
+      } else {
+        montrerRefus(
+          context,
+          'Le ménage de la chambre ${chambre.number} est déjà demandé '
+          'aujourd’hui.',
+        );
+      }
+    } on StateError catch (e) {
+      if (context.mounted) montrerRefus(context, e.message);
+    }
   }
 }
 
