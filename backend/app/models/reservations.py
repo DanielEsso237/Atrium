@@ -23,6 +23,7 @@ from app.models.enums import (
     ReservationSource,
     ReservationStatus,
     SignatureKind,
+    StayUnit,
     UploadState,
 )
 from app.models.rooms import _enum
@@ -152,6 +153,24 @@ class ReservationRoom(SyncBase):
     )
     upgrade_reason: Mapped[str | None] = mapped_column(String(255), default=None)
     upgraded_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
+    # Arrivee directe : un voyageur sans reservation prend une chambre, pour
+    # des nuits ou pour quelques heures, a un prix saisi librement.
+    is_walk_in: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    stay_unit: Mapped[StayUnit] = mapped_column(
+        _enum(StayUnit, "stay_unit"),
+        default=StayUnit.NIGHTS,
+        server_default=StayUnit.NIGHTS.value,
+    )
+    # L'heure de depart d'un sejour en heures, instant UTC. `departure_date`
+    # est une date seule, et doit suivre `arrival_date` : pour quelques
+    # heures, elle ne dit rien -- c'est cette colonne qui fait foi.
+    departure_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    # Qui a saisi un prix different du tarif de la categorie. Nul quand le
+    # sejour est au tarif.
+    rate_set_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
 

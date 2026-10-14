@@ -310,6 +310,63 @@ Rejouable comme avant : un second envoi identique rend 200 sans rien refaire.
 **La tablette doit faire les mêmes refus avant d'envoyer** (catégorie
 identique, motif vide, tarif payant sans le droit).
 
+## L'arrivée directe
+
+Un voyageur arrive sans réservation et prend une chambre, pour des nuits ou
+pour quelques heures, à un prix convenu (demande du 14 octobre).
+`POST /stays/walk-in`, sous `reservation.create` **et** `folio.write`, fait
+tout d'un geste : la fiche du client si elle manque, le dossier (source
+`WALK_IN`), sa ligne, l'arrivée, l'ardoise et la charge du séjour.
+
+```json
+{"id": "…", "line_id": "…", "folio_id": "…", "charge_id": "…",
+ "guest_id": "…",
+ "room_id": "…", "unit": "HOURS", "duration": 3, "price": 10000}
+```
+
+- `id` (le dossier) est obligatoire ; `line_id`, `folio_id`, `charge_id` sont
+  générés s'ils manquent. La tablette les envoie tous : elle enregistre
+  l'arrivée hors ligne.
+- Le client : `guest_id` (connu) **ou** `guest` (une fiche comme
+  `POST /guests`, avec son `id`), l'un des deux. Une fiche dont l'`id` existe
+  déjà est prise telle quelle. Le plafond ne se règle pas ici.
+- `unit` : `NIGHTS` (1 à 365) ou `HOURS` (1 à 24).
+- **`price` est le prix du séjour entier**, en francs, saisi librement. Il
+  devient une seule charge `ROOM` : « Séjour 3 h », « Séjour 2 nuits ».
+- `override_by` : le responsable qui autorise un dépassement du plafond.
+
+La réponse est celle du check-in (le dossier et `folio_id`) : 201, ou 200 sur
+un renvoi du même `id`, sans rien refaire.
+
+La ligne rend `is_walk_in`, `stay_unit`, `departure_at` et `rate_set_by` —
+qui a saisi le prix, quand il diffère du tarif de la catégorie × le nombre de
+nuits (toujours renseigné pour un séjour en heures, qui n'a pas de tarif).
+
+**Un séjour en nuits** part d'aujourd'hui (journée hôtelière). Ses nuits sont
+inscrites **déjà portées**, le prix réparti entre elles au franc près : la
+charge du séjour les couvre. Porter une de ces nuits
+(`POST /folios/{id}/items` avec `night_date`) rend cette charge en 200, sans
+en créer une seconde.
+
+**Un séjour en heures** n'a aucune nuit. Il part à `departure_at`, instant
+UTC ; sa `departure_date` vaut le lendemain, parce que le schéma l'exige, et
+**ne doit pas être lue**. Il ne compte pas dans la disponibilité des nuits.
+`GET /rooms/{id}` rend `stay_unit` et `departure_at` dans `current_stay`, et
+`departures_today` du tableau de bord compte un séjour en heures le jour de
+son heure de départ.
+
+Les refus, à faire sur la tablette avant d'envoyer :
+
+| | |
+|---|---|
+| 404 | chambre ou client inconnu |
+| 409 | chambre occupée ou hors service |
+| 409 | en nuits, plus de disponibilité dans la catégorie sur la période |
+| 409 | plafond du client dépassé sans `override_by` |
+| 422 | ni `guest_id` ni `guest`, ou les deux ; durée hors bornes ; prix négatif |
+
+Le départ se fait par le check-out ordinaire.
+
 ## Le seuil de consommation et les arrhes
 
 **Seuil.** `guests.credit_limit` (FCFA, `0` = pas de limite) borne le solde

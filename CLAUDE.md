@@ -391,6 +391,26 @@ et garde `booked_room_type_id`, `upgrade_reason`, `upgraded_by` (migration
 la file. **Le serveur ne vérifie pas que la nouvelle catégorie reste
 disponible les nuits suivantes** : à trancher avec Daniel.
 
+## L'arrivée directe (14 octobre)
+
+Un voyageur sans réservation prend une chambre, en **nuits ou en heures**, à
+un prix saisi librement : `POST /stays/walk-in` (`app/api/v1/stays.py`,
+droits `reservation.create` + `folio.write`) crée d'un geste la fiche si elle
+manque, le dossier, l'arrivée, l'ardoise et **une seule charge** du prix du
+séjour entier. Migration 0025 : `is_walk_in`, `stay_unit`, `departure_at`,
+`rate_set_by` sur `reservation_rooms`. Serveur fait ; l'écran suit (D7).
+
+- **Un séjour en heures part à `departure_at`** (instant UTC). Sa
+  `departure_date` vaut le lendemain parce que le schéma l'exige : ne jamais
+  la lire. Il n'a pas de nuit et ne compte pas dans la disponibilité.
+- **Les nuits d'une arrivée directe naissent déjà portées** : la charge du
+  séjour les couvre, et les porter une à une rend cette charge.
+- Tous les refus passent **avant la première écriture** — le plafond du
+  client compris : une levée après un `flush` laissait le dossier à moitié
+  créé dans la session.
+- Le tableau de bord lit des vues (`v_occupancy`) que la base de test n'a
+  pas : sa logique testable vit dans des fonctions (`count_departures`).
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis

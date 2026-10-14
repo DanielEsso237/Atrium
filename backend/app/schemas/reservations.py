@@ -8,7 +8,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.models.enums import PaymentMethod, ReservationSource, ReservationStatus
+from app.models.enums import PaymentMethod, ReservationSource, ReservationStatus, StayUnit
+from app.schemas.guests import GuestIn
 
 
 class ReservationRoomIn(BaseModel):
@@ -88,6 +89,13 @@ class ReservationRoomOut(BaseModel):
     booked_room_type_id: uuid.UUID | None = None
     upgrade_reason: str | None = None
     upgraded_by: uuid.UUID | None = None
+    # Arrivee directe (sans reservation), en nuits ou en heures. Pour un
+    # sejour en heures, `departure_date` n'est que la borne exigee par le
+    # schema : l'heure de depart est `departure_at`, instant UTC.
+    is_walk_in: bool = False
+    stay_unit: StayUnit = StayUnit.NIGHTS
+    departure_at: dt.datetime | None = None
+    rate_set_by: uuid.UUID | None = None
 
 
 class ReservationOut(BaseModel):
@@ -247,3 +255,50 @@ class CalendarOut(BaseModel):
     date_to: dt.date
     rows: list[CalendarCell]
     unassigned: list[CalendarUnassigned]
+
+
+class WalkInStayIn(BaseModel):
+    """Arrivee directe : un voyageur sans reservation prend une chambre.
+
+    Une seule requete pour le client, la chambre, la duree, le prix et
+    l'arrivee. Les identifiants viennent de la tablette, qui enregistre le
+    sejour hors ligne : le meme envoi rejoue retrouve le meme sejour.
+    """
+
+    id: uuid.UUID = Field(description="L'id du dossier, genere par la tablette")
+    line_id: uuid.UUID | None = Field(
+        default=None, description="L'id de la ligne de sejour ; absent = genere"
+    )
+    folio_id: uuid.UUID | None = Field(
+        default=None, description="L'id de l'ardoise ; absent = genere"
+    )
+    charge_id: uuid.UUID | None = Field(
+        default=None, description="L'id de la charge du sejour ; absent = genere"
+    )
+    guest_id: uuid.UUID | None = Field(default=None, description="Un client deja connu")
+    guest: GuestIn | None = Field(
+        default=None, description="Ou la fiche a creer (avec son id, pour le rejeu)"
+    )
+    room_id: uuid.UUID
+    unit: StayUnit
+    duration: int = Field(ge=1, description="Nombre de nuits, ou d'heures")
+    price: int = Field(ge=0, description="FCFA, le prix du sejour entier, saisi librement")
+    override_by: uuid.UUID | None = Field(
+        default=None,
+        description="Responsable (folio.override_limit) qui autorise le depassement du seuil",
+    )
+
+    @model_validator(mode="after")
+    def _coherent(self) -> "WalkInStayIn":
+        if (self.guest_id is None) == (self.guest is None):
+            raise ValueError("Donner guest_id ou guest, l'un des deux.")
+        # Au-dela d'une journee, ce n'est plus un sejour en heures : c'est
+        # une nuit, et elle se compte comme telle.
+        if self.unit == StayUnit.HOURS and self.duration > 24:
+            raise ValueError("Un sejour en heures ne depasse pas 24 heures.")
+        if self.unit == StayUnit.NIGHTS and self.duration > 365:
+            raise ValueError("Un sejour ne depasse pas 365 nuits.")
+        ids = [i for i in (self.id, self.line_id, self.folio_id, self.charge_id) if i is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Identifiants en double dans l'arrivee directe.")
+        return self

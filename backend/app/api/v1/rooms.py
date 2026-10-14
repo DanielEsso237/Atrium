@@ -128,6 +128,8 @@ async def get_room(
                 ReservationRoom.status,
                 ReservationRoom.checked_in_at,
                 ReservationRoom.checked_out_at,
+                ReservationRoom.stay_unit,
+                ReservationRoom.departure_at,
             )
             .join(Reservation, Reservation.id == ReservationRoom.reservation_id)
             .join(Guest, Guest.id == Reservation.guest_id)

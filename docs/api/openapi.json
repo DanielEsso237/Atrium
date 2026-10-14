@@ -6344,6 +6344,18 @@
             "title": "Children",
             "type": "integer"
           },
+          "departure_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure At"
+          },
           "departure_date": {
             "format": "date",
             "title": "Departure Date",
@@ -6353,6 +6365,11 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "is_walk_in": {
+            "default": false,
+            "title": "Is Walk In",
+            "type": "boolean"
           },
           "key_card_code": {
             "anyOf": [
@@ -6368,6 +6385,18 @@
           "nightly_rate": {
             "title": "Nightly Rate",
             "type": "integer"
+          },
+          "rate_set_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Set By"
           },
           "room_id": {
             "anyOf": [
@@ -6388,6 +6417,10 @@
           },
           "status": {
             "$ref": "#/components/schemas/ReservationStatus"
+          },
+          "stay_unit": {
+            "$ref": "#/components/schemas/StayUnit",
+            "default": "NIGHTS"
           },
           "upgrade_reason": {
             "anyOf": [
@@ -7160,6 +7193,18 @@
             ],
             "title": "Checked Out At"
           },
+          "departure_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Departure At"
+          },
           "departure_date": {
             "format": "date",
             "title": "Departure Date",
@@ -7190,6 +7235,10 @@
           },
           "status": {
             "$ref": "#/components/schemas/ReservationStatus"
+          },
+          "stay_unit": {
+            "$ref": "#/components/schemas/StayUnit",
+            "default": "NIGHTS"
           }
         },
         "required": [
@@ -7382,6 +7431,15 @@
         ],
         "title": "SoldProductMarginOut",
         "type": "object"
+      },
+      "StayUnit": {
+        "description": "L'unite d'un sejour : des nuits, ou quelques heures dans la journee.",
+        "enum": [
+          "NIGHTS",
+          "HOURS"
+        ],
+        "title": "StayUnit",
+        "type": "string"
       },
       "StockDecisionIn": {
         "description": "Validation ou refus d'un transfert : le motif est facultatif.",
@@ -8423,6 +8481,122 @@
           "payment"
         ],
         "title": "WalkInSaleIn",
+        "type": "object"
+      },
+      "WalkInStayIn": {
+        "description": "Arrivee directe : un voyageur sans reservation prend une chambre.\n\nUne seule requete pour le client, la chambre, la duree, le prix et\nl'arrivee. Les identifiants viennent de la tablette, qui enregistre le\nsejour hors ligne : le meme envoi rejoue retrouve le meme sejour.",
+        "properties": {
+          "charge_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "L'id de la charge du sejour ; absent = genere",
+            "title": "Charge Id"
+          },
+          "duration": {
+            "description": "Nombre de nuits, ou d'heures",
+            "minimum": 1.0,
+            "title": "Duration",
+            "type": "integer"
+          },
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "L'id de l'ardoise ; absent = genere",
+            "title": "Folio Id"
+          },
+          "guest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GuestIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ou la fiche a creer (avec son id, pour le rejeu)"
+          },
+          "guest_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Un client deja connu",
+            "title": "Guest Id"
+          },
+          "id": {
+            "description": "L'id du dossier, genere par la tablette",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "line_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "L'id de la ligne de sejour ; absent = genere",
+            "title": "Line Id"
+          },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Responsable (folio.override_limit) qui autorise le depassement du seuil",
+            "title": "Override By"
+          },
+          "price": {
+            "description": "FCFA, le prix du sejour entier, saisi librement",
+            "minimum": 0.0,
+            "title": "Price",
+            "type": "integer"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/StayUnit"
+          }
+        },
+        "required": [
+          "id",
+          "room_id",
+          "unit",
+          "duration",
+          "price"
+        ],
+        "title": "WalkInStayIn",
         "type": "object"
       },
       "app__schemas__auth__UserOut": {
@@ -14492,6 +14666,56 @@
         "summary": "Put Notification Levels",
         "tags": [
           "reglages"
+        ]
+      }
+    },
+    "/api/v1/stays/walk-in": {
+      "post": {
+        "description": "Enregistre l'arrivee d'un client sans reservation, d'un seul geste.",
+        "operationId": "walk_in_stay_api_v1_stays_walk_in_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkInStayIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Arrivee deja enregistree (meme id) : etat actuel"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Walk In Stay",
+        "tags": [
+          "reservations"
         ]
       }
     },
