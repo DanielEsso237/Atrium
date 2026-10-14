@@ -281,6 +281,35 @@ sinon) ; avant l'arrivée, la chambre choisie part avec le check-in.
 Côté tablette, l'entrée de file porte `action: CHANGE_ROOM` et garde le
 statut `CHECKED_IN` : l'envoyeur lit l'action avant le statut.
 
+## Le surclassement
+
+À l'arrivée, le client reçoit une chambre d'une autre catégorie que celle
+qu'il a réservée (demande du 14 octobre). Le check-in et le changement de
+chambre refusent toujours une chambre d'une autre catégorie (422) — **sauf**
+si le corps porte `upgrade` :
+
+```json
+{"room_id": "…", "folio_id": "…",
+ "upgrade": {"keep_rate": true, "reason": "Standard en travaux"}}
+```
+
+- `keep_rate` (vrai par défaut) : surclassement offert, `nightly_rate` ne
+  change pas. Faux : le tarif par défaut de la nouvelle catégorie s'applique
+  aux nuits pas encore portées sur l'ardoise, et il faut
+  `reservation.manage` (403 sinon) — c'est un changement de prix.
+- `reason` : obligatoire, 1 à 255 caractères hors blancs (422 sinon).
+- `upgrade` vers une chambre de la **même** catégorie : 422.
+
+La ligne rend alors `room_type_id` = la catégorie de la chambre occupée,
+`booked_room_type_id` = la catégorie réservée (gardée même après un second
+surclassement), `upgrade_reason` et `upgraded_by`. La disponibilité se compte
+par `room_type_id` : la chambre est prise dans la nouvelle catégorie, la
+catégorie réservée est libérée.
+
+Rejouable comme avant : un second envoi identique rend 200 sans rien refaire.
+**La tablette doit faire les mêmes refus avant d'envoyer** (catégorie
+identique, motif vide, tarif payant sans le droit).
+
 ## Le seuil de consommation et les arrhes
 
 **Seuil.** `guests.credit_limit` (FCFA, `0` = pas de limite) borne le solde
