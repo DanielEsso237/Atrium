@@ -5,6 +5,8 @@
 /// Deux descriptions separees finiraient par ne plus dire la meme chose.
 library;
 
+import 'dart:typed_data';
+
 import '../../../core/formats.dart';
 
 /// Comment lire et mettre en forme une valeur.
@@ -158,11 +160,19 @@ class DocumentRapport {
     required this.filtres,
     required this.etabliLe,
     required this.sections,
+    this.logo,
+    this.coordonnees = const [],
   });
 
   final String titre;
   final String hotel;
   final String periode;
+
+  /// Le logo de l'hotel, celui de la facture ; nul tant qu'il n'en a pas.
+  final Uint8List? logo;
+
+  /// Adresse, telephone, identifiants : les lignes de l'en-tete de facture.
+  final List<String> coordonnees;
 
   /// Les filtres retenus, en clair ; vide quand rien n'est filtre.
   final List<String> filtres;

@@ -26,7 +26,9 @@ const _rayon = 10.0;
 /// La plus large case possible, en points : celle de la fiche client.
 const _largeurVignette = 480.0;
 
-final _photosProvider =
+/// Les photos deja prises pour ce client, par cote : la nouvelle
+/// reservation s'en sert pour cocher son etape.
+final idPhotosProvider =
     StreamProvider.family<Map<IdPhotoSide, AttachmentRow>, String>(
       (ref, guestId) => ref.watch(idPhotoRepositoryProvider).watch(guestId),
     );
@@ -109,7 +111,7 @@ class _IdPhotoPairState extends ConsumerState<IdPhotoPair> {
     // la refuserait et elle resterait sur la tablette.
     final autorise = ref.watch(sessionProvider).acces.peut('guests.write');
     final photos =
-        ref.watch(_photosProvider(widget.guestId)).value ??
+        ref.watch(idPhotosProvider(widget.guestId)).value ??
         const <IdPhotoSide, AttachmentRow>{};
 
     return Column(

@@ -11,6 +11,7 @@
 /// personne ne s'en apercoive.
 library;
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
+import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
@@ -39,18 +41,35 @@ import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
 import '../hotel/logo_images.dart' show logoTicketProvider;
 
-/// Le point de vente choisi, et la chambre cherchee.
-class _PointChoisi extends Notifier<String?> {
+/// Le point de vente choisi : par les onglets de l'ecran, ou depuis la
+/// liste deroulante de la barre laterale.
+class PointDeVenteChoisi extends Notifier<String?> {
   @override
   String? build() => null;
 
   void choisir(String id) => state = id;
 }
 
-final _pointChoisiProvider = NotifierProvider<_PointChoisi, String?>(
-  _PointChoisi.new,
+final pointDeVenteChoisiProvider =
+    NotifierProvider<PointDeVenteChoisi, String?>(PointDeVenteChoisi.new);
+
+/// Le point de vente ouvert : le choisi s'il est dans la liste ; sans choix
+/// encore, la reception ouvre sur son propre comptoir plutot que sur le
+/// premier onglet venu. La barre laterale s'en sert pour allumer la bonne
+/// ligne : elle doit dire ce que l'ecran montre.
+OutletRow pointDeVenteOuvert(
+  List<OutletRow> liste, {
+  required String? choisi,
+  required bool aLaReception,
+}) => liste.firstWhere(
+  (o) => o.id == choisi,
+  orElse: () => liste.firstWhere(
+    (o) => aLaReception && o.code == receptionOutletCode,
+    orElse: () => liste.first,
+  ),
 );
 
+/// La chambre cherchee.
 class _RechercheChambre extends Notifier<String> {
   @override
   String build() => '';
@@ -92,19 +111,10 @@ class OrdersScreen extends ConsumerWidget {
       data: (tous) {
         final liste = [for (final o in tous) if (o.kind == kind) o];
         if (liste.isEmpty) return _AucunPointDeVente(titre: titre);
-        final choisiId = ref.watch(_pointChoisiProvider);
-        // Sans choix encore, la reception ouvre sur son propre comptoir
-        // plutot que sur le premier onglet venu.
-        final aLaReception = ref
-            .watch(sessionProvider)
-            .acces
-            .peut('cash.central');
-        final outlet = liste.firstWhere(
-          (o) => o.id == choisiId,
-          orElse: () => liste.firstWhere(
-            (o) => aLaReception && o.code == receptionOutletCode,
-            orElse: () => liste.first,
-          ),
+        final outlet = pointDeVenteOuvert(
+          liste,
+          choisi: ref.watch(pointDeVenteChoisiProvider),
+          aLaReception: ref.watch(sessionProvider).acces.peut('cash.central'),
         );
         final etroit = MediaQuery.sizeOf(context).width < 600;
         final marge = etroit ? 18.0 : 32.0;
@@ -167,7 +177,8 @@ class _Points extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => FilterPills<String>(
     selected: actif,
-    onChanged: (id) => ref.read(_pointChoisiProvider.notifier).choisir(id),
+    onChanged: (id) =>
+        ref.read(pointDeVenteChoisiProvider.notifier).choisir(id),
     options: [for (final o in liste) FilterOption(o.id, o.label)],
   );
 }
@@ -1321,20 +1332,77 @@ class _MoyenPassageState extends State<_MoyenPassage> {
 
 /// Une ligne de la saisie : ce qui ira sur l'ardoise.
 class _Ligne {
-  final libelle = TextEditingController();
+  /// Ce que l'on tape : une recherche dans la carte, ou un article hors
+  /// carte quand rien n'est choisi.
+  final saisie = TextEditingController();
   final prix = TextEditingController();
   final focus = FocusNode();
-  int quantite = 1;
 
-  /// L'article de la carte choisi, pour le mettre en evidence seulement :
-  /// ce qui part est ce que disent les champs.
-  String? articleId;
+  /// Les articles de la carte choisis sur cette ligne, un par unite et dans
+  /// l'ordre des touches : deux bieres, c'est deux fois la biere.
+  final articles = <MenuEntry>[];
 
-  int get total => (int.tryParse(prix.text.trim()) ?? 0) * quantite;
-  bool get complete => libelle.text.trim().isNotEmpty && total > 0;
+  /// La quantite d'un article hors carte. Celle d'une ligne de la carte est
+  /// le nombre d'articles touches.
+  int quantiteLibre = 1;
+
+  /// Le prix unitaire retouche a la main : un nouvel article du meme genre
+  /// ne l'ecrase pas.
+  bool prixRetouche = false;
+
+  int get quantite => articles.isEmpty ? quantiteLibre : articles.length;
+
+  /// Un seul article, autant de fois qu'on veut : le prix unitaire a un
+  /// sens. Plusieurs articles differents : seul le montant en a un.
+  bool get unSeulArticle => articles.map((e) => e.id).toSet().length <= 1;
+
+  int get total => articles.isEmpty || unSeulArticle
+      ? (int.tryParse(prix.text.trim()) ?? 0) * quantite
+      : articles.fold(0, (t, e) => t + e.price);
+
+  /// Une recherche laissee en plan sur une ligne de la carte ne part pas :
+  /// on choisit l'article, ou on efface.
+  bool get complete =>
+      total > 0 &&
+      (articles.isEmpty
+          ? saisie.text.trim().isNotEmpty
+          : saisie.text.trim().isEmpty);
+
+  /// Combien de fois [e] est sur la ligne.
+  int nombre(MenuEntry e) => articles.where((a) => a.id == e.id).length;
+
+  /// Ce qui part sur l'ardoise : une consommation par article, avec sa
+  /// quantite, dans l'ordre du premier choix. Le lien a l'article fait
+  /// sortir le stock.
+  List<(String, int, int, String?)> get consommations {
+    if (articles.isEmpty) {
+      return [(saisie.text.trim(), int.parse(prix.text.trim()), quantite, null)];
+    }
+    final unitaire = unSeulArticle ? int.tryParse(prix.text.trim()) : null;
+    final groupes = <String, (MenuEntry, int)>{};
+    for (final e in articles) {
+      groupes[e.id] = (e, (groupes[e.id]?.$2 ?? 0) + 1);
+    }
+    return [
+      for (final (e, n) in groupes.values) (e.label, unitaire ?? e.price, n, e.id),
+    ];
+  }
+
+  /// Le prix suit les articles, sauf retouche : celui de l'article seul, ou
+  /// le montant de la ligne quand ils different.
+  void suivrePrix() {
+    if (articles.isEmpty) {
+      if (!prixRetouche) prix.clear();
+    } else if (!unSeulArticle) {
+      prixRetouche = false;
+      prix.text = '$total';
+    } else if (!prixRetouche) {
+      prix.text = '${articles.first.price}';
+    }
+  }
 
   void dispose() {
-    libelle.dispose();
+    saisie.dispose();
     prix.dispose();
     focus.dispose();
   }
@@ -1343,10 +1411,12 @@ class _Ligne {
 /// Saisie de consommations, dans une fiche comme celle d'une chambre. Rend
 /// la liste `(libelle, prix unitaire, quantite, article)`, une par ligne.
 ///
-/// Plusieurs lignes d'un coup : de l'eau et deux plats de poulet se portent
-/// ensemble, sans rouvrir la chambre pour chacun. Chaque ligne se choisit
-/// dans la carte du point de vente, en tapant quelques lettres ; le prix se
-/// remplit, et reste modifiable. Un plat hors carte se tape librement.
+/// Plusieurs articles d'un coup : de l'eau et deux plats de poulet se portent
+/// ensemble, sans rouvrir la chambre pour chacun. Le champ Consommation
+/// cherche dans la carte du point de vente, ce qui se vend le plus d'abord :
+/// chaque article choisi s'ajoute a la ligne, suivi d'une virgule, et la
+/// liste revient pour le suivant. Un plat hors carte se tape librement, avec
+/// son prix.
 ///
 /// Sous la commande, ce que le client a deja pris ici ; en bas, toujours
 /// visible, ce que la commande coute et ou elle emmene l'ardoise.
@@ -1378,15 +1448,39 @@ class _SaisieState extends ConsumerState<_Saisie> {
 
   _Ligne get _enCours => _lignes.last;
 
-  void _choisir(_Ligne l, MenuEntry e) {
-    setState(() {
-      l.articleId = e.id;
-      l.libelle.text = e.label;
-      l.prix.text = '${e.price}';
-    });
-  }
+  /// Un article de plus sur la ligne ; la recherche s'efface, la liste
+  /// revient pour le suivant.
+  void _choisir(_Ligne l, MenuEntry e) => setState(() {
+    if (l.articles.isEmpty) l.prixRetouche = false;
+    l.articles.add(e);
+    l.saisie.clear();
+    l.suivrePrix();
+  });
 
-  void _ajouter() => setState(() => _lignes.add(_Ligne()));
+  void _moins(_Ligne l) => setState(() {
+    if (l.articles.isEmpty) {
+      l.quantiteLibre--;
+    } else {
+      l.articles.removeLast();
+      l.suivrePrix();
+    }
+  });
+
+  void _plus(_Ligne l) => setState(() {
+    if (l.articles.isEmpty) {
+      l.quantiteLibre++;
+    } else {
+      l.articles.add(l.articles.last);
+      l.suivrePrix();
+    }
+  });
+
+  void _ajouter() {
+    final l = _Ligne();
+    setState(() => _lignes.add(l));
+    // On tape tout de suite dans la nouvelle ligne.
+    WidgetsBinding.instance.addPostFrameCallback((_) => l.focus.requestFocus());
+  }
 
   void _retirer(_Ligne l) => setState(() {
     _lignes.remove(l);
@@ -1403,20 +1497,14 @@ class _SaisieState extends ConsumerState<_Saisie> {
 
   int get _total => _lignes.fold(0, (t, l) => t + l.total);
 
+  int get _nombreArticles => _lignes.fold(0, (t, l) => t + l.quantite);
+
   /// Pret a porter : aucune ligne a moitie remplie.
   bool get _pret => _lignes.every((l) => l.complete);
 
   void _valider({bool payer = false}) => Navigator.of(context).pop(
     _Commande([
-      for (final l in _lignes)
-        (
-          l.libelle.text.trim(),
-          int.parse(l.prix.text.trim()),
-          l.quantite,
-          // L'article de la carte, s'il n'a pas ete retouche a la main : c'est
-          // lui qui fait sortir le stock.
-          l.articleId,
-        ),
+      for (final l in _lignes) ...l.consommations,
     ], payer: payer),
   );
 
@@ -1481,7 +1569,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
             ),
             _Barre(
               total: _total,
-              lignes: _lignes.length,
+              articles: _nombreArticles,
               mode: mode,
               onValider: _pret ? _valider : null,
               onPayer: _pret ? () => _valider(payer: true) : null,
@@ -1496,21 +1584,47 @@ class _SaisieState extends ConsumerState<_Saisie> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       for (final (i, l) in _lignes.indexed) ...[
-        if (i > 0) Divider(height: 28, color: AtriumDashColors.grid),
+        if (i > 0) const SizedBox(height: 14),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _ChampArticle(
+              child: _ChampConsommation(
+                // L'etat suit la ligne, pas sa place : retirer la premiere
+                // ne doit pas donner son focus a la suivante.
+                key: ObjectKey(l),
                 ligne: l,
-                outletId: widget.outlet.id,
                 libelle: _lignes.length > 1
                     ? 'Consommation ${i + 1}'
                     : 'Consommation',
-                onChoisi: (e) => _choisir(l, e),
-                // Retoucher le libelle a la main : ce n'est plus l'article
-                // de la carte.
-                onTape: () => setState(() => l.articleId = null),
+                onTape: () => setState(() {}),
+                onValide: (e) => _choisir(l, e),
+                carte: _carte,
               ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 120,
+              child: TextField(
+                controller: l.prix,
+                keyboardType: TextInputType.number,
+                // Plusieurs articles differents : le montant se lit, il ne
+                // se retouche pas.
+                readOnly: !l.unSeulArticle,
+                onChanged: (_) => setState(() => l.prixRetouche = true),
+                decoration: InputDecoration(
+                  labelText: l.unSeulArticle ? 'Prix unitaire' : 'Montant',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _Quantite(
+              valeur: l.quantite,
+              onMoins: l.articles.isNotEmpty || l.quantiteLibre > 1
+                  ? () => _moins(l)
+                  : null,
+              onPlus: () => _plus(l),
             ),
             if (_lignes.length > 1)
               IconButton(
@@ -1518,27 +1632,6 @@ class _SaisieState extends ConsumerState<_Saisie> {
                 icon: const Icon(PhosphorIconsLight.x, size: 20),
                 onPressed: () => _retirer(l),
               ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: l.prix,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Prix unitaire',
-                  suffixText: 'FCFA',
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _Quantite(
-              valeur: l.quantite,
-              onChange: (v) => setState(() => l.quantite = v),
-            ),
           ],
         ),
       ],
@@ -1554,6 +1647,11 @@ class _SaisieState extends ConsumerState<_Saisie> {
       ),
     ],
   );
+
+  /// La carte du point de vente, ce qui se vend le plus d'abord.
+  List<MenuEntry> get _carte =>
+      ref.watch(menuForOutletProvider(widget.outlet.id)).asData?.value ??
+      const <MenuEntry>[];
 }
 
 /// Le point de vente, en pastille sur la photo : on sait ou l'on porte.
@@ -1613,14 +1711,16 @@ enum _ModeSaisie {
 class _Barre extends StatelessWidget {
   const _Barre({
     required this.total,
-    required this.lignes,
+    required this.articles,
     required this.mode,
     required this.onValider,
     this.onPayer,
   });
 
   final int total;
-  final int lignes;
+
+  /// Combien d'articles la commande porte, toutes lignes confondues.
+  final int articles;
   final _ModeSaisie mode;
 
   /// Payer tout de suite, au lieu de mettre sur l'ardoise.
@@ -1658,7 +1758,7 @@ class _Barre extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                'À servir${lignes > 1 ? ', $lignes lignes' : ''}',
+                'À servir${articles > 1 ? ', $articles articles' : ''}',
                 style: TextStyle(
                   fontSize: 15,
                   color: AtriumColors.textSecondary,
@@ -1744,106 +1844,290 @@ class _Barre extends StatelessWidget {
   }
 }
 
-/// Les lettres sans accent ni majuscule : « ndo » trouve « Ndolé ».
-String _sansAccent(String texte) {
-  const accents = 'àâäáãéèêëíìîïóòôöõúùûüçñ';
-  const simples = 'aaaaaeeeeiiiiooooouuuucn';
-  final bas = texte.toLowerCase();
-  final b = StringBuffer();
-  for (final c in bas.split('')) {
-    final i = accents.indexOf(c);
-    b.write(i < 0 ? c : simples[i]);
-  }
-  return b.toString();
+/// Les articles de la carte qu'une recherche retient, dans l'ordre des
+/// ventes : « 33 » trouve « 33 Export », « jus or » trouve « Jus d'orange ».
+/// Rien a chercher : toute la carte, ce qui part le plus d'abord.
+List<MenuEntry> _filtrer(List<MenuEntry> carte, String recherche) {
+  final r = Recherche(recherche);
+  return [
+    for (final e in carte)
+      if (e.isAvailable && r.garde([e.label, e.categoryLabel])) e,
+  ];
 }
 
-/// Le champ « Consommation » : on tape, la carte du point de vente propose.
+/// Le champ « Consommation » est une recherche dans la carte.
 ///
-/// Choisir un article remplit le libelle et le prix (modifiable), et relie
-/// la ligne a l'article : c'est ce lien qui fait sortir le stock. Un plat
-/// hors carte se tape librement, sans rien choisir.
-class _ChampArticle extends ConsumerWidget {
-  const _ChampArticle({
+/// On tape quelques lettres, la liste en dessous se resserre a chaque
+/// lettre ; un article choisi s'ecrit dans le champ suivi d'une virgule, et
+/// la liste revient aussitot pour le suivant, le meme ou un autre. Le champ
+/// est etroit : ce qui ne tient pas finit par « … ». Valider choisit le
+/// premier article trouve ; sans article choisi, ce qu'on tape est un plat
+/// hors carte.
+class _ChampConsommation extends StatefulWidget {
+  const _ChampConsommation({
+    super.key,
     required this.ligne,
-    required this.outletId,
     required this.libelle,
-    required this.onChoisi,
     required this.onTape,
+    required this.onValide,
+    required this.carte,
   });
 
   final _Ligne ligne;
-  final String outletId;
   final String libelle;
-  final void Function(MenuEntry) onChoisi;
   final VoidCallback onTape;
+  final void Function(MenuEntry) onValide;
+  final List<MenuEntry> carte;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final carte =
-        ref.watch(menuForOutletProvider(outletId)).asData?.value ??
-        const <MenuEntry>[];
-    final schema = Theme.of(context).colorScheme;
+  State<_ChampConsommation> createState() => _ChampConsommationState();
+}
 
-    return RawAutocomplete<MenuEntry>(
-      textEditingController: ligne.libelle,
-      focusNode: ligne.focus,
-      displayStringForOption: (e) => e.label,
-      optionsBuilder: (valeur) {
-        final cherche = _sansAccent(valeur.text.trim());
-        // Champ vide : toute la carte, pour choisir sans rien taper.
-        return [
-          for (final e in carte)
-            if (e.isAvailable &&
-                (cherche.isEmpty ||
-                    _sansAccent(e.label).contains(cherche) ||
-                    _sansAccent(e.categoryLabel).contains(cherche)))
-              e,
-        ];
-      },
-      onSelected: onChoisi,
-      fieldViewBuilder: (context, controleur, focus, valider) => TextField(
-        controller: controleur,
-        focusNode: focus,
-        onChanged: (_) => onTape(),
-        onSubmitted: (_) => valider(),
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          labelText: libelle,
-          hintText: carte.isEmpty
-              ? 'Ce qui apparaîtra sur la facture'
-              : 'Chercher dans la carte, ou saisir librement',
-          prefixIcon: const Icon(PhosphorIconsLight.magnifyingGlass, size: 20),
-          suffixIcon: ligne.articleId != null
-              ? Icon(PhosphorIconsLight.checkCircle, color: schema.primary)
-              : null,
-        ),
-      ),
-      optionsViewBuilder: (context, choisir, options) => Align(
-        alignment: Alignment.topLeft,
-        child: Material(
-          elevation: 6,
-          borderRadius: BorderRadius.circular(14),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280, maxWidth: 460),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              shrinkWrap: true,
+class _ChampConsommationState extends State<_ChampConsommation> {
+  final _lien = LayerLink();
+  final _liste = OverlayPortalController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.ligne.focus.addListener(_focus);
+  }
+
+  @override
+  void dispose() {
+    widget.ligne.focus.removeListener(_focus);
+    super.dispose();
+  }
+
+  void _focus() {
+    if (widget.ligne.focus.hasFocus) {
+      _liste.show();
+    } else {
+      _liste.hide();
+    }
+    setState(() {});
+  }
+
+  void _choisir(MenuEntry e) {
+    widget.onValide(e);
+    // La liste reste ouverte pour l'article suivant.
+    widget.ligne.focus.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.ligne;
+    final choisis = l.articles.map((e) => e.label).join(', ');
+    final style = Theme.of(context).textTheme.bodyLarge;
+    final largeur = math.min(380.0, MediaQuery.sizeOf(context).width - 32);
+
+    return CompositedTransformTarget(
+      link: _lien,
+      child: OverlayPortal(
+        controller: _liste,
+        overlayChildBuilder: (context) {
+          final trouves = _filtrer(widget.carte, l.saisie.text);
+          if (trouves.isEmpty) return const SizedBox.shrink();
+          return CompositedTransformFollower(
+            link: _lien,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            offset: const Offset(0, 6),
+            child: Align(
+              alignment: Alignment.topLeft,
+              // Toucher la liste, c'est toucher le champ : il garde le focus
+              // et le clavier reste ouvert.
+              child: TextFieldTapRegion(
+                child: _Suggestions(
+                  largeur: largeur,
+                  articles: trouves,
+                  ligne: l,
+                  onChoisi: _choisir,
+                ),
+              ),
+            ),
+          );
+        },
+        child: GestureDetector(
+          onTap: l.focus.requestFocus,
+          child: InputDecorator(
+            isFocused: l.focus.hasFocus,
+            isEmpty: l.articles.isEmpty && l.saisie.text.isEmpty,
+            // Le libelle reste en haut : le champ est etroit, et
+            // l'indication tient dessous sans s'y superposer.
+            decoration: InputDecoration(
+              labelText: widget.libelle,
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+            ),
+            child: Row(
               children: [
-                for (final e in options)
-                  ListTile(
-                    dense: true,
-                    title: Text(e.label),
-                    subtitle: Text(e.categoryLabel),
-                    trailing: Text(
-                      formatAmount(e.price),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                // Les articles prennent la place ; la recherche s'elargit
+                // quand on tape.
+                if (l.articles.isNotEmpty)
+                  Flexible(
+                    flex: 4,
+                    child: Text(
+                      '$choisis, ',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: style?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    onTap: () => choisir(e),
                   ),
+                Expanded(
+                  flex: l.focus.hasFocus ? 3 : 1,
+                  child: TextField(
+                    controller: l.saisie,
+                    focusNode: l.focus,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: style,
+                    onChanged: (_) => widget.onTape(),
+                    onSubmitted: (texte) {
+                      final trouves = _filtrer(widget.carte, texte);
+                      if (texte.trim().isNotEmpty && trouves.isNotEmpty) {
+                        _choisir(trouves.first);
+                      }
+                    },
+                    // Le cadre est celui du champ entier : aucun contour du
+                    // theme a l'interieur.
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      hintText: l.articles.isEmpty ? 'Chercher…' : null,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// La liste deroulante sous le champ : chaque article, son prix, et combien
+/// la ligne en porte deja.
+class _Suggestions extends StatelessWidget {
+  const _Suggestions({
+    required this.largeur,
+    required this.articles,
+    required this.ligne,
+    required this.onChoisi,
+  });
+
+  final double largeur;
+  final List<MenuEntry> articles;
+  final _Ligne ligne;
+  final void Function(MenuEntry) onChoisi;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    // Une ombre diffuse : la liste flotte au-dessus de la fiche sans la
+    // cerner d'un trait sombre.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF102A73).withValues(alpha: 0.14),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+      color: p.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
+        side: BorderSide(color: p.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 288, maxWidth: largeur, minWidth: largeur),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          shrinkWrap: true,
+          itemCount: articles.length,
+          itemBuilder: (context, i) {
+            final e = articles[i];
+            final n = ligne.nombre(e);
+            return InkWell(
+              onTap: () => onChoisi(e),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              e.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: p.text,
+                              ),
+                            ),
+                            Text(
+                              e.categoryLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: p.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (n > 0)
+                        Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          constraints: const BoxConstraints(minWidth: 24),
+                          height: 24,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: p.accent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$n',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: p.onAccent,
+                              fontFeatures: tabularFigures,
+                            ),
+                          ),
+                        ),
+                      Text(
+                        formatAmount(e.price),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.text,
+                          fontFeatures: tabularFigures,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
       ),
     );
   }
@@ -1981,17 +2265,18 @@ class _Historique extends ConsumerWidget {
 }
 
 class _Quantite extends StatelessWidget {
-  const _Quantite({required this.valeur, required this.onChange});
+  const _Quantite({required this.valeur, this.onMoins, required this.onPlus});
 
   final int valeur;
-  final void Function(int) onChange;
+  final VoidCallback? onMoins;
+  final VoidCallback onPlus;
 
   @override
   Widget build(BuildContext context) {
     final schema = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 56,
       decoration: BoxDecoration(
         border: Border.all(color: schema.outline),
         borderRadius: BorderRadius.circular(12),
@@ -2000,22 +2285,30 @@ class _Quantite extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            iconSize: 26,
+            tooltip: 'Un de moins',
+            iconSize: 24,
+            visualDensity: VisualDensity.compact,
             icon: const Icon(PhosphorIconsLight.minusCircle),
-            onPressed: valeur > 1 ? () => onChange(valeur - 1) : null,
+            onPressed: onMoins,
           ),
           SizedBox(
-            width: 30,
+            width: 26,
             child: Text(
               '$valeur',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                fontFeatures: tabularFigures,
+              ),
             ),
           ),
           IconButton(
-            iconSize: 26,
+            tooltip: 'Un de plus',
+            iconSize: 24,
+            visualDensity: VisualDensity.compact,
             icon: const Icon(PhosphorIconsLight.plusCircle),
-            onPressed: () => onChange(valeur + 1),
+            onPressed: onPlus,
           ),
         ],
       ),

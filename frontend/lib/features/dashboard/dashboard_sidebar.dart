@@ -26,6 +26,7 @@ import '../../data/local/queries/dashboard_queries.dart';
 import '../../data/repositories/donnees_de_test.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../alerts/alert_center.dart' show preferencesAlertesProvider;
+import '../alerts/sonneries.dart' show ouvrirMesSonneries;
 import '../auth/session.dart';
 import '../hotel/logo_images.dart';
 
@@ -516,6 +517,8 @@ class MenuCompte extends ConsumerWidget {
           await ref
               .read(settingsRepositoryProvider)
               .setSonCoupe(session.agent!.id, !sonCoupe);
+        } else if (choix == 'sonneries' && context.mounted) {
+          await ouvrirMesSonneries(context);
         } else if (choix == 'test' && session.agent != null) {
           final messager = ScaffoldMessenger.of(context);
           final routeur = GoRouter.of(context);
@@ -599,6 +602,22 @@ class MenuCompte extends ConsumerWidget {
             ],
           ),
         ),
+        // Pour cet agent seulement, comme le son coupe.
+        if (session.agent != null)
+          PopupMenuItem<String>(
+            value: 'sonneries',
+            child: Row(
+              children: [
+                Icon(
+                  PhosphorIconsLight.musicNotes,
+                  size: 20,
+                  color: AtriumColors.ink,
+                ),
+                const SizedBox(width: AtriumSpacing.sm),
+                const Flexible(child: Text('Mes sonneries')),
+              ],
+            ),
+          ),
         // En developpement seulement : une tablette d'hotel ne doit jamais
         // pouvoir se remplir de clients fictifs.
         if (kDebugMode)

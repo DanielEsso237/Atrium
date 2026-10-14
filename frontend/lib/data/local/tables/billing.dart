@@ -230,3 +230,58 @@ class Payments extends Table with SyncedTableColumns, HotelScoped {
   BoolColumn get isRefund => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().withLength(max: 255).nullable()();
 }
+
+/// Une depense de l'hotel qui ne passe pas par le stock : salaires,
+/// electricite, eau, loyer, carburant du groupe...
+///
+/// Le benefice retire des recettes ce que coute ce qui est vendu, ce qui est
+/// utilise, et ces depenses. Une depense saisie par erreur s'annule avec un
+/// motif ([isVoid]) : elle reste, comme une ligne d'ardoise annulee.
+@DataClassName('ExpenseRow')
+class Expenses extends Table with SyncedTableColumns, HotelScoped {
+  /// Date seule (AAAA-MM-JJ) : la journee hoteliere ou elle a ete payee.
+  TextColumn get businessDate => text().withLength(min: 10, max: 10)();
+  TextColumn get category => textEnum<ExpenseCategory>()();
+  TextColumn get label => text().withLength(min: 1, max: 160)();
+
+  /// Montant en francs CFA, entiers.
+  IntColumn get amount => integer()();
+  TextColumn get method => textEnum<PaymentMethod>().nullable()();
+  TextColumn get supplier => text().withLength(max: 120).nullable()();
+
+  /// Numero de facture du fournisseur, de virement ou de transaction.
+  TextColumn get reference => text().withLength(max: 80).nullable()();
+  TextColumn get notes => text().withLength(max: 255).nullable()();
+  TextColumn get recordedBy => text().nullable()();
+  BoolColumn get isVoid => boolean().withDefault(const Constant(false))();
+  TextColumn get voidReason => text().withLength(max: 255).nullable()();
+  TextColumn get voidedBy => text().nullable()();
+}
+
+/// Ce que chaque journee a coute en stock, calcule par le serveur
+/// (`GET /accounting/daily-costs`).
+///
+/// Les mouvements de stock ne descendent pas sur la tablette ; le benefice
+/// en a besoin pour ce qui est vendu et ce qui est utilise. Le serveur rend
+/// donc un total par journee, que la descente remplace a chaque passage. Rien
+/// ne remonte : c'est une copie, pas une saisie.
+@DataClassName('DailyCostRow')
+class DailyCosts extends Table {
+  /// Date seule (AAAA-MM-JJ) : la journee hoteliere.
+  TextColumn get businessDate => text().withLength(min: 10, max: 10)();
+
+  /// Ce que les lignes vendues ce jour-la ont fait sortir du stock.
+  IntColumn get costOfSales => integer().withDefault(const Constant(0))();
+
+  /// Ce qui est sorti sans etre vendu : cuisine, chambres, spa.
+  IntColumn get consumption => integer().withDefault(const Constant(0))();
+  IntColumn get losses => integer().withDefault(const Constant(0))();
+
+  /// Ce que les livraisons ont coute. Indicatif : un achat n'est un cout
+  /// qu'une fois vendu ou utilise.
+  IntColumn get purchases => integer().withDefault(const Constant(0))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {businessDate};
+}

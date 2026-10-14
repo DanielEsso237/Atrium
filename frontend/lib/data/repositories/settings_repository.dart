@@ -25,6 +25,10 @@ const depositRuleKey = 'reservation.deposit_rule';
 /// tablette.
 const notificationLevelsKey = 'notifications.levels';
 
+/// La sonnerie de chaque evenement, pour tout l'hotel : remontee au serveur
+/// (`PUT /settings/notification-sounds`) comme les niveaux.
+const notificationSoundsKey = 'notifications.sounds';
+
 /// Les preferences d'alerte d'un agent (portee `USER`). Elles restent sur la
 /// tablette : la file les acquitte sans les envoyer.
 const agentNotificationsKey = 'notifications.agent';
@@ -152,23 +156,98 @@ class NiveauxAlertes {
   int get hashCode => Object.hashAll(TypeEvenement.values.map(de));
 }
 
+/// La sonnerie de chaque evenement : celle de l'administration, sinon le
+/// defaut du catalogue.
+class SonneriesAlertes {
+  const SonneriesAlertes([this._choisies = const {}]);
+
+  final Map<TypeEvenement, Sonnerie> _choisies;
+
+  Sonnerie de(TypeEvenement type) => _choisies[type] ?? type.sonnerieParDefaut;
+
+  SonneriesAlertes avec(TypeEvenement type, Sonnerie sonnerie) =>
+      SonneriesAlertes({..._choisies, type: sonnerie});
+
+  /// Tous les evenements, explicitement, comme les niveaux.
+  Map<String, String> toJson() => {
+    for (final t in TypeEvenement.values) t.code: de(t).code,
+  };
+
+  /// Un code inconnu, d'evenement ou de sonnerie, garde le defaut : une
+  /// tablette plus recente peut connaitre une sonnerie de plus.
+  static SonneriesAlertes fromJson(Object? raw) {
+    if (raw is! Map) return const SonneriesAlertes();
+    return SonneriesAlertes({
+      for (final MapEntry(:key, :value) in raw.entries)
+        ?TypeEvenement.depuisCode('$key'): ?Sonnerie.depuisCode(value),
+    });
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SonneriesAlertes &&
+      TypeEvenement.values.every((t) => other.de(t) == de(t));
+
+  @override
+  int get hashCode => Object.hashAll(TypeEvenement.values.map(de));
+}
+
 /// Ce qu'un agent a choisi pour lui-meme.
 class PreferencesAlertes {
-  const PreferencesAlertes({this.sonCoupe = false});
+  const PreferencesAlertes({this.sonCoupe = false, this.sonneries = const {}});
 
   /// Plus aucune sonnerie pour cet agent ; le bandeau et la vibration
   /// restent, pour que l'alerte ne passe pas inapercue pour autant.
   final bool sonCoupe;
 
-  static PreferencesAlertes fromJson(Object? raw) =>
-      PreferencesAlertes(sonCoupe: raw is Map && raw['sound_muted'] == true);
+  /// Les evenements dont l'agent a choisi la sonnerie ; les autres gardent
+  /// celle de l'hotel.
+  final Map<TypeEvenement, Sonnerie> sonneries;
+
+  /// Ce qui sonne pour cet agent : son choix, sinon celui de l'hotel.
+  Sonnerie sonnerie(TypeEvenement type, SonneriesAlertes hotel) =>
+      sonneries[type] ?? hotel.de(type);
+
+  PreferencesAlertes copier({
+    bool? sonCoupe,
+    Map<TypeEvenement, Sonnerie>? sonneries,
+  }) => PreferencesAlertes(
+    sonCoupe: sonCoupe ?? this.sonCoupe,
+    sonneries: sonneries ?? this.sonneries,
+  );
+
+  Map<String, Object> toJson() => {
+    'sound_muted': sonCoupe,
+    'sounds': {
+      for (final MapEntry(:key, :value) in sonneries.entries)
+        key.code: value.code,
+    },
+  };
+
+  static PreferencesAlertes fromJson(Object? raw) {
+    if (raw is! Map) return const PreferencesAlertes();
+    final sons = raw['sounds'];
+    return PreferencesAlertes(
+      sonCoupe: raw['sound_muted'] == true,
+      sonneries: {
+        if (sons is Map)
+          for (final MapEntry(:key, :value) in sons.entries)
+            ?TypeEvenement.depuisCode('$key'): ?Sonnerie.depuisCode(value),
+      },
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
-      other is PreferencesAlertes && other.sonCoupe == sonCoupe;
+      other is PreferencesAlertes &&
+      other.sonCoupe == sonCoupe &&
+      TypeEvenement.values.every((t) => other.sonneries[t] == sonneries[t]);
 
   @override
-  int get hashCode => sonCoupe.hashCode;
+  int get hashCode => Object.hash(
+    sonCoupe,
+    Object.hashAll(TypeEvenement.values.map((t) => sonneries[t])),
+  );
 }
 
 class SettingsRepository with OutboxWriter {
@@ -261,7 +340,7 @@ class SettingsRepository with OutboxWriter {
     );
   }
 
-  Future<void> _ecrire(String key, int valeur, String label) async {
+  Future<void> _ecrire(String key, Object valeur, String label) async {
     final existante =
         await (db.select(db.settings)..where(
               (s) =>
@@ -342,6 +421,30 @@ class SettingsRepository with OutboxWriter {
     );
   }
 
+  Stream<SonneriesAlertes> watchSonneriesAlertes() {
+    return (db.select(db.settings)..where(
+          (s) =>
+              s.key.equals(notificationSoundsKey) &
+              s.scope.equalsValue(SettingScope.GLOBAL) &
+              s.scopeId.isNull() &
+              s.deletedAt.isNull(),
+        ))
+        .watchSingleOrNull()
+        .map(
+          (r) => r?.value == null
+              ? const SonneriesAlertes()
+              : SonneriesAlertes.fromJson(jsonDecode(r!.value!)),
+        );
+  }
+
+  /// Fixe la sonnerie de tous les evenements d'un coup, comme les niveaux :
+  /// le serveur remplace le tout.
+  Future<void> setSonneriesAlertes(SonneriesAlertes sonneries) => _ecrire(
+    notificationSoundsKey,
+    sonneries.toJson(),
+    'Sonneries des alertes',
+  );
+
   Stream<PreferencesAlertes> watchPreferencesAlertes(String agentId) {
     return (db.select(
       db.settings,
@@ -353,14 +456,43 @@ class SettingsRepository with OutboxWriter {
   }
 
   /// Coupe ou retablit le son des alertes pour cet agent, sur cette
-  /// tablette. Ecrit dans la file comme le reste, qui l'acquitte sans
-  /// l'envoyer (voir `OutboxSender._envoiPour`).
-  Future<void> setSonCoupe(String agentId, bool coupe) async {
+  /// tablette.
+  Future<void> setSonCoupe(String agentId, bool coupe) =>
+      _changerPreferences(agentId, (p) => p.copier(sonCoupe: coupe));
+
+  /// La sonnerie de cet evenement pour cet agent ; `null` lui rend celle de
+  /// l'hotel.
+  Future<void> setSonnerieAgent(
+    String agentId,
+    TypeEvenement type,
+    Sonnerie? sonnerie,
+  ) => _changerPreferences(
+    agentId,
+    (p) => p.copier(
+      sonneries: {
+        for (final MapEntry(:key, :value) in p.sonneries.entries)
+          if (key != type) key: value,
+        type: ?sonnerie,
+      },
+    ),
+  );
+
+  /// Relit les preferences et les reecrit en entier : couper le son ne doit
+  /// pas effacer les sonneries choisies, ni l'inverse. Ecrit dans la file
+  /// comme le reste, qui l'acquitte sans l'envoyer (voir
+  /// `OutboxSender._envoiPour`).
+  Future<void> _changerPreferences(
+    String agentId,
+    PreferencesAlertes Function(PreferencesAlertes) changer,
+  ) async {
     final existante = await (db.select(
       db.settings,
     )..where((s) => _preferences(s, agentId))).getSingleOrNull();
     final id = existante?.id ?? newId();
-    final valeur = {'sound_muted': coupe};
+    final avant = existante?.value == null
+        ? const PreferencesAlertes()
+        : PreferencesAlertes.fromJson(jsonDecode(existante!.value!));
+    final valeur = changer(avant).toJson();
     final now = DateTime.now().toUtc();
 
     await writeAndEnqueue(

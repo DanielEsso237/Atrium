@@ -179,3 +179,13 @@ python -m app.db.seed_demo
 ```
 
 Une journée d'hôtel en cours, autour de la journée hôtelière du jour : douze clients, six séjours en cours (dont deux départs du jour), deux départs déjà faits avec leur ménage à faire, trois arrivées attendues, deux réservations à venir, la 203 hors service, des consommations et des encaissements. Le script passe par l'API comme une tablette : les tablettes reçoivent ces données par la synchronisation et peuvent les modifier sans bloquer leur file d'envoi. Le relancer ne crée rien en double ; pour une journée neuve, repartir d'une base neuve. Autre serveur : `--url http://<adresse>:8000/api/v1`.
+
+Pour les écrans des points de vente, du stock et des rapports, deux jeux de
+plus, à lancer dans cet ordre (pas besoin que le serveur tourne) :
+
+```powershell
+python -m app.db.donnees_essai   # points de vente, services, produits, stock de départ, cartes
+python -m app.db.ventes_essai    # trente jours de ventes au comptoir
+```
+
+`ventes_essai` vend chaque jour des trente derniers dans chaque point de vente et service, à ses heures : 1 900 ventes environ. Il ferme les tiroirs du soir (avec quelques écarts) et la réception confirme les versements, sauf deux d'hier. Il achète chaque semaine à l'économat, à des prix qui montent un peu, ravitaille les points de vente et la cuisine, et sort ce qui est utilisé sans être vendu (cuisine, entretien des chambres, spa). Aujourd'hui, les tiroirs restent ouverts, deux ardoises sont à payer, deux bières du bar sont sous leur seuil et une demande de transfert attend sa validation. Il crée trois agents de comptoir : `COMPTOIR01` (bars et boîte de nuit), `COMPTOIR02` (restaurant, café, boutique) et `SERVICES01` (spa, piscine, salles), avec les mots de passe et PIN de démonstration. Rejouable : relancé le même jour, il ne crée rien ; un autre jour, il ajoute les jours manquants.

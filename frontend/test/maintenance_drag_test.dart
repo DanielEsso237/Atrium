@@ -158,7 +158,14 @@ void main() {
       await deplacer(tester, TicketStatus.RESOLVED);
       final valider = find.widgetWithText(FilledButton, 'Marquer résolu');
       expect(tester.widget<FilledButton>(valider).onPressed, isNull);
-      await tester.enterText(find.byType(TextField), 'Joint remplacé');
+      // Le champ du compte rendu, pas la recherche de l'ecran.
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'Joint remplacé',
+      );
       await tester.pump();
       await tester.tap(valider);
       await attendre(tester);

@@ -655,6 +655,34 @@ class OutboxSender {
       case 'maintenance_tickets':
         return _maintenance(entree, p);
 
+      case 'expenses':
+        // Creation : l'id de la tablette rend le renvoi sans danger. La
+        // correction renvoie la depense entiere ; l'annulation a sa route.
+        if (p['action'] == 'VOID') {
+          return _Envoi('/expenses/${p['id']}/void', {'reason': p['reason']});
+        }
+        final depense = {
+          for (final cle in const [
+            'business_date',
+            'category',
+            'label',
+            'amount',
+            'method',
+            'supplier',
+            'reference',
+            'notes',
+          ])
+            cle: p[cle],
+        };
+        if (entree.op == SyncOp.INSERT) {
+          return _Envoi('/expenses', {'id': p['id'], ...depense});
+        }
+        return _Envoi(
+          '/expenses/${p['id']}',
+          depense,
+          methode: _Methode.patch,
+        );
+
       case 'outlets':
         // Creation : l'id de la tablette rend le renvoi sans danger.
         // Modification : `PATCH`, horaires vides compris -- un horaire retire
@@ -747,10 +775,16 @@ class OutboxSender {
         );
 
       case 'settings':
-        // Les niveaux des alertes : le serveur remplace le tout.
+        // Les niveaux et les sonneries des alertes : le serveur remplace le
+        // tout.
         if (p['key'] == 'notifications.levels') {
           return _Envoi('/settings/notification-levels', {
             'levels': p['value'],
+          }, methode: _Methode.put);
+        }
+        if (p['key'] == 'notifications.sounds') {
+          return _Envoi('/settings/notification-sounds', {
+            'sounds': p['value'],
           }, methode: _Methode.put);
         }
         // Le reste (depart, preferences d'un agent) reste sur la tablette.

@@ -1,12 +1,16 @@
 /// Le PDF d'un rapport : lisible a l'ecran comme imprime, en francais.
 ///
+/// Des chiffres et des tableaux, sans graphique : le document part chez le
+/// comptable ou la direction, qui recopient et recalculent. Les graphiques
+/// restent a l'ecran, ou ils se touchent. L'en-tete reprend celui de la
+/// facture : le logo et les coordonnees de l'hotel.
+///
 /// La police de l'application (Plus Jakarta Sans) est embarquee : les
 /// polices standard du PDF ne connaissent pas toutes les lettres accentuees,
 /// et un montant ecrit dans une autre police que l'ecran ne se relit pas
 /// pareil.
 library;
 
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -70,56 +74,78 @@ pw.Widget _enTete(DocumentRapport doc) {
   final h = doc.etabliLe;
   final heure =
       '${h.hour.toString().padLeft(2, '0')} h ${h.minute.toString().padLeft(2, '0')}';
+  const petit = pw.TextStyle(fontSize: 8.5, color: _gris);
+  final logo = doc.logo;
   return pw.Container(
     padding: const pw.EdgeInsets.only(bottom: 14),
     margin: const pw.EdgeInsets.only(bottom: 18),
     decoration: const pw.BoxDecoration(
       border: pw.Border(bottom: pw.BorderSide(color: _bleu, width: 2)),
     ),
-    child: pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.end,
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                doc.hotel,
-                style: pw.TextStyle(
-                  fontSize: 11,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _bleu,
-                ),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (logo != null) ...[
+                    pw.Container(
+                      height: 52,
+                      constraints: const pw.BoxConstraints(maxWidth: 170),
+                      alignment: pw.Alignment.centerLeft,
+                      child: pw.Image(
+                        pw.MemoryImage(logo),
+                        fit: pw.BoxFit.contain,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                  ],
+                  pw.Text(
+                    doc.hotel,
+                    style: pw.TextStyle(
+                      fontSize: logo == null ? 16 : 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: _encre,
+                    ),
+                  ),
+                  for (final l in doc.coordonnees) pw.Text(l, style: petit),
+                ],
               ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                doc.titre,
-                style: pw.TextStyle(
-                  fontSize: 22,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _encre,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                doc.periode,
-                style: const pw.TextStyle(fontSize: 12, color: _encre),
-              ),
-              if (doc.filtres.isNotEmpty) ...[
-                pw.SizedBox(height: 3),
+            ),
+            pw.SizedBox(width: 16),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
                 pw.Text(
-                  'Filtres : ${doc.filtres.join(', ')}',
-                  style: const pw.TextStyle(fontSize: 9, color: _gris),
+                  doc.titre,
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _bleu,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  doc.periode,
+                  style: const pw.TextStyle(fontSize: 11, color: _encre),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'Établi le ${formatLongDate(h)} à $heure',
+                  style: petit,
                 ),
               ],
-            ],
-          ),
+            ),
+          ],
         ),
-        pw.Text(
-          'Établi le ${formatLongDate(h)}\nà $heure',
-          textAlign: pw.TextAlign.right,
-          style: const pw.TextStyle(fontSize: 8.5, color: _gris),
-        ),
+        if (doc.filtres.isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          pw.Text('Filtres : ${doc.filtres.join(', ')}', style: petit),
+        ],
       ],
     ),
   );
@@ -143,9 +169,10 @@ List<pw.Widget> _section(Section s) => [
   pw.Text(s.description, style: const pw.TextStyle(fontSize: 9, color: _gris)),
   pw.SizedBox(height: 10),
   if (s.chiffres.isNotEmpty) _chiffres(s.chiffres),
-  if (s.graphique case final g?) ...[
-    pw.SizedBox(height: 12),
-    _graphique(g),
+  // Un bloc sans tableau livre au moins les points de son graphique.
+  if (s.tableaux.isEmpty && s.graphique != null) ...[
+    pw.SizedBox(height: 14),
+    ..._tableau(_tableauDuGraphique(s.graphique!)),
   ],
   for (final t in s.tableaux) ...[pw.SizedBox(height: 14), ..._tableau(t)],
   pw.SizedBox(height: 22),
@@ -200,185 +227,17 @@ pw.Widget _chiffres(List<Chiffre> chiffres) => pw.LayoutBuilder(
   },
 );
 
-pw.Widget _graphique(Graphique g) {
-  final valeurs = [for (final s in g.series) ...s.valeurs];
-  if (valeurs.isEmpty || valeurs.every((v) => v == 0)) {
-    return pw.Text(
-      'Aucune donnée à représenter sur la période.',
-      style: const pw.TextStyle(fontSize: 9, color: _gris),
-    );
-  }
-  return switch (g.type) {
-    // Une courbe d'un seul point ne montre aucune pente : les barres disent
-    // la meme chose sans tromper.
-    TypeGraphique.courbe when g.etiquettes.length >= 2 => _courbe(g),
-    _ => _barres(g),
-  };
-}
-
-/// Des graduations rondes qui couvrent les valeurs, zero compris.
-List<int> _graduations(int mini, int maxi) {
-  final int bas = math.min(0, mini);
-  final int haut = math.max(maxi, 1);
-  final brut = (haut - bas) / 4;
-  final int puissance = math.max(
-    1,
-    math.pow(10, (math.log(brut) / math.ln10).floor()).toInt(),
-  );
-  var pas = 10 * puissance;
-  for (final m in const [1, 2, 5]) {
-    if (m * puissance >= brut) {
-      pas = m * puissance;
-      break;
-    }
-  }
-  final int debut = (bas / pas).floor() * pas;
-  return [for (var v = debut; v < haut + pas; v += pas) v];
-}
-
-String _court(num v, Unite unite) {
-  if (unite == Unite.pourcentage) return '${v.toInt()} %';
-  final n = v.toInt();
-  if (n.abs() >= 1000000) {
-    final m = n / 1000000;
-    return '${m.toStringAsFixed(m.abs() >= 10 ? 0 : 1).replaceAll('.', ',')} M';
-  }
-  if (n.abs() >= 1000) return '${(n / 1000).round()} k';
-  return '$n';
-}
-
-pw.Widget _courbe(Graphique g) {
-  final n = g.etiquettes.length;
-  final pas = (n / 10).ceil();
-  final etiquettes = [
-    for (var i = 0; i < n; i++)
-      i % pas == 0 || i == n - 1 ? g.etiquettes[i] : '',
-  ];
-  final valeurs = [for (final s in g.series) ...s.valeurs];
-  final graduations = _graduations(
-    valeurs.reduce(math.min),
-    valeurs.reduce(math.max),
-  );
-  const style = pw.TextStyle(fontSize: 7, color: _gris);
-
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.SizedBox(
-        height: 170,
-        child: pw.Chart(
-          grid: pw.CartesianGrid(
-            xAxis: pw.FixedAxis.fromStrings(
-              etiquettes,
-              marginStart: 8,
-              marginEnd: 8,
-              ticks: true,
-              textStyle: style,
-              color: _filet,
-            ),
-            yAxis: pw.FixedAxis(
-              graduations,
-              format: (v) => _court(v, g.unite),
-              divisions: true,
-              divisionsColor: _filet,
-              divisionsWidth: 0.5,
-              textStyle: style,
-              color: _filet,
-            ),
-          ),
-          datasets: [
-            for (final s in g.series)
-              pw.LineDataSet(
-                legend: s.libelle,
-                color: PdfColor.fromInt(s.couleur),
-                lineWidth: 1.6,
-                drawPoints: n <= 31,
-                pointSize: 1.8,
-                isCurved: true,
-                smoothness: 0.2,
-                drawSurface: g.series.length == 1,
-                surfaceOpacity: 0.12,
-                data: [
-                  for (var i = 0; i < n; i++)
-                    pw.PointChartValue(i.toDouble(), s.valeurs[i].toDouble()),
-                ],
-              ),
-          ],
-        ),
-      ),
-      if (g.series.length > 1) ...[
-        pw.SizedBox(height: 6),
-        pw.Row(
-          children: [
-            for (final s in g.series) ...[
-              pw.Container(
-                width: 10,
-                height: 3,
-                color: PdfColor.fromInt(s.couleur),
-              ),
-              pw.SizedBox(width: 4),
-              pw.Text(s.libelle, style: const pw.TextStyle(fontSize: 8)),
-              pw.SizedBox(width: 14),
-            ],
-          ],
-        ),
-      ],
-    ],
-  );
-}
-
-/// Barres horizontales : le libelle se lit en entier, quelle que soit sa
-/// longueur, ce qu'un axe incline ne permet pas.
-pw.Widget _barres(Graphique g) {
-  final s = g.series.first;
-  final maxi = s.valeurs.map((v) => v.abs()).fold(0, math.max);
-  return pw.LayoutBuilder(
-    builder: (context, c) {
-      final largeurBarre = c!.maxWidth * 0.5;
-      return pw.Column(
-        children: [
-          for (var i = 0; i < g.etiquettes.length; i++)
-            pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-              child: pw.Row(
-                children: [
-                  pw.SizedBox(
-                    width: c.maxWidth * 0.27,
-                    child: pw.Text(
-                      g.etiquettes[i],
-                      maxLines: 1,
-                      style: const pw.TextStyle(fontSize: 8.5, color: _encre),
-                    ),
-                  ),
-                  pw.Container(
-                    width: maxi == 0
-                        ? 0
-                        : math.max(1.5, largeurBarre * s.valeurs[i].abs() / maxi),
-                    height: 9,
-                    decoration: pw.BoxDecoration(
-                      color: s.valeurs[i] < 0
-                          ? const PdfColor.fromInt(0xFFD2423B)
-                          : PdfColor.fromInt(s.couleur),
-                      borderRadius: pw.BorderRadius.circular(2),
-                    ),
-                  ),
-                  pw.SizedBox(width: 6),
-                  pw.Text(
-                    formaterValeur(s.valeurs[i], g.unite),
-                    style: pw.TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: _encre,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      );
-    },
-  );
-}
+Tableau _tableauDuGraphique(Graphique g) => Tableau(
+  titre: 'Détail',
+  colonnes: [
+    const Colonne(''),
+    for (final serie in g.series) Colonne(serie.libelle, g.unite),
+  ],
+  lignes: [
+    for (var k = 0; k < g.etiquettes.length; k++)
+      [g.etiquettes[k], for (final serie in g.series) serie.valeurs[k]],
+  ],
+);
 
 List<pw.Widget> _tableau(Tableau t) {
   pw.Widget cellule(

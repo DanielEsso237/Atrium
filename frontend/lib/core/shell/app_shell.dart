@@ -26,7 +26,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/ui/icons.dart';
 
+import '../../data/local/database.dart' show OutletRow;
+import '../../data/local/enums.dart' show OutletKind;
 import '../../data/local/queries/access_queries.dart' show genreDeLaZone;
+import '../../data/repositories/repository_providers.dart' show outletsProvider;
+import '../../features/orders/orders_screen.dart'
+    show pointDeVenteChoisiProvider, pointDeVenteOuvert;
 import '../../data/local/queries/dashboard_queries.dart';
 import '../../features/auth/session.dart';
 import '../../features/dashboard/dashboard_screen.dart' show dashboardProvider;
@@ -263,6 +268,15 @@ final destinations = <Destination>[
     Groupe.finances,
     sauf: 'folio.read',
   ),
+  // Ce que l'hotel paie hors stock : le benefice des rapports en depend.
+  const Destination(
+    'Dépenses',
+    PhosphorIconsLight.wallet,
+    PhosphorIconsFill.wallet,
+    '/depenses',
+    'accounting.read',
+    Groupe.finances,
+  ),
   // Une periode, des filtres, et de quoi la remettre au comptable.
   const Destination(
     'Rapports',
@@ -348,6 +362,35 @@ class AppShell extends ConsumerWidget {
     final largeur = MediaQuery.sizeOf(context).width;
     final resume = ref.watch(dashboardProvider).value;
 
+    // Les listes deroulantes de la barre : les points de vente et les
+    // services de l'agent, ceux-la seuls qu'il peut ouvrir.
+    final points =
+        ref.watch(outletsProvider(session.agent?.id)).value ??
+        const <OutletRow>[];
+    final sousListes = {
+      for (final (route, genre) in [
+        ('/commandes', OutletKind.OUTLET),
+        ('/services', OutletKind.SERVICE),
+      ])
+        route: [
+          for (final o in points)
+            if (o.kind == genre) o,
+        ],
+    };
+    final ouverts = sousListes[location];
+    final pointActif = ouverts == null || ouverts.isEmpty
+        ? null
+        : pointDeVenteOuvert(
+            ouverts,
+            choisi: ref.watch(pointDeVenteChoisiProvider),
+            aLaReception: session.acces.peut('cash.central'),
+          ).id;
+
+    void allerAuPoint(String route, String id) {
+      ref.read(pointDeVenteChoisiProvider.notifier).choisir(id);
+      context.go(route);
+    }
+
     void aller(int i) {
       final d = liste[i];
       if (d.route == null) return;
@@ -378,6 +421,9 @@ class AppShell extends ConsumerWidget {
                 onSelect: aller,
                 session: session,
                 resume: resume,
+                sousListes: sousListes,
+                pointActif: pointActif,
+                onPoint: allerAuPoint,
               ),
             ),
             Expanded(child: page),
@@ -453,6 +499,9 @@ class _Barre extends StatefulWidget {
     required this.onSelect,
     required this.session,
     required this.resume,
+    required this.sousListes,
+    required this.pointActif,
+    required this.onPoint,
   });
 
   final List<Destination> liste;
@@ -461,12 +510,36 @@ class _Barre extends StatefulWidget {
   final SessionState session;
   final DashboardSummary? resume;
 
+  /// Par route (`/commandes`, `/services`) : les points de vente que l'entree
+  /// deplie, un par ligne.
+  final Map<String, List<OutletRow>> sousListes;
+
+  /// Le point de vente que l'ecran montre, quand on est sur l'une de ces
+  /// routes.
+  final String? pointActif;
+  final void Function(String route, String id) onPoint;
+
   @override
   State<_Barre> createState() => _BarreState();
 }
 
 class _BarreState extends State<_Barre> {
   late bool _reservationsOuvertes;
+
+  /// Les entrees a liste de points de vente qui sont depliees.
+  final _deplies = <String>{};
+
+  String? get _routeActive =>
+      widget.actif >= 0 ? widget.liste[widget.actif].route : null;
+
+  /// Arriver sur un point de vente deplie sa liste : on voit ou l'on est,
+  /// et ou aller ensuite.
+  void _deplierLaRouteActive() {
+    final route = _routeActive;
+    if (route != null && widget.sousListes.containsKey(route)) {
+      _deplies.add(route);
+    }
+  }
 
   bool get _surReservations =>
       widget.actif >= 0 && widget.liste[widget.actif].route == '/reservations';
@@ -475,6 +548,7 @@ class _BarreState extends State<_Barre> {
   void initState() {
     super.initState();
     _reservationsOuvertes = _surReservations;
+    _deplierLaRouteActive();
   }
 
   @override
@@ -483,7 +557,33 @@ class _BarreState extends State<_Barre> {
     if (oldWidget.actif != widget.actif && _surReservations) {
       _reservationsOuvertes = true;
     }
+    if (oldWidget.actif != widget.actif) _deplierLaRouteActive();
   }
+
+  /// La fleche qui deplie une entree : la meme pour les reservations et les
+  /// points de vente.
+  Widget _fleche({
+    required bool ouvert,
+    required bool surPastille,
+    required String quoi,
+    required VoidCallback basculer,
+  }) => Semantics(
+    expanded: ouvert,
+    child: IconButton(
+      tooltip: ouvert ? 'Replier $quoi' : 'Déplier $quoi',
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      onPressed: basculer,
+      icon: AnimatedRotation(
+        turns: ouvert ? 0.25 : 0,
+        duration: AtriumMotion.of(context, AtriumMotion.base),
+        child: Icon(
+          PhosphorIconsLight.caretRight,
+          size: 18,
+          color: surPastille ? _Nav.iconePastille : _Nav.doux,
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -521,9 +621,16 @@ class _BarreState extends State<_Barre> {
         }
       }
       final reservations = d.route == '/reservations' && d.filtre == null;
-      final hauteur = reservations || sousEntree ? 48.0 : _Mesures.ligne;
+      // Une liste d'un seul point de vente ne deplie rien : l'entree y mene.
+      final points = widget.sousListes[d.route] ?? const <OutletRow>[];
+      final depliable = points.length > 1;
+      final deplie = depliable && _deplies.contains(d.route);
+      final hauteur = reservations || sousEntree || depliable
+          ? 48.0
+          : _Mesures.ligne;
+      // Liste depliee, c'est la ligne du point de vente ouvert qui s'allume.
       final selectionne =
-          i == actif ||
+          (i == actif && !(deplie && widget.pointActif != null)) ||
           (reservations && _surReservations && !_reservationsOuvertes);
       if (selectionne) {
         hautActif = y;
@@ -537,6 +644,7 @@ class _BarreState extends State<_Barre> {
         indicateur: resume == null ? null : d.indicateur?.call(resume),
         onTap: () {
           if (reservations) setState(() => _reservationsOuvertes = true);
+          if (depliable) setState(() => _deplies.add(d.route!));
           widget.onSelect(i);
         },
       );
@@ -550,28 +658,28 @@ class _BarreState extends State<_Barre> {
               ? Row(
                   children: [
                     Expanded(child: ligne),
-                    Semantics(
-                      expanded: _reservationsOuvertes,
-                      child: IconButton(
-                        tooltip: _reservationsOuvertes
-                            ? 'Replier les réservations'
-                            : 'Déplier les réservations',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 48,
-                          height: 48,
-                        ),
-                        onPressed: () => setState(
-                          () => _reservationsOuvertes = !_reservationsOuvertes,
-                        ),
-                        icon: AnimatedRotation(
-                          turns: _reservationsOuvertes ? 0.25 : 0,
-                          duration: AtriumMotion.of(context, AtriumMotion.base),
-                          child: Icon(
-                            PhosphorIconsLight.caretRight,
-                            size: 18,
-                            color: selectionne ? _Nav.iconePastille : _Nav.doux,
-                          ),
-                        ),
+                    _fleche(
+                      ouvert: _reservationsOuvertes,
+                      surPastille: selectionne,
+                      quoi: 'les réservations',
+                      basculer: () => setState(
+                        () => _reservationsOuvertes = !_reservationsOuvertes,
+                      ),
+                    ),
+                  ],
+                )
+              : depliable
+              ? Row(
+                  children: [
+                    Expanded(child: ligne),
+                    _fleche(
+                      ouvert: deplie,
+                      surPastille: selectionne,
+                      quoi: 'la liste : ${d.label.toLowerCase()}',
+                      basculer: () => setState(
+                        () => deplie
+                            ? _deplies.remove(d.route)
+                            : _deplies.add(d.route!),
                       ),
                     ),
                   ],
@@ -580,6 +688,44 @@ class _BarreState extends State<_Barre> {
         ),
       );
       y += hauteur + _Mesures.pas - _Mesures.ligne;
+
+      // Les points de vente, un par ligne, sous leur entree : un geste pour
+      // passer du bar a la boite de nuit, sans chercher l'onglet.
+      if (deplie) {
+        for (final o in points) {
+          const haut = 44.0;
+          final allume = i == actif && o.id == widget.pointActif;
+          if (allume) {
+            hautActif = y;
+            hauteurActif = haut;
+            retraitActif = 16;
+          }
+          lignes.add(
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                bottom: _Mesures.pas - _Mesures.ligne,
+              ),
+              child: _LigneNav(
+                destination: Destination(
+                  o.label,
+                  d.icon,
+                  d.iconActive,
+                  d.route,
+                  d.permission,
+                  d.groupe,
+                  raccourci: true,
+                ),
+                actif: allume,
+                hauteur: haut,
+                puce: true,
+                onTap: () => widget.onPoint(d.route!, o.id),
+              ),
+            ),
+          );
+          y += haut + _Mesures.pas - _Mesures.ligne;
+        }
+      }
     }
 
     final duree = AtriumMotion.of(context, const Duration(milliseconds: 520));
@@ -732,6 +878,7 @@ class _LigneNav extends StatefulWidget {
     required this.onTap,
     this.indicateur,
     this.hauteur = _Mesures.ligne,
+    this.puce = false,
   });
 
   final Destination destination;
@@ -739,6 +886,11 @@ class _LigneNav extends StatefulWidget {
   final VoidCallback onTap;
   final String? indicateur;
   final double hauteur;
+
+  /// Une puce a la place de l'icone : les points de vente d'une liste
+  /// deroulante n'ont pas d'icone a eux, et la meme repetee cinq fois ne
+  /// distinguerait rien.
+  final bool puce;
 
   @override
   State<_LigneNav> createState() => _LigneNavState();
@@ -783,15 +935,34 @@ class _LigneNavState extends State<_LigneNav> {
           ),
           child: Row(
             children: [
-              AnimatedSwitcher(
-                duration: duree,
-                child: Icon(
-                  actif ? d.iconActive : d.icon,
-                  key: ValueKey(actif),
-                  size: 20,
-                  color: actif ? _Nav.iconePastille : encre,
+              if (widget.puce)
+                SizedBox(
+                  width: 20,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: duree,
+                      curve: atriumSpring,
+                      width: actif ? 7 : 5,
+                      height: actif ? 7 : 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: actif
+                            ? _Nav.iconePastille
+                            : encre.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                AnimatedSwitcher(
+                  duration: duree,
+                  child: Icon(
+                    actif ? d.iconActive : d.icon,
+                    key: ValueKey(actif),
+                    size: 20,
+                    color: actif ? _Nav.iconePastille : encre,
+                  ),
                 ),
-              ),
               const SizedBox(width: 12),
               Expanded(
                 child: AnimatedDefaultTextStyle(

@@ -67,3 +67,28 @@ class NotificationLevels(BaseModel):
 
 class NotificationLevelsOut(BaseModel):
     levels: dict[str, str]
+
+
+# --- Sonneries des alertes ----------------------------------------------------
+
+AlertSound = Literal["SAME_NOTE", "RISING", "LIGHT", "BUBBLES", "WOOD"]
+
+
+class NotificationSounds(BaseModel):
+    """La sonnerie de chaque evenement d'alerte, choisie par l'administration.
+
+        {"sounds": {"ROOM_TO_CLEAN": "SAME_NOTE", "LOW_STOCK": "BUBBLES"}}
+
+    Meme regle que les niveaux : les sonneries sont strictes (ce sont les
+    fichiers livres avec la tablette, `Sonnerie` dans alert_queries.dart), les
+    codes d'evenement sont libres.
+    """
+
+    sounds: dict[
+        Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z_]{0,39}$")],
+        AlertSound,
+    ] = Field(max_length=40)
+
+
+class NotificationSoundsOut(BaseModel):
+    sounds: dict[str, str]

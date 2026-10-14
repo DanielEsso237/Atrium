@@ -3696,6 +3696,49 @@
         "title": "NotificationLevelsOut",
         "type": "object"
       },
+      "NotificationSounds": {
+        "description": "La sonnerie de chaque evenement d'alerte, choisie par l'administration.\n\n    {\"sounds\": {\"ROOM_TO_CLEAN\": \"SAME_NOTE\", \"LOW_STOCK\": \"BUBBLES\"}}\n\nMeme regle que les niveaux : les sonneries sont strictes (ce sont les\nfichiers livres avec la tablette, `Sonnerie` dans alert_queries.dart), les\ncodes d'evenement sont libres.",
+        "properties": {
+          "sounds": {
+            "maxProperties": 40,
+            "patternProperties": {
+              "^[A-Z][A-Z_]{0,39}$": {
+                "enum": [
+                  "SAME_NOTE",
+                  "RISING",
+                  "LIGHT",
+                  "BUBBLES",
+                  "WOOD"
+                ],
+                "type": "string"
+              }
+            },
+            "title": "Sounds",
+            "type": "object"
+          }
+        },
+        "required": [
+          "sounds"
+        ],
+        "title": "NotificationSounds",
+        "type": "object"
+      },
+      "NotificationSoundsOut": {
+        "properties": {
+          "sounds": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Sounds",
+            "type": "object"
+          }
+        },
+        "required": [
+          "sounds"
+        ],
+        "title": "NotificationSoundsOut",
+        "type": "object"
+      },
       "OccupancyStatus": {
         "enum": [
           "VACANT",
@@ -14664,6 +14707,78 @@
           }
         ],
         "summary": "Put Notification Levels",
+        "tags": [
+          "reglages"
+        ]
+      }
+    },
+    "/api/v1/settings/notification-sounds": {
+      "get": {
+        "description": "Ouverte a tout agent, comme les niveaux. Vide tant que l'administration\nn'a rien choisi : chaque evenement garde la sonnerie du catalogue.",
+        "operationId": "get_notification_sounds_api_v1_settings_notification_sounds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSoundsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Notification Sounds",
+        "tags": [
+          "reglages"
+        ]
+      },
+      "put": {
+        "description": "Remplace les sonneries. Rejouable : le meme corps ne change rien.",
+        "operationId": "put_notification_sounds_api_v1_settings_notification_sounds_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSounds"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSoundsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Put Notification Sounds",
         "tags": [
           "reglages"
         ]

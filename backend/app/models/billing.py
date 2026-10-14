@@ -24,6 +24,7 @@ from app.db.base import HotelScoped, SyncBase
 from app.models.enums import (
     CashSessionStatus,
     ChargeCategory,
+    ExpenseCategory,
     FolioStatus,
     FolioType,
     InvoiceStatus,
@@ -372,3 +373,44 @@ class Payment(SyncBase, HotelScoped):
     business_date: Mapped[dt.date | None] = mapped_column(Date, default=None)
     is_refund: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(String(255), default=None)
+
+
+class Expense(SyncBase, HotelScoped):
+    """Une depense de l'hotel qui ne passe pas par le stock : salaires,
+    electricite, eau, loyer, carburant du groupe...
+
+    Le benefice retire des recettes ce que coute ce qui est vendu, ce qui est
+    utilise, et ces depenses. Sans elles, ce serait une marge.
+
+    Nee sur la tablette, souvent hors ligne : elle porte son id. Une depense
+    saisie par erreur s'annule avec un motif (`is_void`) ; elle reste, comme
+    une ligne d'ardoise annulee, pour que le comptable voie ce qui a bouge.
+    """
+
+    __tablename__ = "expenses"
+    __table_args__ = (
+        Index("ix_expenses_business_date", "business_date"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+    )
+
+    business_date: Mapped[dt.date] = mapped_column(Date)
+    category: Mapped[ExpenseCategory] = mapped_column(
+        _enum(ExpenseCategory, "expense_category")
+    )
+    label: Mapped[str] = mapped_column(String(160))
+    amount: Mapped[int] = mapped_column(BigInteger)
+    method: Mapped[PaymentMethod | None] = mapped_column(
+        _enum(PaymentMethod, "payment_method"), default=None
+    )
+    supplier: Mapped[str | None] = mapped_column(String(120), default=None)
+    # Numero de facture du fournisseur, de virement ou de transaction.
+    reference: Mapped[str | None] = mapped_column(String(80), default=None)
+    notes: Mapped[str | None] = mapped_column(String(255), default=None)
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    is_void: Mapped[bool] = mapped_column(Boolean, default=False)
+    void_reason: Mapped[str | None] = mapped_column(String(255), default=None)
+    voided_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )

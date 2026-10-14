@@ -342,9 +342,9 @@ class Tag extends StatelessWidget {
   }
 }
 
-/// Un code dans son cartouche : chasse fixe, fond bleu pale, filet bleu --
-/// le `.code-ue` de ChronoFS. Pour les identifiants seulement (code client,
-/// numero d'ardoise, code agent).
+/// Un code dans son cartouche : chiffres a chasse fixe, fond bleu pale,
+/// filet bleu -- le `.code-ue` de ChronoFS. Pour les identifiants seulement
+/// (code client, numero d'ardoise, code agent).
 class CodeCartouche extends StatelessWidget {
   const CodeCartouche(this.code, {super.key, this.taille = 12.5});
 
@@ -621,7 +621,7 @@ class _FilterPillState extends State<_FilterPill> {
 }
 
 /// Le champ de recherche des listes.
-class SearchPill extends StatelessWidget {
+class SearchPill extends StatefulWidget {
   const SearchPill({
     super.key,
     required this.hint,
@@ -634,17 +634,44 @@ class SearchPill extends StatelessWidget {
   final TextEditingController? controller;
 
   @override
+  State<SearchPill> createState() => _SearchPillState();
+}
+
+class _SearchPillState extends State<SearchPill> {
+  TextEditingController? _interne;
+
+  TextEditingController get _controleur =>
+      widget.controller ?? (_interne ??= TextEditingController());
+
+  @override
+  void dispose() {
+    _interne?.dispose();
+    super.dispose();
+  }
+
+  void _effacer() {
+    _controleur.clear();
+    widget.onChanged('');
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     final bord = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
       borderSide: BorderSide(color: p.border),
     );
+    final hint = widget.hint;
     return SizedBox(
       height: 44,
       child: TextField(
-        controller: controller,
-        onChanged: onChanged,
+        controller: _controleur,
+        onChanged: (v) {
+          widget.onChanged(v);
+          setState(() {});
+        },
+        textInputAction: TextInputAction.search,
         style: TextStyle(
           fontFamily: atriumFontFamily,
           fontSize: 15,
@@ -662,6 +689,15 @@ class SearchPill extends StatelessWidget {
             size: 20,
             color: p.textSecondary,
           ),
+          // Effacer d'un geste : sur tablette, tenir la touche retour pour
+          // vider le champ est penible.
+          suffixIcon: _controleur.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Effacer la recherche',
+                  icon: Icon(PhosphorIconsLight.x, size: 18, color: p.textSecondary),
+                  onPressed: _effacer,
+                ),
           border: bord,
           enabledBorder: bord,
           focusedBorder: bord.copyWith(

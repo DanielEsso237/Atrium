@@ -3,7 +3,7 @@
 /// Il portait une photo de chambre, une courbe translucide et une vague :
 /// trois decors pour un en-tete de travail, qui faisaient du plan des
 /// chambres un ecran a part. Il prend maintenant le fond de toutes les
-/// autres pages ; le titre en serif suffit a dire ou l'on est.
+/// autres pages ; le grand titre suffit a dire ou l'on est.
 library;
 
 import 'package:flutter/material.dart';

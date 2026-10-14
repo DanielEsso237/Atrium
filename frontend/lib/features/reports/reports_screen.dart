@@ -21,6 +21,7 @@ import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/report_queries.dart';
+import '../auth/session.dart';
 import '../billing/charge_labels.dart';
 import 'export/export_model.dart';
 import 'export/exporter.dart';
@@ -89,13 +90,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       _dernier = nouveau;
       _rejouer(nouveau.filtres);
     }
+    final voitBenefice =
+        ref.watch(sessionProvider).acces.peut('accounting.read');
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 16.0 : 32.0;
 
     return ModuleScaffold(
       title: 'Rapports',
       subtitle: libellePeriode(etat.filtres),
-      action: r == null ? null : _ExportGlobal(rapport: r),
+      action: r == null
+          ? null
+          : _ExportGlobal(rapport: r, voitBenefice: voitBenefice),
       body: ListView(
         padding: EdgeInsets.fromLTRB(marge, 8, marge, 40),
         children: [
@@ -111,7 +116,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     child: Center(child: CircularProgressIndicator()),
                   )
           else
-            _Corps(rapport: r, trace: _trace, barres: _barres),
+            _Corps(
+              rapport: r,
+              trace: _trace,
+              barres: _barres,
+              voitBenefice: voitBenefice,
+            ),
         ],
       ),
     );
@@ -123,11 +133,16 @@ class _Corps extends StatelessWidget {
     required this.rapport,
     required this.trace,
     required this.barres,
+    required this.voitBenefice,
   });
 
   final RapportFinancier rapport;
   final Animation<double> trace;
   final Animation<double> barres;
+
+  /// Le benefice dit les marges : reserve a `accounting.read`, comme
+  /// `/accounting/margins` sur le serveur.
+  final bool voitBenefice;
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +168,10 @@ class _Corps extends StatelessWidget {
             const SizedBox(height: 16),
             _GrandLivre(r: rapport, colonnes: large ? 4 : 2),
             const SizedBox(height: 16),
+            if (voitBenefice) ...[
+              _CarteBenefice(r: rapport, section: s.benefice, progres: barres),
+              const SizedBox(height: 16),
+            ],
             // Appariees par hauteur : deux blocs courts, puis deux longs,
             // pour qu'aucun ne laisse un trou sous son voisin.
             paire(
@@ -412,9 +431,10 @@ class _Filtre<T> extends StatelessWidget {
 
 /// Le rapport entier, toutes sections, dans le format choisi.
 class _ExportGlobal extends ConsumerWidget {
-  const _ExportGlobal({required this.rapport});
+  const _ExportGlobal({required this.rapport, required this.voitBenefice});
 
   final RapportFinancier rapport;
+  final bool voitBenefice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => MenuAnchor(
@@ -428,7 +448,10 @@ class _ExportGlobal extends ConsumerWidget {
             ref: ref,
             filtres: rapport.filtres,
             titre: 'Rapport financier',
-            sections: SectionsRapport(rapport).toutes,
+            sections: [
+              for (final s in SectionsRapport(rapport).toutes)
+                if (voitBenefice || s.titre != 'Bénéfice') s,
+            ],
             format: format,
           ),
         ),
@@ -1029,6 +1052,178 @@ class _SousTitre extends StatelessWidget {
 String _part(int valeur, int total) =>
     formatPointsDeBase(partBp(valeur, total));
 
+/// Au-dela, une colonne par jour devient un trait : la courbe reprend.
+const _joursEnColonnes = 62;
+
+/// L'ordre des parts d'un anneau, entite par entite : la couleur suit
+/// l'entite, d'un filtre a l'autre. Le reste va dans « Autres », en gris.
+const _ordreCategories = ['ROOM', 'FNB', 'MINIBAR', 'SPA', 'LAUNDRY'];
+const _ordreMoyens = [
+  'CASH',
+  'MOBILE_MONEY',
+  'CARD',
+  'TRANSFER',
+  'CITY_LEDGER',
+];
+
+List<PartAnneau> _partsFixes(
+  List<Part> parts,
+  List<String> ordre,
+  String Function(String cle) libelle,
+) {
+  final resultat = <PartAnneau>[];
+  for (var i = 0; i < ordre.length; i++) {
+    for (final x in parts) {
+      if (x.cle == ordre[i] && x.montant > 0) {
+        resultat.add(PartAnneau(
+            libelle(x.cle), x.montant, AtriumChartColors.parts[i]));
+      }
+    }
+  }
+  final reste = [
+    for (final x in parts)
+      if (!ordre.contains(x.cle) && x.montant > 0) x,
+  ];
+  if (reste.isNotEmpty) {
+    resultat.add(PartAnneau(
+      reste.length == 1 ? libelle(reste.single.cle) : 'Autres',
+      reste.fold(0, (s, x) => s + x.montant),
+      AtriumChartColors.other,
+    ));
+  }
+  return resultat;
+}
+
+/// Des recettes au benefice : la cascade, les depenses par rubrique.
+class _CarteBenefice extends StatelessWidget {
+  const _CarteBenefice({
+    required this.r,
+    required this.section,
+    required this.progres,
+  });
+
+  final RapportFinancier r;
+  final Section section;
+  final Animation<double> progres;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final b = r.benefice;
+    final pas = [
+      PasCascade('Recettes', b.recettes, total: true),
+      PasCascade('Coût des ventes', b.coutDesVentes),
+      PasCascade('Utilisé sans être vendu', b.consommations),
+      PasCascade('Pertes', b.pertes),
+      PasCascade('Dépenses', b.totalDepenses),
+      PasCascade('Bénéfice', b.benefice, total: true),
+    ];
+    String lire(int i) {
+      final x = pas[i];
+      if (i == 0) return 'Recettes : ${formatAmount(x.valeur)}';
+      final montant = x.total ? x.valeur : -x.valeur;
+      final part = b.recettes == 0
+          ? ''
+          : ', ${_part(x.valeur, b.recettes)} des recettes';
+      return '${x.libelle} : ${formatAmount(montant)}$part';
+    }
+
+    final arrete = b.coutsArretesAu;
+    final remarque = arrete == null
+        ? 'Les coûts du stock ne sont pas encore arrivés du serveur : le '
+              'bénéfice ne retranche que les dépenses.'
+        : arrete.isBefore(r.filtres.au)
+        ? 'Coûts du stock connus jusqu’au ${formatShortDate(arrete)}.'
+        : null;
+
+    final cascade = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 250,
+          child: CascadeRapport(
+            pas: pas,
+            progres: progres,
+            lire: lire,
+            description: 'Des recettes au bénéfice, coût par coût',
+          ),
+        ),
+        if (remarque != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(PhosphorIconsLight.info, size: 16, color: p.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  remarque,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: p.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+    final depenses = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SousTitre('Dépenses par rubrique'),
+        BarresParts(
+          couleur: AtriumChartColors.negatif,
+          progres: progres,
+          parts: [
+            for (final d in b.depenses)
+              BarrePart(
+                d.libelle,
+                d.montant,
+                formatAmount(d.montant),
+                detail: _part(d.montant, b.totalDepenses),
+              ),
+          ],
+          vide: 'Aucune dépense saisie sur la période.',
+        ),
+      ],
+    );
+
+    return _Bloc(
+      rapport: r,
+      section: section,
+      icone: PhosphorIconsLight.scales,
+      child: LayoutBuilder(
+        builder: (context, c) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Mesures([
+              ('Bénéfice', formatAmount(b.benefice)),
+              ('Marge nette', formatPointsDeBase(b.tauxBp)),
+              ('Période précédente', formatAmount(r.beneficePrecedent)),
+              ('Achats de la période', formatAmount(b.achats)),
+            ]),
+            const SizedBox(height: 18),
+            if (c.maxWidth >= 860)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: cascade),
+                  const SizedBox(width: 28),
+                  Expanded(flex: 2, child: depenses),
+                ],
+              )
+            else ...[cascade, depenses],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CarteCategories extends StatelessWidget {
   const _CarteCategories({
     required this.r,
@@ -1056,19 +1251,14 @@ class _CarteCategories extends StatelessWidget {
             ('Taxes collectées', formatAmount(r.taxes)),
           ]),
           const _SousTitre('Par catégorie'),
-          BarresParts(
-            couleur: AtriumChartColors.current,
+          const SizedBox(height: 8),
+          AnneauRapport(
             progres: progres,
-            parts: [
-              for (final c in r.parCategorie)
-                BarrePart(
-                  libelleCategorie(c.cle),
-                  c.montant,
-                  formatAmount(c.montant),
-                  detail: _part(c.montant, ventesBrutes(r)),
-                ),
-            ],
-            vide: "Aucune vente sur la période.",
+            libelleTotal: 'vendu, avant remises',
+            description: "Chiffre d'affaires par catégorie",
+            parts: _partsFixes(r.parCategorie, _ordreCategories,
+                libelleCategorie),
+            vide: 'Aucune vente sur la période.',
           ),
         ],
       ),
@@ -1089,7 +1279,6 @@ class _CarteEncaissements extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = r.cles.encaisse;
     return _Bloc(
       rapport: r,
       section: section,
@@ -1102,18 +1291,12 @@ class _CarteEncaissements extends StatelessWidget {
             ('Remboursé', formatAmount(r.rembourse)),
           ]),
           const _SousTitre('Par moyen de paiement'),
-          BarresParts(
-            couleur: AtriumChartColors.types[1],
+          const SizedBox(height: 8),
+          AnneauRapport(
             progres: progres,
-            parts: [
-              for (final m in r.parMoyen)
-                BarrePart(
-                  libelleMoyen(m.cle),
-                  m.montant,
-                  formatAmount(m.montant),
-                  detail: _part(m.montant, total),
-                ),
-            ],
+            libelleTotal: 'encaissé',
+            description: 'Encaissements par moyen de paiement',
+            parts: _partsFixes(r.parMoyen, _ordreMoyens, libelleMoyen),
             vide: 'Aucun encaissement sur la période.',
           ),
           const _SousTitre('Par agent'),
@@ -1168,15 +1351,35 @@ class _CarteOccupation extends StatelessWidget {
       fontFeatures: tabularFigures,
     );
 
+    final series = [
+      SerieCourbe("Taux d'occupation",
+          [for (final n in r.occupation) n.taux],
+          AtriumChartColors.current),
+    ];
+    String lire(int i) {
+      final n = r.occupation[i];
+      return '${formatDayMonth(n.jour)} : ${n.occupees} chambre'
+          '${n.occupees > 1 ? 's' : ''} sur ${n.disponibles}, '
+          '${n.taux} %';
+    }
+
+    // Une colonne par nuit tant qu'elles restent lisibles ; au-dela de deux
+    // mois, la tendance compte plus que chaque nuit.
     final courbe = SizedBox(
       height: 200,
-      child: CourbeRapport(
+      child: r.occupation.length <= _joursEnColonnes
+          ? ColonnesRapport(
+              progres: progres,
+              series: series,
+              plafond: 100,
+              lire: lire,
+              description: "Taux d'occupation nuit par nuit",
+              etiquetteDebut: formatDayMonth(r.filtres.du),
+              etiquetteFin: formatDayMonth(r.filtres.au),
+            )
+          : CourbeRapport(
         progres: trace,
-        series: [
-          SerieCourbe("Taux d'occupation",
-              [for (final n in r.occupation) n.taux],
-              AtriumChartColors.current),
-        ],
+        series: series,
         lire: (i) {
           final n = r.occupation[i];
           return '${formatDayMonth(n.jour)} : ${n.occupees} chambre'
@@ -1458,29 +1661,41 @@ class _CarteActivite extends StatelessWidget {
       ('Personnes accueillies', formatNombre(a.personnes)),
       ('Durée moyenne', '${formatDixiemes(a.dureeMoyenneDixiemes)} nuits'),
     ]);
+    final seriesActivite = [
+      SerieCourbe('Arrivées', [for (final j in a.parJour) j.$2],
+          AtriumChartColors.arrivals),
+      SerieCourbe('Départs', [for (final j in a.parJour) j.$3],
+          AtriumChartColors.departures),
+    ];
+    String lireActivite(int i) {
+      final (jour, arr, dep) = a.parJour[i];
+      return '${formatDayMonth(jour)} : $arr arrivée${arr > 1 ? 's' : ''}, '
+          '$dep départ${dep > 1 ? 's' : ''}';
+    }
+
     final courbe = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           height: 190,
-          child: CourbeRapport(
-            progres: trace,
-            remplir: false,
-            series: [
-              SerieCourbe('Arrivées', [for (final j in a.parJour) j.$2],
-                  AtriumChartColors.arrivals),
-              SerieCourbe('Départs', [for (final j in a.parJour) j.$3],
-                  AtriumChartColors.departures),
-            ],
-            lire: (i) {
-              final (jour, arr, dep) = a.parJour[i];
-              return '${formatDayMonth(jour)} : $arr arrivée${arr > 1 ? 's' : ''}, '
-                  '$dep départ${dep > 1 ? 's' : ''}';
-            },
-            description: 'Arrivées et départs jour par jour',
-            etiquetteDebut: formatDayMonth(r.filtres.du),
-            etiquetteFin: formatDayMonth(r.filtres.au),
-          ),
+          child: a.parJour.length <= _joursEnColonnes
+              ? ColonnesRapport(
+                  progres: progres,
+                  series: seriesActivite,
+                  lire: lireActivite,
+                  description: 'Arrivées et départs jour par jour',
+                  etiquetteDebut: formatDayMonth(r.filtres.du),
+                  etiquetteFin: formatDayMonth(r.filtres.au),
+                )
+              : CourbeRapport(
+                  progres: trace,
+                  remplir: false,
+                  series: seriesActivite,
+                  lire: lireActivite,
+                  description: 'Arrivées et départs jour par jour',
+                  etiquetteDebut: formatDayMonth(r.filtres.du),
+                  etiquetteFin: formatDayMonth(r.filtres.au),
+                ),
         ),
         const SizedBox(height: 8),
         const Wrap(

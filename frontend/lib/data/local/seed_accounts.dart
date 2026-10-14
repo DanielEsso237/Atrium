@@ -236,6 +236,20 @@ const _permissions = <_PermissionDemo>[
     'Administrer : agents, roles, points de vente, parametres',
     'users',
   ),
+  // Les marges, le benefice et les depenses : memes identifiants que le
+  // serveur, libres ici.
+  (
+    '01920000-0000-7000-8000-000000004139',
+    'accounting.read',
+    'Lire les marges et la valeur du stock',
+    'accounting',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004140',
+    'expense.write',
+    "Saisir et annuler les depenses de l'hotel",
+    'accounting',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -258,6 +272,10 @@ const _droits = <(String role, String permission)>[
   // ligne, faute des droits que le serveur aurait donnes.
   (_roleAdmin, '01920000-0000-7000-8000-000000004120'),
   (_roleReception, '01920000-0000-7000-8000-000000004120'),
+  // Le benefice et les depenses, comme cote serveur : sans eux, l'ecran des
+  // depenses restait cache a l'administrateur connecte hors ligne.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004139'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004140'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les

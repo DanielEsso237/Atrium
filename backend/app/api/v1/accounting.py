@@ -29,7 +29,7 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import case, func, select
+from sqlalchemy import Date, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_any_permission, require_permission
@@ -37,6 +37,7 @@ from app.db.session import get_session
 from app.models import (
     Folio,
     FolioItem,
+    Hotel,
     Outlet,
     Product,
     StockLevel,
@@ -44,8 +45,9 @@ from app.models import (
     StockMovement,
     User,
 )
-from app.models.enums import StockMovementType
+from app.models.enums import StockMovementStatus, StockMovementType
 from app.schemas.accounting import (
+    DailyCostOut,
     LocationStockValueOut,
     MarginReportOut,
     OutletMarginOut,
@@ -307,3 +309,96 @@ async def stock_value(
         for m in magasins
     ]
     return StockValueOut(value=sum(m.value for m in locations), locations=locations)
+
+
+@router.get("/daily-costs", response_model=list[DailyCostOut])
+async def daily_costs(
+    since: dt.date = Query(description="Premiere journee hoteliere incluse"),
+    until: dt.date | None = Query(
+        default=None,
+        description="Derniere journee incluse ; par defaut, la journee en cours",
+    ),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("accounting.read")),
+) -> list[DailyCostOut]:
+    """Ce que chaque journee a coute en stock, pour le benefice.
+
+    La tablette calcule ses rapports hors ligne, sur sa base ; les mouvements
+    de stock, eux, ne descendent pas (seuls les transferts a valider le
+    font). Elle garde donc ces totaux, une ligne par journee.
+
+    Le cout d'une vente est celui de sa journee de vente, au cout fige sur la
+    sortie (la meme regle que `/margins`). Le reste -- achats, ce qui est
+    utilise, pertes -- se date de la journee hoteliere de son mouvement.
+    """
+    if until is None:
+        until = await current_business_date(session, user.hotel_id)
+    if since > until:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "since est apres until."
+        )
+    hotel = await session.get(Hotel, user.hotel_id)
+    cout = case(
+        (StockMovement.unit_cost > 0, StockMovement.unit_cost), else_=unit_cost_sql()
+    )
+    jours: dict[dt.date, dict[str, int]] = {}
+
+    def ligne(jour: dt.date) -> dict[str, int]:
+        return jours.setdefault(
+            jour, {"cost_of_sales": 0, "consumption": 0, "losses": 0, "purchases": 0}
+        )
+
+    ventes = await session.execute(
+        select(FolioItem.business_date, func.sum(StockMovement.quantity * cout))
+        .select_from(StockMovement)
+        .join(Product, Product.id == StockMovement.product_id)
+        .join(FolioItem, FolioItem.id == StockMovement.source_id)
+        .where(
+            StockMovement.hotel_id == user.hotel_id,
+            StockMovement.deleted_at.is_(None),
+            StockMovement.source_table == "folio_items",
+            StockMovement.type == StockMovementType.OUT,
+            FolioItem.deleted_at.is_(None),
+            FolioItem.is_void.is_(False),
+            FolioItem.business_date >= since,
+            FolioItem.business_date <= until,
+        )
+        .group_by(FolioItem.business_date)
+    )
+    for jour, montant in ventes.all():
+        ligne(jour)["cost_of_sales"] += int(montant or 0)
+
+    # La journee hoteliere d'un instant : l'heure locale de l'hotel, moins
+    # l'heure de bascule. Avant 6 h, c'est encore la veille.
+    journee = cast(
+        func.timezone(hotel.timezone, StockMovement.moved_at)
+        - dt.timedelta(hours=hotel.day_rollover_hour),
+        Date,
+    )
+    autres = await session.execute(
+        select(journee, StockMovement.type, func.sum(StockMovement.quantity * cout))
+        .join(Product, Product.id == StockMovement.product_id)
+        .where(
+            StockMovement.hotel_id == user.hotel_id,
+            StockMovement.deleted_at.is_(None),
+            StockMovement.status == StockMovementStatus.APPROVED,
+            StockMovement.type.in_(
+                [StockMovementType.IN, StockMovementType.OUT, StockMovementType.LOSS]
+            ),
+            # Les sorties des ventes sont comptees plus haut, a leur journee.
+            (StockMovement.source_table.is_(None))
+            | (StockMovement.source_table != "folio_items"),
+            journee >= since,
+            journee <= until,
+        )
+        .group_by(journee, StockMovement.type)
+    )
+    rubrique = {
+        StockMovementType.IN: "purchases",
+        StockMovementType.OUT: "consumption",
+        StockMovementType.LOSS: "losses",
+    }
+    for jour, genre, montant in autres.all():
+        ligne(jour)[rubrique[StockMovementType(genre)]] += int(montant or 0)
+
+    return [DailyCostOut(business_date=jour, **jours[jour]) for jour in sorted(jours)]

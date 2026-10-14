@@ -6,11 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/formats.dart';
 import '../../../data/local/queries/report_queries.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../hotel/en_tete_hotel.dart';
 import '../report_state.dart';
 import 'excel_export.dart';
 import 'export_model.dart';
 import 'partage.dart';
-import 'pdf_export.dart';
+import 'pdf_export.dart';
+
 import '../../../core/ui/confirmation.dart';
 
 /// Exporte `sections` au `format` demande et dit a l'agent ce qui s'est
@@ -29,9 +32,14 @@ Future<void> exporterRapport({
       : boite.localToGlobal(Offset.zero) & boite.size;
 
   try {
+    // Le meme en-tete que la facture : le logo et les coordonnees de
+    // l'hotel, regles dans l'administration.
+    final fiche = await ref.read(hotelProvider.future);
     final doc = DocumentRapport(
       titre: titre,
-      hotel: await ref.read(nomHotelProvider.future),
+      hotel: fiche?.name ?? await ref.read(nomHotelProvider.future),
+      logo: fiche?.logoData,
+      coordonnees: lignesCoordonnees(fiche),
       periode: libellePeriode(filtres),
       filtres: libellesFiltres(
         filtres,

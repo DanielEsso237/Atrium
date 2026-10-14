@@ -30996,6 +30996,1692 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
   }
 }
 
+class $ExpensesTable extends Expenses
+    with TableInfo<$ExpensesTable, ExpenseRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExpensesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 36,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedByMeta = const VerificationMeta(
+    'updatedBy',
+  );
+  @override
+  late final GeneratedColumn<String> updatedBy = GeneratedColumn<String>(
+    'updated_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originDeviceIdMeta = const VerificationMeta(
+    'originDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> originDeviceId = GeneratedColumn<String>(
+    'origin_device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _changeSeqMeta = const VerificationMeta(
+    'changeSeq',
+  );
+  @override
+  late final GeneratedColumn<int> changeSeq = GeneratedColumn<int>(
+    'change_seq',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SyncState, String> syncState =
+      GeneratedColumn<String>(
+        'sync_state',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('pending'),
+      ).withConverter<SyncState>($ExpensesTable.$convertersyncState);
+  static const VerificationMeta _hotelIdMeta = const VerificationMeta(
+    'hotelId',
+  );
+  @override
+  late final GeneratedColumn<String> hotelId = GeneratedColumn<String>(
+    'hotel_id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 36,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _businessDateMeta = const VerificationMeta(
+    'businessDate',
+  );
+  @override
+  late final GeneratedColumn<String> businessDate = GeneratedColumn<String>(
+    'business_date',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 10,
+      maxTextLength: 10,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<ExpenseCategory, String>
+  category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<ExpenseCategory>($ExpensesTable.$convertercategory);
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+    'label',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 160,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMeta = const VerificationMeta('amount');
+  @override
+  late final GeneratedColumn<int> amount = GeneratedColumn<int>(
+    'amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PaymentMethod?, String> method =
+      GeneratedColumn<String>(
+        'method',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<PaymentMethod?>($ExpensesTable.$convertermethodn);
+  static const VerificationMeta _supplierMeta = const VerificationMeta(
+    'supplier',
+  );
+  @override
+  late final GeneratedColumn<String> supplier = GeneratedColumn<String>(
+    'supplier',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 120),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _referenceMeta = const VerificationMeta(
+    'reference',
+  );
+  @override
+  late final GeneratedColumn<String> reference = GeneratedColumn<String>(
+    'reference',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 80),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 255),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recordedByMeta = const VerificationMeta(
+    'recordedBy',
+  );
+  @override
+  late final GeneratedColumn<String> recordedBy = GeneratedColumn<String>(
+    'recorded_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isVoidMeta = const VerificationMeta('isVoid');
+  @override
+  late final GeneratedColumn<bool> isVoid = GeneratedColumn<bool>(
+    'is_void',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_void" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _voidReasonMeta = const VerificationMeta(
+    'voidReason',
+  );
+  @override
+  late final GeneratedColumn<String> voidReason = GeneratedColumn<String>(
+    'void_reason',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 255),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voidedByMeta = const VerificationMeta(
+    'voidedBy',
+  );
+  @override
+  late final GeneratedColumn<String> voidedBy = GeneratedColumn<String>(
+    'voided_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    createdBy,
+    updatedBy,
+    originDeviceId,
+    changeSeq,
+    syncState,
+    hotelId,
+    businessDate,
+    category,
+    label,
+    amount,
+    method,
+    supplier,
+    reference,
+    notes,
+    recordedBy,
+    isVoid,
+    voidReason,
+    voidedBy,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'expenses';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExpenseRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    }
+    if (data.containsKey('updated_by')) {
+      context.handle(
+        _updatedByMeta,
+        updatedBy.isAcceptableOrUnknown(data['updated_by']!, _updatedByMeta),
+      );
+    }
+    if (data.containsKey('origin_device_id')) {
+      context.handle(
+        _originDeviceIdMeta,
+        originDeviceId.isAcceptableOrUnknown(
+          data['origin_device_id']!,
+          _originDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('change_seq')) {
+      context.handle(
+        _changeSeqMeta,
+        changeSeq.isAcceptableOrUnknown(data['change_seq']!, _changeSeqMeta),
+      );
+    }
+    if (data.containsKey('hotel_id')) {
+      context.handle(
+        _hotelIdMeta,
+        hotelId.isAcceptableOrUnknown(data['hotel_id']!, _hotelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hotelIdMeta);
+    }
+    if (data.containsKey('business_date')) {
+      context.handle(
+        _businessDateMeta,
+        businessDate.isAcceptableOrUnknown(
+          data['business_date']!,
+          _businessDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_businessDateMeta);
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+        _labelMeta,
+        label.isAcceptableOrUnknown(data['label']!, _labelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_labelMeta);
+    }
+    if (data.containsKey('amount')) {
+      context.handle(
+        _amountMeta,
+        amount.isAcceptableOrUnknown(data['amount']!, _amountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMeta);
+    }
+    if (data.containsKey('supplier')) {
+      context.handle(
+        _supplierMeta,
+        supplier.isAcceptableOrUnknown(data['supplier']!, _supplierMeta),
+      );
+    }
+    if (data.containsKey('reference')) {
+      context.handle(
+        _referenceMeta,
+        reference.isAcceptableOrUnknown(data['reference']!, _referenceMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('recorded_by')) {
+      context.handle(
+        _recordedByMeta,
+        recordedBy.isAcceptableOrUnknown(data['recorded_by']!, _recordedByMeta),
+      );
+    }
+    if (data.containsKey('is_void')) {
+      context.handle(
+        _isVoidMeta,
+        isVoid.isAcceptableOrUnknown(data['is_void']!, _isVoidMeta),
+      );
+    }
+    if (data.containsKey('void_reason')) {
+      context.handle(
+        _voidReasonMeta,
+        voidReason.isAcceptableOrUnknown(data['void_reason']!, _voidReasonMeta),
+      );
+    }
+    if (data.containsKey('voided_by')) {
+      context.handle(
+        _voidedByMeta,
+        voidedBy.isAcceptableOrUnknown(data['voided_by']!, _voidedByMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ExpenseRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExpenseRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      ),
+      updatedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_by'],
+      ),
+      originDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_device_id'],
+      ),
+      changeSeq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}change_seq'],
+      ),
+      syncState: $ExpensesTable.$convertersyncState.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}sync_state'],
+        )!,
+      ),
+      hotelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hotel_id'],
+      )!,
+      businessDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}business_date'],
+      )!,
+      category: $ExpensesTable.$convertercategory.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}category'],
+        )!,
+      ),
+      label: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}label'],
+      )!,
+      amount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount'],
+      )!,
+      method: $ExpensesTable.$convertermethodn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}method'],
+        ),
+      ),
+      supplier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}supplier'],
+      ),
+      reference: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      recordedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recorded_by'],
+      ),
+      isVoid: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_void'],
+      )!,
+      voidReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}void_reason'],
+      ),
+      voidedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}voided_by'],
+      ),
+    );
+  }
+
+  @override
+  $ExpensesTable createAlias(String alias) {
+    return $ExpensesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<SyncState, String, String> $convertersyncState =
+      const EnumNameConverter<SyncState>(SyncState.values);
+  static JsonTypeConverter2<ExpenseCategory, String, String>
+  $convertercategory = const EnumNameConverter<ExpenseCategory>(
+    ExpenseCategory.values,
+  );
+  static JsonTypeConverter2<PaymentMethod, String, String> $convertermethod =
+      const EnumNameConverter<PaymentMethod>(PaymentMethod.values);
+  static JsonTypeConverter2<PaymentMethod?, String?, String?>
+  $convertermethodn = JsonTypeConverter2.asNullable($convertermethod);
+}
+
+class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final String? createdBy;
+  final String? updatedBy;
+  final String? originDeviceId;
+  final int? changeSeq;
+  final SyncState syncState;
+  final String hotelId;
+
+  /// Date seule (AAAA-MM-JJ) : la journee hoteliere ou elle a ete payee.
+  final String businessDate;
+  final ExpenseCategory category;
+  final String label;
+
+  /// Montant en francs CFA, entiers.
+  final int amount;
+  final PaymentMethod? method;
+  final String? supplier;
+
+  /// Numero de facture du fournisseur, de virement ou de transaction.
+  final String? reference;
+  final String? notes;
+  final String? recordedBy;
+  final bool isVoid;
+  final String? voidReason;
+  final String? voidedBy;
+  const ExpenseRow({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.createdBy,
+    this.updatedBy,
+    this.originDeviceId,
+    this.changeSeq,
+    required this.syncState,
+    required this.hotelId,
+    required this.businessDate,
+    required this.category,
+    required this.label,
+    required this.amount,
+    this.method,
+    this.supplier,
+    this.reference,
+    this.notes,
+    this.recordedBy,
+    required this.isVoid,
+    this.voidReason,
+    this.voidedBy,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    if (!nullToAbsent || updatedBy != null) {
+      map['updated_by'] = Variable<String>(updatedBy);
+    }
+    if (!nullToAbsent || originDeviceId != null) {
+      map['origin_device_id'] = Variable<String>(originDeviceId);
+    }
+    if (!nullToAbsent || changeSeq != null) {
+      map['change_seq'] = Variable<int>(changeSeq);
+    }
+    {
+      map['sync_state'] = Variable<String>(
+        $ExpensesTable.$convertersyncState.toSql(syncState),
+      );
+    }
+    map['hotel_id'] = Variable<String>(hotelId);
+    map['business_date'] = Variable<String>(businessDate);
+    {
+      map['category'] = Variable<String>(
+        $ExpensesTable.$convertercategory.toSql(category),
+      );
+    }
+    map['label'] = Variable<String>(label);
+    map['amount'] = Variable<int>(amount);
+    if (!nullToAbsent || method != null) {
+      map['method'] = Variable<String>(
+        $ExpensesTable.$convertermethodn.toSql(method),
+      );
+    }
+    if (!nullToAbsent || supplier != null) {
+      map['supplier'] = Variable<String>(supplier);
+    }
+    if (!nullToAbsent || reference != null) {
+      map['reference'] = Variable<String>(reference);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || recordedBy != null) {
+      map['recorded_by'] = Variable<String>(recordedBy);
+    }
+    map['is_void'] = Variable<bool>(isVoid);
+    if (!nullToAbsent || voidReason != null) {
+      map['void_reason'] = Variable<String>(voidReason);
+    }
+    if (!nullToAbsent || voidedBy != null) {
+      map['voided_by'] = Variable<String>(voidedBy);
+    }
+    return map;
+  }
+
+  ExpensesCompanion toCompanion(bool nullToAbsent) {
+    return ExpensesCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+      updatedBy: updatedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedBy),
+      originDeviceId: originDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originDeviceId),
+      changeSeq: changeSeq == null && nullToAbsent
+          ? const Value.absent()
+          : Value(changeSeq),
+      syncState: Value(syncState),
+      hotelId: Value(hotelId),
+      businessDate: Value(businessDate),
+      category: Value(category),
+      label: Value(label),
+      amount: Value(amount),
+      method: method == null && nullToAbsent
+          ? const Value.absent()
+          : Value(method),
+      supplier: supplier == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supplier),
+      reference: reference == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reference),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      recordedBy: recordedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recordedBy),
+      isVoid: Value(isVoid),
+      voidReason: voidReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voidReason),
+      voidedBy: voidedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voidedBy),
+    );
+  }
+
+  factory ExpenseRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExpenseRow(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+      updatedBy: serializer.fromJson<String?>(json['updatedBy']),
+      originDeviceId: serializer.fromJson<String?>(json['originDeviceId']),
+      changeSeq: serializer.fromJson<int?>(json['changeSeq']),
+      syncState: $ExpensesTable.$convertersyncState.fromJson(
+        serializer.fromJson<String>(json['syncState']),
+      ),
+      hotelId: serializer.fromJson<String>(json['hotelId']),
+      businessDate: serializer.fromJson<String>(json['businessDate']),
+      category: $ExpensesTable.$convertercategory.fromJson(
+        serializer.fromJson<String>(json['category']),
+      ),
+      label: serializer.fromJson<String>(json['label']),
+      amount: serializer.fromJson<int>(json['amount']),
+      method: $ExpensesTable.$convertermethodn.fromJson(
+        serializer.fromJson<String?>(json['method']),
+      ),
+      supplier: serializer.fromJson<String?>(json['supplier']),
+      reference: serializer.fromJson<String?>(json['reference']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      recordedBy: serializer.fromJson<String?>(json['recordedBy']),
+      isVoid: serializer.fromJson<bool>(json['isVoid']),
+      voidReason: serializer.fromJson<String?>(json['voidReason']),
+      voidedBy: serializer.fromJson<String?>(json['voidedBy']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
+      'updatedBy': serializer.toJson<String?>(updatedBy),
+      'originDeviceId': serializer.toJson<String?>(originDeviceId),
+      'changeSeq': serializer.toJson<int?>(changeSeq),
+      'syncState': serializer.toJson<String>(
+        $ExpensesTable.$convertersyncState.toJson(syncState),
+      ),
+      'hotelId': serializer.toJson<String>(hotelId),
+      'businessDate': serializer.toJson<String>(businessDate),
+      'category': serializer.toJson<String>(
+        $ExpensesTable.$convertercategory.toJson(category),
+      ),
+      'label': serializer.toJson<String>(label),
+      'amount': serializer.toJson<int>(amount),
+      'method': serializer.toJson<String?>(
+        $ExpensesTable.$convertermethodn.toJson(method),
+      ),
+      'supplier': serializer.toJson<String?>(supplier),
+      'reference': serializer.toJson<String?>(reference),
+      'notes': serializer.toJson<String?>(notes),
+      'recordedBy': serializer.toJson<String?>(recordedBy),
+      'isVoid': serializer.toJson<bool>(isVoid),
+      'voidReason': serializer.toJson<String?>(voidReason),
+      'voidedBy': serializer.toJson<String?>(voidedBy),
+    };
+  }
+
+  ExpenseRow copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> createdBy = const Value.absent(),
+    Value<String?> updatedBy = const Value.absent(),
+    Value<String?> originDeviceId = const Value.absent(),
+    Value<int?> changeSeq = const Value.absent(),
+    SyncState? syncState,
+    String? hotelId,
+    String? businessDate,
+    ExpenseCategory? category,
+    String? label,
+    int? amount,
+    Value<PaymentMethod?> method = const Value.absent(),
+    Value<String?> supplier = const Value.absent(),
+    Value<String?> reference = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<String?> recordedBy = const Value.absent(),
+    bool? isVoid,
+    Value<String?> voidReason = const Value.absent(),
+    Value<String?> voidedBy = const Value.absent(),
+  }) => ExpenseRow(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdBy: createdBy.present ? createdBy.value : this.createdBy,
+    updatedBy: updatedBy.present ? updatedBy.value : this.updatedBy,
+    originDeviceId: originDeviceId.present
+        ? originDeviceId.value
+        : this.originDeviceId,
+    changeSeq: changeSeq.present ? changeSeq.value : this.changeSeq,
+    syncState: syncState ?? this.syncState,
+    hotelId: hotelId ?? this.hotelId,
+    businessDate: businessDate ?? this.businessDate,
+    category: category ?? this.category,
+    label: label ?? this.label,
+    amount: amount ?? this.amount,
+    method: method.present ? method.value : this.method,
+    supplier: supplier.present ? supplier.value : this.supplier,
+    reference: reference.present ? reference.value : this.reference,
+    notes: notes.present ? notes.value : this.notes,
+    recordedBy: recordedBy.present ? recordedBy.value : this.recordedBy,
+    isVoid: isVoid ?? this.isVoid,
+    voidReason: voidReason.present ? voidReason.value : this.voidReason,
+    voidedBy: voidedBy.present ? voidedBy.value : this.voidedBy,
+  );
+  ExpenseRow copyWithCompanion(ExpensesCompanion data) {
+    return ExpenseRow(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      updatedBy: data.updatedBy.present ? data.updatedBy.value : this.updatedBy,
+      originDeviceId: data.originDeviceId.present
+          ? data.originDeviceId.value
+          : this.originDeviceId,
+      changeSeq: data.changeSeq.present ? data.changeSeq.value : this.changeSeq,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      hotelId: data.hotelId.present ? data.hotelId.value : this.hotelId,
+      businessDate: data.businessDate.present
+          ? data.businessDate.value
+          : this.businessDate,
+      category: data.category.present ? data.category.value : this.category,
+      label: data.label.present ? data.label.value : this.label,
+      amount: data.amount.present ? data.amount.value : this.amount,
+      method: data.method.present ? data.method.value : this.method,
+      supplier: data.supplier.present ? data.supplier.value : this.supplier,
+      reference: data.reference.present ? data.reference.value : this.reference,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      recordedBy: data.recordedBy.present
+          ? data.recordedBy.value
+          : this.recordedBy,
+      isVoid: data.isVoid.present ? data.isVoid.value : this.isVoid,
+      voidReason: data.voidReason.present
+          ? data.voidReason.value
+          : this.voidReason,
+      voidedBy: data.voidedBy.present ? data.voidedBy.value : this.voidedBy,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExpenseRow(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedBy: $updatedBy, ')
+          ..write('originDeviceId: $originDeviceId, ')
+          ..write('changeSeq: $changeSeq, ')
+          ..write('syncState: $syncState, ')
+          ..write('hotelId: $hotelId, ')
+          ..write('businessDate: $businessDate, ')
+          ..write('category: $category, ')
+          ..write('label: $label, ')
+          ..write('amount: $amount, ')
+          ..write('method: $method, ')
+          ..write('supplier: $supplier, ')
+          ..write('reference: $reference, ')
+          ..write('notes: $notes, ')
+          ..write('recordedBy: $recordedBy, ')
+          ..write('isVoid: $isVoid, ')
+          ..write('voidReason: $voidReason, ')
+          ..write('voidedBy: $voidedBy')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    createdBy,
+    updatedBy,
+    originDeviceId,
+    changeSeq,
+    syncState,
+    hotelId,
+    businessDate,
+    category,
+    label,
+    amount,
+    method,
+    supplier,
+    reference,
+    notes,
+    recordedBy,
+    isVoid,
+    voidReason,
+    voidedBy,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExpenseRow &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.createdBy == this.createdBy &&
+          other.updatedBy == this.updatedBy &&
+          other.originDeviceId == this.originDeviceId &&
+          other.changeSeq == this.changeSeq &&
+          other.syncState == this.syncState &&
+          other.hotelId == this.hotelId &&
+          other.businessDate == this.businessDate &&
+          other.category == this.category &&
+          other.label == this.label &&
+          other.amount == this.amount &&
+          other.method == this.method &&
+          other.supplier == this.supplier &&
+          other.reference == this.reference &&
+          other.notes == this.notes &&
+          other.recordedBy == this.recordedBy &&
+          other.isVoid == this.isVoid &&
+          other.voidReason == this.voidReason &&
+          other.voidedBy == this.voidedBy);
+}
+
+class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> createdBy;
+  final Value<String?> updatedBy;
+  final Value<String?> originDeviceId;
+  final Value<int?> changeSeq;
+  final Value<SyncState> syncState;
+  final Value<String> hotelId;
+  final Value<String> businessDate;
+  final Value<ExpenseCategory> category;
+  final Value<String> label;
+  final Value<int> amount;
+  final Value<PaymentMethod?> method;
+  final Value<String?> supplier;
+  final Value<String?> reference;
+  final Value<String?> notes;
+  final Value<String?> recordedBy;
+  final Value<bool> isVoid;
+  final Value<String?> voidReason;
+  final Value<String?> voidedBy;
+  final Value<int> rowid;
+  const ExpensesCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedBy = const Value.absent(),
+    this.originDeviceId = const Value.absent(),
+    this.changeSeq = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.hotelId = const Value.absent(),
+    this.businessDate = const Value.absent(),
+    this.category = const Value.absent(),
+    this.label = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.method = const Value.absent(),
+    this.supplier = const Value.absent(),
+    this.reference = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.recordedBy = const Value.absent(),
+    this.isVoid = const Value.absent(),
+    this.voidReason = const Value.absent(),
+    this.voidedBy = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExpensesCompanion.insert({
+    required String id,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedBy = const Value.absent(),
+    this.originDeviceId = const Value.absent(),
+    this.changeSeq = const Value.absent(),
+    this.syncState = const Value.absent(),
+    required String hotelId,
+    required String businessDate,
+    required ExpenseCategory category,
+    required String label,
+    required int amount,
+    this.method = const Value.absent(),
+    this.supplier = const Value.absent(),
+    this.reference = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.recordedBy = const Value.absent(),
+    this.isVoid = const Value.absent(),
+    this.voidReason = const Value.absent(),
+    this.voidedBy = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       hotelId = Value(hotelId),
+       businessDate = Value(businessDate),
+       category = Value(category),
+       label = Value(label),
+       amount = Value(amount);
+  static Insertable<ExpenseRow> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? createdBy,
+    Expression<String>? updatedBy,
+    Expression<String>? originDeviceId,
+    Expression<int>? changeSeq,
+    Expression<String>? syncState,
+    Expression<String>? hotelId,
+    Expression<String>? businessDate,
+    Expression<String>? category,
+    Expression<String>? label,
+    Expression<int>? amount,
+    Expression<String>? method,
+    Expression<String>? supplier,
+    Expression<String>? reference,
+    Expression<String>? notes,
+    Expression<String>? recordedBy,
+    Expression<bool>? isVoid,
+    Expression<String>? voidReason,
+    Expression<String>? voidedBy,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdBy != null) 'created_by': createdBy,
+      if (updatedBy != null) 'updated_by': updatedBy,
+      if (originDeviceId != null) 'origin_device_id': originDeviceId,
+      if (changeSeq != null) 'change_seq': changeSeq,
+      if (syncState != null) 'sync_state': syncState,
+      if (hotelId != null) 'hotel_id': hotelId,
+      if (businessDate != null) 'business_date': businessDate,
+      if (category != null) 'category': category,
+      if (label != null) 'label': label,
+      if (amount != null) 'amount': amount,
+      if (method != null) 'method': method,
+      if (supplier != null) 'supplier': supplier,
+      if (reference != null) 'reference': reference,
+      if (notes != null) 'notes': notes,
+      if (recordedBy != null) 'recorded_by': recordedBy,
+      if (isVoid != null) 'is_void': isVoid,
+      if (voidReason != null) 'void_reason': voidReason,
+      if (voidedBy != null) 'voided_by': voidedBy,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExpensesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? createdBy,
+    Value<String?>? updatedBy,
+    Value<String?>? originDeviceId,
+    Value<int?>? changeSeq,
+    Value<SyncState>? syncState,
+    Value<String>? hotelId,
+    Value<String>? businessDate,
+    Value<ExpenseCategory>? category,
+    Value<String>? label,
+    Value<int>? amount,
+    Value<PaymentMethod?>? method,
+    Value<String?>? supplier,
+    Value<String?>? reference,
+    Value<String?>? notes,
+    Value<String?>? recordedBy,
+    Value<bool>? isVoid,
+    Value<String?>? voidReason,
+    Value<String?>? voidedBy,
+    Value<int>? rowid,
+  }) {
+    return ExpensesCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
+      originDeviceId: originDeviceId ?? this.originDeviceId,
+      changeSeq: changeSeq ?? this.changeSeq,
+      syncState: syncState ?? this.syncState,
+      hotelId: hotelId ?? this.hotelId,
+      businessDate: businessDate ?? this.businessDate,
+      category: category ?? this.category,
+      label: label ?? this.label,
+      amount: amount ?? this.amount,
+      method: method ?? this.method,
+      supplier: supplier ?? this.supplier,
+      reference: reference ?? this.reference,
+      notes: notes ?? this.notes,
+      recordedBy: recordedBy ?? this.recordedBy,
+      isVoid: isVoid ?? this.isVoid,
+      voidReason: voidReason ?? this.voidReason,
+      voidedBy: voidedBy ?? this.voidedBy,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (updatedBy.present) {
+      map['updated_by'] = Variable<String>(updatedBy.value);
+    }
+    if (originDeviceId.present) {
+      map['origin_device_id'] = Variable<String>(originDeviceId.value);
+    }
+    if (changeSeq.present) {
+      map['change_seq'] = Variable<int>(changeSeq.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(
+        $ExpensesTable.$convertersyncState.toSql(syncState.value),
+      );
+    }
+    if (hotelId.present) {
+      map['hotel_id'] = Variable<String>(hotelId.value);
+    }
+    if (businessDate.present) {
+      map['business_date'] = Variable<String>(businessDate.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(
+        $ExpensesTable.$convertercategory.toSql(category.value),
+      );
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (amount.present) {
+      map['amount'] = Variable<int>(amount.value);
+    }
+    if (method.present) {
+      map['method'] = Variable<String>(
+        $ExpensesTable.$convertermethodn.toSql(method.value),
+      );
+    }
+    if (supplier.present) {
+      map['supplier'] = Variable<String>(supplier.value);
+    }
+    if (reference.present) {
+      map['reference'] = Variable<String>(reference.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (recordedBy.present) {
+      map['recorded_by'] = Variable<String>(recordedBy.value);
+    }
+    if (isVoid.present) {
+      map['is_void'] = Variable<bool>(isVoid.value);
+    }
+    if (voidReason.present) {
+      map['void_reason'] = Variable<String>(voidReason.value);
+    }
+    if (voidedBy.present) {
+      map['voided_by'] = Variable<String>(voidedBy.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExpensesCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedBy: $updatedBy, ')
+          ..write('originDeviceId: $originDeviceId, ')
+          ..write('changeSeq: $changeSeq, ')
+          ..write('syncState: $syncState, ')
+          ..write('hotelId: $hotelId, ')
+          ..write('businessDate: $businessDate, ')
+          ..write('category: $category, ')
+          ..write('label: $label, ')
+          ..write('amount: $amount, ')
+          ..write('method: $method, ')
+          ..write('supplier: $supplier, ')
+          ..write('reference: $reference, ')
+          ..write('notes: $notes, ')
+          ..write('recordedBy: $recordedBy, ')
+          ..write('isVoid: $isVoid, ')
+          ..write('voidReason: $voidReason, ')
+          ..write('voidedBy: $voidedBy, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DailyCostsTable extends DailyCosts
+    with TableInfo<$DailyCostsTable, DailyCostRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DailyCostsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _businessDateMeta = const VerificationMeta(
+    'businessDate',
+  );
+  @override
+  late final GeneratedColumn<String> businessDate = GeneratedColumn<String>(
+    'business_date',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 10,
+      maxTextLength: 10,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _costOfSalesMeta = const VerificationMeta(
+    'costOfSales',
+  );
+  @override
+  late final GeneratedColumn<int> costOfSales = GeneratedColumn<int>(
+    'cost_of_sales',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _consumptionMeta = const VerificationMeta(
+    'consumption',
+  );
+  @override
+  late final GeneratedColumn<int> consumption = GeneratedColumn<int>(
+    'consumption',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lossesMeta = const VerificationMeta('losses');
+  @override
+  late final GeneratedColumn<int> losses = GeneratedColumn<int>(
+    'losses',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _purchasesMeta = const VerificationMeta(
+    'purchases',
+  );
+  @override
+  late final GeneratedColumn<int> purchases = GeneratedColumn<int>(
+    'purchases',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    businessDate,
+    costOfSales,
+    consumption,
+    losses,
+    purchases,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'daily_costs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DailyCostRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('business_date')) {
+      context.handle(
+        _businessDateMeta,
+        businessDate.isAcceptableOrUnknown(
+          data['business_date']!,
+          _businessDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_businessDateMeta);
+    }
+    if (data.containsKey('cost_of_sales')) {
+      context.handle(
+        _costOfSalesMeta,
+        costOfSales.isAcceptableOrUnknown(
+          data['cost_of_sales']!,
+          _costOfSalesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consumption')) {
+      context.handle(
+        _consumptionMeta,
+        consumption.isAcceptableOrUnknown(
+          data['consumption']!,
+          _consumptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('losses')) {
+      context.handle(
+        _lossesMeta,
+        losses.isAcceptableOrUnknown(data['losses']!, _lossesMeta),
+      );
+    }
+    if (data.containsKey('purchases')) {
+      context.handle(
+        _purchasesMeta,
+        purchases.isAcceptableOrUnknown(data['purchases']!, _purchasesMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {businessDate};
+  @override
+  DailyCostRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DailyCostRow(
+      businessDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}business_date'],
+      )!,
+      costOfSales: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cost_of_sales'],
+      )!,
+      consumption: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}consumption'],
+      )!,
+      losses: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}losses'],
+      )!,
+      purchases: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}purchases'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DailyCostsTable createAlias(String alias) {
+    return $DailyCostsTable(attachedDatabase, alias);
+  }
+}
+
+class DailyCostRow extends DataClass implements Insertable<DailyCostRow> {
+  /// Date seule (AAAA-MM-JJ) : la journee hoteliere.
+  final String businessDate;
+
+  /// Ce que les lignes vendues ce jour-la ont fait sortir du stock.
+  final int costOfSales;
+
+  /// Ce qui est sorti sans etre vendu : cuisine, chambres, spa.
+  final int consumption;
+  final int losses;
+
+  /// Ce que les livraisons ont coute. Indicatif : un achat n'est un cout
+  /// qu'une fois vendu ou utilise.
+  final int purchases;
+  final DateTime updatedAt;
+  const DailyCostRow({
+    required this.businessDate,
+    required this.costOfSales,
+    required this.consumption,
+    required this.losses,
+    required this.purchases,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['business_date'] = Variable<String>(businessDate);
+    map['cost_of_sales'] = Variable<int>(costOfSales);
+    map['consumption'] = Variable<int>(consumption);
+    map['losses'] = Variable<int>(losses);
+    map['purchases'] = Variable<int>(purchases);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  DailyCostsCompanion toCompanion(bool nullToAbsent) {
+    return DailyCostsCompanion(
+      businessDate: Value(businessDate),
+      costOfSales: Value(costOfSales),
+      consumption: Value(consumption),
+      losses: Value(losses),
+      purchases: Value(purchases),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory DailyCostRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DailyCostRow(
+      businessDate: serializer.fromJson<String>(json['businessDate']),
+      costOfSales: serializer.fromJson<int>(json['costOfSales']),
+      consumption: serializer.fromJson<int>(json['consumption']),
+      losses: serializer.fromJson<int>(json['losses']),
+      purchases: serializer.fromJson<int>(json['purchases']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'businessDate': serializer.toJson<String>(businessDate),
+      'costOfSales': serializer.toJson<int>(costOfSales),
+      'consumption': serializer.toJson<int>(consumption),
+      'losses': serializer.toJson<int>(losses),
+      'purchases': serializer.toJson<int>(purchases),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  DailyCostRow copyWith({
+    String? businessDate,
+    int? costOfSales,
+    int? consumption,
+    int? losses,
+    int? purchases,
+    DateTime? updatedAt,
+  }) => DailyCostRow(
+    businessDate: businessDate ?? this.businessDate,
+    costOfSales: costOfSales ?? this.costOfSales,
+    consumption: consumption ?? this.consumption,
+    losses: losses ?? this.losses,
+    purchases: purchases ?? this.purchases,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  DailyCostRow copyWithCompanion(DailyCostsCompanion data) {
+    return DailyCostRow(
+      businessDate: data.businessDate.present
+          ? data.businessDate.value
+          : this.businessDate,
+      costOfSales: data.costOfSales.present
+          ? data.costOfSales.value
+          : this.costOfSales,
+      consumption: data.consumption.present
+          ? data.consumption.value
+          : this.consumption,
+      losses: data.losses.present ? data.losses.value : this.losses,
+      purchases: data.purchases.present ? data.purchases.value : this.purchases,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyCostRow(')
+          ..write('businessDate: $businessDate, ')
+          ..write('costOfSales: $costOfSales, ')
+          ..write('consumption: $consumption, ')
+          ..write('losses: $losses, ')
+          ..write('purchases: $purchases, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    businessDate,
+    costOfSales,
+    consumption,
+    losses,
+    purchases,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DailyCostRow &&
+          other.businessDate == this.businessDate &&
+          other.costOfSales == this.costOfSales &&
+          other.consumption == this.consumption &&
+          other.losses == this.losses &&
+          other.purchases == this.purchases &&
+          other.updatedAt == this.updatedAt);
+}
+
+class DailyCostsCompanion extends UpdateCompanion<DailyCostRow> {
+  final Value<String> businessDate;
+  final Value<int> costOfSales;
+  final Value<int> consumption;
+  final Value<int> losses;
+  final Value<int> purchases;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const DailyCostsCompanion({
+    this.businessDate = const Value.absent(),
+    this.costOfSales = const Value.absent(),
+    this.consumption = const Value.absent(),
+    this.losses = const Value.absent(),
+    this.purchases = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DailyCostsCompanion.insert({
+    required String businessDate,
+    this.costOfSales = const Value.absent(),
+    this.consumption = const Value.absent(),
+    this.losses = const Value.absent(),
+    this.purchases = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : businessDate = Value(businessDate),
+       updatedAt = Value(updatedAt);
+  static Insertable<DailyCostRow> custom({
+    Expression<String>? businessDate,
+    Expression<int>? costOfSales,
+    Expression<int>? consumption,
+    Expression<int>? losses,
+    Expression<int>? purchases,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (businessDate != null) 'business_date': businessDate,
+      if (costOfSales != null) 'cost_of_sales': costOfSales,
+      if (consumption != null) 'consumption': consumption,
+      if (losses != null) 'losses': losses,
+      if (purchases != null) 'purchases': purchases,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DailyCostsCompanion copyWith({
+    Value<String>? businessDate,
+    Value<int>? costOfSales,
+    Value<int>? consumption,
+    Value<int>? losses,
+    Value<int>? purchases,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return DailyCostsCompanion(
+      businessDate: businessDate ?? this.businessDate,
+      costOfSales: costOfSales ?? this.costOfSales,
+      consumption: consumption ?? this.consumption,
+      losses: losses ?? this.losses,
+      purchases: purchases ?? this.purchases,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (businessDate.present) {
+      map['business_date'] = Variable<String>(businessDate.value);
+    }
+    if (costOfSales.present) {
+      map['cost_of_sales'] = Variable<int>(costOfSales.value);
+    }
+    if (consumption.present) {
+      map['consumption'] = Variable<int>(consumption.value);
+    }
+    if (losses.present) {
+      map['losses'] = Variable<int>(losses.value);
+    }
+    if (purchases.present) {
+      map['purchases'] = Variable<int>(purchases.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyCostsCompanion(')
+          ..write('businessDate: $businessDate, ')
+          ..write('costOfSales: $costOfSales, ')
+          ..write('consumption: $consumption, ')
+          ..write('losses: $losses, ')
+          ..write('purchases: $purchases, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OutletsTable extends Outlets with TableInfo<$OutletsTable, OutletRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -68099,6 +69785,8 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
   late final $InvoiceLinesTable invoiceLines = $InvoiceLinesTable(this);
   late final $CashSessionsTable cashSessions = $CashSessionsTable(this);
   late final $PaymentsTable payments = $PaymentsTable(this);
+  late final $ExpensesTable expenses = $ExpensesTable(this);
+  late final $DailyCostsTable dailyCosts = $DailyCostsTable(this);
   late final $OutletsTable outlets = $OutletsTable(this);
   late final $PrepStationsTable prepStations = $PrepStationsTable(this);
   late final $RestaurantTablesTable restaurantTables = $RestaurantTablesTable(
@@ -68181,6 +69869,8 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
     invoiceLines,
     cashSessions,
     payments,
+    expenses,
+    dailyCosts,
     outlets,
     prepStations,
     restaurantTables,
@@ -84470,6 +86160,765 @@ typedef $$PaymentsTableProcessedTableManager =
         BaseReferences<_$AtriumDatabase, $PaymentsTable, PaymentRow>,
       ),
       PaymentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ExpensesTableCreateCompanionBuilder =
+    ExpensesCompanion Function({
+      required String id,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> createdBy,
+      Value<String?> updatedBy,
+      Value<String?> originDeviceId,
+      Value<int?> changeSeq,
+      Value<SyncState> syncState,
+      required String hotelId,
+      required String businessDate,
+      required ExpenseCategory category,
+      required String label,
+      required int amount,
+      Value<PaymentMethod?> method,
+      Value<String?> supplier,
+      Value<String?> reference,
+      Value<String?> notes,
+      Value<String?> recordedBy,
+      Value<bool> isVoid,
+      Value<String?> voidReason,
+      Value<String?> voidedBy,
+      Value<int> rowid,
+    });
+typedef $$ExpensesTableUpdateCompanionBuilder =
+    ExpensesCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> createdBy,
+      Value<String?> updatedBy,
+      Value<String?> originDeviceId,
+      Value<int?> changeSeq,
+      Value<SyncState> syncState,
+      Value<String> hotelId,
+      Value<String> businessDate,
+      Value<ExpenseCategory> category,
+      Value<String> label,
+      Value<int> amount,
+      Value<PaymentMethod?> method,
+      Value<String?> supplier,
+      Value<String?> reference,
+      Value<String?> notes,
+      Value<String?> recordedBy,
+      Value<bool> isVoid,
+      Value<String?> voidReason,
+      Value<String?> voidedBy,
+      Value<int> rowid,
+    });
+
+class $$ExpensesTableFilterComposer
+    extends Composer<_$AtriumDatabase, $ExpensesTable> {
+  $$ExpensesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedBy => $composableBuilder(
+    column: $table.updatedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get changeSeq => $composableBuilder(
+    column: $table.changeSeq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SyncState, SyncState, String> get syncState =>
+      $composableBuilder(
+        column: $table.syncState,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get hotelId => $composableBuilder(
+    column: $table.hotelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<ExpenseCategory, ExpenseCategory, String>
+  get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PaymentMethod?, PaymentMethod, String>
+  get method => $composableBuilder(
+    column: $table.method,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get supplier => $composableBuilder(
+    column: $table.supplier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isVoid => $composableBuilder(
+    column: $table.isVoid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get voidReason => $composableBuilder(
+    column: $table.voidReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get voidedBy => $composableBuilder(
+    column: $table.voidedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ExpensesTableOrderingComposer
+    extends Composer<_$AtriumDatabase, $ExpensesTable> {
+  $$ExpensesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedBy => $composableBuilder(
+    column: $table.updatedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get changeSeq => $composableBuilder(
+    column: $table.changeSeq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hotelId => $composableBuilder(
+    column: $table.hotelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get method => $composableBuilder(
+    column: $table.method,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get supplier => $composableBuilder(
+    column: $table.supplier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isVoid => $composableBuilder(
+    column: $table.isVoid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get voidReason => $composableBuilder(
+    column: $table.voidReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get voidedBy => $composableBuilder(
+    column: $table.voidedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ExpensesTableAnnotationComposer
+    extends Composer<_$AtriumDatabase, $ExpensesTable> {
+  $$ExpensesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedBy =>
+      $composableBuilder(column: $table.updatedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get changeSeq =>
+      $composableBuilder(column: $table.changeSeq, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<SyncState, String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<String> get hotelId =>
+      $composableBuilder(column: $table.hotelId, builder: (column) => column);
+
+  GeneratedColumn<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<ExpenseCategory, String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<int> get amount =>
+      $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PaymentMethod?, String> get method =>
+      $composableBuilder(column: $table.method, builder: (column) => column);
+
+  GeneratedColumn<String> get supplier =>
+      $composableBuilder(column: $table.supplier, builder: (column) => column);
+
+  GeneratedColumn<String> get reference =>
+      $composableBuilder(column: $table.reference, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isVoid =>
+      $composableBuilder(column: $table.isVoid, builder: (column) => column);
+
+  GeneratedColumn<String> get voidReason => $composableBuilder(
+    column: $table.voidReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get voidedBy =>
+      $composableBuilder(column: $table.voidedBy, builder: (column) => column);
+}
+
+class $$ExpensesTableTableManager
+    extends
+        RootTableManager<
+          _$AtriumDatabase,
+          $ExpensesTable,
+          ExpenseRow,
+          $$ExpensesTableFilterComposer,
+          $$ExpensesTableOrderingComposer,
+          $$ExpensesTableAnnotationComposer,
+          $$ExpensesTableCreateCompanionBuilder,
+          $$ExpensesTableUpdateCompanionBuilder,
+          (
+            ExpenseRow,
+            BaseReferences<_$AtriumDatabase, $ExpensesTable, ExpenseRow>,
+          ),
+          ExpenseRow,
+          PrefetchHooks Function()
+        > {
+  $$ExpensesTableTableManager(_$AtriumDatabase db, $ExpensesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExpensesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExpensesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExpensesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<String?> updatedBy = const Value.absent(),
+                Value<String?> originDeviceId = const Value.absent(),
+                Value<int?> changeSeq = const Value.absent(),
+                Value<SyncState> syncState = const Value.absent(),
+                Value<String> hotelId = const Value.absent(),
+                Value<String> businessDate = const Value.absent(),
+                Value<ExpenseCategory> category = const Value.absent(),
+                Value<String> label = const Value.absent(),
+                Value<int> amount = const Value.absent(),
+                Value<PaymentMethod?> method = const Value.absent(),
+                Value<String?> supplier = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> recordedBy = const Value.absent(),
+                Value<bool> isVoid = const Value.absent(),
+                Value<String?> voidReason = const Value.absent(),
+                Value<String?> voidedBy = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExpensesCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                createdBy: createdBy,
+                updatedBy: updatedBy,
+                originDeviceId: originDeviceId,
+                changeSeq: changeSeq,
+                syncState: syncState,
+                hotelId: hotelId,
+                businessDate: businessDate,
+                category: category,
+                label: label,
+                amount: amount,
+                method: method,
+                supplier: supplier,
+                reference: reference,
+                notes: notes,
+                recordedBy: recordedBy,
+                isVoid: isVoid,
+                voidReason: voidReason,
+                voidedBy: voidedBy,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<String?> updatedBy = const Value.absent(),
+                Value<String?> originDeviceId = const Value.absent(),
+                Value<int?> changeSeq = const Value.absent(),
+                Value<SyncState> syncState = const Value.absent(),
+                required String hotelId,
+                required String businessDate,
+                required ExpenseCategory category,
+                required String label,
+                required int amount,
+                Value<PaymentMethod?> method = const Value.absent(),
+                Value<String?> supplier = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> recordedBy = const Value.absent(),
+                Value<bool> isVoid = const Value.absent(),
+                Value<String?> voidReason = const Value.absent(),
+                Value<String?> voidedBy = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExpensesCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                createdBy: createdBy,
+                updatedBy: updatedBy,
+                originDeviceId: originDeviceId,
+                changeSeq: changeSeq,
+                syncState: syncState,
+                hotelId: hotelId,
+                businessDate: businessDate,
+                category: category,
+                label: label,
+                amount: amount,
+                method: method,
+                supplier: supplier,
+                reference: reference,
+                notes: notes,
+                recordedBy: recordedBy,
+                isVoid: isVoid,
+                voidReason: voidReason,
+                voidedBy: voidedBy,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ExpensesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtriumDatabase,
+      $ExpensesTable,
+      ExpenseRow,
+      $$ExpensesTableFilterComposer,
+      $$ExpensesTableOrderingComposer,
+      $$ExpensesTableAnnotationComposer,
+      $$ExpensesTableCreateCompanionBuilder,
+      $$ExpensesTableUpdateCompanionBuilder,
+      (
+        ExpenseRow,
+        BaseReferences<_$AtriumDatabase, $ExpensesTable, ExpenseRow>,
+      ),
+      ExpenseRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DailyCostsTableCreateCompanionBuilder =
+    DailyCostsCompanion Function({
+      required String businessDate,
+      Value<int> costOfSales,
+      Value<int> consumption,
+      Value<int> losses,
+      Value<int> purchases,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$DailyCostsTableUpdateCompanionBuilder =
+    DailyCostsCompanion Function({
+      Value<String> businessDate,
+      Value<int> costOfSales,
+      Value<int> consumption,
+      Value<int> losses,
+      Value<int> purchases,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$DailyCostsTableFilterComposer
+    extends Composer<_$AtriumDatabase, $DailyCostsTable> {
+  $$DailyCostsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get costOfSales => $composableBuilder(
+    column: $table.costOfSales,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get consumption => $composableBuilder(
+    column: $table.consumption,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get losses => $composableBuilder(
+    column: $table.losses,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get purchases => $composableBuilder(
+    column: $table.purchases,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DailyCostsTableOrderingComposer
+    extends Composer<_$AtriumDatabase, $DailyCostsTable> {
+  $$DailyCostsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get costOfSales => $composableBuilder(
+    column: $table.costOfSales,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get consumption => $composableBuilder(
+    column: $table.consumption,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get losses => $composableBuilder(
+    column: $table.losses,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get purchases => $composableBuilder(
+    column: $table.purchases,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DailyCostsTableAnnotationComposer
+    extends Composer<_$AtriumDatabase, $DailyCostsTable> {
+  $$DailyCostsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get costOfSales => $composableBuilder(
+    column: $table.costOfSales,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get consumption => $composableBuilder(
+    column: $table.consumption,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get losses =>
+      $composableBuilder(column: $table.losses, builder: (column) => column);
+
+  GeneratedColumn<int> get purchases =>
+      $composableBuilder(column: $table.purchases, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$DailyCostsTableTableManager
+    extends
+        RootTableManager<
+          _$AtriumDatabase,
+          $DailyCostsTable,
+          DailyCostRow,
+          $$DailyCostsTableFilterComposer,
+          $$DailyCostsTableOrderingComposer,
+          $$DailyCostsTableAnnotationComposer,
+          $$DailyCostsTableCreateCompanionBuilder,
+          $$DailyCostsTableUpdateCompanionBuilder,
+          (
+            DailyCostRow,
+            BaseReferences<_$AtriumDatabase, $DailyCostsTable, DailyCostRow>,
+          ),
+          DailyCostRow,
+          PrefetchHooks Function()
+        > {
+  $$DailyCostsTableTableManager(_$AtriumDatabase db, $DailyCostsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DailyCostsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DailyCostsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DailyCostsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> businessDate = const Value.absent(),
+                Value<int> costOfSales = const Value.absent(),
+                Value<int> consumption = const Value.absent(),
+                Value<int> losses = const Value.absent(),
+                Value<int> purchases = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DailyCostsCompanion(
+                businessDate: businessDate,
+                costOfSales: costOfSales,
+                consumption: consumption,
+                losses: losses,
+                purchases: purchases,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String businessDate,
+                Value<int> costOfSales = const Value.absent(),
+                Value<int> consumption = const Value.absent(),
+                Value<int> losses = const Value.absent(),
+                Value<int> purchases = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => DailyCostsCompanion.insert(
+                businessDate: businessDate,
+                costOfSales: costOfSales,
+                consumption: consumption,
+                losses: losses,
+                purchases: purchases,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DailyCostsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtriumDatabase,
+      $DailyCostsTable,
+      DailyCostRow,
+      $$DailyCostsTableFilterComposer,
+      $$DailyCostsTableOrderingComposer,
+      $$DailyCostsTableAnnotationComposer,
+      $$DailyCostsTableCreateCompanionBuilder,
+      $$DailyCostsTableUpdateCompanionBuilder,
+      (
+        DailyCostRow,
+        BaseReferences<_$AtriumDatabase, $DailyCostsTable, DailyCostRow>,
+      ),
+      DailyCostRow,
       PrefetchHooks Function()
     >;
 typedef $$OutletsTableCreateCompanionBuilder =
@@ -102626,6 +105075,10 @@ class $AtriumDatabaseManager {
       $$CashSessionsTableTableManager(_db, _db.cashSessions);
   $$PaymentsTableTableManager get payments =>
       $$PaymentsTableTableManager(_db, _db.payments);
+  $$ExpensesTableTableManager get expenses =>
+      $$ExpensesTableTableManager(_db, _db.expenses);
+  $$DailyCostsTableTableManager get dailyCosts =>
+      $$DailyCostsTableTableManager(_db, _db.dailyCosts);
   $$OutletsTableTableManager get outlets =>
       $$OutletsTableTableManager(_db, _db.outlets);
   $$PrepStationsTableTableManager get prepStations =>

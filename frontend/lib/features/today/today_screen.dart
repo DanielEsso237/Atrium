@@ -295,7 +295,7 @@ class _Occupation extends ConsumerWidget {
               _Compteur(
                 valeur: occupees,
                 style: TextStyle(
-                  fontFamily: atriumDisplayFamily,
+                  fontFamily: atriumFontFamily,
                   fontSize: 104,
                   height: 0.85,
                   fontWeight: FontWeight.w600,

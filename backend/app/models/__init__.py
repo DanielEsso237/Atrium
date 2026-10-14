@@ -8,6 +8,7 @@ from app.db.base import Base
 from app.models.admin import BusinessDay, Notification, Setting
 from app.models.billing import (
     CashSession,
+    Expense,
     Folio,
     FolioItem,
     Invoice,
@@ -117,6 +118,7 @@ __all__ = [
     "InvoiceLine",
     "Payment",
     "CashSession",
+    "Expense",
     # Restauration
     "Outlet",
     "PrepStation",

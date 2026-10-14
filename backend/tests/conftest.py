@@ -102,6 +102,7 @@ _PERMISSIONS_NEEDED = [
     "folio.override_limit",
     "hotel.write",
     "accounting.read",
+    "expense.write",
 ]
 
 

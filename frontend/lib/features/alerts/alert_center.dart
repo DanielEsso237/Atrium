@@ -6,8 +6,9 @@
 /// deux minutes sinon. C'est ce qui la rend impossible a manquer -- une
 /// sonnerie unique se perd dans le bruit d'un hall.
 ///
-/// Le niveau de chaque evenement (discret, sonore, sonore et vibration) vient
-/// de l'administration ; l'agent peut couper le son pour lui-meme. Quand
+/// Le niveau de chaque evenement (discret, sonore, sonore et vibration) et sa
+/// sonnerie viennent de l'administration ; l'agent peut couper le son ou
+/// choisir ses propres sonneries, pour lui-meme. Quand
 /// l'application n'est pas devant lui, l'alerte passe par le volet de
 /// notifications du systeme, avec le meme niveau.
 library;
@@ -68,8 +69,16 @@ class CentreAlertes extends Notifier<EtatAlertes> {
   bool _premiere = true;
   bool _enCours = false;
   bool _encore = false;
-  bool _sonCoupe = false;
+  PreferencesAlertes _preferences = const PreferencesAlertes();
+  SonneriesAlertes _sonneries = const SonneriesAlertes();
   bool _premierPlan = true;
+
+  bool get _sonCoupe => _preferences.sonCoupe;
+
+  /// Ce qui sonne pour cet evenement : le choix de l'agent, sinon celui de
+  /// l'hotel.
+  Sonnerie _sonnerie(TypeEvenement type) =>
+      _preferences.sonnerie(type, _sonneries);
 
   SignalAlerte get _signal => ref.read(signalAlerteProvider);
   NotificationsSysteme get _systeme => ref.read(notificationsSystemeProvider);
@@ -95,8 +104,11 @@ class CentreAlertes extends Notifier<EtatAlertes> {
       if (devant) unawaited(_systeme.effacer());
     });
     ref.listen(preferencesAlertesProvider, (_, p) {
-      _sonCoupe = p.value?.sonCoupe ?? false;
+      _preferences = p.value ?? const PreferencesAlertes();
       if (_sonCoupe) unawaited(_signal.arreter());
+    });
+    ref.listen(sonneriesAlertesProvider, (_, s) {
+      _sonneries = s.value ?? const SonneriesAlertes();
     });
     ref.listen(niveauxAlertesProvider, (_, n) {
       if (n.value case final niveaux?) {
@@ -105,7 +117,11 @@ class CentreAlertes extends Notifier<EtatAlertes> {
       }
     });
     _premierPlan = ref.read(premierPlanProvider);
-    _sonCoupe = ref.read(preferencesAlertesProvider).value?.sonCoupe ?? false;
+    _preferences =
+        ref.read(preferencesAlertesProvider).value ??
+        const PreferencesAlertes();
+    _sonneries =
+        ref.read(sonneriesAlertesProvider).value ?? const SonneriesAlertes();
 
     final db = ref.watch(databaseProvider);
     _changements = db.changementsAlertes().listen((_) => _evaluer());
@@ -232,6 +248,7 @@ class CentreAlertes extends Notifier<EtatAlertes> {
             a,
             SignalVoulu(
               gravite: a.niveau,
+              sonnerie: _sonnerie(a.type),
               son: niveau.sonne && !_sonCoupe,
               vibration: niveau.vibre,
               discret: !niveau.sonne,
@@ -247,12 +264,21 @@ class CentreAlertes extends Notifier<EtatAlertes> {
         if (niveaux.de(a.type).sonne) a,
     ];
     if (bruyantes.isEmpty) return;
-    final gravite = bruyantes
-        .map((a) => a.niveau)
-        .reduce((a, b) => a.index >= b.index ? a : b);
+    // Une seule sonnerie pour toutes : celle de la plus forte, la plus
+    // ancienne a gravite egale.
+    final forte = bruyantes.reduce(
+      (a, b) => b.niveau.index > a.niveau.index ? b : a,
+    );
     final vibre = bruyantes.any((a) => niveaux.de(a.type).vibre);
     if (_sonCoupe && !vibre) return;
-    unawaited(_signal.emettre(gravite, son: !_sonCoupe, vibration: vibre));
+    unawaited(
+      _signal.emettre(
+        forte.niveau,
+        sonnerie: _sonnerie(forte.type),
+        son: !_sonCoupe,
+        vibration: vibre,
+      ),
+    );
   }
 
   /// Le rappel suit l'alerte non vue la plus forte ; il s'arrete quand il

@@ -17,10 +17,11 @@ import 'package:vibration/vibration.dart';
 import '../../data/local/queries/alert_queries.dart';
 
 abstract class SignalAlerte {
-  /// La gravite choisit la sonnerie et le motif ; `son` et `vibration`
-  /// viennent du niveau de l'evenement et du choix de l'agent.
+  /// La gravite choisit le flux et le motif de vibration ; la sonnerie, `son`
+  /// et `vibration` viennent de l'evenement et du choix de l'agent.
   Future<void> emettre(
     NiveauAlerte niveau, {
+    required Sonnerie sonnerie,
     bool son = true,
     bool vibration = true,
   });
@@ -37,12 +38,13 @@ class SignalAppareil implements SignalAlerte {
   @override
   Future<void> emettre(
     NiveauAlerte niveau, {
+    required Sonnerie sonnerie,
     bool son = true,
     bool vibration = true,
   }) async {
     await Future.wait([
       if (vibration) _vibrer(niveau),
-      if (son) _sonner(niveau),
+      if (son) _sonner(niveau, sonnerie),
     ]);
   }
 
@@ -78,19 +80,18 @@ class SignalAppareil implements SignalAlerte {
     }
   }
 
-  Future<void> _sonner(NiveauAlerte niveau) async {
+  Future<void> _sonner(NiveauAlerte niveau, Sonnerie sonnerie) async {
     final critique = niveau == NiveauAlerte.critique;
     try {
       final lecteur = _lecteur ??= AudioPlayer(playerId: 'atrium-alertes');
       await lecteur.stop();
       await lecteur.play(
-        AssetSource(
-          critique ? 'sounds/alerte_critique.wav' : 'sounds/alerte_urgente.wav',
-        ),
+        AssetSource(sonnerie.asset),
         volume: 1,
-        // Le flux d'alarme pour le critique : il sonne fort meme quand le
+        // Le flux d'alarme pour le critique : il s'entend meme quand le
         // volume des medias est baisse. Le flux des notifications pour le
-        // reste, comme un message.
+        // reste, comme un message. La sonnerie reste douce dans les deux
+        // cas : c'est la repetition qui fait l'urgence, pas le volume.
         ctx: AudioContext(
           android: AudioContextAndroid(
             contentType: AndroidContentType.sonification,

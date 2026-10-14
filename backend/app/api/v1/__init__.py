@@ -14,6 +14,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.guests import router as guests_router
 from app.api.v1.hotel import router as hotel_router
 from app.api.v1.housekeeping import router as housekeeping_router
+from app.api.v1.expenses import router as expenses_router
 from app.api.v1.maintenance import router as maintenance_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.outlet_activity import router as outlet_activity_router
@@ -40,6 +41,7 @@ router.include_router(chargeable_stays_router)
 router.include_router(dashboard_router)
 router.include_router(guests_router)
 router.include_router(hotel_router)
+router.include_router(expenses_router)
 router.include_router(housekeeping_router)
 router.include_router(maintenance_router)
 router.include_router(orders_router)

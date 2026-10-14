@@ -188,6 +188,18 @@ connaît d'autres, et un refus bloquerait sa file pour un simple réglage.
 Codes d'aujourd'hui : `SYNC_BLOCKED`, `ROOM_TO_CLEAN`, `MAINTENANCE`,
 `LATE_DEPARTURE`, `ARRIVAL_EXPECTED`, `TRANSFER_PENDING`, `LOW_STOCK`.
 
+## Les sonneries des alertes
+
+`GET /settings/notification-sounds` rend `{"sounds": {"ROOM_TO_CLEAN":
+"SAME_NOTE", …}}` : la sonnerie de chaque événement, `{}` tant que
+l'administration n'a rien choisi. `PUT` remplace le tout, droit
+`users.write`. Mêmes règles que les niveaux : les sonneries sont strictes
+(`SAME_NOTE`, `RISING`, `LIGHT`, `BUBBLES`, `WOOD` — les fichiers livrés avec
+la tablette, sinon `422`), les codes d'événement sont libres.
+
+Le choix d'un agent pour lui-même (`notifications.agent`, portée `USER`) ne
+remonte pas : il reste sur la tablette, comme le son coupé.
+
 Le serveur n'envoie aucune notification : chaque tablette calcule ses
 alertes depuis sa base locale. Le réglage « couper le son » d'un agent reste
 sur la tablette (clé `notifications.agent`, portée `USER`) et ne remonte pas.

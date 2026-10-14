@@ -34,6 +34,7 @@ enum TypeEvenement {
     'Le serveur refuse une saisie : plus rien ne remonte derrière elle.',
     'Tous les agents',
     NiveauSignal.sonoreVibration,
+    Sonnerie.aiguLeger,
   ),
   chambreAFaire(
     'ROOM_TO_CLEAN',
@@ -41,6 +42,7 @@ enum TypeEvenement {
     'Un départ ou une recouche attend le ménage.',
     'La femme de chambre désignée, sinon toute l’équipe du ménage',
     NiveauSignal.sonoreVibration,
+    Sonnerie.memeNote,
   ),
   panne(
     'MAINTENANCE',
@@ -48,6 +50,7 @@ enum TypeEvenement {
     'Une panne signalée haute ou urgente n’est pas réglée.',
     'La maintenance',
     NiveauSignal.sonoreVibration,
+    Sonnerie.aiguLeger,
   ),
   arriveeAttendue(
     'ARRIVAL_EXPECTED',
@@ -55,6 +58,7 @@ enum TypeEvenement {
     'Un client est attendu aujourd’hui et n’est pas encore arrivé.',
     'La réception',
     NiveauSignal.sonore,
+    Sonnerie.quiMonte,
   ),
   departDepasse(
     'LATE_DEPARTURE',
@@ -62,6 +66,7 @@ enum TypeEvenement {
     'Un client est encore dans sa chambre après l’heure de départ.',
     'La réception',
     NiveauSignal.sonore,
+    Sonnerie.boisEtouffe,
   ),
   transfertAValider(
     'TRANSFER_PENDING',
@@ -69,6 +74,7 @@ enum TypeEvenement {
     'Un magasin demande des produits à un autre.',
     'Qui valide les transferts de stock',
     NiveauSignal.sonore,
+    Sonnerie.bulles,
   ),
   stockBas(
     'LOW_STOCK',
@@ -76,6 +82,7 @@ enum TypeEvenement {
     'Un produit passe sous son seuil d’alerte dans un magasin.',
     'Qui suit les stocks',
     NiveauSignal.discret,
+    Sonnerie.bulles,
   );
 
   const TypeEvenement(
@@ -84,6 +91,7 @@ enum TypeEvenement {
     this.description,
     this.destinataires,
     this.niveauParDefaut,
+    this.sonnerieParDefaut,
   );
 
   final String code;
@@ -91,6 +99,27 @@ enum TypeEvenement {
   final String description;
   final String destinataires;
   final NiveauSignal niveauParDefaut;
+  final Sonnerie sonnerieParDefaut;
+
+  /// La gravite qu'a d'ordinaire cet evenement : c'est elle qu'un essai de
+  /// sonnerie fait entendre, sur le meme flux que la vraie alerte.
+  NiveauAlerte get graviteHabituelle => switch (this) {
+    envoiBloque => NiveauAlerte.critique,
+    arriveeAttendue || stockBas => NiveauAlerte.info,
+    _ => NiveauAlerte.urgente,
+  };
+
+  /// Cet agent peut-il recevoir cet evenement ? La meme regle decide des
+  /// alertes calculees et des sonneries qu'il peut choisir : lui proposer
+  /// celle d'un evenement qu'il ne recoit jamais serait un reglage mort.
+  bool concerne(ContexteAlertes c) => switch (this) {
+    envoiBloque => true,
+    chambreAFaire => c.peut('housekeeping.read'),
+    panne => c.peut('maintenance.read'),
+    arriveeAttendue || departDepasse => c.peut('reservation.read') && c.poste,
+    transfertAValider => c.peut('stock.transfer.approve'),
+    stockBas => c.peut('stock.read'),
+  };
 
   static TypeEvenement? depuisCode(String code) {
     for (final t in values) {
@@ -123,6 +152,36 @@ enum NiveauSignal {
   static NiveauSignal? depuisCode(Object? code) {
     for (final n in values) {
       if (n.code == code) return n;
+    }
+    return null;
+  }
+}
+
+/// Les sonneries des alertes : deux petites notes breves, douces, calculees
+/// par `tool/sonneries.py`. L'administration en choisit une par evenement,
+/// et chaque agent peut la remplacer par la sienne.
+///
+/// Le code est celui que le serveur garde (`/settings/notification-sounds`) ;
+/// le fichier est a la fois l'asset de l'application et la ressource `raw`
+/// des canaux de notification Android.
+enum Sonnerie {
+  memeNote('SAME_NOTE', 'Même note', 'sonnerie_meme_note'),
+  quiMonte('RISING', 'Qui monte', 'sonnerie_qui_monte'),
+  aiguLeger('LIGHT', 'Aigu léger', 'sonnerie_aigu_leger'),
+  bulles('BUBBLES', 'Bulles', 'sonnerie_bulles'),
+  boisEtouffe('WOOD', 'Bois étouffé', 'sonnerie_bois_etouffe');
+
+  const Sonnerie(this.code, this.libelle, this.fichier);
+
+  final String code;
+  final String libelle;
+  final String fichier;
+
+  String get asset => 'sounds/$fichier.wav';
+
+  static Sonnerie? depuisCode(Object? code) {
+    for (final s in values) {
+      if (s.code == code) return s;
     }
     return null;
   }
@@ -227,12 +286,12 @@ extension AlertQueries on AtriumDatabase {
   Future<List<Alerte>> chargerAlertes(ContexteAlertes c) async {
     final alertes = [
       ...await _envoiBloque(),
-      if (c.peut('housekeeping.read')) ...await _menage(c),
-      if (c.peut('maintenance.read')) ...await _pannes(),
-      if (c.peut('reservation.read') && c.poste) ...await _arrivees(c),
-      if (c.peut('reservation.read') && c.poste) ...await _departs(c),
-      if (c.peut('stock.transfer.approve')) ...await _transferts(),
-      if (c.peut('stock.read')) ...await _stockBas(),
+      if (TypeEvenement.chambreAFaire.concerne(c)) ...await _menage(c),
+      if (TypeEvenement.panne.concerne(c)) ...await _pannes(),
+      if (TypeEvenement.arriveeAttendue.concerne(c)) ...await _arrivees(c),
+      if (TypeEvenement.departDepasse.concerne(c)) ...await _departs(c),
+      if (TypeEvenement.transfertAValider.concerne(c)) ...await _transferts(),
+      if (TypeEvenement.stockBas.concerne(c)) ...await _stockBas(),
     ];
     alertes.sort((a, b) {
       final n = b.niveau.index.compareTo(a.niveau.index);

@@ -158,6 +158,18 @@ class FakeCatalogApi implements CatalogApi {
   @override
   Future<Object?> fetchNotificationLevels() async => notificationLevels;
 
+  /// `null` : le serveur n'a jamais regle les sonneries de l'hotel.
+  @override
+  Future<Object?> fetchNotificationSounds() async => null;
+
+  @override
+  Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => const [];
+
+  /// `null` : un serveur sans la route des couts, la tablette garde les siens.
+  @override
+  Future<List<RemoteDailyCost>?> fetchDailyCosts(DateTime since) async =>
+      null;
+
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => users;
 
@@ -258,6 +270,17 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<Object?> fetchNotificationLevels() async => _couloir();
+
+  @override
+  Future<Object?> fetchNotificationSounds() async => _couloir();
+
+  @override
+  Future<List<RemoteExpense>> fetchExpenses(DateTime since) async =>
+      _couloir();
+
+  @override
+  Future<List<RemoteDailyCost>?> fetchDailyCosts(DateTime since) async =>
+      _couloir();
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => _couloir();

@@ -47,17 +47,9 @@ void main() {
 
   setUpAll(() async {
     for (final family in {
-      'PlusJakartaSans': [
+      'Roboto': [
         for (final weight in [400, 500, 600, 700, 800])
-          'assets/fonts/jakarta/PlusJakartaSans-$weight.ttf',
-      ],
-      'CormorantGaramond': [
-        for (final weight in [500, 600, 700])
-          'assets/fonts/cormorant/CormorantGaramond-$weight.ttf',
-      ],
-      'JetBrainsMono': [
-        for (final weight in [500, 600])
-          'assets/fonts/jetbrains/JetBrainsMono-$weight.ttf',
+          'assets/fonts/roboto/Roboto-$weight.ttf',
       ],
       'PhosphorLight': ['assets/fonts/phosphor/Phosphor-Light.ttf'],
       'PhosphorFill': ['assets/fonts/phosphor/Phosphor-Fill.ttf'],

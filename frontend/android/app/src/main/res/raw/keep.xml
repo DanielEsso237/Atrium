@@ -3,4 +3,4 @@
      nom, depuis Dart : sans cette liste, la reduction des ressources du
      build release les supprimerait, et les alertes sonneraient muettes. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@raw/alerte_critique,@raw/alerte_urgente,@drawable/ic_notification" />
+    tools:keep="@raw/sonnerie_meme_note,@raw/sonnerie_qui_monte,@raw/sonnerie_aigu_leger,@raw/sonnerie_bulles,@raw/sonnerie_bois_etouffe,@drawable/ic_notification" />

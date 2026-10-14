@@ -92,6 +92,7 @@ class SectionsRapport {
 
   List<Section> get toutes => [
     synthese,
+    benefice,
     chiffreAffaires,
     encaissements,
     occupation,
@@ -585,6 +586,74 @@ class SectionsRapport {
           ],
           total: ['Total', a.arrivees, a.departs],
         ),
+      ],
+    );
+  }
+
+  Section get benefice {
+    final b = r.benefice;
+    final arrete = b.coutsArretesAu;
+    return Section(
+      titre: 'Bénéfice',
+      description:
+          'Les recettes, moins le coût de ce qui est vendu, ce qui est '
+          'utilisé (cuisine, chambres, spa), les pertes et les dépenses. '
+          'Pour tout l’hôtel : seule la période compte, pas les filtres.',
+      chiffres: [
+        Chiffre('Bénéfice', b.benefice, Unite.montant,
+            detail: 'période précédente : ${formatAmount(r.beneficePrecedent)}'),
+        Chiffre('Marge nette', b.tauxBp, Unite.pointsDeBase,
+            detail: 'bénéfice rapporté aux recettes'),
+        Chiffre('Recettes', b.recettes, Unite.montant),
+        Chiffre('Dépenses', b.totalDepenses, Unite.montant,
+            detail: 'hors stock : salaires, électricité…'),
+        Chiffre('Achats de la période', b.achats, Unite.montant,
+            detail: 'indicatif : un achat ne coûte qu’une fois vendu ou '
+                'utilisé'),
+      ],
+      tableaux: [
+        Tableau(
+          titre: 'Compte de résultat',
+          colonnes: const [
+            Colonne('Poste'),
+            Colonne('Montant', Unite.montant),
+          ],
+          lignes: [
+            ['Recettes', b.recettes],
+            ['Coût de ce qui est vendu', -b.coutDesVentes],
+            ['Utilisé sans être vendu', -b.consommations],
+            ['Pertes', -b.pertes],
+            ['Dépenses', -b.totalDepenses],
+          ],
+          total: ['Bénéfice', b.benefice],
+        ),
+        Tableau(
+          titre: 'Dépenses par rubrique',
+          colonnes: const [
+            Colonne('Rubrique'),
+            Colonne('Dépenses', Unite.nombre),
+            Colonne('Montant', Unite.montant),
+          ],
+          lignes: [
+            for (final d in b.depenses) [d.libelle, d.nombre, d.montant],
+          ],
+          total: [
+            'Total',
+            b.depenses.fold<int>(0, (s, d) => s + d.nombre),
+            b.totalDepenses,
+          ],
+        ),
+        if (arrete == null)
+          const Tableau(
+            titre: 'Coûts du stock',
+            colonnes: [Colonne('Remarque')],
+            lignes: [
+              [
+                'Les coûts du stock ne sont pas encore arrivés du serveur : '
+                    'le bénéfice ne retranche que les dépenses.',
+              ],
+            ],
+          ),
       ],
     );
   }

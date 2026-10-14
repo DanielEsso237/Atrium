@@ -71,13 +71,9 @@ void main() {
   setUpAll(() async {
     // Les métriques des polices embarquées sont celles de l'application.
     for (final family in {
-      'PlusJakartaSans': [
+      'Roboto': [
         for (final weight in [400, 500, 600, 700, 800])
-          'assets/fonts/jakarta/PlusJakartaSans-$weight.ttf',
-      ],
-      'CormorantGaramond': [
-        for (final weight in [500, 600, 700])
-          'assets/fonts/cormorant/CormorantGaramond-$weight.ttf',
+          'assets/fonts/roboto/Roboto-$weight.ttf',
       ],
     }.entries) {
       final loader = FontLoader(family.key);

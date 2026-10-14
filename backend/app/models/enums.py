@@ -122,6 +122,31 @@ class PaymentMethod(StrEnum):
     VOUCHER = "VOUCHER"
 
 
+class ExpenseCategory(StrEnum):
+    """Ce que l'hotel paie sans passer par le stock.
+
+    Le stock porte deja son cout : ce qui est vendu, ce qui est utilise en
+    cuisine ou dans les chambres. Tout le reste se saisit dans une de ces
+    rubriques, pour que le benefice soit le vrai.
+    """
+
+    SALARIES = "SALARIES"
+    ELECTRICITY = "ELECTRICITY"
+    WATER = "WATER"
+    RENT = "RENT"
+    # Carburant du vehicule et du groupe electrogene.
+    FUEL = "FUEL"
+    # Reparations et entretien du batiment, hors produits du stock.
+    REPAIRS = "REPAIRS"
+    # Internet, telephone, television.
+    TELECOM = "TELECOM"
+    TAXES = "TAXES"
+    MARKETING = "MARKETING"
+    # Frais bancaires, commissions carte et Mobile Money.
+    BANK_FEES = "BANK_FEES"
+    OTHER = "OTHER"
+
+
 class CashSessionStatus(StrEnum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
