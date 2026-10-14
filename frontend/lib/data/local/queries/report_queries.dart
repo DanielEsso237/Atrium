@@ -752,6 +752,9 @@ extension ReportQueries on AtriumDatabase {
          AND rr.status IN ('CHECKED_IN','CHECKED_OUT')
          AND rr.arrival_date < ?2
          AND rr.departure_date > ?1
+         -- Un sejour en heures n'occupe aucune nuit : sa departure_date vaut
+         -- le lendemain parce que le schema l'exige, pas parce qu'il dort la.
+         AND COALESCE(rr.stay_unit, 'NIGHTS') <> 'HOURS'
          AND (?3 IS NULL OR rr.room_type_id = ?3)
       ''',
       variables: [
@@ -973,6 +976,7 @@ extension ReportQueries on AtriumDatabase {
       SELECT rr.arrival_date AS arrivee, rr.departure_date AS depart,
              rr.status AS statut, rr.adults AS adultes, rr.children AS enfants,
              rr.checked_in_by AS par_arrivee, rr.checked_out_by AS par_depart,
+             rr.stay_unit AS unite, rr.departure_at AS depart_a,
              r.source AS origine
         FROM reservation_rooms rr
         LEFT JOIN reservations r ON r.id = rr.reservation_id
@@ -997,7 +1001,13 @@ extension ReportQueries on AtriumDatabase {
     var nuits = 0;
     for (final l in lignes) {
       final a = l.read<String>('arrivee');
-      final d = l.read<String>('depart');
+      // Un sejour en heures part a `departure_at` : sa departure_date vaut
+      // le lendemain et ne veut rien dire. Il ne compte aucune nuit.
+      final departA = l.readNullable<DateTime>('depart_a');
+      final enHeures = l.readNullable<String>('unite') == 'HOURS';
+      final d = enHeures && departA != null
+          ? formatIsoDate(businessDayFor(departA))
+          : l.read<String>('depart');
       final statut = l.read<String>('statut');
       if (dedans(a) && statut != ReservationStatus.CANCELLED.name) {
         prevues++;
@@ -1014,7 +1024,7 @@ extension ReportQueries on AtriumDatabase {
         arriveesJour[a] = (arriveesJour[a] ?? 0) + 1;
         personnes += l.read<int>('adultes') + l.read<int>('enfants');
         final duree = parseIsoDate(d)!.difference(parseIsoDate(a)!).inDays;
-        nuits += duree < 0 ? 0 : duree;
+        if (!enHeures) nuits += duree < 0 ? 0 : duree;
       }
       if (dedans(d) &&
           statut == ReservationStatus.CHECKED_OUT.name &&
