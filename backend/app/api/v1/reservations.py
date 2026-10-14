@@ -238,6 +238,28 @@ def _check_category(
     return True
 
 
+async def _ensure_upgrade_available(
+    session: AsyncSession, line: ReservationRoom, room: Room, user: User
+) -> None:
+    """La nouvelle categorie doit rester libre sur toute la duree du sejour.
+
+    La chambre est libre ce soir, mais elle peut etre promise demain a une
+    reservation de sa categorie : y surclasser un client pour deux nuits la
+    surreserverait (decision du 14 octobre). Seules les nuits qui restent
+    comptent -- celles deja passees ne prennent plus rien a personne. Un
+    sejour en heures n'occupe aucune nuit.
+    """
+    if line.stay_unit == StayUnit.HOURS:
+        return
+    today = await current_business_date(session, user.hotel_id)
+    start = min(max(line.arrival_date, today), line.departure_date - dt.timedelta(days=1))
+    room_type = await session.get(RoomType, room.room_type_id)
+    await _lock_room_types(session, [room_type.id])
+    await _ensure_available(
+        session, user.hotel_id, room_type, start, line.departure_date, exclude_line_id=line.id
+    )
+
+
 async def _apply_upgrade(
     session: AsyncSession,
     reservation: Reservation,
@@ -935,6 +957,7 @@ async def check_in(
             status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
         )
     if upgraded:
+        await _ensure_upgrade_available(session, line, room, user)
         await _apply_upgrade(session, reservation, line, room, payload.upgrade, user)
 
     now = dt.datetime.now(dt.timezone.utc)
@@ -1104,6 +1127,7 @@ async def change_room(
             status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
         )
     if upgraded:
+        await _ensure_upgrade_available(session, line, room, user)
         await _apply_upgrade(session, reservation, line, room, payload.upgrade, user)
 
     if line.room_id:

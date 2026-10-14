@@ -193,3 +193,10 @@ def test_le_comptoir_et_l_econome_ne_lisent_pas_les_marges():
     for _, code, _ in ROLES:
         if code not in ("ADMIN", "MANAGER", "CONTROLEUR", "COMPTABLE"):
             assert "accounting.read" not in _role(code), code
+
+
+def test_l_econome_lit_la_valeur_de_son_stock():
+    """`GET /accounting/stock-value` s'ouvre a `stock.manage` : seul
+    l'econome le porte, avec l'administrateur."""
+    assert "stock.manage" in _role("ECONOME")
+    assert "accounting.read" not in _role("ECONOME")
