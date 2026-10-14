@@ -9,7 +9,9 @@ import 'dart:convert';
 
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
+import 'package:atrium/core/business_day.dart';
 import 'package:atrium/data/local/queries/dashboard_queries.dart';
+import 'package:atrium/data/local/queries/report_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/repositories/folio_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
@@ -282,5 +284,28 @@ void main() {
       expect(apres.departsDuJour, avant.departsDuJour + 1);
       expect(apres.departsRestants, avant.departsRestants + 1);
     }
+  });
+
+  test('les rapports : un sejour en heures ne compte aucune nuit', () async {
+    final jour = businessDayFor(DateTime.now());
+    final filtres = FiltresRapport(du: jour, au: jour);
+    final avant = await db.chargerRapport(filtres);
+    final c = await chambre('101');
+    await reservations.arriveeDirecte(
+      guestId: clientId,
+      roomId: c.id,
+      unite: UniteSejour.HOURS,
+      duree: 3,
+      prix: 15000,
+      by: agent,
+    );
+
+    final apres = await db.chargerRapport(filtres);
+    expect(apres.activite.arrivees, avant.activite.arrivees + 1);
+    expect(apres.activite.dureeMoyenneDixiemes, 0);
+    expect(
+      apres.occupation.single.occupees,
+      avant.occupation.single.occupees,
+    );
   });
 }
