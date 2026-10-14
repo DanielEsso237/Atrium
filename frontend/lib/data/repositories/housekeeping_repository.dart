@@ -289,6 +289,50 @@ class HousekeepingRepository with OutboxWriter {
     return id;
   }
 
+  /// Demande le menage d'une chambre depuis sa fiche (demande du 14 octobre).
+  ///
+  /// Ouvre la tache sans la demarrer : elle apparait dans la liste du menage,
+  /// et c'est la femme de chambre qui la commence. Chambre occupee, le
+  /// client a demande un passage (`STAYOVER`) ; libre, on la rafraichit
+  /// (`REFRESH`). Rend `false` si une tache est deja ouverte aujourd'hui :
+  /// rien n'est ecrit, l'ecran le dit au lieu de pretendre l'avoir creee.
+  Future<bool> demanderMenage(String roomId, {required String by}) async {
+    final chambre = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingleOrNull();
+    if (chambre == null || chambre.deletedAt != null || !chambre.isActive) {
+      throw StateError('Chambre introuvable.');
+    }
+    if (chambre.isOutOfOrder) {
+      throw StateError(
+        'La chambre ${chambre.number} est hors service : le ménage attendra '
+        'sa remise en service.',
+      );
+    }
+    final ouverte =
+        await (db.select(db.housekeepingTasks)..where(
+              (t) =>
+                  t.roomId.equals(roomId) &
+                  t.businessDate.equals(businessDateNow()) &
+                  t.deletedAt.isNull() &
+                  t.status.isNotInValues([
+                    TaskStatus.DONE,
+                    TaskStatus.INSPECTED,
+                    TaskStatus.CANCELLED,
+                  ]),
+            ))
+            .getSingleOrNull();
+    if (ouverte != null) return false;
+    await openTask(
+      roomId: roomId,
+      type: chambre.occupancyStatus == OccupancyStatus.OCCUPIED
+          ? HousekeepingTaskType.STAYOVER
+          : HousekeepingTaskType.REFRESH,
+      by: by,
+    );
+    return true;
+  }
+
   /// La femme de chambre commence : la chambre passe en nettoyage.
   ///
   /// La reception le voit aussitot sur son plan -- c'est tout l'interet
