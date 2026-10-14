@@ -398,7 +398,10 @@ un prix saisi librement : `POST /stays/walk-in` (`app/api/v1/stays.py`,
 droits `reservation.create` + `folio.write`) crée d'un geste la fiche si elle
 manque, le dossier, l'arrivée, l'ardoise et **une seule charge** du prix du
 séjour entier. Migration 0025 : `is_walk_in`, `stay_unit`, `departure_at`,
-`rate_set_by` sur `reservation_rooms`. Serveur fait ; l'écran suit (D7).
+`rate_set_by` sur `reservation_rooms`. Tablette : écran « Arrivée directe »
+(`/reservations/arrivee-directe`, bouton sur Réservations et Aujourd'hui),
+`ReservationRepository.arriveeDirecte`, schéma local 9 — D5 et D6 prendront
+10 et 11.
 
 - **Un séjour en heures part à `departure_at`** (instant UTC). Sa
   `departure_date` vaut le lendemain parce que le schéma l'exige : ne jamais

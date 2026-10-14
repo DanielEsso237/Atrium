@@ -521,6 +521,10 @@ class FolioRepository with OutboxWriter {
       db.reservationRooms,
     )..where((rr) => rr.id.equals(stayLineId))).getSingleOrNull();
     if (line == null) return 0;
+    // Une arrivee directe a deja sa charge du sejour entier, au prix convenu :
+    // porter ses nuits une a une la ferait payer deux fois (le serveur rendrait
+    // sa charge, mais la tablette garderait une ligne en trop).
+    if (line.isWalkIn) return 0;
 
     final arrival = parseIsoDate(line.arrivalDate);
     final departure = parseIsoDate(line.departureDate);

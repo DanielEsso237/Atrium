@@ -821,6 +821,10 @@ class Descente {
                   status: Value(_reservationStatus(l.status)),
                   checkedInAt: Value(l.checkedInAt),
                   checkedOutAt: Value(l.checkedOutAt),
+                  isWalkIn: Value(l.isWalkIn),
+                  stayUnit: Value(l.stayUnit),
+                  departureAt: Value(l.departureAt),
+                  rateSetBy: Value(l.rateSetBy),
                   syncState: const Value(SyncState.synced),
                 ),
               );

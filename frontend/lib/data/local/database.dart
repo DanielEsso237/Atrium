@@ -115,9 +115,9 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// va avec dans `onUpgrade`. Oublier l'un des deux casse les tablettes
   /// deja deployees : celles-ci gardent leur ancien schema et echouent sur
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
-  /// fonctionne — le pire cas, parce qu'il ne se voit pas en developpement.
+  /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -186,10 +186,19 @@ class AtriumDatabase extends _$AtriumDatabase {
       }
       // 7 -> 8 : les ardoises du comptoir. Un client consomme au bar et paie
       // a la fin ; son ardoise appartient au point de vente et porte un
-      // numero (« Passage n°3 »).
+      // numero (Â« Passage nÂ°3 Â»).
       if (depuis < 8) {
         await m.addColumn(folios, folios.outletId);
         await m.addColumn(folios, folios.tabNumber);
+      }
+      // 8 -> 9 : l'arrivee directe. Un voyageur sans reservation prend une
+      // chambre en nuits ou en heures ; un sejour en heures part a
+      // `departure_at`, pas a `departure_date`.
+      if (depuis < 9) {
+        await m.addColumn(reservationRooms, reservationRooms.isWalkIn);
+        await m.addColumn(reservationRooms, reservationRooms.stayUnit);
+        await m.addColumn(reservationRooms, reservationRooms.departureAt);
+        await m.addColumn(reservationRooms, reservationRooms.rateSetBy);
       }
     },
     beforeOpen: (details) async {

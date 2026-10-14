@@ -19,6 +19,7 @@ import '../features/orders/orders_screen.dart';
 import '../features/outlets/outlet_cash_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/reports/reports_screen.dart';
+import '../features/reservations/arrivee_directe_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/billing/cash_screen.dart';
@@ -44,6 +45,8 @@ import '../features/rooms/room_board_screen.dart';
 /// ecran Menage.
 const _permissionParZone = <String, String>{
   '/chambres': 'reservation.read',
+  // Avant '/reservations' : la premiere zone qui correspond l'emporte.
+  '/reservations/arrivee-directe': 'reservation.create',
   '/reservations': 'reservation.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
@@ -191,6 +194,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => NewReservationScreen(
                   guestId: state.uri.queryParameters['client'],
                 ),
+              ),
+              GoRoute(
+                path: 'arrivee-directe',
+                builder: (_, _) => const ArriveeDirecteScreen(),
               ),
             ],
           ),

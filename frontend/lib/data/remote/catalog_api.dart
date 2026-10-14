@@ -458,6 +458,10 @@ class RemoteStayLine {
     this.roomId,
     this.checkedInAt,
     this.checkedOutAt,
+    this.isWalkIn = false,
+    this.stayUnit,
+    this.departureAt,
+    this.rateSetBy,
   });
 
   final String id;
@@ -471,6 +475,14 @@ class RemoteStayLine {
   final String? roomId;
   final DateTime? checkedInAt;
   final DateTime? checkedOutAt;
+
+  /// L'arrivee directe : `stayUnit` (`NIGHTS`, `HOURS`) et, en heures,
+  /// l'heure de depart `departureAt` -- c'est elle qui fait foi, pas
+  /// `departureDate`.
+  final bool isWalkIn;
+  final String? stayUnit;
+  final DateTime? departureAt;
+  final String? rateSetBy;
 
   static RemoteStayLine? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['room_type_id'] == null) {
@@ -488,6 +500,10 @@ class RemoteStayLine {
       roomId: _texte(raw['room_id']),
       checkedInAt: _instant(raw['checked_in_at']),
       checkedOutAt: _instant(raw['checked_out_at']),
+      isWalkIn: raw['is_walk_in'] == true,
+      stayUnit: _texte(raw['stay_unit']),
+      departureAt: _instant(raw['departure_at']),
+      rateSetBy: _texte(raw['rate_set_by']),
     );
   }
 }

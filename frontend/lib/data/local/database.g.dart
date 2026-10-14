@@ -18649,6 +18649,55 @@ class $ReservationRoomsTable extends ReservationRooms
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _isWalkInMeta = const VerificationMeta(
+    'isWalkIn',
+  );
+  @override
+  late final GeneratedColumn<bool> isWalkIn = GeneratedColumn<bool>(
+    'is_walk_in',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_walk_in" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _stayUnitMeta = const VerificationMeta(
+    'stayUnit',
+  );
+  @override
+  late final GeneratedColumn<String> stayUnit = GeneratedColumn<String>(
+    'stay_unit',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 8),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _departureAtMeta = const VerificationMeta(
+    'departureAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> departureAt = GeneratedColumn<DateTime>(
+    'departure_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateSetByMeta = const VerificationMeta(
+    'rateSetBy',
+  );
+  @override
+  late final GeneratedColumn<String> rateSetBy = GeneratedColumn<String>(
+    'rate_set_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -18678,6 +18727,10 @@ class $ReservationRoomsTable extends ReservationRooms
     notes,
     assignmentRejectedAt,
     assignmentRejectReason,
+    isWalkIn,
+    stayUnit,
+    departureAt,
+    rateSetBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -18894,6 +18947,33 @@ class $ReservationRoomsTable extends ReservationRooms
         ),
       );
     }
+    if (data.containsKey('is_walk_in')) {
+      context.handle(
+        _isWalkInMeta,
+        isWalkIn.isAcceptableOrUnknown(data['is_walk_in']!, _isWalkInMeta),
+      );
+    }
+    if (data.containsKey('stay_unit')) {
+      context.handle(
+        _stayUnitMeta,
+        stayUnit.isAcceptableOrUnknown(data['stay_unit']!, _stayUnitMeta),
+      );
+    }
+    if (data.containsKey('departure_at')) {
+      context.handle(
+        _departureAtMeta,
+        departureAt.isAcceptableOrUnknown(
+          data['departure_at']!,
+          _departureAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_set_by')) {
+      context.handle(
+        _rateSetByMeta,
+        rateSetBy.isAcceptableOrUnknown(data['rate_set_by']!, _rateSetByMeta),
+      );
+    }
     return context;
   }
 
@@ -19015,6 +19095,22 @@ class $ReservationRoomsTable extends ReservationRooms
         DriftSqlType.string,
         data['${effectivePrefix}assignment_reject_reason'],
       ),
+      isWalkIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_walk_in'],
+      )!,
+      stayUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stay_unit'],
+      ),
+      departureAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}departure_at'],
+      ),
+      rateSetBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rate_set_by'],
+      ),
     );
   }
 
@@ -19069,6 +19165,21 @@ class ReservationRoomRow extends DataClass
   /// l'agent pourquoi son attribution a saute.
   final DateTime? assignmentRejectedAt;
   final String? assignmentRejectReason;
+
+  /// L'arrivee directe (demande du 14 octobre) : un voyageur sans
+  /// reservation prend une chambre, pour des nuits ou quelques heures.
+  final bool isWalkIn;
+
+  /// `NIGHTS` ou `HOURS` ; nul pour un sejour reserve (des nuits).
+  final String? stayUnit;
+
+  /// L'heure de depart d'un sejour en heures, instant UTC. Pour lui,
+  /// `departureDate` vaut le lendemain parce que le schema l'exige : elle ne
+  /// doit pas etre lue.
+  final DateTime? departureAt;
+
+  /// Qui a saisi le prix, quand il differe du tarif de la categorie.
+  final String? rateSetBy;
   const ReservationRoomRow({
     required this.id,
     required this.createdAt,
@@ -19097,6 +19208,10 @@ class ReservationRoomRow extends DataClass
     this.notes,
     this.assignmentRejectedAt,
     this.assignmentRejectReason,
+    required this.isWalkIn,
+    this.stayUnit,
+    this.departureAt,
+    this.rateSetBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -19168,6 +19283,16 @@ class ReservationRoomRow extends DataClass
         assignmentRejectReason,
       );
     }
+    map['is_walk_in'] = Variable<bool>(isWalkIn);
+    if (!nullToAbsent || stayUnit != null) {
+      map['stay_unit'] = Variable<String>(stayUnit);
+    }
+    if (!nullToAbsent || departureAt != null) {
+      map['departure_at'] = Variable<DateTime>(departureAt);
+    }
+    if (!nullToAbsent || rateSetBy != null) {
+      map['rate_set_by'] = Variable<String>(rateSetBy);
+    }
     return map;
   }
 
@@ -19230,6 +19355,16 @@ class ReservationRoomRow extends DataClass
       assignmentRejectReason: assignmentRejectReason == null && nullToAbsent
           ? const Value.absent()
           : Value(assignmentRejectReason),
+      isWalkIn: Value(isWalkIn),
+      stayUnit: stayUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stayUnit),
+      departureAt: departureAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(departureAt),
+      rateSetBy: rateSetBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateSetBy),
     );
   }
 
@@ -19274,6 +19409,10 @@ class ReservationRoomRow extends DataClass
       assignmentRejectReason: serializer.fromJson<String?>(
         json['assignmentRejectReason'],
       ),
+      isWalkIn: serializer.fromJson<bool>(json['isWalkIn']),
+      stayUnit: serializer.fromJson<String?>(json['stayUnit']),
+      departureAt: serializer.fromJson<DateTime?>(json['departureAt']),
+      rateSetBy: serializer.fromJson<String?>(json['rateSetBy']),
     );
   }
   @override
@@ -19315,6 +19454,10 @@ class ReservationRoomRow extends DataClass
       'assignmentRejectReason': serializer.toJson<String?>(
         assignmentRejectReason,
       ),
+      'isWalkIn': serializer.toJson<bool>(isWalkIn),
+      'stayUnit': serializer.toJson<String?>(stayUnit),
+      'departureAt': serializer.toJson<DateTime?>(departureAt),
+      'rateSetBy': serializer.toJson<String?>(rateSetBy),
     };
   }
 
@@ -19346,6 +19489,10 @@ class ReservationRoomRow extends DataClass
     Value<String?> notes = const Value.absent(),
     Value<DateTime?> assignmentRejectedAt = const Value.absent(),
     Value<String?> assignmentRejectReason = const Value.absent(),
+    bool? isWalkIn,
+    Value<String?> stayUnit = const Value.absent(),
+    Value<DateTime?> departureAt = const Value.absent(),
+    Value<String?> rateSetBy = const Value.absent(),
   }) => ReservationRoomRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -19380,6 +19527,10 @@ class ReservationRoomRow extends DataClass
     assignmentRejectReason: assignmentRejectReason.present
         ? assignmentRejectReason.value
         : this.assignmentRejectReason,
+    isWalkIn: isWalkIn ?? this.isWalkIn,
+    stayUnit: stayUnit.present ? stayUnit.value : this.stayUnit,
+    departureAt: departureAt.present ? departureAt.value : this.departureAt,
+    rateSetBy: rateSetBy.present ? rateSetBy.value : this.rateSetBy,
   );
   ReservationRoomRow copyWithCompanion(ReservationRoomsCompanion data) {
     return ReservationRoomRow(
@@ -19438,6 +19589,12 @@ class ReservationRoomRow extends DataClass
       assignmentRejectReason: data.assignmentRejectReason.present
           ? data.assignmentRejectReason.value
           : this.assignmentRejectReason,
+      isWalkIn: data.isWalkIn.present ? data.isWalkIn.value : this.isWalkIn,
+      stayUnit: data.stayUnit.present ? data.stayUnit.value : this.stayUnit,
+      departureAt: data.departureAt.present
+          ? data.departureAt.value
+          : this.departureAt,
+      rateSetBy: data.rateSetBy.present ? data.rateSetBy.value : this.rateSetBy,
     );
   }
 
@@ -19470,7 +19627,11 @@ class ReservationRoomRow extends DataClass
           ..write('keyCardCode: $keyCardCode, ')
           ..write('notes: $notes, ')
           ..write('assignmentRejectedAt: $assignmentRejectedAt, ')
-          ..write('assignmentRejectReason: $assignmentRejectReason')
+          ..write('assignmentRejectReason: $assignmentRejectReason, ')
+          ..write('isWalkIn: $isWalkIn, ')
+          ..write('stayUnit: $stayUnit, ')
+          ..write('departureAt: $departureAt, ')
+          ..write('rateSetBy: $rateSetBy')
           ..write(')'))
         .toString();
   }
@@ -19504,6 +19665,10 @@ class ReservationRoomRow extends DataClass
     notes,
     assignmentRejectedAt,
     assignmentRejectReason,
+    isWalkIn,
+    stayUnit,
+    departureAt,
+    rateSetBy,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -19535,7 +19700,11 @@ class ReservationRoomRow extends DataClass
           other.keyCardCode == this.keyCardCode &&
           other.notes == this.notes &&
           other.assignmentRejectedAt == this.assignmentRejectedAt &&
-          other.assignmentRejectReason == this.assignmentRejectReason);
+          other.assignmentRejectReason == this.assignmentRejectReason &&
+          other.isWalkIn == this.isWalkIn &&
+          other.stayUnit == this.stayUnit &&
+          other.departureAt == this.departureAt &&
+          other.rateSetBy == this.rateSetBy);
 }
 
 class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
@@ -19566,6 +19735,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
   final Value<String?> notes;
   final Value<DateTime?> assignmentRejectedAt;
   final Value<String?> assignmentRejectReason;
+  final Value<bool> isWalkIn;
+  final Value<String?> stayUnit;
+  final Value<DateTime?> departureAt;
+  final Value<String?> rateSetBy;
   final Value<int> rowid;
   const ReservationRoomsCompanion({
     this.id = const Value.absent(),
@@ -19595,6 +19768,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     this.notes = const Value.absent(),
     this.assignmentRejectedAt = const Value.absent(),
     this.assignmentRejectReason = const Value.absent(),
+    this.isWalkIn = const Value.absent(),
+    this.stayUnit = const Value.absent(),
+    this.departureAt = const Value.absent(),
+    this.rateSetBy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ReservationRoomsCompanion.insert({
@@ -19625,6 +19802,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     this.notes = const Value.absent(),
     this.assignmentRejectedAt = const Value.absent(),
     this.assignmentRejectReason = const Value.absent(),
+    this.isWalkIn = const Value.absent(),
+    this.stayUnit = const Value.absent(),
+    this.departureAt = const Value.absent(),
+    this.rateSetBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -19661,6 +19842,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     Expression<String>? notes,
     Expression<DateTime>? assignmentRejectedAt,
     Expression<String>? assignmentRejectReason,
+    Expression<bool>? isWalkIn,
+    Expression<String>? stayUnit,
+    Expression<DateTime>? departureAt,
+    Expression<String>? rateSetBy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -19693,6 +19878,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
         'assignment_rejected_at': assignmentRejectedAt,
       if (assignmentRejectReason != null)
         'assignment_reject_reason': assignmentRejectReason,
+      if (isWalkIn != null) 'is_walk_in': isWalkIn,
+      if (stayUnit != null) 'stay_unit': stayUnit,
+      if (departureAt != null) 'departure_at': departureAt,
+      if (rateSetBy != null) 'rate_set_by': rateSetBy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -19725,6 +19914,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     Value<String?>? notes,
     Value<DateTime?>? assignmentRejectedAt,
     Value<String?>? assignmentRejectReason,
+    Value<bool>? isWalkIn,
+    Value<String?>? stayUnit,
+    Value<DateTime?>? departureAt,
+    Value<String?>? rateSetBy,
     Value<int>? rowid,
   }) {
     return ReservationRoomsCompanion(
@@ -19756,6 +19949,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
       assignmentRejectedAt: assignmentRejectedAt ?? this.assignmentRejectedAt,
       assignmentRejectReason:
           assignmentRejectReason ?? this.assignmentRejectReason,
+      isWalkIn: isWalkIn ?? this.isWalkIn,
+      stayUnit: stayUnit ?? this.stayUnit,
+      departureAt: departureAt ?? this.departureAt,
+      rateSetBy: rateSetBy ?? this.rateSetBy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -19852,6 +20049,18 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
         assignmentRejectReason.value,
       );
     }
+    if (isWalkIn.present) {
+      map['is_walk_in'] = Variable<bool>(isWalkIn.value);
+    }
+    if (stayUnit.present) {
+      map['stay_unit'] = Variable<String>(stayUnit.value);
+    }
+    if (departureAt.present) {
+      map['departure_at'] = Variable<DateTime>(departureAt.value);
+    }
+    if (rateSetBy.present) {
+      map['rate_set_by'] = Variable<String>(rateSetBy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -19888,6 +20097,10 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
           ..write('notes: $notes, ')
           ..write('assignmentRejectedAt: $assignmentRejectedAt, ')
           ..write('assignmentRejectReason: $assignmentRejectReason, ')
+          ..write('isWalkIn: $isWalkIn, ')
+          ..write('stayUnit: $stayUnit, ')
+          ..write('departureAt: $departureAt, ')
+          ..write('rateSetBy: $rateSetBy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -77795,6 +78008,10 @@ typedef $$ReservationRoomsTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<DateTime?> assignmentRejectedAt,
       Value<String?> assignmentRejectReason,
+      Value<bool> isWalkIn,
+      Value<String?> stayUnit,
+      Value<DateTime?> departureAt,
+      Value<String?> rateSetBy,
       Value<int> rowid,
     });
 typedef $$ReservationRoomsTableUpdateCompanionBuilder =
@@ -77826,6 +78043,10 @@ typedef $$ReservationRoomsTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<DateTime?> assignmentRejectedAt,
       Value<String?> assignmentRejectReason,
+      Value<bool> isWalkIn,
+      Value<String?> stayUnit,
+      Value<DateTime?> departureAt,
+      Value<String?> rateSetBy,
       Value<int> rowid,
     });
 
@@ -78044,6 +78265,26 @@ class $$ReservationRoomsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isWalkIn => $composableBuilder(
+    column: $table.isWalkIn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stayUnit => $composableBuilder(
+    column: $table.stayUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get departureAt => $composableBuilder(
+    column: $table.departureAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rateSetBy => $composableBuilder(
+    column: $table.rateSetBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ReservationsTableFilterComposer get reservationId {
     final $$ReservationsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -78257,6 +78498,26 @@ class $$ReservationRoomsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isWalkIn => $composableBuilder(
+    column: $table.isWalkIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stayUnit => $composableBuilder(
+    column: $table.stayUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get departureAt => $composableBuilder(
+    column: $table.departureAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rateSetBy => $composableBuilder(
+    column: $table.rateSetBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ReservationsTableOrderingComposer get reservationId {
     final $$ReservationsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -78394,6 +78655,20 @@ class $$ReservationRoomsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isWalkIn =>
+      $composableBuilder(column: $table.isWalkIn, builder: (column) => column);
+
+  GeneratedColumn<String> get stayUnit =>
+      $composableBuilder(column: $table.stayUnit, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get departureAt => $composableBuilder(
+    column: $table.departureAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rateSetBy =>
+      $composableBuilder(column: $table.rateSetBy, builder: (column) => column);
+
   $$ReservationsTableAnnotationComposer get reservationId {
     final $$ReservationsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -78530,6 +78805,10 @@ class $$ReservationRoomsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> assignmentRejectedAt = const Value.absent(),
                 Value<String?> assignmentRejectReason = const Value.absent(),
+                Value<bool> isWalkIn = const Value.absent(),
+                Value<String?> stayUnit = const Value.absent(),
+                Value<DateTime?> departureAt = const Value.absent(),
+                Value<String?> rateSetBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReservationRoomsCompanion(
                 id: id,
@@ -78559,6 +78838,10 @@ class $$ReservationRoomsTableTableManager
                 notes: notes,
                 assignmentRejectedAt: assignmentRejectedAt,
                 assignmentRejectReason: assignmentRejectReason,
+                isWalkIn: isWalkIn,
+                stayUnit: stayUnit,
+                departureAt: departureAt,
+                rateSetBy: rateSetBy,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -78590,6 +78873,10 @@ class $$ReservationRoomsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> assignmentRejectedAt = const Value.absent(),
                 Value<String?> assignmentRejectReason = const Value.absent(),
+                Value<bool> isWalkIn = const Value.absent(),
+                Value<String?> stayUnit = const Value.absent(),
+                Value<DateTime?> departureAt = const Value.absent(),
+                Value<String?> rateSetBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReservationRoomsCompanion.insert(
                 id: id,
@@ -78619,6 +78906,10 @@ class $$ReservationRoomsTableTableManager
                 notes: notes,
                 assignmentRejectedAt: assignmentRejectedAt,
                 assignmentRejectReason: assignmentRejectReason,
+                isWalkIn: isWalkIn,
+                stayUnit: stayUnit,
+                departureAt: departureAt,
+                rateSetBy: rateSetBy,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

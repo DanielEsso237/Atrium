@@ -83,6 +83,21 @@ class ReservationRooms extends Table with SyncedTableColumns {
   DateTimeColumn get assignmentRejectedAt => dateTime().nullable()();
   TextColumn get assignmentRejectReason =>
       text().withLength(max: 255).nullable()();
+
+  /// L'arrivee directe (demande du 14 octobre) : un voyageur sans
+  /// reservation prend une chambre, pour des nuits ou quelques heures.
+  BoolColumn get isWalkIn => boolean().withDefault(const Constant(false))();
+
+  /// `NIGHTS` ou `HOURS` ; nul pour un sejour reserve (des nuits).
+  TextColumn get stayUnit => text().withLength(max: 8).nullable()();
+
+  /// L'heure de depart d'un sejour en heures, instant UTC. Pour lui,
+  /// `departureDate` vaut le lendemain parce que le schema l'exige : elle ne
+  /// doit pas etre lue.
+  DateTimeColumn get departureAt => dateTime().nullable()();
+
+  /// Qui a saisi le prix, quand il differe du tarif de la categorie.
+  TextColumn get rateSetBy => text().nullable()();
 }
 
 /// Une nuit facturable d'un sejour.
