@@ -39,6 +39,14 @@ class _ServeurQuiNote extends ApiClient {
     routes.add(path);
     return {};
   }
+
+  final patchs = <(String, Object?)>[];
+
+  @override
+  Future<Map<String, dynamic>> patch(String path, {Object? body}) async {
+    patchs.add((path, body));
+    return {};
+  }
 }
 
 void main() {
@@ -128,7 +136,7 @@ void main() {
     expect((await folio(seconde)).tabNumber, 2);
     expect((await folio(seconde)).outletId, bar.id);
     final liste = await ardoises.watchArdoises(bar.id).first;
-    expect(liste.map((a) => a.titre), containsAll(['Passage n°1', 'Passage n°2']));
+    expect(liste.map((a) => a.titre), containsAll(['Client divers n°1', 'Client divers n°2']));
     expect((await file()).where((p) => p['action'] == 'TAB_OPEN'), hasLength(2));
   });
 
@@ -286,5 +294,77 @@ void main() {
       serveur.routes.indexOf('/outlet-tabs'),
       lessThan(serveur.routes.indexOf('/folios/$id/items')),
     );
+  });
+
+  group('nommer une ardoise (14 octobre)', () {
+    test('le nom remplace « Client divers n°1 », le numero reste', () async {
+      await ouvrirCaisse();
+      final id = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+
+      await ardoises.renommer(ardoiseId: id, nom: '  Table 4 ');
+
+      final f = await folio(id);
+      expect(f.tabLabel, 'Table 4');
+      expect(f.tabNumber, 1);
+      expect(f.syncState, SyncState.pending);
+      final a = (await ardoises.watchArdoises(bar.id).first).single;
+      expect(a.titre, 'Table 4');
+      expect(a.numeroSousLeNom, 'Client divers n°1');
+      expect(
+        (await file()).where((p) => p['action'] == 'TAB_RENAME').single['label'],
+        'Table 4',
+      );
+    });
+
+    test('un nom vide remet le nom par defaut', () async {
+      await ouvrirCaisse();
+      final id = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+      await ardoises.renommer(ardoiseId: id, nom: 'Table 4');
+      await ardoises.renommer(ardoiseId: id, nom: '   ');
+
+      expect((await folio(id)).tabLabel, isNull);
+      final a = (await ardoises.watchArdoises(bar.id).first).single;
+      expect(a.titre, 'Client divers n°1');
+      expect(a.numeroSousLeNom, isNull);
+      final renommages = (await file()).where(
+        (p) => p['action'] == 'TAB_RENAME',
+      );
+      expect(renommages.last['label'], isNull);
+    });
+
+    test('plus de 60 caracteres, ou une ardoise close : refuse', () async {
+      await ouvrirCaisse();
+      final id = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+      await expectLater(
+        ardoises.renommer(ardoiseId: id, nom: 'x' * 61),
+        throwsStateError,
+      );
+      await ardoises.renommer(ardoiseId: id, nom: 'Table 4');
+      await servir(id, 1000);
+      await ardoises.payer(
+        pointDeVente: bar,
+        ardoiseId: id,
+        moyen: PaymentMethod.CASH,
+        by: utilisateurDemo,
+      );
+      await expectLater(
+        ardoises.renommer(ardoiseId: id, nom: 'Table 5'),
+        throwsStateError,
+      );
+      // Redonner le nom qu'elle porte ne change rien : pas de refus.
+      await ardoises.renommer(ardoiseId: id, nom: 'Table 4');
+    });
+
+    test('le renommage part en PATCH /outlet-tabs/{id}', () async {
+      await ouvrirCaisse();
+      final id = await ardoises.ouvrir(pointDeVente: bar, by: utilisateurDemo);
+      await ardoises.renommer(ardoiseId: id, nom: 'Table 4');
+      final serveur = _ServeurQuiNote();
+
+      await OutboxSender(db: db, api: serveur).drain();
+
+      expect(serveur.patchs.single.$1, '/outlet-tabs/$id');
+      expect(serveur.patchs.single.$2, {'label': 'Table 4'});
+    });
   });
 }

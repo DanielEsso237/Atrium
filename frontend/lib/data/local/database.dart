@@ -117,7 +117,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -199,6 +199,10 @@ class AtriumDatabase extends _$AtriumDatabase {
         await m.addColumn(reservationRooms, reservationRooms.stayUnit);
         await m.addColumn(reservationRooms, reservationRooms.departureAt);
         await m.addColumn(reservationRooms, reservationRooms.rateSetBy);
+      }
+      // 9 -> 10 : le comptoir nomme une ardoise (« Table 4 »).
+      if (depuis < 10) {
+        await m.addColumn(folios, folios.tabLabel);
       }
     },
     beforeOpen: (details) async {

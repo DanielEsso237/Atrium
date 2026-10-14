@@ -594,6 +594,12 @@ class OutboxSender {
                 'guest_id': p['guest_id'],
               }),
             );
+          case 'TAB_RENAME':
+            return _Envoi(
+              '/outlet-tabs/${p['id']}',
+              {'label': p['label']},
+              methode: _Methode.patch,
+            );
           case 'TAB_SETTLE':
             return _Envoi('/outlet-tabs/${p['id']}/settle', {
               'payment': p['payment'],

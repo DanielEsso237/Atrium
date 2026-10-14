@@ -32,10 +32,14 @@ class Folios extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get restaurantTableId => text().nullable()();
 
   /// L'ardoise d'un comptoir (decision du 12 octobre) : le point de vente a
-  /// qui elle appartient, et son numero au comptoir (« Passage n°3 »). Le
-  /// client y consomme au fil de la soiree et paie a la fin.
+  /// qui elle appartient, et son numero au comptoir (« Client divers
+  /// n°3 »). Le client y consomme au fil de la soiree et paie a la fin.
   TextColumn get outletId => text().nullable()();
   IntColumn get tabNumber => integer().nullable()();
+
+  /// Le nom que le comptoir donne a l'ardoise pour reconnaitre son client
+  /// (« Table 4 », demande du 14 octobre). Nul : le nom par defaut.
+  TextColumn get tabLabel => text().withLength(max: 60).nullable()();
 
   /// Totaux tenus a jour a chaque ecriture, en francs CFA, entiers.
   ///

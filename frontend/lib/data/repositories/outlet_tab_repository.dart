@@ -2,7 +2,8 @@
 ///
 /// Decision du 12 octobre. Au bar, un client prend une biere, puis un jus,
 /// et demande sa note en partant. Son ardoise appartient au point de vente et
-/// porte un numero (« Passage n°3 ») ; un client loge a la sienne, a son nom.
+/// porte un numero (« Client divers n°3 »), et le nom que le comptoir lui
+/// donne pour reconnaitre son client (« Table 4 ») ; un client loge a la sienne, a son nom.
 /// Elle se termine de trois facons : payee au comptoir, portee a la chambre,
 /// ou annulee avec un motif par un responsable.
 ///
@@ -52,6 +53,7 @@ class Ardoise {
     this.clientId,
     this.client,
     this.chambre,
+    this.nom,
     this.ouverteLe,
     this.fermeeLe,
   });
@@ -59,8 +61,12 @@ class Ardoise {
   final String id;
   final String pointDeVente;
 
-  /// « Passage n°3 ». Nul pour une ardoise venue d'un serveur plus ancien.
+  /// « Client divers n°3 ». Nul pour une ardoise venue d'un serveur plus
+  /// ancien.
   final int? numero;
+
+  /// Le nom donne par le comptoir (« Table 4 »), s'il en a donne un.
+  final String? nom;
   final EtatArdoise etat;
 
   /// Ce qui a ete consomme (lignes annulees exclues).
@@ -81,13 +87,27 @@ class Ardoise {
 
   bool get ouverte => etat == EtatArdoise.aPayer;
 
-  /// Ce qu'affiche la tuile : la chambre et le nom, ou le numero de passage.
+  /// Ce qu'affiche la tuile : la chambre et le client loge, sinon le nom
+  /// donne par le comptoir, sinon le numero.
   String get titre {
     if (client != null) {
       return chambre == null ? client! : '$chambre · $client';
     }
-    return numero == null ? 'Client de passage' : 'Passage n°$numero';
+    return nom ?? nomParDefaut;
   }
+
+  /// « Client divers n°3 » : le nom d'une ardoise que personne n'a nommee.
+  String get nomParDefaut =>
+      numero == null ? 'Client divers' : 'Client divers n°$numero';
+
+  /// Le numero, a garder en petit sous un nom donne : c'est lui que le
+  /// serveur et les rapports connaissent.
+  String? get numeroSousLeNom =>
+      client == null && nom != null ? nomParDefaut : null;
+
+  /// Seule l'ardoise d'un client de passage se nomme : celle d'un client
+  /// loge porte deja son nom et sa chambre.
+  bool get nommable => client == null && ouverte;
 }
 
 /// Une consommation de l'ardoise.
@@ -125,7 +145,7 @@ class OutletTabRepository with OutboxWriter {
     return db
         .customSelect(
           '''
-      SELECT f.id, f.outlet_id, f.tab_number, f.status, f.guest_id,
+      SELECT f.id, f.outlet_id, f.tab_number, f.tab_label, f.status, f.guest_id,
              f.charges_total, f.payments_total, f.balance,
              f.opened_at, f.closed_at,
              g.first_name, g.last_name,
@@ -191,6 +211,7 @@ class OutletTabRepository with OutboxWriter {
       clientId: r.readNullable<String>('guest_id'),
       client: nom == null ? null : '${prenom ?? ''} $nom'.trim(),
       chambre: r.readNullable<String>('chambre'),
+      nom: r.readNullable<String>('tab_label'),
       ouverteLe: r.readNullable<DateTime>('opened_at'),
       fermeeLe: r.readNullable<DateTime>('closed_at'),
     );
@@ -337,7 +358,7 @@ class OutletTabRepository with OutboxWriter {
               tabNumber: Value(numero),
               guestId: Value(guestId),
               openedAt: Value(now),
-              notes: Value('Ardoise n°$numero - ${pointDeVente.label}'),
+              notes: Value('Client divers n°$numero - ${pointDeVente.label}'),
               syncState: const Value(SyncState.pending),
             ),
           );
@@ -356,6 +377,54 @@ class OutletTabRepository with OutboxWriter {
     });
     return id;
   }
+
+  /// Nomme l'ardoise pour reconnaitre son client (« Table 4 », demande du
+  /// 14 octobre). Un nom vide remet le nom par defaut ; le numero ne change
+  /// pas. `PATCH /outlet-tabs/{id}` refuse une ardoise close (409) : refuse
+  /// ici d'abord, sauf a redonner le nom qu'elle porte deja, ce qui ne
+  /// change rien.
+  Future<void> renommer({
+    required String ardoiseId,
+    required String nom,
+  }) async {
+    final propre = nom.trim();
+    if (propre.length > longueurMaxNom) {
+      throw StateError(
+        'Le nom fait $longueurMaxNom caractères au plus.',
+      );
+    }
+    final nouveau = propre.isEmpty ? null : propre;
+    final f = await (db.select(
+      db.folios,
+    )..where((f) => f.id.equals(ardoiseId))).getSingleOrNull();
+    if (f == null || f.outletId == null) {
+      throw StateError('Ardoise introuvable.');
+    }
+    if (f.tabLabel == nouveau) return;
+    if (f.status != FolioStatus.OPEN) {
+      throw StateError('Cette ardoise est déjà close.');
+    }
+    final now = DateTime.now().toUtc();
+    await db.transaction(() async {
+      await (db.update(db.folios)..where((f) => f.id.equals(ardoiseId))).write(
+        FoliosCompanion(
+          tabLabel: Value(nouveau),
+          updatedAt: Value(now),
+          // Protege de la descente jusqu'a la remontee du nom.
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+      await enqueue(
+        table: 'folios',
+        id: ardoiseId,
+        operation: SyncOp.UPDATE,
+        payload: {'id': ardoiseId, 'action': 'TAB_RENAME', 'label': nouveau},
+      );
+    });
+  }
+
+  /// Le nom d'une ardoise tient en 60 caracteres, comme sur le serveur.
+  static const longueurMaxNom = 60;
 
   /// Sert une consommation sur l'ardoise.
   ///

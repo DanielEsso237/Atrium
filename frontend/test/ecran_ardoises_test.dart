@@ -1,6 +1,6 @@
 /// L'ecran Commandes montre les ardoises du comptoir.
 ///
-/// Decision du 12 octobre : une tuile par ardoise (« Passage n°1 »), ce qui
+/// Decision du 12 octobre : une tuile par ardoise (« Client divers n°1 »), ce qui
 /// reste a payer, et sa fiche avec les gestes. Les filtres : en cours, non
 /// payees (par defaut) ; payees aujourd'hui ; toutes.
 library;
@@ -92,11 +92,11 @@ void main() {
     await attendre(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Passage n°1'), findsOneWidget);
+    expect(find.text('Client divers n°1'), findsOneWidget);
     expect(find.text('À payer'), findsOneWidget);
     expect(find.text('En cours, non payées'), findsOneWidget);
 
-    await tester.tap(find.text('Passage n°1'));
+    await tester.tap(find.text('Client divers n°1'));
     await attendre(tester);
 
     expect(tester.takeException(), isNull);
