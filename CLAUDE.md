@@ -375,6 +375,8 @@ serveur : données d'essai, non reprises (décision du 11 octobre).
   `/accounting/stock-value`, sous `accounting.read` (administrateur,
   direction, contrôleur, comptable — **pas le comptoir** : une marge lui
   donnerait la recette d'un tiroir qu'il compte à l'aveugle).
+  La valeur du stock s'ouvre aussi à `stock.manage` : l'économe la lit, pas
+  les marges.
 - Ce qui ne sort d'aucun stock n'a pas de coût connu : sa recette reste hors
   de la marge (`uncosted_revenue`).
 
@@ -388,8 +390,9 @@ nouvelle catégorie aux nuits pas encore facturées. La ligne passe dans la
 catégorie de la chambre — la disponibilité se compte là où le client dort —
 et garde `booked_room_type_id`, `upgrade_reason`, `upgraded_by` (migration
 0024). Serveur fait ; l'écran suit (ticket D6), avec les mêmes refus avant
-la file. **Le serveur ne vérifie pas que la nouvelle catégorie reste
-disponible les nuits suivantes** : à trancher avec Daniel.
+la file. **La nouvelle catégorie doit rester libre sur toute la durée du
+séjour** (409 sinon, tranché par Daniel le 14 octobre) : une chambre libre
+ce soir mais promise demain ne se surclasse pas pour deux nuits.
 
 ## L'arrivée directe (14 octobre)
 

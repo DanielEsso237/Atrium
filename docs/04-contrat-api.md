@@ -306,9 +306,16 @@ surclassement), `upgrade_reason` et `upgraded_by`. La disponibilité se compte
 par `room_type_id` : la chambre est prise dans la nouvelle catégorie, la
 catégorie réservée est libérée.
 
+**La nouvelle catégorie doit rester libre sur toute la durée du séjour**
+(décision du 14 octobre) : 409 « Plus de disponibilité… » sinon. Une chambre
+libre ce soir mais promise demain à une réservation de sa catégorie n'est
+pas surclassable pour deux nuits. Seules les nuits qui restent comptent, de
+la journée hôtelière en cours au départ ; un séjour en heures n'en occupe
+aucune.
+
 Rejouable comme avant : un second envoi identique rend 200 sans rien refaire.
 **La tablette doit faire les mêmes refus avant d'envoyer** (catégorie
-identique, motif vide, tarif payant sans le droit).
+identique, motif vide, tarif payant sans le droit, catégorie complète).
 
 ## L'arrivée directe
 
@@ -659,8 +666,9 @@ marge d'une semaine passée ne bouge pas à la livraison suivante.
   d'aucun stock (plat du jour, service) n'a pas de coût connu : sa recette
   est dans `revenue` et dans `uncosted_revenue`, **hors de la marge**. Une
   ligne annulée ne compte ni en recette ni en coût.
-- `GET /accounting/stock-value?stock_location_id=` : par magasin, l'économat
-  d'abord, `value` et le détail par produit (quantité × coût). Un stock
+- `GET /accounting/stock-value?stock_location_id=` (`accounting.read` **ou**
+  `stock.manage` : l'économe lit la valeur du stock qu'il tient, pas les
+  marges) : par magasin, l'économat d'abord, `value` et le détail par produit (quantité × coût). Un stock
   négatif vaut zéro : c'est une livraison pas encore saisie, pas une dette.
 
 ## La pagination

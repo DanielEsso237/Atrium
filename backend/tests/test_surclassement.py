@@ -271,6 +271,85 @@ async def test_la_chambre_est_prise_dans_la_nouvelle_categorie(client, auth_a, c
     assert (await reservees(chambres["standard"]), await reservees(chambres["suite"])) == (0, 1)
 
 
+async def test_pas_de_surclassement_vers_une_categorie_promise(
+    client, session, auth_a, chambres
+):
+    """La suite est libre ce soir mais reservee pour la seconde nuit : y
+    surclasser un client pour deux nuits la surreserverait."""
+    res_id, line_id = await _reserver(client, auth_a, chambres["standard"])
+    awa = (
+        await client.post(
+            "/api/v1/guests", json={"first_name": "Kofi", "last_name": "Mensah"}, headers=auth_a
+        )
+    ).json()
+    r = await client.post(
+        "/api/v1/reservations",
+        json={
+            "id": str(uuid7()), "guest_id": awa["id"],
+            "rooms": [{
+                "id": str(uuid7()), "room_type_id": chambres["suite"],
+                "arrival_date": str(ARRIVAL + dt.timedelta(days=1)),
+                "departure_date": str(DEPARTURE),
+            }],
+        },
+        headers=auth_a,
+    )
+    assert r.status_code == 201, r.text
+
+    for upgrade in (OFFERT, PAYANT):
+        r = await _arriver(client, auth_a, res_id, line_id, chambres["501"], upgrade)
+        assert r.status_code == 409, r.text
+        assert "disponibilite" in r.json()["detail"]
+    # Rien n'a bouge : la ligne, son tarif, la suite.
+    ligne = await _ligne(session, line_id)
+    assert str(ligne.room_type_id) == chambres["standard"]
+    assert (ligne.booked_room_type_id, ligne.nightly_rate) == (None, 25_000)
+    assert await _occupation(session, chambres["501"]) == OccupancyStatus.VACANT
+
+    # Dans sa categorie, l'arrivee se fait ; et en cours de sejour, le meme
+    # refus vaut pour le changement de chambre.
+    assert (await _arriver(client, auth_a, res_id, line_id, chambres["101"])).status_code == 200
+    r = await client.post(
+        f"/api/v1/reservations/{res_id}/rooms/{line_id}/change-room",
+        json={"room_id": chambres["501"], "upgrade": OFFERT},
+        headers=auth_a,
+    )
+    assert r.status_code == 409, r.text
+    assert await _occupation(session, chambres["101"]) == OccupancyStatus.OCCUPIED
+    assert await _occupation(session, chambres["501"]) == OccupancyStatus.VACANT
+
+
+async def test_une_reservation_qui_ne_croise_pas_le_sejour_ne_gene_pas(
+    client, auth_a, chambres
+):
+    """La suite est reservee a partir du jour du depart : elle est libre sur
+    toute la duree du sejour, le surclassement passe."""
+    res_id, line_id = await _reserver(client, auth_a, chambres["standard"])
+    kofi = (
+        await client.post(
+            "/api/v1/guests", json={"first_name": "Kofi", "last_name": "Mensah"}, headers=auth_a
+        )
+    ).json()
+    r = await client.post(
+        "/api/v1/reservations",
+        json={
+            "id": str(uuid7()), "guest_id": kofi["id"],
+            "rooms": [{
+                "id": str(uuid7()), "room_type_id": chambres["suite"],
+                "arrival_date": str(DEPARTURE),
+                "departure_date": str(DEPARTURE + dt.timedelta(days=2)),
+            }],
+        },
+        headers=auth_a,
+    )
+    assert r.status_code == 201, r.text
+
+    r = await _arriver(client, auth_a, res_id, line_id, chambres["501"], OFFERT)
+
+    assert r.status_code == 200, r.text
+    assert r.json()["rooms"][0]["room_type_id"] == chambres["suite"]
+
+
 # --- En cours de sejour ---------------------------------------------------------
 
 

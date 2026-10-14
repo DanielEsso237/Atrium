@@ -19,6 +19,8 @@ de la marge : l'y mettre le donnerait pour gratuit.
 Un droit a part, `accounting.read` : le comptoir lit son stock
 (`stock.read`) mais compte son tiroir a l'aveugle, et une marge lui donnerait
 sa recette.
+La valeur du stock s'ouvre aussi a qui tient l'economat
+(`stock.manage`) : c'est son stock, et elle ne dit rien d'une recette.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import require_any_permission, require_permission
 from app.db.session import get_session
 from app.models import (
     Folio,
@@ -238,7 +240,9 @@ async def margins(
 async def stock_value(
     stock_location_id: uuid.UUID | None = Query(default=None, description="Un seul magasin"),
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("accounting.read")),
+    # L'econome tient ce stock : il en lit la valeur (decision du 14
+    # octobre). Les marges, elles, restent a `accounting.read` seul.
+    user: User = Depends(require_any_permission("accounting.read", "stock.manage")),
 ) -> StockValueOut:
     """Ce que vaut le stock de chaque magasin, au cout moyen de chaque produit."""
     stmt = select(StockLocation).where(

@@ -426,6 +426,25 @@ async def test_le_comptoir_ne_lit_ni_les_marges_ni_la_valeur_du_stock(
         assert r.status_code == 403, route
 
 
+async def test_l_econome_lit_la_valeur_du_stock_pas_les_marges(
+    client, session, hotel_a, login, semaine
+):
+    """Il tient l'economat : il en lit la valeur. Les marges des points de
+    vente ne sont pas son affaire."""
+    h, _ = hotel_a
+    await _agent(session, h, "ECONOME_A", ["stock.read", "stock.manage"])
+    auth = {"Authorization": f"Bearer {await login(client, 'ECONOME_A')}"}
+
+    r = await client.get("/api/v1/accounting/stock-value", headers=auth)
+    assert r.status_code == 200, r.text
+    # 10 bieres a 550 a l'economat, 6 au bar.
+    assert r.json()["value"] == 16 * 550
+
+    for route in ("margins", "product-margins"):
+        r = await client.get(f"/api/v1/accounting/{route}", headers=auth)
+        assert r.status_code == 403, route
+
+
 async def test_un_autre_hotel_ne_voit_rien(client, hotel_b, login, semaine):
     auth_b = {"Authorization": f"Bearer {await login(client, 'ADMIN_B')}"}
 
