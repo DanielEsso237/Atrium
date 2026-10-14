@@ -959,7 +959,10 @@ class OutboxSender {
     // statut, sinon il repartirait comme un second check-in, que le serveur
     // refuse et qui bloquerait la file.
     if (p['action'] == 'CHANGE_ROOM') {
-      return _Envoi('$chemin/change-room', {'room_id': p['room_id']});
+      return _Envoi(
+        '$chemin/change-room',
+        _sansNuls({'room_id': p['room_id'], 'upgrade': p['upgrade']}),
+      );
     }
 
     switch (p['status']) {
@@ -972,6 +975,9 @@ class OutboxSender {
             // qu'elle remonte, ce qui suffit puisque le serveur n'a besoin de
             // connaitre la chambre qu'a l'arrivee.
             'room_id': p['room_id'] ?? ligne.read<String?>('room_id'),
+            // Une chambre d'une categorie superieure : sans lui, le serveur
+            // la refuse (422).
+            'upgrade': p['upgrade'],
           }),
         );
 

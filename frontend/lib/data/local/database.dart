@@ -206,7 +206,12 @@ class AtriumDatabase extends _$AtriumDatabase {
       if (depuis < 10) {
         await m.addColumn(folios, folios.tabLabel);
       }
-      // 11 : reserve au surclassement sur la tablette (ticket D6).
+      // 10 -> 11 : le surclassement, sa categorie reservee et son motif.
+      if (depuis < 11) {
+        await m.addColumn(reservationRooms, reservationRooms.bookedRoomTypeId);
+        await m.addColumn(reservationRooms, reservationRooms.upgradeReason);
+        await m.addColumn(reservationRooms, reservationRooms.upgradedBy);
+      }
       // 11 -> 12 : le benefice. Les depenses de l'hotel hors stock, et ce
       // que chaque journee a coute en stock, calcule par le serveur.
       if (depuis < 12) {

@@ -462,6 +462,9 @@ class RemoteStayLine {
     this.stayUnit,
     this.departureAt,
     this.rateSetBy,
+    this.bookedRoomTypeId,
+    this.upgradeReason,
+    this.upgradedBy,
   });
 
   final String id;
@@ -484,6 +487,11 @@ class RemoteStayLine {
   final DateTime? departureAt;
   final String? rateSetBy;
 
+  /// Le surclassement : la categorie reservee, le motif, qui l'a decide.
+  final String? bookedRoomTypeId;
+  final String? upgradeReason;
+  final String? upgradedBy;
+
   static RemoteStayLine? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['room_type_id'] == null) {
       return null;
@@ -504,6 +512,9 @@ class RemoteStayLine {
       stayUnit: _texte(raw['stay_unit']),
       departureAt: _instant(raw['departure_at']),
       rateSetBy: _texte(raw['rate_set_by']),
+      bookedRoomTypeId: _texte(raw['booked_room_type_id']),
+      upgradeReason: _texte(raw['upgrade_reason']),
+      upgradedBy: _texte(raw['upgraded_by']),
     );
   }
 }

@@ -389,8 +389,13 @@ défaut (le tarif réservé reste) ; `keep_rate: false` applique le tarif de la
 nouvelle catégorie aux nuits pas encore facturées. La ligne passe dans la
 catégorie de la chambre — la disponibilité se compte là où le client dort —
 et garde `booked_room_type_id`, `upgrade_reason`, `upgraded_by` (migration
-0024). Serveur fait ; l'écran suit (ticket D6), avec les mêmes refus avant
-la file. **La nouvelle catégorie doit rester libre sur toute la durée du
+0024). Tablette (D6, schéma local 11) : « Donner une chambre supérieure »
+dans la fenêtre d'arrivée, les catégories supérieures au changement de
+chambre, motif obligatoire, payant réservé à `reservation.manage`, et les
+mêmes refus avant la file. **On ne surclasse que vers une catégorie
+supérieure** (décision du 15 octobre) : un `default_rate` plus élevé que
+celui de la catégorie actuelle de la ligne. La tablette le refuse ; le
+serveur doit suivre. **La nouvelle catégorie doit rester libre sur toute la durée du
 séjour** (409 sinon, tranché par Daniel le 14 octobre) : une chambre libre
 ce soir mais promise demain ne se surclasse pas pour deux nuits.
 
