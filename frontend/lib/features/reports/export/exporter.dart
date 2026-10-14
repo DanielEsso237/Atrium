@@ -10,7 +10,8 @@ import '../report_state.dart';
 import 'excel_export.dart';
 import 'export_model.dart';
 import 'partage.dart';
-import 'pdf_export.dart';
+import 'pdf_export.dart';
+import '../../../core/ui/confirmation.dart';
 
 /// Exporte `sections` au `format` demande et dit a l'agent ce qui s'est
 /// passe. `titre` nomme le document et le fichier.
@@ -22,7 +23,6 @@ Future<void> exporterRapport({
   required List<Section> sections,
   required FormatExport format,
 }) async {
-  final messager = ScaffoldMessenger.of(context);
   final boite = context.findRenderObject() as RenderBox?;
   final origine = boite == null
       ? null
@@ -53,19 +53,16 @@ Future<void> exporterRapport({
       sujet: '$titre : ${doc.periode}',
       origine: origine,
     );
-    if (remis) {
-      messager.showSnackBar(
-        SnackBar(content: Text('$titre exporté en ${format.libelle}.')),
-      );
+    if (remis && context.mounted) {
+      montrerSucces(context, '$titre exporté en ${format.libelle}.');
     }
   } catch (e) {
-    messager.showSnackBar(
-      SnackBar(
-        content: Text(
-          "L'export ${format.libelle} n'a pas abouti : $e. "
-          'Réessayez ; si cela persiste, signalez-le avec ce message.',
-        ),
-      ),
-    );
+    if (context.mounted) {
+      montrerRefus(
+        context,
+        "L'export ${format.libelle} n'a pas abouti : $e. "
+        'Réessayez ; si cela persiste, signalez-le avec ce message.',
+      );
+    }
   }
 }

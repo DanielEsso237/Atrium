@@ -26,6 +26,7 @@ import '../../core/ui/icons.dart';
 import '../../data/repositories/cash_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Le bouton de caisse du module Factures.
 class CashButton extends ConsumerWidget {
@@ -95,16 +96,12 @@ class CashButton extends ConsumerWidget {
           );
     } on StateError catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Caisse ouverte à ${formatAmount(montant)}.')),
-    );
+    montrerSucces(context, 'Caisse ouverte à ${formatAmount(montant)}.');
   }
 
   Future<void> _fermer(
@@ -185,9 +182,7 @@ class CashButton extends ConsumerWidget {
           );
     } on StateError catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
 

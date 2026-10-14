@@ -15,6 +15,7 @@ import '../../data/local/database.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/outlet_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../core/ui/confirmation.dart';
 
 final _tousLesPointsDeVente = StreamProvider<List<OutletRow>>(
   (ref) => ref.watch(outletRepositoryProvider).watchAll(),
@@ -100,9 +101,7 @@ class OutletsSection extends ConsumerWidget {
       ]);
     } on StateError catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
   }
 
@@ -263,12 +262,12 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
       // Le depot refuse ce que le serveur refuserait : on le dit tel quel.
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    montrerSucces(context, '${_libelle.text.trim()} enregistré.');
   }
 
   @override

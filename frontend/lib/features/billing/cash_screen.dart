@@ -30,6 +30,7 @@ import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'cash_dialog.dart';
 import 'charge_labels.dart';
+import '../../core/ui/confirmation.dart';
 import 'payment_dialog.dart' show iconePaiement;
 
 final _encaissementsProvider = StreamProvider.family<List<DayPayment>, String>(
@@ -615,22 +616,17 @@ class _LigneVersement extends ConsumerWidget {
           );
     } on StateError catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ecart == 0
-              ? 'Versement de ${v.outletLabel} reçu, juste.'
-              : 'Versement de ${v.outletLabel} reçu, écart de '
-                    '${ecart > 0 ? '+' : ''}${formatAmount(ecart)}.',
-        ),
-      ),
+    montrerSucces(
+      context,
+      ecart == 0
+          ? 'Versement de ${v.outletLabel} reçu, juste.'
+          : 'Versement de ${v.outletLabel} reçu, écart de '
+                '${ecart > 0 ? '+' : ''}${formatAmount(ecart)}.',
     );
   }
 }

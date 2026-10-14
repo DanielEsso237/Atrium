@@ -18,6 +18,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'charge_labels.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Propose d'encaisser sur `folioId`.
 ///
@@ -101,24 +102,18 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
       // on le montre tel quel plutot que « Bad state: ... ».
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Echec : $e')));
+      montrerRefus(context, 'Échec : $e');
       return;
     }
 
     if (!mounted) return;
     Navigator.of(context).pop(montant);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${formatAmount(montant)} encaissés.')),
-    );
+    montrerSucces(context, '${formatAmount(montant)} encaissés.');
   }
 
   @override

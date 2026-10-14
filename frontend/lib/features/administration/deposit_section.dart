@@ -14,7 +14,8 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/repositories/repository_providers.dart';
-import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/settings_repository.dart';
+import '../../core/ui/confirmation.dart';
 
 final _regleArrhes = StreamProvider<DepositRule?>(
   (ref) => ref.watch(settingsRepositoryProvider).watchDepositRule(),
@@ -124,9 +125,7 @@ class _DepositSectionState extends ConsumerState<DepositSection> {
     await ref.read(settingsRepositoryProvider).setDepositRule(_regleSaisie);
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Règle des arrhes enregistrée.')),
-    );
+    montrerSucces(context, 'Règle des arrhes enregistrée.');
   }
 
   @override

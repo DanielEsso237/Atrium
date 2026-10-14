@@ -16,6 +16,7 @@ import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 final _recherche = NotifierProvider<_Recherche, String>(_Recherche.new);
 
@@ -137,12 +138,17 @@ class _PlafondDialogState extends ConsumerState<_PlafondDialog> {
     } on StateError catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    montrerSucces(
+      context,
+      plafond == 0
+          ? 'Plafond retiré.'
+          : 'Plafond fixé à ${formatAmount(plafond)}.',
+    );
   }
 
   @override

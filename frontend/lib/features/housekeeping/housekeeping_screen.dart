@@ -24,6 +24,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/housekeeping_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 class HousekeepingScreen extends ConsumerWidget {
   const HousekeepingScreen({super.key});
@@ -428,15 +429,11 @@ class _CarteState extends ConsumerState<_Carte> {
       }
     } on StateError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     } on Exception {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('La modification a échoué. Réessayez.')),
-        );
+        montrerRefus(context, 'La modification a échoué. Réessayez.');
       }
       return;
     } finally {
@@ -445,11 +442,7 @@ class _CarteState extends ConsumerState<_Carte> {
 
     if (!mounted) return;
     if (vers == HousekeepingStatus.CLEAN) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Chambre ${job.roomNumber} propre et disponible.'),
-        ),
-      );
+      montrerSucces(context, 'Chambre ${job.roomNumber} propre et disponible.');
     }
   }
 

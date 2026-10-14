@@ -15,7 +15,8 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
-import '../auth/session.dart';
+import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 void showAssignRoomDialog(
   BuildContext context,
@@ -68,9 +69,7 @@ class _AssignRoomDialogState extends ConsumerState<_AssignRoomDialog> {
 
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Chambre attribuée.')));
+    montrerSucces(context, 'Chambre attribuée.');
   }
 
   @override

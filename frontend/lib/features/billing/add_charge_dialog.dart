@@ -17,7 +17,8 @@ import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
-import 'charge_labels.dart';
+import 'charge_labels.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Ce qui se vend le plus souvent, pre-rempli en un clic.
 ///
@@ -103,20 +104,17 @@ class _AddChargeDialogState extends ConsumerState<_AddChargeDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Echec : $e')));
+      // Un refus de l'appli (le plafond) se lit tel quel ; le reste est une
+      // panne.
+      montrerRefus(context, e is StateError ? e.message : 'Échec : $e');
       return;
     }
 
     if (!mounted) return;
     Navigator.of(context).pop(true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "${formatAmount(_total)} porté à l'ardoise de ${widget.guestName}.",
-        ),
-      ),
+    montrerSucces(
+      context,
+      "${formatAmount(_total)} porté à l'ardoise de ${widget.guestName}.",
     );
   }
 

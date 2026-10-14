@@ -13,6 +13,7 @@ import '../../core/ui/atrium_ui.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/role_repository.dart';
+import '../../core/ui/confirmation.dart';
 
 final _roles = StreamProvider<List<RoleView>>(
   (ref) => ref.watch(roleRepositoryProvider).watchRoles(),
@@ -82,12 +83,12 @@ class _CarteRoleState extends ConsumerState<_CarteRole> {
         _busy = false;
         _cochees = {...widget.vue.permissions};
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
-    if (mounted) setState(() => _busy = false);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    montrerSucces(context, 'Permissions du rôle enregistrées.');
   }
 
   @override
