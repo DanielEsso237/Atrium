@@ -143,6 +143,18 @@ class ReservationRoom(SyncBase):
     key_card_code: Mapped[str | None] = mapped_column(String(64), default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
 
+    # Surclassement : le client recoit une chambre d'une autre categorie que
+    # celle qu'il a reservee. `room_type_id` devient celle de la chambre -- la
+    # disponibilite se compte la ou le client dort -- et la categorie reservee
+    # est gardee ici, avec le motif et qui l'a decide. Nuls sans surclassement.
+    booked_room_type_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("room_types.id", ondelete="SET NULL"), default=None
+    )
+    upgrade_reason: Mapped[str | None] = mapped_column(String(255), default=None)
+    upgraded_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
     # Trace de l'arbitrage serveur quand deux tablettes hors ligne ont attribue
     # la meme chambre : voir docs/01-modele-de-donnees.md, paragraphe 10.
     assignment_rejected_at: Mapped[dt.datetime | None] = mapped_column(default=None)

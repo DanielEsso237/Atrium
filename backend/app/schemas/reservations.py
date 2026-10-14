@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models.enums import PaymentMethod, ReservationSource, ReservationStatus
 
@@ -82,6 +83,11 @@ class ReservationRoomOut(BaseModel):
     checked_in_at: dt.datetime | None
     checked_out_at: dt.datetime | None
     key_card_code: str | None
+    # Surclassement : la categorie reservee a l'origine (`room_type_id` est
+    # celle de la chambre occupee), le motif et qui l'a decide. Nuls sinon.
+    booked_room_type_id: uuid.UUID | None = None
+    upgrade_reason: str | None = None
+    upgraded_by: uuid.UUID | None = None
 
 
 class ReservationOut(BaseModel):
@@ -115,6 +121,23 @@ class AvailabilityOut(BaseModel):
     available_rooms: int
 
 
+class UpgradeIn(BaseModel):
+    """Surclassement : installer le client dans une chambre d'une autre
+
+    categorie que celle reservee. Sans lui, une chambre d'une autre categorie
+    reste refusee : un surclassement se decide, il ne se glisse pas.
+    """
+
+    keep_rate: bool = Field(
+        default=True,
+        description="Vrai : surclassement offert, le tarif reserve est garde. "
+        "Faux : le tarif par defaut de la nouvelle categorie s'applique",
+    )
+    reason: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+    ] = Field(description="Le motif, garde sur la ligne")
+
+
 class CheckInIn(BaseModel):
     room_id: uuid.UUID | None = Field(
         default=None, description="Obligatoire si aucune chambre n'a encore ete assignee"
@@ -123,6 +146,10 @@ class CheckInIn(BaseModel):
         default=None, description="Id du folio ouvert par la tablette ; absent = genere"
     )
     key_card_code: str | None = None
+    upgrade: UpgradeIn | None = Field(
+        default=None,
+        description="Obligatoire quand la chambre n'est pas de la categorie reservee",
+    )
 
 
 class CheckInOut(ReservationOut):
@@ -139,6 +166,10 @@ class CheckInOut(ReservationOut):
 
 class ChangeRoomIn(BaseModel):
     room_id: uuid.UUID = Field(description="La chambre ou le client s'installe desormais")
+    upgrade: UpgradeIn | None = Field(
+        default=None,
+        description="Obligatoire quand la chambre n'est pas de la categorie du sejour",
+    )
 
 
 class CancelIn(BaseModel):

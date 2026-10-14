@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import permission_codes, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import (
@@ -50,6 +50,7 @@ from app.schemas.reservations import (
     ReservationIn,
     ReservationOut,
     ReservationUpdate,
+    UpgradeIn,
 )
 from app.services.business_day import current_business_date
 from app.api.v1.cash_sessions import open_session_id
@@ -200,6 +201,78 @@ def _sync_stay_nights(
         if date not in wanted and night.deleted_at is None:
             night.deleted_at = now
     return total
+
+
+def _check_category(
+    line: ReservationRoom, room: Room, upgrade: UpgradeIn | None, user: User
+) -> bool:
+    """La chambre est-elle de la categorie du sejour ? Sinon, est-ce un
+    surclassement en regle ? Renvoie vrai s'il y en a un a appliquer.
+
+    Ne fait que refuser : rien n'est ecrit ici, tout est controle avant la
+    premiere ecriture.
+    """
+    if room.room_type_id == line.room_type_id:
+        if upgrade is not None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Un surclassement va vers une autre categorie que celle reservee.",
+            )
+        return False
+    if upgrade is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cette chambre n'appartient pas a la categorie reservee.",
+        )
+    # Appliquer le tarif de la nouvelle categorie change le prix du sejour :
+    # le droit est verifie ici, pour lui-meme, et pas seulement parce que la
+    # route l'exige aujourd'hui. La tablette fait le meme refus avant d'envoyer.
+    if not upgrade.keep_rate and "reservation.manage" not in permission_codes(user):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Permission manquante : reservation.manage"
+        )
+    return True
+
+
+async def _apply_upgrade(
+    session: AsyncSession,
+    reservation: Reservation,
+    line: ReservationRoom,
+    room: Room,
+    upgrade: UpgradeIn,
+    user: User,
+) -> None:
+    """Surclasse la ligne dans la categorie de `room`.
+
+    La ligne change de categorie : la disponibilite se compte par
+    `room_type_id`, la chambre est donc prise dans la nouvelle et la
+    categorie reservee est liberee. Celle-ci est gardee a cote, une fois pour
+    toutes -- un second surclassement ne l'ecrase pas.
+    """
+    if line.booked_room_type_id is None:
+        line.booked_room_type_id = line.room_type_id
+    line.room_type_id = room.room_type_id
+    line.upgrade_reason = upgrade.reason
+    line.upgraded_by = user.id
+    if upgrade.keep_rate:
+        return  # surclassement offert : le tarif reserve reste
+    room_type = await session.get(RoomType, room.room_type_id)
+    line.nightly_rate = room_type.default_rate
+    # Les nuits deja portees sur l'ardoise sont facturees : elles gardent
+    # leur prix. Seules celles a venir prennent le nouveau tarif.
+    nights = await session.scalars(
+        select(StayNight).where(
+            StayNight.reservation_room_id == line.id,
+            StayNight.deleted_at.is_(None),
+            StayNight.is_posted.is_(False),
+        )
+    )
+    for night in nights:
+        night.rate = line.nightly_rate
+    reservation.estimated_total = sum(
+        r.nightly_rate * (r.departure_date - r.arrival_date).days
+        for r in _active_lines(reservation)
+    )
 
 
 def _active_lines(reservation: Reservation) -> list[ReservationRoom]:
@@ -800,6 +873,10 @@ async def check_in(
     faite, puis bascule de la chambre en occupee (voir docs/01, "trois axes
     d'etat" : ce champ est independant du statut menage).
 
+    Une chambre d'une autre categorie n'est acceptee qu'avec `upgrade` : un
+    surclassement, offert (le tarif reserve reste) ou au tarif de la nouvelle
+    categorie, avec son motif.
+
     La ligne et la chambre sont verrouillees (`FOR UPDATE`) : deux tablettes
     qui installent deux clients dans la meme chambre au meme moment passent
     l'une apres l'autre, et la seconde voit la chambre occupee.
@@ -846,17 +923,15 @@ async def check_in(
     )
     if room is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chambre introuvable.")
-    if room.room_type_id != line.room_type_id:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Cette chambre n'appartient pas a la categorie reservee.",
-        )
+    upgraded = _check_category(line, room, payload.upgrade, user)
     if room.is_out_of_order or not room.is_active:
         raise HTTPException(status.HTTP_409_CONFLICT, "Cette chambre est hors service.")
     if room.occupancy_status == OccupancyStatus.OCCUPIED:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
         )
+    if upgraded:
+        await _apply_upgrade(session, reservation, line, room, payload.upgrade, user)
 
     now = dt.datetime.now(dt.timezone.utc)
     line.room_id = room_id
@@ -979,8 +1054,8 @@ async def change_room(
     pour rien. Le folio est rattache a la ligne et non a la chambre, il suit
     donc le client sans qu'on y touche.
 
-    Ne sont refuses ici que les conflits physiques -- autre categorie, hors
-    service, deja occupee. Une chambre sale n'est pas refusee : la tablette ne
+    Ne sont refuses ici que les conflits physiques -- autre categorie sans
+    surclassement (`upgrade`), hors service, deja occupee. Une chambre sale n'est pas refusee : la tablette ne
     la propose pas, mais son etat de menage peut etre en retard sur le notre,
     et un refus bloquerait sa file d'envoi pour une question de proprete.
     """
@@ -1017,17 +1092,15 @@ async def change_room(
     )
     if room is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chambre introuvable.")
-    if room.room_type_id != line.room_type_id:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Cette chambre n'appartient pas a la categorie reservee.",
-        )
+    upgraded = _check_category(line, room, payload.upgrade, user)
     if room.is_out_of_order or not room.is_active:
         raise HTTPException(status.HTTP_409_CONFLICT, "Cette chambre est hors service.")
     if room.occupancy_status == OccupancyStatus.OCCUPIED:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Cette chambre est deja occupee par un autre sejour."
         )
+    if upgraded:
+        await _apply_upgrade(session, reservation, line, room, payload.upgrade, user)
 
     if line.room_id:
         old = await session.scalar(

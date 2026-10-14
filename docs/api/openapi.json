@@ -709,6 +709,17 @@
             "format": "uuid",
             "title": "Room Id",
             "type": "string"
+          },
+          "upgrade": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpgradeIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obligatoire quand la chambre n'est pas de la categorie du sejour"
           }
         },
         "required": [
@@ -883,6 +894,17 @@
             ],
             "description": "Obligatoire si aucune chambre n'a encore ete assignee",
             "title": "Room Id"
+          },
+          "upgrade": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpgradeIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obligatoire quand la chambre n'est pas de la categorie reservee"
           }
         },
         "title": "CheckInIn",
@@ -6282,6 +6304,18 @@
             "title": "Arrival Date",
             "type": "string"
           },
+          "booked_room_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booked Room Type Id"
+          },
           "checked_in_at": {
             "anyOf": [
               {
@@ -6354,6 +6388,29 @@
           },
           "status": {
             "$ref": "#/components/schemas/ReservationStatus"
+          },
+          "upgrade_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upgrade Reason"
+          },
+          "upgraded_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upgraded By"
           }
         },
         "required": [
@@ -8014,6 +8071,29 @@
           "refresh_expires_in"
         ],
         "title": "TokenOut",
+        "type": "object"
+      },
+      "UpgradeIn": {
+        "description": "Surclassement : installer le client dans une chambre d'une autre\n\ncategorie que celle reservee. Sans lui, une chambre d'une autre categorie\nreste refusee : un surclassement se decide, il ne se glisse pas.",
+        "properties": {
+          "keep_rate": {
+            "default": true,
+            "description": "Vrai : surclassement offert, le tarif reserve est garde. Faux : le tarif par defaut de la nouvelle categorie s'applique",
+            "title": "Keep Rate",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Le motif, garde sur la ligne",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "UpgradeIn",
         "type": "object"
       },
       "UploadState": {
@@ -13654,7 +13734,7 @@
     },
     "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/change-room": {
       "post": {
-        "description": "Un client deja arrive change de chambre sans refaire sa reservation.\n\nL'ancienne redevient vacante **sans** devenir sale, a l'inverse du\ndepart : le client n'y a pas dormi, la faire nettoyer serait une tache\npour rien. Le folio est rattache a la ligne et non a la chambre, il suit\ndonc le client sans qu'on y touche.\n\nNe sont refuses ici que les conflits physiques -- autre categorie, hors\nservice, deja occupee. Une chambre sale n'est pas refusee : la tablette ne\nla propose pas, mais son etat de menage peut etre en retard sur le notre,\net un refus bloquerait sa file d'envoi pour une question de proprete.",
+        "description": "Un client deja arrive change de chambre sans refaire sa reservation.\n\nL'ancienne redevient vacante **sans** devenir sale, a l'inverse du\ndepart : le client n'y a pas dormi, la faire nettoyer serait une tache\npour rien. Le folio est rattache a la ligne et non a la chambre, il suit\ndonc le client sans qu'on y touche.\n\nNe sont refuses ici que les conflits physiques -- autre categorie sans\nsurclassement (`upgrade`), hors service, deja occupee. Une chambre sale n'est pas refusee : la tablette ne\nla propose pas, mais son etat de menage peut etre en retard sur le notre,\net un refus bloquerait sa file d'envoi pour une question de proprete.",
         "operationId": "change_room_api_v1_reservations__reservation_id__rooms__room_line_id__change_room_post",
         "parameters": [
           {
@@ -13723,7 +13803,7 @@
     },
     "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/check-in": {
       "post": {
-        "description": "F1.2 -- attribution de la chambre physique si elle n'a pas deja ete\n\nfaite, puis bascule de la chambre en occupee (voir docs/01, \"trois axes\nd'etat\" : ce champ est independant du statut menage).\n\nLa ligne et la chambre sont verrouillees (`FOR UPDATE`) : deux tablettes\nqui installent deux clients dans la meme chambre au meme moment passent\nl'une apres l'autre, et la seconde voit la chambre occupee.",
+        "description": "F1.2 -- attribution de la chambre physique si elle n'a pas deja ete\n\nfaite, puis bascule de la chambre en occupee (voir docs/01, \"trois axes\nd'etat\" : ce champ est independant du statut menage).\n\nUne chambre d'une autre categorie n'est acceptee qu'avec `upgrade` : un\nsurclassement, offert (le tarif reserve reste) ou au tarif de la nouvelle\ncategorie, avec son motif.\n\nLa ligne et la chambre sont verrouillees (`FOR UPDATE`) : deux tablettes\nqui installent deux clients dans la meme chambre au meme moment passent\nl'une apres l'autre, et la seconde voit la chambre occupee.",
         "operationId": "check_in_api_v1_reservations__reservation_id__rooms__room_line_id__check_in_post",
         "parameters": [
           {
