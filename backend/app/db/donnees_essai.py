@@ -275,6 +275,15 @@ CARTES = {
         ]),
     ],
     "BAR": _boissons("B", 1000) + [
+        # Le bar est ravitaille en ces boissons (voir RAVITAILLEMENTS) : sans
+        # article a la carte, elles etaient en stock mais introuvables a la
+        # vente (vu le 12 octobre avec la Beaufort).
+        ("Bières et sodas du bar", [
+            ("B_BEAUFORT", "Beaufort Lager", 1000, "BEAUFORT"),
+            ("B_ISENBECK", "Isenbeck", 900, "ISENBECK"),
+            ("B_HEINEKEN", "Heineken", 1500, "HEINEKEN"),
+            ("B_DJINO", "Djino", 600, "DJINO"),
+        ]),
         ("Cocktails", [
             ("B_MOJITO", "Mojito", 3500, None),
             ("B_FOLERE_COCKTAIL", "Cocktail foléré gingembre", 2500, None),
