@@ -44,6 +44,11 @@ IMPLICATIONS = [
     ("reservation.manage", "guests.write"),
     # Creer une reservation suppose de pouvoir designer un client.
     ("reservation.create", "guests.read"),
+    # L'arrivee directe (`POST /stays/walk-in`) cree le dossier, la fiche du
+    # client si elle manque, et porte le sejour sur l'ardoise, d'un seul
+    # geste. Meme piege que `folio.write` au check-in.
+    ("reservation.create", "folio.write"),
+    ("reservation.create", "guests.write"),
     # On ne nettoie pas une chambre dont on ignore le numero.
     ("housekeeping.read", "rooms.read"),
     # Encaisser suppose une caisse : le paiement est rattache a la session

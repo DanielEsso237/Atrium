@@ -12,6 +12,7 @@ from app.models.enums import (
     HousekeepingStatus,
     OccupancyStatus,
     ReservationStatus,
+    StayUnit,
 )
 
 
@@ -82,6 +83,10 @@ class RoomStayOut(BaseModel):
     status: ReservationStatus
     checked_in_at: dt.datetime | None
     checked_out_at: dt.datetime | None
+    # Un sejour en heures part a `departure_at` (instant UTC) : sa
+    # `departure_date` n'est que la borne exigee par le schema.
+    stay_unit: StayUnit = StayUnit.NIGHTS
+    departure_at: dt.datetime | None = None
 
 
 class RoomFolioOut(BaseModel):

@@ -63,6 +63,13 @@ class ReservationSource(StrEnum):
     EMAIL = "EMAIL"
 
 
+class StayUnit(StrEnum):
+    """L'unite d'un sejour : des nuits, ou quelques heures dans la journee."""
+
+    NIGHTS = "NIGHTS"
+    HOURS = "HOURS"
+
+
 class SignatureKind(StrEnum):
     CHECK_IN = "CHECK_IN"
     CHECK_OUT = "CHECK_OUT"

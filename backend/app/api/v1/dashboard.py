@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import uuid
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
@@ -9,12 +11,54 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_session
-from app.services.business_day import current_business_date
-from app.models import Reservation, ReservationRoom, Room, User
-from app.models.enums import HousekeepingStatus, ReservationStatus
+from app.services.business_day import business_date_for, current_business_date
+from app.models import Hotel, Reservation, ReservationRoom, Room, User
+from app.models.enums import HousekeepingStatus, ReservationStatus, StayUnit
 from app.schemas.dashboard import DashboardSummary, OccupancySummary, RevenueByCategory
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+async def count_departures(session: AsyncSession, hotel_id: uuid.UUID, today: dt.date) -> int:
+    """Les sejours en cours qui partent aujourd'hui.
+
+    Un sejour en nuits part a sa `departure_date`. Un sejour en heures part a
+    `departure_at` : sa `departure_date` est le lendemain par construction, et
+    le compter sur elle l'annoncerait un jour trop tard. Il part aujourd'hui
+    des que son heure tombe dans la journee hoteliere en cours -- ou avant :
+    il est alors en retard, et toujours a faire partir.
+    """
+    nuits = await session.scalar(
+        select(func.count())
+        .select_from(ReservationRoom)
+        .join(Reservation, Reservation.id == ReservationRoom.reservation_id)
+        .where(
+            Reservation.hotel_id == hotel_id,
+            ReservationRoom.departure_date == today,
+            ReservationRoom.status == ReservationStatus.CHECKED_IN,
+            ReservationRoom.stay_unit != StayUnit.HOURS,
+        )
+    )
+    fuseau = (
+        await session.execute(
+            select(Hotel.timezone, Hotel.day_rollover_hour).where(Hotel.id == hotel_id)
+        )
+    ).first()
+    if fuseau is None:
+        return nuits or 0
+    heures = await session.scalars(
+        select(ReservationRoom.departure_at)
+        .join(Reservation, Reservation.id == ReservationRoom.reservation_id)
+        .where(
+            Reservation.hotel_id == hotel_id,
+            ReservationRoom.status == ReservationStatus.CHECKED_IN,
+            ReservationRoom.stay_unit == StayUnit.HOURS,
+            ReservationRoom.departure_at.is_not(None),
+        )
+    )
+    return (nuits or 0) + sum(
+        1 for instant in heures if business_date_for(instant, *fuseau) <= today
+    )
 
 
 @router.get("/summary", response_model=DashboardSummary)
@@ -87,19 +131,7 @@ async def get_summary(
         or 0
     )
 
-    departures_today = (
-        await session.scalar(
-            select(func.count())
-            .select_from(ReservationRoom)
-            .join(Reservation, Reservation.id == ReservationRoom.reservation_id)
-            .where(
-                Reservation.hotel_id == user.hotel_id,
-                ReservationRoom.departure_date == today,
-                ReservationRoom.status == ReservationStatus.CHECKED_IN,
-            )
-        )
-        or 0
-    )
+    departures_today = await count_departures(session, user.hotel_id, today)
 
     revenue_rows = (
         (

@@ -267,6 +267,18 @@ async def add_folio_item(
                     FolioItem.deleted_at.is_(None),
                 )
             )
+            if existing is None:
+                # Une arrivee directe porte tout son sejour en une charge
+                # (`POST /stays/walk-in`) : ses nuits sont deja facturees par
+                # elle, pas une a une.
+                existing = await session.scalar(
+                    select(FolioItem).where(
+                        FolioItem.folio_id == folio.id,
+                        FolioItem.source_table == "reservation_rooms",
+                        FolioItem.source_id == folio.reservation_room_id,
+                        FolioItem.deleted_at.is_(None),
+                    )
+                )
             if existing is not None:
                 response.status_code = status.HTTP_200_OK
                 return existing

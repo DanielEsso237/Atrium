@@ -36,6 +36,7 @@ from app.models.enums import (
     HousekeepingStatus,
     OccupancyStatus,
     ReservationStatus,
+    StayUnit,
 )
 from app.schemas.reservations import (
     AvailabilityOut,
@@ -125,6 +126,9 @@ async def _available_rooms(
             ReservationRoom.status.in_(OCCUPYING_STATUSES),
             ReservationRoom.arrival_date < departure,
             ReservationRoom.departure_date > arrival,
+            # Un sejour en heures ne prend aucune nuit : il sera parti avant
+            # le soir, et sa `departure_date` n'est qu'une borne de schema.
+            ReservationRoom.stay_unit != StayUnit.HOURS,
         )
     )
     if exclude_line_id is not None:
