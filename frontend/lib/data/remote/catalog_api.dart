@@ -742,6 +742,93 @@ class RemotePayment {
   }
 }
 
+/// Une depense de l'hotel hors stock (`ExpenseOut`), pour le benefice.
+class RemoteExpense {
+  const RemoteExpense({
+    required this.id,
+    required this.businessDate,
+    required this.category,
+    required this.label,
+    required this.amount,
+    this.method,
+    this.supplier,
+    this.reference,
+    this.notes,
+    this.recordedBy,
+    this.isVoid = false,
+    this.voidReason,
+    this.voidedBy,
+  });
+
+  final String id;
+
+  /// Date seule, `AAAA-MM-JJ` : jamais convertie de fuseau.
+  final String businessDate;
+  final String category;
+  final String label;
+  final int amount;
+  final String? method;
+  final String? supplier;
+  final String? reference;
+  final String? notes;
+  final String? recordedBy;
+  final bool isVoid;
+  final String? voidReason;
+  final String? voidedBy;
+
+  static RemoteExpense? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['business_date'] == null ||
+        raw['category'] == null) {
+      return null;
+    }
+    return RemoteExpense(
+      id: '${raw['id']}',
+      businessDate: '${raw['business_date']}',
+      category: '${raw['category']}',
+      label: '${raw['label'] ?? ''}',
+      amount: _entier(raw['amount']),
+      method: _texte(raw['method']),
+      supplier: _texte(raw['supplier']),
+      reference: _texte(raw['reference']),
+      notes: _texte(raw['notes']),
+      recordedBy: _texte(raw['recorded_by']),
+      isVoid: raw['is_void'] == true,
+      voidReason: _texte(raw['void_reason']),
+      voidedBy: _texte(raw['voided_by']),
+    );
+  }
+}
+
+/// Ce qu'une journee a coute en stock (`DailyCostOut`).
+class RemoteDailyCost {
+  const RemoteDailyCost({
+    required this.businessDate,
+    this.costOfSales = 0,
+    this.consumption = 0,
+    this.losses = 0,
+    this.purchases = 0,
+  });
+
+  final String businessDate;
+  final int costOfSales;
+  final int consumption;
+  final int losses;
+  final int purchases;
+
+  static RemoteDailyCost? fromJson(Object? raw) {
+    if (raw is! Map || raw['business_date'] == null) return null;
+    return RemoteDailyCost(
+      businessDate: '${raw['business_date']}',
+      costOfSales: _entier(raw['cost_of_sales']),
+      consumption: _entier(raw['consumption']),
+      losses: _entier(raw['losses']),
+      purchases: _entier(raw['purchases']),
+    );
+  }
+}
+
 /// Une caisse (`CashSessionOut`), pour le rapport du soir.
 class RemoteCashSession {
   const RemoteCashSession({
@@ -1015,6 +1102,16 @@ class CatalogApi {
     }
   }
 
+  /// Les sonneries des alertes, brutes, comme les niveaux.
+  Future<Object?> fetchNotificationSounds() async {
+    try {
+      return (await _client.get('/settings/notification-sounds'))['sounds'];
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
+      rethrow;
+    }
+  }
+
   Future<List<RemoteOutlet>> fetchOutlets() =>
       _lire('/outlets', RemoteOutlet.fromJson);
 
@@ -1133,6 +1230,40 @@ class CatalogApi {
   /// Les encaissements depuis la journee hoteliere `since`.
   Future<List<RemotePayment>> fetchPayments(DateTime since) =>
       _lire('/payments', RemotePayment.fromJson, query: {'since': _jour(since)});
+
+  /// Les depenses depuis le jour `since`, annulees comprises : une tablette
+  /// doit apprendre l'annulation d'une depense qu'elle connait.
+  ///
+  /// Un serveur sans la route n'a pas de depenses : liste vide, et la
+  /// descente continue.
+  Future<List<RemoteExpense>> fetchExpenses(DateTime since) async {
+    try {
+      return await _lire(
+        '/expenses',
+        RemoteExpense.fromJson,
+        query: {'since': _jour(since)},
+      );
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return const [];
+      rethrow;
+    }
+  }
+
+  /// Ce que chaque journee a coute en stock depuis `since`, pour le
+  /// benefice. `null` quand le serveur ne connait pas encore la route : la
+  /// tablette garde alors ce qu'elle a.
+  Future<List<RemoteDailyCost>?> fetchDailyCosts(DateTime since) async {
+    try {
+      return await _lire(
+        '/accounting/daily-costs',
+        RemoteDailyCost.fromJson,
+        query: {'since': _jour(since)},
+      );
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
+      rethrow;
+    }
+  }
 
   /// Les caisses ouvertes depuis le jour `since`, plus celles encore
   /// ouvertes et les versements a confirmer. Celles de tout l'hotel pour la

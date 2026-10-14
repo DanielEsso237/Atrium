@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
@@ -50,6 +51,18 @@ class _FiltreFolios extends Notifier<_Filtre> {
 
 final _filtreProvider = NotifierProvider<_FiltreFolios, _Filtre>(
   _FiltreFolios.new,
+);
+
+/// Ce que l'on cherche : un client, un numero d'ardoise, une chambre.
+class _RechercheFolios extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void changer(String v) => state = v;
+}
+
+final _rechercheProvider = NotifierProvider<_RechercheFolios, String>(
+  _RechercheFolios.new,
 );
 
 class _FolioChoisi extends Notifier<String?> {
@@ -112,7 +125,20 @@ class FoliosScreen extends ConsumerWidget {
               message: "Elles s'ouvrent toutes seules à l'arrivée d'un client.",
             );
           }
-          final visibles = list.where((f) => _garde(filtre, f)).toList();
+          // Les compteurs des filtres suivent la recherche : on voit combien
+          // d'ardoises de ce client sont ouvertes avant d'appuyer.
+          final recherche = Recherche(ref.watch(_rechercheProvider));
+          final trouvees = [
+            for (final f in list)
+              if (recherche.garde([
+                f.guestName,
+                f.number,
+                f.roomNumber,
+                if (f.roomNumber != null) 'chambre ${f.roomNumber}',
+              ]))
+                f,
+          ];
+          final visibles = trouvees.where((f) => _garde(filtre, f)).toList();
           final filtres = FilterPills<_Filtre>(
             selected: filtre,
             onChanged: (f) => ref.read(_filtreProvider.notifier).choisir(f),
@@ -120,20 +146,20 @@ class FoliosScreen extends ConsumerWidget {
               FilterOption(
                 _Filtre.ouvertes,
                 'Ouvertes',
-                count: list.where((f) => _garde(_Filtre.ouvertes, f)).length,
+                count: trouvees.where((f) => _garde(_Filtre.ouvertes, f)).length,
               ),
               FilterOption(
                 _Filtre.aEncaisser,
                 'À encaisser',
-                count: list.where((f) => _garde(_Filtre.aEncaisser, f)).length,
+                count: trouvees.where((f) => _garde(_Filtre.aEncaisser, f)).length,
                 color: AtriumColors.error,
               ),
               FilterOption(
                 _Filtre.closes,
                 'Closes',
-                count: list.where((f) => _garde(_Filtre.closes, f)).length,
+                count: trouvees.where((f) => _garde(_Filtre.closes, f)).length,
               ),
-              FilterOption(_Filtre.toutes, 'Toutes', count: list.length),
+              FilterOption(_Filtre.toutes, 'Toutes', count: trouvees.length),
             ],
           );
 
@@ -157,15 +183,35 @@ class FoliosScreen extends ConsumerWidget {
                       marge,
                       0,
                       large ? 0 : marge,
+                      10,
+                    ),
+                    child: SearchPill(
+                      hint: 'Client, chambre, numéro d’ardoise…',
+                      onChanged: (v) =>
+                          ref.read(_rechercheProvider.notifier).changer(v),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      marge,
+                      0,
+                      large ? 0 : marge,
                       12,
                     ),
                     child: filtres,
                   ),
                   Expanded(
                     child: visibles.isEmpty
-                        ? const EmptyState(
-                            icon: PhosphorIconsLight.checks,
-                            title: 'Rien dans ce filtre',
+                        ? EmptyState(
+                            icon: recherche.vide
+                                ? PhosphorIconsLight.checks
+                                : PhosphorIconsLight.magnifyingGlass,
+                            title: recherche.vide
+                                ? 'Rien dans ce filtre'
+                                : 'Aucune ardoise ne correspond',
+                            message: recherche.vide
+                                ? null
+                                : 'Cherchez un nom, une chambre ou un numéro.',
                           )
                         : _ListeFolios(
                             folios: visibles,

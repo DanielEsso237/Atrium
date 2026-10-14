@@ -86,6 +86,7 @@ class MenuEntry {
     required this.price,
     required this.isAvailable,
     required this.categoryLabel,
+    this.vendus = 0,
   });
 
   final String id;
@@ -98,6 +99,10 @@ class MenuEntry {
   final bool isAvailable;
 
   final String categoryLabel;
+
+  /// Combien ce point de vente en a servi : la carte se presente par ventes
+  /// decroissantes, ce qui part le plus a portee de doigt.
+  final int vendus;
 }
 
 /// Une consommation passee d'un client dans un point de vente.
@@ -316,16 +321,24 @@ class OrderRepository with OutboxWriter {
              i.label         AS label,
              i.price         AS price,
              i.is_available  AS is_available,
-             c.label         AS category_label
+             c.label         AS category_label,
+             COALESCE(v.vendus, 0) AS vendus
         FROM menu_items i
         JOIN menu_categories c ON c.id = i.menu_category_id
+        -- Une consommation garde le nom de l'article, pas son identifiant :
+        -- les ventes se comptent par nom, ici seulement.
+        LEFT JOIN (SELECT label, SUM(quantity) AS vendus
+                     FROM folio_items
+                    WHERE deleted_at IS NULL AND is_void = 0
+                      AND source_table = 'outlets' AND source_id = ?1
+                 GROUP BY label) v ON v.label = i.label
        WHERE i.deleted_at IS NULL AND i.is_active = 1
          AND c.deleted_at IS NULL AND c.is_active = 1
-         AND (c.outlet_id IS NULL OR c.outlet_id = ?)
-    ORDER BY c.sort_order, c.label, i.sort_order, i.label
+         AND (c.outlet_id IS NULL OR c.outlet_id = ?1)
+    ORDER BY vendus DESC, c.sort_order, c.label, i.sort_order, i.label
       ''',
           variables: [Variable.withString(outletId)],
-          readsFrom: {db.menuItems, db.menuCategories},
+          readsFrom: {db.menuItems, db.menuCategories, db.folioItems},
         )
         .watch()
         .map(
@@ -337,6 +350,7 @@ class OrderRepository with OutboxWriter {
                   price: l.read<int>('price'),
                   isAvailable: l.read<bool>('is_available'),
                   categoryLabel: l.read<String>('category_label'),
+                  vendus: l.read<int>('vendus'),
                 ),
               )
               .toList(),

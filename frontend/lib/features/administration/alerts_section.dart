@@ -1,9 +1,10 @@
-/// Les alertes : la liste des evenements arretee avec l'hotel, et le niveau
-/// de chacun -- discret, sonore, sonore et vibration.
+/// Les alertes : la liste des evenements arretee avec l'hotel, le niveau de
+/// chacun -- discret, sonore, sonore et vibration -- et sa sonnerie.
 ///
 /// Le choix s'applique tout de suite, sur toutes les tablettes : il remonte
 /// au serveur et redescend ailleurs. Chaque agent peut, en plus, couper le
-/// son pour lui-meme depuis son menu ; ce reglage-la ne se fait pas ici.
+/// son ou choisir ses sonneries pour lui-meme depuis son menu ; ces
+/// reglages-la ne se font pas ici.
 library;
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import '../../data/local/queries/alert_queries.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../alerts/alert_signal.dart';
+import '../alerts/sonneries.dart';
 
 class AlertsSection extends ConsumerWidget {
   const AlertsSection({super.key});
@@ -25,10 +27,16 @@ class AlertsSection extends ConsumerWidget {
     final p = AtriumPalette.current;
     final niveaux =
         ref.watch(niveauxAlertesProvider).value ?? const NiveauxAlertes();
+    final sonneries =
+        ref.watch(sonneriesAlertesProvider).value ?? const SonneriesAlertes();
 
     Future<void> choisir(TypeEvenement type, NiveauSignal niveau) => ref
         .read(settingsRepositoryProvider)
         .setNiveauxAlertes(niveaux.avec(type, niveau));
+
+    Future<void> choisirSonnerie(TypeEvenement type, Sonnerie sonnerie) => ref
+        .read(settingsRepositoryProvider)
+        .setSonneriesAlertes(sonneries.avec(type, sonnerie));
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -45,7 +53,9 @@ class AlertsSection extends ConsumerWidget {
               'Discret : l’alerte attend dans la cloche, sans bruit. Sonore : '
               'un bandeau et une sonnerie, rappelée jusqu’à ce que l’agent '
               'appuie sur « J’ai vu ». Sonore et vibration : la tablette vibre '
-              'en plus. Les alertes sonnent aussi tablette en veille.',
+              'en plus. Les alertes sonnent aussi tablette en veille. Chaque '
+              'alerte a sa sonnerie, à choisir parmi cinq : choisir la fait '
+              'entendre.',
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 14.5,
@@ -69,7 +79,9 @@ class AlertsSection extends ConsumerWidget {
                 _Ligne(
                   type: type,
                   niveau: niveaux.de(type),
+                  sonnerie: sonneries.de(type),
                   surChoix: (n) => choisir(type, n),
+                  surSonnerie: (s) => choisirSonnerie(type, s),
                 ),
               ],
             ],
@@ -80,16 +92,16 @@ class AlertsSection extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              PhosphorIconsLight.speakerSlash,
+              PhosphorIconsLight.musicNotes,
               size: 18,
               color: p.textSecondary,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Un agent qui ne veut plus de sonnerie la coupe depuis son '
-                'menu, pour lui seul et sur cette tablette. Le bandeau et la '
-                'vibration restent.',
+                'Chaque agent peut, depuis son menu, choisir ses propres '
+                'sonneries ou couper le son, pour lui seul et sur cette '
+                'tablette. Sans son, le bandeau et la vibration restent.',
                 style: TextStyle(
                   fontFamily: atriumFontFamily,
                   fontSize: 13.5,
@@ -109,31 +121,16 @@ class _Ligne extends ConsumerWidget {
   const _Ligne({
     required this.type,
     required this.niveau,
+    required this.sonnerie,
     required this.surChoix,
+    required this.surSonnerie,
   });
 
   final TypeEvenement type;
   final NiveauSignal niveau;
+  final Sonnerie sonnerie;
   final ValueChanged<NiveauSignal> surChoix;
-
-  /// La gravite qu'a d'ordinaire cet evenement : c'est elle que l'essai
-  /// fait entendre.
-  static NiveauAlerte _gravite(TypeEvenement t) => switch (t) {
-    TypeEvenement.envoiBloque => NiveauAlerte.critique,
-    TypeEvenement.arriveeAttendue ||
-    TypeEvenement.stockBas => NiveauAlerte.info,
-    _ => NiveauAlerte.urgente,
-  };
-
-  static IconData _icone(TypeEvenement t) => switch (t) {
-    TypeEvenement.envoiBloque => PhosphorIconsLight.cloudSlash,
-    TypeEvenement.chambreAFaire => PhosphorIconsLight.broom,
-    TypeEvenement.panne => PhosphorIconsLight.wrench,
-    TypeEvenement.arriveeAttendue => PhosphorIconsLight.signIn,
-    TypeEvenement.departDepasse => PhosphorIconsLight.doorOpen,
-    TypeEvenement.transfertAValider => PhosphorIconsLight.arrowsLeftRight,
-    TypeEvenement.stockBas => PhosphorIconsLight.package,
-  };
+  final ValueChanged<Sonnerie> surSonnerie;
 
   static IconData _iconeNiveau(NiveauSignal n) => switch (n) {
     NiveauSignal.discret => PhosphorIconsLight.bellSlash,
@@ -145,7 +142,7 @@ class _Ligne extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final etroit = MediaQuery.sizeOf(context).width < 900;
-    final critique = _gravite(type) == NiveauAlerte.critique;
+    final critique = type.graviteHabituelle == NiveauAlerte.critique;
 
     final pastille = Container(
       width: 44,
@@ -155,7 +152,7 @@ class _Ligne extends ConsumerWidget {
         color: critique ? p.errorTint : p.accentTint,
       ),
       child: Icon(
-        _icone(type),
+        iconeEvenement(type),
         size: 22,
         color: critique ? p.error : p.primary,
       ),
@@ -194,6 +191,14 @@ class _Ligne extends ConsumerWidget {
             color: p.textSecondary,
           ),
         ),
+        const SizedBox(height: 6),
+        ChoixSonnerie(
+          type: type,
+          actuelle: sonnerie,
+          surChoix: (s) {
+            if (s != null) surSonnerie(s);
+          },
+        ),
       ],
     );
 
@@ -224,14 +229,19 @@ class _Ligne extends ConsumerWidget {
         const SizedBox(width: 6),
         IconButton(
           tooltip: niveau.sonne
-              ? 'Essayer : ${niveau.libelle.toLowerCase()}'
+              ? 'Essayer : ${niveau.libelle.toLowerCase()}, '
+                    '${sonnerie.libelle.toLowerCase()}'
               : 'Discret : rien à entendre',
           iconSize: 22,
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: niveau.sonne
               ? () => ref
                     .read(signalAlerteProvider)
-                    .emettre(_gravite(type), vibration: niveau.vibre)
+                    .emettre(
+                      type.graviteHabituelle,
+                      sonnerie: sonnerie,
+                      vibration: niveau.vibre,
+                    )
               : null,
           icon: const Icon(PhosphorIconsLight.play),
         ),

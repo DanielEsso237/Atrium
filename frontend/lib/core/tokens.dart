@@ -365,6 +365,24 @@ abstract final class AtriumChartColors {
     Color(0xFFB44F9F),
   ];
   static const other = Color(0xFF8A92AE);
+
+  /// Les parts d'un anneau, dans cet ordre : valide au script dataviz, en
+  /// clair et en sombre, anneau referme compris (pire paire voisine a 10,1
+  /// pour les daltoniens, 18,4 en vision normale). Le laiton manque de
+  /// contraste sur fond clair : chaque part dit son montant en toutes
+  /// lettres dans la legende. Au-dela de cinq parts, le reste va dans
+  /// [other].
+  static const parts = [
+    Color(0xFF3D68DD),
+    Color(0xFFD2603A),
+    Color(0xFF11A08B),
+    Color(0xFFBD8A2E),
+    Color(0xFFB44F9F),
+  ];
+
+  /// Ce qui retranche : les couts dans la cascade du benefice, et un
+  /// benefice negatif. Le pole chaud face au bleu des recettes.
+  static const negatif = Color(0xFFD2603A);
 }
 
 /// Les rayons : 12 pour ce qui se touche (bouton, champ, filtre), 16 pour
@@ -459,19 +477,16 @@ abstract final class AtriumMotion {
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duree;
 }
 
-/// La police de la refonte, embarquee dans `assets/fonts/jakarta`.
-const atriumFontFamily = 'PlusJakartaSans';
+/// La police de l'application : Roboto, la police standard d'Android,
+/// embarquee dans `assets/fonts/roboto`. Une seule famille pour tout --
+/// textes, titres, codes : la hierarchie passe par la taille et la graisse.
+const atriumFontFamily = 'Roboto';
 
-/// La police des titres d'ecran : Cormorant Garamond, la serif de ChronoFS
-/// (`assets/fonts/cormorant`). Jamais en dessous de 26 points : ses
-/// empattements fins disparaissent a petite taille sur une tablette.
-const atriumDisplayFamily = 'CormorantGaramond';
-
-/// Le style d'un titre d'ecran, regle comme `.heading-display` de ChronoFS :
-/// graisse 600, interlettrage de -0,01 em, chiffres alignes.
+/// Le style d'un titre d'ecran : graisse 600, interlettrage de -0,01 em,
+/// chiffres alignes.
 TextStyle atriumDisplay(double taille, {Color? color, double height = 1.05}) =>
     TextStyle(
-      fontFamily: atriumDisplayFamily,
+      fontFamily: atriumFontFamily,
       fontSize: taille,
       fontWeight: FontWeight.w600,
       height: height,
@@ -480,21 +495,18 @@ TextStyle atriumDisplay(double taille, {Color? color, double height = 1.05}) =>
       fontFeatures: const [FontFeature.liningFigures()],
     );
 
-/// La chasse fixe des codes et references : JetBrains Mono, comme les
-/// cartouches de ChronoFS (`assets/fonts/jetbrains`). Reservee aux
-/// identifiants qu'on recopie ou qu'on dicte -- code client, numero
-/// d'ardoise ou de facture, code agent --, jamais aux libelles : un zero
-/// barre ne se confond pas avec un O.
-const atriumMonoFamily = 'JetBrainsMono';
-
-/// Le style d'un code ou d'une reference.
+/// Le style d'un code ou d'une reference qu'on recopie ou qu'on dicte --
+/// code client, numero d'ardoise ou de facture, code agent : la police de
+/// l'application, chiffres a chasse fixe et lettres un peu espacees pour
+/// se lire caractere par caractere.
 TextStyle atriumCode(double taille, {Color? color, FontWeight? weight}) =>
     TextStyle(
-      fontFamily: atriumMonoFamily,
+      fontFamily: atriumFontFamily,
       fontSize: taille,
       fontWeight: weight ?? FontWeight.w600,
       letterSpacing: 0.02 * taille,
       color: color ?? AtriumPalette.current.text,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
 
 /// Chiffres a chasse fixe : un code ou un montant ne doit pas bouger

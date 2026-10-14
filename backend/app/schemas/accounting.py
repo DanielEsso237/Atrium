@@ -86,3 +86,22 @@ class LocationStockValueOut(BaseModel):
 class StockValueOut(BaseModel):
     value: int
     locations: list[LocationStockValueOut]
+
+
+class DailyCostOut(BaseModel):
+    """Ce qu'une journee hoteliere a coute en stock, en francs entiers.
+
+    - `cost_of_sales` : ce que les lignes vendues ce jour-la ont fait sortir ;
+    - `consumption` : ce qui est sorti sans etre vendu (cuisine, chambres,
+      spa) ;
+    - `losses` : la casse et les pertes ;
+    - `purchases` : ce que les livraisons ont coute. A titre indicatif : un
+      achat n'est un cout qu'une fois vendu ou utilise, ce qui reste en
+      stock garde sa valeur.
+    """
+
+    business_date: dt.date
+    cost_of_sales: int
+    consumption: int
+    losses: int
+    purchases: int

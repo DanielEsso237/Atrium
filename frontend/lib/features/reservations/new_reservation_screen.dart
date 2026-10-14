@@ -19,11 +19,13 @@ import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../../data/repositories/id_photo_repository.dart' show IdPhotoSide;
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../administration/deposit_section.dart' show formatRate;
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
+import '../guests/id_photos.dart';
 import 'deposit_dialog.dart';
 import '../../core/ui/confirmation.dart';
 
@@ -170,10 +172,16 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     final largeur = MediaQuery.sizeOf(context).width;
     final etroit = largeur < 600;
     final marge = etroit ? 18.0 : 32.0;
+    final photos = _guestId == null
+        ? null
+        : ref.watch(idPhotosProvider(_guestId!)).value;
 
-    final etapes = <Widget>[
+    // Les numeros suivent les etapes affichees : la piece et la chambre
+    // n'apparaissent qu'une fois le client, puis la categorie, choisis.
+    var numero = 0;
+    final etapes = <_Etape>[
       _Etape(
-        numero: 1,
+        numero: ++numero,
         titre: 'Le client',
         fait: _guestId != null,
         child: GuestPicker(
@@ -181,8 +189,47 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
           onSelected: (id) => setState(() => _guestId = id),
         ),
       ),
+      // Facultative : un client qui reserve par telephone n'a pas sa piece
+      // sous la main. La photo va sur sa fiche, pas sur la reservation : elle
+      // reste meme si la reservation n'est pas enregistree, et l'arrivee la
+      // retrouve.
+      if (_guestId != null)
+        _Etape(
+          numero: ++numero,
+          titre: 'La pièce d’identité',
+          facultatif: true,
+          fait: photos?.length == IdPhotoSide.values.length,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Si le client est devant vous, photographiez le recto et le '
+                'verso. Sinon, ce sera à son arrivée ou depuis sa fiche.',
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 14,
+                  height: 1.45,
+                  color: AtriumPalette.current.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Des cases a la taille d'une main, pas de la page : l'etape est
+              // facultative, elle ne doit pas repousser la suite d'un ecran.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: IdPhotoPair(
+                    key: ValueKey(_guestId),
+                    guestId: _guestId!,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       _Etape(
-        numero: 2,
+        numero: ++numero,
         titre: 'Le séjour',
         fait: _nights > 0,
         child: Column(
@@ -227,7 +274,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
         ),
       ),
       _Etape(
-        numero: 3,
+        numero: ++numero,
         titre: 'La catégorie',
         fait: _roomType != null,
         child: roomTypes.when(
@@ -253,7 +300,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
       ),
       if (_roomType != null && _dates != null)
         _Etape(
-          numero: 4,
+          numero: ++numero,
           titre: 'La chambre',
           facultatif: true,
           fait: _roomId != null,
@@ -265,7 +312,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
           ),
         ),
       _Etape(
-        numero: _roomType != null ? 5 : 4,
+        numero: ++numero,
         titre: 'Tarif et notes',
         fait: _rate > 0,
         child: Column(
@@ -319,7 +366,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < etapes.length; i++)
+          // La cle suit l'etape, pas sa place : une etape qui s'insere entre
+          // deux autres apparait seule, sans refaire apparaitre la derniere.
           FadeUp(
+            key: ValueKey(etapes[i].titre),
             index: i,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 16),

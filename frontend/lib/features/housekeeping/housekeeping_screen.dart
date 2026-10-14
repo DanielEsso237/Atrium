@@ -14,6 +14,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/recherche.dart';
 import '../../core/theme.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
@@ -25,6 +26,49 @@ import '../../data/repositories/housekeeping_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../../core/ui/confirmation.dart';
+
+/// Ce que montre le tableau du menage.
+enum _FiltreMenage { toutes, prioritaires, departs }
+
+class _FiltreMenageNotifier extends Notifier<_FiltreMenage> {
+  @override
+  _FiltreMenage build() => _FiltreMenage.toutes;
+
+  void choisir(_FiltreMenage f) => state = f;
+}
+
+final _filtreMenageProvider =
+    NotifierProvider<_FiltreMenageNotifier, _FiltreMenage>(
+      _FiltreMenageNotifier.new,
+    );
+
+/// Une chambre, un etage, un genre de menage.
+class _RechercheMenage extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void changer(String v) => state = v;
+}
+
+final _rechercheMenageProvider = NotifierProvider<_RechercheMenage, String>(
+  _RechercheMenage.new,
+);
+
+bool _garde(_FiltreMenage f, CleaningJob j) => switch (f) {
+  _FiltreMenage.toutes => true,
+  _FiltreMenage.prioritaires =>
+    j.priority == Priority.HIGH || j.priority == Priority.URGENT,
+  _FiltreMenage.departs => j.type == HousekeepingTaskType.DEPARTURE,
+};
+
+String _libelleType(HousekeepingTaskType? t) => switch (t) {
+  null => 'À nettoyer',
+  HousekeepingTaskType.DEPARTURE => 'Après départ',
+  HousekeepingTaskType.STAYOVER => 'Client en place',
+  HousekeepingTaskType.REFRESH => 'Rafraîchissement',
+  HousekeepingTaskType.DEEP_CLEAN => 'Nettoyage complet',
+  HousekeepingTaskType.INSPECTION => 'Contrôle',
+};
 
 class HousekeepingScreen extends ConsumerWidget {
   const HousekeepingScreen({super.key});
@@ -57,17 +101,40 @@ class HousekeepingScreen extends ConsumerWidget {
         data: (liste) {
           if (liste.isEmpty) return const _RienAFaire();
 
-          final aFaire = liste.where((j) => !j.faite && !j.enCours).toList();
-          final enCours = liste.where((j) => !j.faite && j.enCours).toList();
-          final faites = liste.where((j) => j.faite).toList();
+          final recherche = Recherche(ref.watch(_rechercheMenageProvider));
+          final filtre = ref.watch(_filtreMenageProvider);
+          final trouvees = [
+            for (final j in liste)
+              if (recherche.garde([
+                j.roomNumber,
+                'chambre ${j.roomNumber}',
+                j.floorLabel,
+                _libelleType(j.type),
+              ]))
+                j,
+          ];
+          final montrees = trouvees.where((j) => _garde(filtre, j));
+          final aFaire = montrees.where((j) => !j.faite && !j.enCours).toList();
+          final enCours = montrees.where((j) => !j.faite && j.enCours).toList();
+          final faites = montrees.where((j) => j.faite).toList();
+          // La progression reste celle de la journee, pas celle du filtre.
+          final faitesDuJour = liste.where((j) => j.faite).length;
+          final enCoursDuJour = liste.where((j) => !j.faite && j.enCours).length;
+          final outils = Padding(
+            padding: EdgeInsets.fromLTRB(marge, 0, marge, 14),
+            child: _OutilsMenage(
+              trouvees: trouvees,
+              filtre: filtre,
+            ),
+          );
 
           return LayoutBuilder(
             builder: (context, c) {
               final progression = Padding(
                 padding: EdgeInsets.fromLTRB(marge, 0, marge, 16),
                 child: _Progression(
-                  faites: faites.length,
-                  enCours: enCours.length,
+                  faites: faitesDuJour,
+                  enCours: enCoursDuJour,
                   total: liste.length,
                 ),
               );
@@ -78,6 +145,7 @@ class HousekeepingScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     progression,
+                    outils,
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(marge, 0, marge, 20),
@@ -129,6 +197,7 @@ class HousekeepingScreen extends ConsumerWidget {
                 padding: EdgeInsets.fromLTRB(0, 0, 0, 32),
                 children: [
                   progression,
+                  outils,
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: marge),
                     child: Column(
@@ -606,12 +675,53 @@ class _CarteState extends ConsumerState<_Carte> {
     return job.floorLabel.isEmpty ? _typeLabel(job.type) : job.floorLabel;
   }
 
-  String _typeLabel(HousekeepingTaskType? t) => switch (t) {
-    null => 'À nettoyer',
-    HousekeepingTaskType.DEPARTURE => 'Après départ',
-    HousekeepingTaskType.STAYOVER => 'Client en place',
-    HousekeepingTaskType.REFRESH => 'Rafraîchissement',
-    HousekeepingTaskType.DEEP_CLEAN => 'Nettoyage complet',
-    HousekeepingTaskType.INSPECTION => 'Contrôle',
-  };
+  String _typeLabel(HousekeepingTaskType? t) => _libelleType(t);
+}
+
+/// La recherche et les filtres du tableau, chacun avec son nombre.
+class _OutilsMenage extends ConsumerWidget {
+  const _OutilsMenage({required this.trouvees, required this.filtre});
+
+  final List<CleaningJob> trouvees;
+  final _FiltreMenage filtre;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final champ = SearchPill(
+      hint: 'Chambre, étage…',
+      onChanged: (v) => ref.read(_rechercheMenageProvider.notifier).changer(v),
+    );
+    final pastilles = FilterPills<_FiltreMenage>(
+      selected: filtre,
+      onChanged: (f) => ref.read(_filtreMenageProvider.notifier).choisir(f),
+      options: [
+        FilterOption(_FiltreMenage.toutes, 'Toutes', count: trouvees.length),
+        FilterOption(
+          _FiltreMenage.prioritaires,
+          'Prioritaires',
+          count: trouvees.where((j) => _garde(_FiltreMenage.prioritaires, j)).length,
+          color: AtriumPalette.current.error,
+        ),
+        FilterOption(
+          _FiltreMenage.departs,
+          'Après départ',
+          count: trouvees.where((j) => _garde(_FiltreMenage.departs, j)).length,
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, c) => c.maxWidth < 720
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [champ, const SizedBox(height: 10), pastilles],
+            )
+          : Row(
+              children: [
+                SizedBox(width: 280, child: champ),
+                const SizedBox(width: 12),
+                Expanded(child: pastilles),
+              ],
+            ),
+    );
+  }
 }

@@ -62,6 +62,31 @@ enum InvoiceStatus { DRAFT, ISSUED, PAID, CANCELLED }
 
 enum PaymentMethod { CASH, CARD, TRANSFER, MOBILE_MONEY, CITY_LEDGER, VOUCHER }
 
+/// Ce que l'hotel paie sans passer par le stock (`ExpenseCategory` du
+/// serveur). Le stock porte deja son cout ; le reste se saisit ici, pour que
+/// le benefice soit le vrai.
+enum ExpenseCategory {
+  SALARIES,
+  ELECTRICITY,
+  WATER,
+  RENT,
+
+  /// Carburant du vehicule et du groupe electrogene.
+  FUEL,
+
+  /// Reparations et entretien du batiment, hors produits du stock.
+  REPAIRS,
+
+  /// Internet, telephone, television.
+  TELECOM,
+  TAXES,
+  MARKETING,
+
+  /// Frais bancaires, commissions carte et Mobile Money.
+  BANK_FEES,
+  OTHER,
+}
+
 enum CashSessionStatus { OPEN, CLOSED }
 
 // --- Restauration -----------------------------------------------------------

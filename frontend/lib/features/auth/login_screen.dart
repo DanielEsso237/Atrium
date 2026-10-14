@@ -718,7 +718,7 @@ class _ToucheState extends State<_Touche> {
 }
 
 /// Le panneau de marque : la chambre sous un voile bleu royal, l'arche,
-/// l'heure, et la promesse en serif.
+/// l'heure, et la promesse en grand.
 class _PanneauMarque extends StatelessWidget {
   const _PanneauMarque({this.compact = false});
 

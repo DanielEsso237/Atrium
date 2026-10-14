@@ -16,6 +16,7 @@ import '../remote/file_uploader.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'agent_repository.dart';
+import 'expense_repository.dart';
 import 'cash_repository.dart';
 import 'descente.dart';
 import 'folio_repository.dart';
@@ -59,6 +60,14 @@ final stayRulesProvider = StreamProvider<StayRules>(
 /// Le niveau de chaque evenement d'alerte, en flux continu.
 final niveauxAlertesProvider = StreamProvider<NiveauxAlertes>(
   (ref) => ref.watch(settingsRepositoryProvider).watchNiveauxAlertes(),
+);
+
+final expenseRepositoryProvider = Provider<ExpenseRepository>(
+  (ref) => ExpenseRepository(ref.watch(databaseProvider)),
+);
+
+final sonneriesAlertesProvider = StreamProvider<SonneriesAlertes>(
+  (ref) => ref.watch(settingsRepositoryProvider).watchSonneriesAlertes(),
 );
 
 final guestRepositoryProvider = Provider<GuestRepository>(

@@ -26,12 +26,14 @@ import '../../data/local/queries/alert_queries.dart';
 class SignalVoulu {
   const SignalVoulu({
     required this.gravite,
+    required this.sonnerie,
     required this.son,
     required this.vibration,
     this.discret = false,
   });
 
   final NiveauAlerte gravite;
+  final Sonnerie sonnerie;
   final bool son;
   final bool vibration;
 
@@ -58,7 +60,10 @@ abstract class NotificationsSysteme {
 }
 
 /// Les canaux d'Android : le son et la vibration d'un canal sont figes a sa
-/// creation, d'ou un canal par combinaison.
+/// creation, d'ou un canal par combinaison -- et, pour ceux qui sonnent, un
+/// par sonnerie. Ceux-la naissent a leur premiere alerte : vingt canaux
+/// crees d'avance encombreraient les reglages de la tablette pour des
+/// sonneries que personne n'a choisies.
 enum _Canal {
   discret('atrium_discret', 'Alertes discrètes', 'Sans bruit ni bandeau.'),
   muet('atrium_muet', 'Alertes sans son', 'Le son est coupé pour l’agent.'),
@@ -67,28 +72,34 @@ enum _Canal {
     'Alertes en vibration',
     'Le son est coupé, la vibration reste.',
   ),
-  sonore('atrium_sonore', 'Alertes sonores', 'Carillon, sans vibration.'),
+  sonore('atrium_sonore', 'Alertes sonores', 'Sonnerie douce, sans vibration.'),
   sonoreVibration(
     'atrium_sonore_vibration',
     'Alertes sonores et vibrantes',
-    'Carillon et vibration.',
+    'Sonnerie douce et vibration.',
   ),
   critique(
     'atrium_critique',
     'Alertes critiques',
-    'Alarme répétée jusqu’à ce qu’on ouvre l’alerte.',
+    'Sonnerie répétée jusqu’à ce qu’on ouvre l’alerte.',
   ),
   critiqueVibration(
     'atrium_alarmevibration',
     'Alertes critiques vibrantes',
-    'Alarme répétée et vibration.',
+    'Sonnerie répétée et vibration.',
   );
 
   const _Canal(this.id, this.nom, this.description);
 
+  /// L'identifiant d'avant les sonneries pour ceux qui sonnent : il portait
+  /// l'ancien carillon, et ne sert plus qu'a retirer ce canal.
   final String id;
   final String nom;
   final String description;
+
+  String idPour(Sonnerie s) => son ? '${id}_${s.code.toLowerCase()}' : id;
+
+  String nomPour(Sonnerie s) => son ? '$nom (${s.libelle})' : nom;
 
   bool get son => this == sonore || this == sonoreVibration || alarme;
   bool get vibre =>
@@ -154,25 +165,13 @@ class NotificationsAndroid implements NotificationsSysteme {
       );
       final plateforme = _plateforme;
       for (final c in _Canal.values) {
-        await plateforme?.createNotificationChannel(
-          AndroidNotificationChannel(
-            c.id,
-            c.nom,
-            description: c.description,
-            importance: c == _Canal.discret
-                ? Importance.low
-                : c.alarme
-                ? Importance.max
-                : Importance.high,
-            playSound: c.son,
-            sound: c.son ? _sonnerie(c) : null,
-            enableVibration: c.vibre,
-            vibrationPattern: c.vibre ? _motif : null,
-            audioAttributesUsage: c.alarme
-                ? AudioAttributesUsage.alarm
-                : AudioAttributesUsage.notificationEvent,
-          ),
-        );
+        if (c.son) {
+          // Le canal de l'ancien carillon : son son est fige, il sonnerait
+          // fort pour toujours.
+          await plateforme?.deleteNotificationChannel(channelId: c.id);
+        } else {
+          await _creerCanal(c, Sonnerie.memeNote);
+        }
       }
       await plateforme?.createNotificationChannel(
         const AndroidNotificationChannel(
@@ -191,10 +190,36 @@ class NotificationsAndroid implements NotificationsSysteme {
     }
   }
 
-  static RawResourceAndroidNotificationSound _sonnerie(_Canal c) =>
-      RawResourceAndroidNotificationSound(
-        c.alarme ? 'alerte_critique' : 'alerte_urgente',
-      );
+  /// Les canaux deja crees depuis le lancement : en creer un qui existe ne
+  /// change rien chez Android, mais coute un aller-retour a chaque alerte.
+  final _crees = <String>{};
+
+  Future<void> _creerCanal(_Canal c, Sonnerie s) async {
+    final id = c.idPour(s);
+    if (_crees.contains(id)) return;
+    await _plateforme?.createNotificationChannel(
+      AndroidNotificationChannel(
+        id,
+        c.nomPour(s),
+        description: c.description,
+        importance: _importance(c),
+        playSound: c.son,
+        sound: c.son ? RawResourceAndroidNotificationSound(s.fichier) : null,
+        enableVibration: c.vibre,
+        vibrationPattern: c.vibre ? _motif : null,
+        audioAttributesUsage: c.alarme
+            ? AudioAttributesUsage.alarm
+            : AudioAttributesUsage.notificationEvent,
+      ),
+    );
+    _crees.add(id);
+  }
+
+  static Importance _importance(_Canal c) => c == _Canal.discret
+      ? Importance.low
+      : c.alarme
+      ? Importance.max
+      : Importance.high;
 
   @override
   Future<void> veiller(bool actif) async {
@@ -243,7 +268,9 @@ class NotificationsAndroid implements NotificationsSysteme {
   Future<void> montrer(Alerte alerte, SignalVoulu signal) async {
     if (!_android || !_pret) return;
     final canal = _Canal.pour(signal);
+    final sonnerie = signal.sonnerie;
     try {
+      await _creerCanal(canal, sonnerie);
       await _greffon.show(
         id: _idPour(alerte.cle),
         title: alerte.titre,
@@ -251,19 +278,17 @@ class NotificationsAndroid implements NotificationsSysteme {
         payload: jsonEncode({'cle': alerte.cle, 'route': alerte.route}),
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            canal.id,
-            canal.nom,
+            canal.idPour(sonnerie),
+            canal.nomPour(sonnerie),
             channelDescription: canal.description,
             icon: _icone,
             color: _bleu,
-            importance: canal == _Canal.discret
-                ? Importance.low
-                : canal.alarme
-                ? Importance.max
-                : Importance.high,
+            importance: _importance(canal),
             priority: canal == _Canal.discret ? Priority.low : Priority.max,
             playSound: canal.son,
-            sound: canal.son ? _sonnerie(canal) : null,
+            sound: canal.son
+                ? RawResourceAndroidNotificationSound(sonnerie.fichier)
+                : null,
             enableVibration: canal.vibre,
             vibrationPattern: canal.vibre ? _motif : null,
             audioAttributesUsage: canal.alarme

@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
+import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
@@ -634,14 +635,51 @@ class _LigneVersement extends ConsumerWidget {
 String _hm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-class _Encaissements extends StatelessWidget {
+/// Les encaissements du jour, a chercher (un client, une chambre, une
+/// ardoise, un agent, un montant) et a filtrer par moyen de paiement.
+class _Encaissements extends StatefulWidget {
   const _Encaissements({required this.paiements});
 
   final AsyncValue<List<DayPayment>> paiements;
 
   @override
+  State<_Encaissements> createState() => _EncaissementsState();
+}
+
+class _EncaissementsState extends State<_Encaissements> {
+  String _recherche = '';
+
+  /// Le moyen montre ; `null` pour tous.
+  PaymentMethod? _moyen;
+
+  @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
+    final paiements = widget.paiements;
+    final tous = paiements.value ?? const <DayPayment>[];
+    final recherche = Recherche(_recherche);
+    final trouves = [
+      for (final x in tous)
+        if (recherche.garde([
+          x.guestName,
+          x.roomNumber,
+          if (x.roomNumber != null) 'chambre ${x.roomNumber}',
+          x.folioNumber,
+          x.agentName,
+          x.reference,
+          paymentMethodLabel(x.method),
+          '${x.amount}',
+        ]))
+          x,
+    ];
+    final montres = [
+      for (final x in trouves)
+        if (_moyen == null || x.method == _moyen) x,
+    ];
+    final moyens = <PaymentMethod, int>{};
+    for (final x in trouves) {
+      moyens[x.method] = (moyens[x.method] ?? 0) + 1;
+    }
     return Bezel(
       radius: 26,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -656,25 +694,49 @@ class _Encaissements extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
+          // La recherche n'apparait qu'une fois la journee commencee.
+          if (tous.length > 1) ...[
+            const SizedBox(height: 4),
+            SearchPill(
+              hint: 'Client, chambre, agent, montant…',
+              onChanged: (v) => setState(() => _recherche = v),
+            ),
+            if (moyens.length > 1) ...[
+              const SizedBox(height: 10),
+              FilterPills<PaymentMethod?>(
+                selected: _moyen,
+                onChanged: (m) => setState(() => _moyen = m),
+                options: [
+                  FilterOption(null, 'Tous', count: trouves.length),
+                  for (final e in moyens.entries.toList()
+                    ..sort((a, b) => b.value.compareTo(a.value)))
+                    FilterOption(e.key, paymentMethodLabel(e.key), count: e.value),
+                ],
+              ),
+            ],
+            const SizedBox(height: 6),
+          ],
           paiements.when(
             loading: () => const Padding(
               padding: EdgeInsets.all(20),
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (e, _) => Text('$e'),
-            data: (liste) => liste.isEmpty
+            data: (liste) => liste.isEmpty || montres.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text(
-                      'Les encaissements de la journée s’afficheront ici.',
+                      liste.isEmpty
+                          ? 'Les encaissements de la journée s’afficheront ici.'
+                          : 'Aucun encaissement ne correspond.',
                       style: _st(14, FontWeight.w500, p.textSecondary),
                     ),
                   )
                 : Column(
                     children: [
-                      for (var i = 0; i < liste.length; i++) ...[
+                      for (var i = 0; i < montres.length; i++) ...[
                         if (i > 0) Divider(height: 1, color: p.border),
-                        _LigneEncaissement(paiement: liste[i]),
+                        _LigneEncaissement(paiement: montres[i]),
                       ],
                     ],
                   ),

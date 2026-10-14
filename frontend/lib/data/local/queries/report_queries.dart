@@ -17,6 +17,7 @@ import '../../../core/business_day.dart';
 import '../../../core/formats.dart';
 import '../database.dart';
 import '../enums.dart';
+import '../../repositories/expense_repository.dart' show libelleRubrique;
 
 /// Ce que l'on regarde : une periode de journees hotelieres et des filtres.
 ///
@@ -405,6 +406,51 @@ class GestionRapport {
       .fold(0, (s, m) => s + m.valeur);
 }
 
+/// Le benefice d'une periode, pour tout l'hotel.
+///
+/// Les recettes, moins ce que coute ce qui est vendu et ce qui est utilise en
+/// cuisine, dans les chambres ou au spa, moins les pertes -- ces couts du
+/// stock viennent du serveur, journee par journee ([DailyCosts]) --, moins
+/// les depenses saisies (salaires, electricite...).
+///
+/// Les filtres du rapport ne s'y appliquent pas : une facture d'electricite
+/// n'appartient pas au bar. Les achats ne s'y retranchent pas non plus : un
+/// achat n'est un cout qu'une fois vendu ou utilise, ce qui reste en stock
+/// garde sa valeur.
+class BeneficeRapport {
+  const BeneficeRapport({
+    required this.recettes,
+    required this.coutDesVentes,
+    required this.consommations,
+    required this.pertes,
+    required this.achats,
+    required this.depenses,
+    this.coutsArretesAu,
+  });
+
+  final int recettes;
+  final int coutDesVentes;
+  final int consommations;
+  final int pertes;
+
+  /// Ce que les livraisons ont coute : a titre indicatif.
+  final int achats;
+
+  /// Les depenses non annulees, par rubrique (la cle est le code).
+  final List<Part> depenses;
+
+  /// La derniere journee dont le serveur a rendu les couts du stock ; nulle
+  /// s'il n'en a jamais rendu (hors ligne depuis toujours, ou sans le droit).
+  final DateTime? coutsArretesAu;
+
+  int get totalDepenses => depenses.fold(0, (s, p) => s + p.montant);
+  int get coutsDuStock => coutDesVentes + consommations + pertes;
+  int get benefice => recettes - coutsDuStock - totalDepenses;
+
+  /// Le benefice rapporte aux recettes, en points de base.
+  int get tauxBp => recettes == 0 ? 0 : (benefice * 10000 / recettes).round();
+}
+
 /// Le rapport complet d'une periode.
 class RapportFinancier {
   const RapportFinancier({
@@ -429,6 +475,8 @@ class RapportFinancier {
     required this.arrhesDetenues,
     required this.activite,
     required this.gestion,
+    required this.benefice,
+    required this.beneficePrecedent,
   });
 
   final FiltresRapport filtres;
@@ -466,6 +514,10 @@ class RapportFinancier {
 
   final ActiviteRapport activite;
   final GestionRapport gestion;
+  final BeneficeRapport benefice;
+
+  /// Le benefice de la periode de meme longueur juste avant.
+  final int beneficePrecedent;
 
   /// Somme des ecarts des caisses closes sur la periode (negatif : manque).
   int get ecartCaisse => gestion.ecartCaisses;
@@ -507,6 +559,8 @@ extension ReportQueries on AtriumDatabase {
         housekeepingTasks,
         maintenanceTickets,
         stockMovements,
+        expenses,
+        dailyCosts,
       ]),
     ).asyncMap((_) => chargerRapport(f));
   }
@@ -606,7 +660,84 @@ extension ReportQueries on AtriumDatabase {
       ),
       activite: await _activite(f),
       gestion: await _gestion(f, agents),
+      benefice: await benefice(f),
+      beneficePrecedent: (await benefice(f.precedente)).benefice,
     );
+  }
+
+  // --- Benefice ---------------------------------------------------------------
+
+  /// Le benefice de la periode de [f], sans ses filtres (voir
+  /// [BeneficeRapport]).
+  Future<BeneficeRapport> benefice(FiltresRapport f) async {
+    final periode = [
+      Variable.withString(formatIsoDate(f.du)),
+      Variable.withString(formatIsoDate(f.au)),
+    ];
+    // Les memes recettes que le chiffre d'affaires du rapport : sans les
+    // acomptes, remises deduites.
+    final recettes = await customSelect(
+      '''
+      SELECT COALESCE(SUM(amount), 0) AS n
+        FROM folio_items
+       WHERE deleted_at IS NULL AND is_void = 0
+         AND business_date BETWEEN ?1 AND ?2
+         AND category <> 'DEPOSIT'
+      ''',
+      variables: periode,
+      readsFrom: {folioItems},
+    ).getSingle();
+    final couts = await customSelect(
+      '''
+      SELECT COALESCE(SUM(cost_of_sales), 0) AS ventes,
+             COALESCE(SUM(consumption), 0)   AS consommations,
+             COALESCE(SUM(losses), 0)        AS pertes,
+             COALESCE(SUM(purchases), 0)     AS achats,
+             (SELECT MAX(business_date) FROM daily_costs) AS dernier
+        FROM daily_costs
+       WHERE business_date BETWEEN ?1 AND ?2
+      ''',
+      variables: periode,
+      readsFrom: {dailyCosts},
+    ).getSingle();
+    final depenses = await customSelect(
+      '''
+      SELECT category AS rubrique, COALESCE(SUM(amount), 0) AS montant,
+             COUNT(*) AS n
+        FROM expenses
+       WHERE deleted_at IS NULL AND is_void = 0
+         AND business_date BETWEEN ?1 AND ?2
+       GROUP BY category
+      ''',
+      variables: periode,
+      readsFrom: {expenses},
+    ).get();
+    final dernier = couts.readNullable<String>('dernier');
+    return BeneficeRapport(
+      recettes: recettes.read<int>('n'),
+      coutDesVentes: couts.read<int>('ventes'),
+      consommations: couts.read<int>('consommations'),
+      pertes: couts.read<int>('pertes'),
+      achats: couts.read<int>('achats'),
+      depenses: _trier([
+        for (final d in depenses)
+          if (_rubrique(d.read<String>('rubrique')) case final r?)
+            Part(
+              r.name,
+              libelleRubrique(r),
+              d.read<int>('montant'),
+              nombre: d.read<int>('n'),
+            ),
+      ]),
+      coutsArretesAu: dernier == null ? null : DateTime.tryParse(dernier),
+    );
+  }
+
+  static ExpenseCategory? _rubrique(String v) {
+    for (final c in ExpenseCategory.values) {
+      if (c.name == v) return c;
+    }
+    return null;
   }
 
   /// Les seuls chiffres qu'on compare d'une periode a l'autre.

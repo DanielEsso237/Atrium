@@ -75,8 +75,8 @@ class ModuleScaffold extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Le titre en serif, comme une enseigne : c'est lui qui
-                    // dit ou l'on est, le reste de la page est en lineale.
+                    // Le grand titre, comme une enseigne : c'est lui qui dit
+                    // ou l'on est.
                     Semantics(
                       header: true,
                       child: Text(

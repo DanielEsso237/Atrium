@@ -59,6 +59,8 @@ part 'database.g.dart';
     InvoiceLines,
     CashSessions,
     Payments,
+    Expenses,
+    DailyCosts,
     // Restauration
     Outlets,
     PrepStations,
@@ -117,7 +119,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 12;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -204,6 +206,14 @@ class AtriumDatabase extends _$AtriumDatabase {
       if (depuis < 10) {
         await m.addColumn(folios, folios.tabLabel);
       }
+      // 11 : reserve au surclassement sur la tablette (ticket D6).
+      // 11 -> 12 : le benefice. Les depenses de l'hotel hors stock, et ce
+      // que chaque journee a coute en stock, calcule par le serveur.
+      if (depuis < 12) {
+        await m.createTable(expenses);
+        await customStatement(_indexDepenses);
+        await m.createTable(dailyCosts);
+      }
     },
     beforeOpen: (details) async {
       // Integrite referentielle : desactivee par defaut dans SQLite, il
@@ -236,8 +246,13 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// Ils visent les ecrans qui doivent rester instantanes sur une tablette :
   /// le plan des chambres, le planning des arrivees du jour, les tickets
   /// ouverts en cuisine, la file d'impression.
+  static const _indexDepenses =
+      'CREATE INDEX IF NOT EXISTS ix_expenses_business_date '
+      'ON expenses(business_date)';
+
   Future<void> _createIndexes() async {
     const statements = [
+      _indexDepenses,
       // Plan de l'hotel et etats de chambres (ecran 5.2)
       'CREATE INDEX IF NOT EXISTS ix_rooms_occupancy ON rooms(occupancy_status)',
       'CREATE INDEX IF NOT EXISTS ix_rooms_housekeeping ON rooms(housekeeping_status)',

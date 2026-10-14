@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/confirmation.dart';
@@ -29,6 +30,18 @@ final _pointsDeVente = StreamProvider<List<OutletRow>>(
   (ref) => ref.watch(outletRepositoryProvider).watchAll(),
 );
 
+/// Un nom, un code employe, un role, un point de vente.
+class _RechercheAgents extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void changer(String v) => state = v;
+}
+
+final _rechercheAgents = NotifierProvider<_RechercheAgents, String>(
+  _RechercheAgents.new,
+);
+
 class AgentsSection extends ConsumerWidget {
   const AgentsSection({super.key});
 
@@ -42,6 +55,7 @@ class AgentsSection extends ConsumerWidget {
         roles.where((r) => r.code == code).firstOrNull?.label ?? code;
     String libellePoint(String id) =>
         points.where((o) => o.id == id).firstOrNull?.label ?? '…';
+    final recherche = Recherche(ref.watch(_rechercheAgents));
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -59,11 +73,26 @@ class AgentsSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
+        if ((agents.value?.length ?? 0) > 1) ...[
+          SearchPill(
+            hint: 'Nom, code, rôle, point de vente…',
+            onChanged: (v) => ref.read(_rechercheAgents.notifier).changer(v),
+          ),
+          const SizedBox(height: 12),
+        ],
         ...agents.when(
           loading: () => [const Center(child: CircularProgressIndicator())],
           error: (e, _) => [Text('Lecture impossible : $e')],
           data: (liste) => [
             for (final a in liste)
+              if (recherche.garde([
+                a.user.firstName,
+                a.user.lastName,
+                a.user.employeeCode,
+                ...a.roleCodes.map(libelleRole),
+                ...a.outletIds.map(libellePoint),
+                if (!a.user.isActive) 'désactivé',
+              ]))
               _LigneAgent(
                 agent: a,
                 role: a.roleCodes.map(libelleRole).join(', '),

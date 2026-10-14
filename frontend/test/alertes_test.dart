@@ -27,6 +27,7 @@ const _moi = '01920000-0000-7000-8000-00000000a001';
 
 class _SignalNote implements SignalAlerte {
   final emis = <NiveauAlerte>[];
+  final sonneries = <Sonnerie>[];
   final sons = <bool>[];
   final vibrations = <bool>[];
   var arrets = 0;
@@ -34,10 +35,12 @@ class _SignalNote implements SignalAlerte {
   @override
   Future<void> emettre(
     NiveauAlerte niveau, {
+    required Sonnerie sonnerie,
     bool son = true,
     bool vibration = true,
   }) async {
     emis.add(niveau);
+    sonneries.add(sonnerie);
     sons.add(son);
     vibrations.add(vibration);
   }
@@ -298,48 +301,50 @@ void main() {
     expect(oublie.single.niveau, NiveauAlerte.critique);
   });
 
-  test('le centre sonne une fois, rappelle, et se tait quand on a vu',
-      () async {
-    final signal = _SignalNote();
-    const rappel = Duration(milliseconds: 120);
-    await db
-        .into(db.users)
-        .insert(
-          UsersCompanion.insert(
-            id: _moi,
-            createdAt: t0,
-            updatedAt: t0,
-            hotelId: _hotel,
-            employeeCode: 'TECH01',
-            firstName: 'Ines',
-            lastName: 'Test',
-          ),
-        );
-    final agent = await (db.select(
-      db.users,
-    )..where((u) => u.id.equals(_moi))).getSingle();
-    final conteneur = ProviderContainer(
-      overrides: [
-        databaseProvider.overrideWithValue(db),
-        signalAlerteProvider.overrideWithValue(signal),
-        notificationsSystemeProvider.overrideWithValue(_VoletNote()),
-        premierPlanProvider.overrideWith(() => _PremierPlan(true)),
-        delaisRappelProvider.overrideWithValue(
-          (critique: rappel, urgente: rappel * 10),
-        ),
-        sessionProvider.overrideWith(
-          () => _Session(
-            SessionState(
-              agent: agent,
-              acces: const AccessProfile(permissions: {'maintenance.read'}),
+  test(
+    'le centre sonne une fois, rappelle, et se tait quand on a vu',
+    () async {
+      final signal = _SignalNote();
+      const rappel = Duration(milliseconds: 120);
+      await db
+          .into(db.users)
+          .insert(
+            UsersCompanion.insert(
+              id: _moi,
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: _hotel,
+              employeeCode: 'TECH01',
+              firstName: 'Ines',
+              lastName: 'Test',
+            ),
+          );
+      final agent = await (db.select(
+        db.users,
+      )..where((u) => u.id.equals(_moi))).getSingle();
+      final conteneur = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          signalAlerteProvider.overrideWithValue(signal),
+          notificationsSystemeProvider.overrideWithValue(_VoletNote()),
+          premierPlanProvider.overrideWith(() => _PremierPlan(true)),
+          delaisRappelProvider.overrideWithValue((
+            critique: rappel,
+            urgente: rappel * 10,
+          )),
+          sessionProvider.overrideWith(
+            () => _Session(
+              SessionState(
+                agent: agent,
+                acces: const AccessProfile(permissions: {'maintenance.read'}),
+              ),
             ),
           ),
-        ),
-      ],
-    );
-    addTearDown(conteneur.dispose);
-    conteneur.listen(centreAlertesProvider, (_, _) {}, fireImmediately: true);
-    Future<void> attendre(Duration d) => Future<void>.delayed(d);
+        ],
+      );
+      addTearDown(conteneur.dispose);
+      conteneur.listen(centreAlertesProvider, (_, _) {}, fireImmediately: true);
+      Future<void> attendre(Duration d) => Future<void>.delayed(d);
 
     await attendre(const Duration(milliseconds: 50));
     expect(signal.emis, isEmpty, reason: 'rien a signaler');
@@ -543,6 +548,32 @@ void main() {
     expect(NiveauxAlertes.fromJson(niveaux.toJson()), niveaux);
   });
 
+  test('les sonneries se relisent, celle de l agent passe devant', () {
+    final hotel = SonneriesAlertes.fromJson({
+      'LOW_STOCK': 'WOOD',
+      'MAINTENANCE': 'TRUMPET',
+    });
+    expect(hotel.de(TypeEvenement.stockBas), Sonnerie.boisEtouffe);
+    expect(
+      hotel.de(TypeEvenement.panne),
+      TypeEvenement.panne.sonnerieParDefaut,
+    );
+    expect(SonneriesAlertes.fromJson(hotel.toJson()), hotel);
+
+    final agent = PreferencesAlertes.fromJson({
+      'sound_muted': true,
+      'sounds': {'LOW_STOCK': 'BUBBLES'},
+    });
+    expect(agent.sonnerie(TypeEvenement.stockBas, hotel), Sonnerie.bulles);
+    expect(
+      agent.sonnerie(TypeEvenement.panne, hotel),
+      hotel.de(TypeEvenement.panne),
+    );
+    // Un agent d'avant les sonneries : son seul reglage reste lu.
+    expect(PreferencesAlertes.fromJson({'sound_muted': true}).sonCoupe, isTrue);
+    expect(PreferencesAlertes.fromJson(agent.toJson()), agent);
+  });
+
   group('le centre applique niveaux, son coupe et arriere-plan', () {
     late _SignalNote signal;
     late _VoletNote volet;
@@ -596,43 +627,57 @@ void main() {
     Future<void> attendre() =>
         Future<void>.delayed(const Duration(milliseconds: 60));
 
-    test('le stock deja bas sonne une fois a la connexion, sans rappel',
-        () async {
-      // Deux produits sous leur minimum avant la connexion.
-      final bar = id();
-      await db
-          .into(db.stockLocations)
-          .insert(
-            StockLocationsCompanion.insert(
-              id: bar, createdAt: t0, updatedAt: t0, hotelId: _hotel,
-              code: 'BAR', label: 'Bar',
-            ),
-          );
-      for (final (ref, libelle) in [('B33', 'Bière'), ('JUS', 'Jus')]) {
-        final produit = id();
+    test(
+      'le stock deja bas sonne une fois a la connexion, sans rappel',
+      () async {
+        // Deux produits sous leur minimum avant la connexion.
+        final bar = id();
         await db
-            .into(db.products)
+            .into(db.stockLocations)
             .insert(
-              ProductsCompanion.insert(
-                id: produit, createdAt: t0, updatedAt: t0, hotelId: _hotel,
-                reference: ref, label: libelle, minStock: const Value(12),
+              StockLocationsCompanion.insert(
+                id: bar,
+                createdAt: t0,
+                updatedAt: t0,
+                hotelId: _hotel,
+                code: 'BAR',
+                label: 'Bar',
               ),
             );
-        await db
-            .into(db.stockLevels)
-            .insert(
-              StockLevelsCompanion.insert(
-                id: id(), createdAt: t0, updatedAt: t0, productId: produit,
-                stockLocationId: bar, quantity: const Value(4),
-              ),
-            );
-      }
-      await SettingsRepository(db).setNiveauxAlertes(
-        const NiveauxAlertes().avec(
-          TypeEvenement.stockBas,
-          NiveauSignal.sonoreVibration,
-        ),
-      );
+        for (final (ref, libelle) in [('B33', 'Bière'), ('JUS', 'Jus')]) {
+          final produit = id();
+          await db
+              .into(db.products)
+              .insert(
+                ProductsCompanion.insert(
+                  id: produit,
+                  createdAt: t0,
+                  updatedAt: t0,
+                  hotelId: _hotel,
+                  reference: ref,
+                  label: libelle,
+                  minStock: const Value(12),
+                ),
+              );
+          await db
+              .into(db.stockLevels)
+              .insert(
+                StockLevelsCompanion.insert(
+                  id: id(),
+                  createdAt: t0,
+                  updatedAt: t0,
+                  productId: produit,
+                  stockLocationId: bar,
+                  quantity: const Value(4),
+                ),
+              );
+        }
+        await SettingsRepository(db).setNiveauxAlertes(
+          const NiveauxAlertes().avec(
+            TypeEvenement.stockBas,
+            NiveauSignal.sonoreVibration,
+          ),
+        );
 
       final conteneur = await centre(droits: const {'stock.read'});
       await attendre();
@@ -700,6 +745,31 @@ void main() {
       expect(signal.emis, hasLength(1));
     });
 
+    test('la sonnerie : celle de l agent, sinon celle de l hotel', () async {
+      final reglages = SettingsRepository(db);
+      await reglages.setSonneriesAlertes(
+        const SonneriesAlertes().avec(TypeEvenement.panne, Sonnerie.bulles),
+      );
+      await centre();
+
+      await panne(Priority.HIGH);
+      await attendre();
+      expect(signal.sonneries, [Sonnerie.bulles]);
+
+      // Couper puis retablir le son garde le choix de l'agent.
+      await reglages.setSonnerieAgent(
+        _moi,
+        TypeEvenement.panne,
+        Sonnerie.boisEtouffe,
+      );
+      await reglages.setSonCoupe(_moi, true);
+      await reglages.setSonCoupe(_moi, false);
+      await attendre();
+      await panne(Priority.HIGH);
+      await attendre();
+      expect(signal.sonneries.last, Sonnerie.boisEtouffe);
+    });
+
     test('son coupe : la vibration reste', () async {
       await SettingsRepository(db).setSonCoupe(_moi, true);
       await centre();
@@ -719,6 +789,7 @@ void main() {
       expect(signal.emis, isEmpty);
       final (cle, voulu) = volet.montrees.single;
       expect(voulu.gravite, NiveauAlerte.critique);
+      expect(voulu.sonnerie, TypeEvenement.panne.sonnerieParDefaut);
       expect(voulu.son && voulu.vibration, isTrue);
 
       // Reglee pendant la veille : la notification se retire.

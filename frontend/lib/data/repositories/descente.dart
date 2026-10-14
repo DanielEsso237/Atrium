@@ -36,7 +36,8 @@ import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
 import 'cash_repository.dart';
 import 'hotel_repository.dart';
-import 'settings_repository.dart' show depositRuleKey, notificationLevelsKey;
+import 'settings_repository.dart'
+    show depositRuleKey, notificationLevelsKey, notificationSoundsKey;
 import 'sync_repository.dart';
 
 /// Ce qu'une descente a rapatrie.
@@ -170,6 +171,17 @@ class Descente {
       final encaissements = await _siPermis(
         () => _catalog.fetchPayments(depuis),
       );
+      // Les depenses, pour le benefice : sous `accounting.read`, un 403
+      // pour le comptoir, qui saute la ressource.
+      final depenses = await _siPermis(() => _catalog.fetchExpenses(depuis));
+      // Et ce que chaque journee a coute en stock : les mouvements, eux, ne
+      // descendent pas. Un 403 vaut « rien a ecrire », comme un 404.
+      List<RemoteDailyCost>? couts;
+      try {
+        couts = await _catalog.fetchDailyCosts(depuis);
+      } on ApiException catch (e) {
+        if (e.failure != ApiFailure.forbidden) rethrow;
+      }
       // Les caisses : celles de tout l'hotel pour la caisse centrale, qui y
       // lit ce que chaque point de vente lui doit ; les siennes pour un
       // autre agent, qui y voit son versement confirme.
@@ -183,6 +195,7 @@ class Descente {
       final activite = await _activitePointsDeVente(depuis);
       final regleArrhes = await _catalog.fetchDepositRule();
       final niveauxAlertes = await _catalog.fetchNotificationLevels();
+      final sonneriesAlertes = await _catalog.fetchNotificationSounds();
       final agents = await _siPermis(_catalog.fetchUsers);
       final roles = await _siPermis(_catalog.fetchRoles);
       final permissions = await _siPermis(_catalog.fetchPermissions);
@@ -192,7 +205,18 @@ class Descente {
 
       final nPoints = await _ecrirePointsDeVente(pointsDeVente, maintenant);
       await _ecrireRegleArrhes(regleArrhes, maintenant);
-      await _ecrireNiveauxAlertes(niveauxAlertes, maintenant);
+      await _ecrireReglageAlertes(
+        notificationLevelsKey,
+        'Niveaux des alertes',
+        niveauxAlertes,
+        maintenant,
+      );
+      await _ecrireReglageAlertes(
+        notificationSoundsKey,
+        'Sonneries des alertes',
+        sonneriesAlertes,
+        maintenant,
+      );
       // Les agents : chacun avec ses roles, ses permissions et ses points de
       // vente. `applyServerAgent` epargne un agent modifie ici et pas encore
       // remonte.
@@ -253,6 +277,8 @@ class Descente {
             .toList(),
         maintenant,
       );
+      ecartees += await _ecrireDepenses(depenses, maintenant);
+      if (couts != null) await _ecrireCouts(couts, depuis, maintenant);
       ecartees += await _ecrireCaisses(
         {for (final c in [...caisses, ...activite.cashSessions]) c.id: c}
             .values
@@ -335,20 +361,23 @@ class Descente {
         );
   }
 
-  // --- Les niveaux des alertes ----------------------------------------------
+  // --- Les niveaux et les sonneries des alertes -----------------------------
 
-  /// Ecrit les niveaux des alertes, sauf ceux que l'administration de cette
-  /// tablette a changes et qui ne sont pas encore remontes. `null` (serveur
-  /// sans la route) ou vide (rien de fixe) : la tablette garde les siens.
-  Future<void> _ecrireNiveauxAlertes(
-    Object? niveaux,
+  /// Ecrit les niveaux ou les sonneries des alertes, sauf si l'administration
+  /// de cette tablette les a changes et qu'ils ne sont pas encore remontes.
+  /// `null` (serveur sans la route) ou vide (rien de fixe) : la tablette
+  /// garde les siens.
+  Future<void> _ecrireReglageAlertes(
+    String cle,
+    String libelle,
+    Object? valeur,
     DateTime maintenant,
   ) async {
-    if (niveaux is! Map || niveaux.isEmpty) return;
+    if (valeur is! Map || valeur.isEmpty) return;
     final existante =
         await (db.select(db.settings)..where(
               (s) =>
-                  s.key.equals(notificationLevelsKey) &
+                  s.key.equals(cle) &
                   s.scope.equalsValue(SettingScope.GLOBAL) &
                   s.scopeId.isNull(),
             ))
@@ -363,9 +392,9 @@ class Descente {
             createdAt: existante?.createdAt ?? maintenant,
             updatedAt: maintenant,
             hotelId: hotelId,
-            key: notificationLevelsKey,
-            value: Value(jsonEncode(niveaux)),
-            label: const Value('Niveaux des alertes'),
+            key: cle,
+            value: Value(jsonEncode(valeur)),
+            label: Value(libelle),
             syncState: const Value(SyncState.synced),
           ),
         );
@@ -1257,6 +1286,93 @@ class Descente {
       }
     });
     return sautes;
+  }
+
+  // --- Les depenses ----------------------------------------------------------
+
+  /// Rend le nombre de depenses ecartees : en attente d'envoi ici, ou d'une
+  /// rubrique que cette version ne connait pas (la ranger en « Autre »
+  /// fausserait la repartition sans le dire).
+  Future<int> _ecrireDepenses(
+    List<RemoteExpense> depenses,
+    DateTime maintenant,
+  ) async {
+    final protegees = await _sync.lignesEnAttente(db.expenses);
+    var sautees = 0;
+    await db.transaction(() async {
+      for (final d in depenses) {
+        final rubrique = _rubrique(d.category);
+        if (protegees.contains(d.id) || rubrique == null) {
+          sautees++;
+          continue;
+        }
+        await db
+            .into(db.expenses)
+            .insertOnConflictUpdate(
+              ExpensesCompanion.insert(
+                id: d.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                businessDate: d.businessDate,
+                category: rubrique,
+                label: d.label,
+                amount: d.amount,
+                method: Value(d.method == null ? null : _moyen(d.method!)),
+                supplier: Value(d.supplier),
+                reference: Value(d.reference),
+                notes: Value(d.notes),
+                recordedBy: Value(d.recordedBy),
+                isVoid: Value(d.isVoid),
+                voidReason: Value(d.voidReason),
+                voidedBy: Value(d.voidedBy),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+    return sautees;
+  }
+
+  /// Remplace les couts de la fenetre : un jour que le serveur ne rend plus
+  /// (tout y a ete annule) ne doit pas garder son ancien total.
+  Future<void> _ecrireCouts(
+    List<RemoteDailyCost> couts,
+    DateTime depuis,
+    DateTime maintenant,
+  ) async {
+    final premier = _jourTexte(depuis);
+    await db.transaction(() async {
+      await (db.delete(
+        db.dailyCosts,
+      )..where((c) => c.businessDate.isBiggerOrEqualValue(premier))).go();
+      for (final c in couts) {
+        await db
+            .into(db.dailyCosts)
+            .insertOnConflictUpdate(
+              DailyCostsCompanion.insert(
+                businessDate: c.businessDate,
+                costOfSales: Value(c.costOfSales),
+                consumption: Value(c.consumption),
+                losses: Value(c.losses),
+                purchases: Value(c.purchases),
+                updatedAt: maintenant,
+              ),
+            );
+      }
+    });
+  }
+
+  static String _jourTexte(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  static ExpenseCategory? _rubrique(String v) {
+    for (final c in ExpenseCategory.values) {
+      if (c.name == v) return c;
+    }
+    return null;
   }
 
   // --- Les caisses -----------------------------------------------------------

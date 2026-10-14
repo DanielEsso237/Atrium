@@ -87,7 +87,24 @@ flutter:
     - family: PhosphorFill
       fonts:
         - asset: assets/fonts/phosphor/Phosphor-Fill.ttf
-    # La police de la refonte : Plus Jakarta Sans, cinq graisses statiques.
+    # La police de l'application : Roboto, celle d'Android, en cinq graisses
+    # fixes tirees de la version variable de Google Fonts (licence OFL dans
+    # le dossier). Embarquee, et non prise au systeme : le navigateur et les
+    # postes Windows ne l'ont pas, et l'application ne doit pas changer de
+    # visage d'un poste a l'autre.
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/roboto/Roboto-400.ttf
+          weight: 400
+        - asset: assets/fonts/roboto/Roboto-500.ttf
+          weight: 500
+        - asset: assets/fonts/roboto/Roboto-600.ttf
+          weight: 600
+        - asset: assets/fonts/roboto/Roboto-700.ttf
+          weight: 700
+        - asset: assets/fonts/roboto/Roboto-800.ttf
+          weight: 800
+    # Plus Jakarta Sans ne sert plus qu'aux PDF (factures, tickets, rapports).
     - family: PlusJakartaSans
       fonts:
         - asset: assets/fonts/jakarta/PlusJakartaSans-400.ttf
@@ -100,23 +117,6 @@ flutter:
           weight: 700
         - asset: assets/fonts/jakarta/PlusJakartaSans-800.ttf
           weight: 800
-    # Les titres : Cormorant Garamond, la serif de la charte ChronoFS.
-    - family: CormorantGaramond
-      fonts:
-        - asset: assets/fonts/cormorant/CormorantGaramond-500.ttf
-          weight: 500
-        - asset: assets/fonts/cormorant/CormorantGaramond-600.ttf
-          weight: 600
-        - asset: assets/fonts/cormorant/CormorantGaramond-700.ttf
-          weight: 700
-    # Les codes et references (client, ardoise, facture, agent) : JetBrains
-    # Mono, la chasse fixe de ChronoFS.
-    - family: JetBrainsMono
-      fonts:
-        - asset: assets/fonts/jetbrains/JetBrainsMono-500.ttf
-          weight: 500
-        - asset: assets/fonts/jetbrains/JetBrainsMono-600.ttf
-          weight: 600
     - family: Montserrat
       fonts:
         - asset: assets/fonts/montserrat/Montserrat-Regular.ttf
@@ -132,9 +132,12 @@ flutter:
   assets:
     - assets/images/chambre.jpg
     - assets/images/edge-hotel-logo.png
-    # Carillon (urgent) et alarme (critique) des alertes, generes par calcul.
-    - assets/sounds/alerte_urgente.wav
-    - assets/sounds/alerte_critique.wav
+    # Les cinq sonneries des alertes, calculees par tool/sonneries.py.
+    - assets/sounds/sonnerie_meme_note.wav
+    - assets/sounds/sonnerie_qui_monte.wav
+    - assets/sounds/sonnerie_aigu_leger.wav
+    - assets/sounds/sonnerie_bulles.wav
+    - assets/sounds/sonnerie_bois_etouffe.wav
     - assets/images/edge-hotel-mark.png
 
   # To add assets to your application, add an assets section, like this:

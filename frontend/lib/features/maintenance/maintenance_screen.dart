@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formats.dart';
+import '../../core/recherche.dart';
 import '../../core/theme.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
@@ -34,10 +35,28 @@ class MaintenanceScreen extends ConsumerStatefulWidget {
 class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
   bool _voirClos = false;
 
+  /// Une chambre, un probleme, un technicien, un numero de ticket.
+  String _recherche = '';
+
   @override
   Widget build(BuildContext context) {
     final tickets = ref.watch(ticketsProvider);
-    final liste = tickets.value ?? const <TicketSummary>[];
+    final tous = tickets.value ?? const <TicketSummary>[];
+    final recherche = Recherche(_recherche);
+    final liste = [
+      for (final t in tous)
+        if (recherche.garde([
+          t.number,
+          t.title,
+          t.description,
+          t.roomNumber,
+          if (t.roomNumber != null) 'chambre ${t.roomNumber}',
+          t.location,
+          t.reporterName,
+          t.assigneeName,
+        ]))
+          t,
+    ];
     final peutGerer = ref
         .watch(sessionProvider)
         .acces
@@ -92,7 +111,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
           message: '$e',
         ),
         data: (_) {
-          if (liste.isEmpty) {
+          if (tous.isEmpty) {
             return EmptyState(
               icon: PhosphorIconsLight.wrench,
               title: 'Aucun ticket',
@@ -111,17 +130,38 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
           }
           final filtre = Padding(
             padding: EdgeInsets.fromLTRB(marge, 0, marge, 14),
-            child: FilterPills<bool>(
-              selected: _voirClos,
-              onChanged: (v) => setState(() => _voirClos = v),
-              options: [
-                FilterOption(
-                  false,
-                  'En cours',
-                  count: ouverts.length + pris.length + resolus.length,
-                ),
-                FilterOption(true, 'Clos', count: clos.length),
-              ],
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final champ = SearchPill(
+                  hint: 'Chambre, problème, technicien…',
+                  onChanged: (v) => setState(() => _recherche = v),
+                );
+                final pastilles = FilterPills<bool>(
+                  selected: _voirClos,
+                  onChanged: (v) => setState(() => _voirClos = v),
+                  options: [
+                    FilterOption(
+                      false,
+                      'En cours',
+                      count: ouverts.length + pris.length + resolus.length,
+                    ),
+                    FilterOption(true, 'Clos', count: clos.length),
+                  ],
+                );
+                if (c.maxWidth < 720) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [champ, const SizedBox(height: 10), pastilles],
+                  );
+                }
+                return Row(
+                  children: [
+                    SizedBox(width: 300, child: champ),
+                    const SizedBox(width: 12),
+                    Expanded(child: pastilles),
+                  ],
+                );
+              },
             ),
           );
 

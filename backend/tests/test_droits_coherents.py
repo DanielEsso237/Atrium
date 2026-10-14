@@ -81,6 +81,9 @@ IMPLICATIONS = [
     ("cash.central", "cash.session"),
     # Vendre a un comptoir suppose de lire les points de vente et leur carte.
     ("order.create", "restaurant.read"),
+    # L'ecran des depenses les liste avant de proposer d'en saisir : qui les
+    # saisit doit pouvoir les lire.
+    ("expense.write", "accounting.read"),
 ]
 
 

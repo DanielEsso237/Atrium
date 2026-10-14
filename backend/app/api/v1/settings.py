@@ -1,12 +1,13 @@
-"""Reglages de l'etablissement : la regle des arrhes, les niveaux des alertes.
+"""Reglages de l'etablissement : la regle des arrhes, les niveaux et les
+sonneries des alertes.
 
 La regle vit dans `settings`, cle `reservation.deposit_rule`, et
 `services/deposit.py` la lisait deja -- mais rien ne permettait de l'ecrire
 depuis l'application. L'ecran d'administration la fixe ici.
 
-Les niveaux des alertes vivent sous `notifications.levels` : le serveur ne
-les applique pas, il les garde pour que toutes les tablettes sonnent de la
-meme facon.
+Les niveaux des alertes vivent sous `notifications.levels`, leurs
+sonneries sous `notifications.sounds` : le serveur ne les applique pas, il
+les garde pour que toutes les tablettes sonnent de la meme facon.
 """
 
 from __future__ import annotations
@@ -24,12 +25,15 @@ from app.schemas.settings import (
     DepositRuleOut,
     NotificationLevels,
     NotificationLevelsOut,
+    NotificationSounds,
+    NotificationSoundsOut,
 )
 from app.services.deposit import RULE_KEY
 
 router = APIRouter(prefix="/settings", tags=["reglages"])
 
 LEVELS_KEY = "notifications.levels"
+SOUNDS_KEY = "notifications.sounds"
 
 
 async def _ligne(session: AsyncSession, user: User, key: str = RULE_KEY) -> Setting | None:
@@ -126,3 +130,36 @@ async def put_notification_levels(
     ligne.value = dict(payload.levels)
     await session.commit()
     return NotificationLevelsOut(levels=ligne.value)
+
+
+@router.get("/notification-sounds", response_model=NotificationSoundsOut)
+async def get_notification_sounds(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> NotificationSoundsOut:
+    """Ouverte a tout agent, comme les niveaux. Vide tant que l'administration
+    n'a rien choisi : chaque evenement garde la sonnerie du catalogue.
+    """
+    ligne = await _ligne(session, user, SOUNDS_KEY)
+    return NotificationSoundsOut(sounds=(ligne.value or {}) if ligne is not None else {})
+
+
+@router.put("/notification-sounds", response_model=NotificationSoundsOut)
+async def put_notification_sounds(
+    payload: NotificationSounds,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("users.write")),
+) -> NotificationSoundsOut:
+    """Remplace les sonneries. Rejouable : le meme corps ne change rien."""
+    ligne = await _ligne(session, user, SOUNDS_KEY)
+    if ligne is None:
+        ligne = Setting(
+            hotel_id=user.hotel_id,
+            key=SOUNDS_KEY,
+            scope=SettingScope.GLOBAL,
+            label="Sonneries des alertes",
+        )
+        session.add(ligne)
+    ligne.value = dict(payload.sounds)
+    await session.commit()
+    return NotificationSoundsOut(sounds=ligne.value)
