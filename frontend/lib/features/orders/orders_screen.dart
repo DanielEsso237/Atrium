@@ -33,7 +33,7 @@ import '../../data/repositories/outlet_repository.dart'
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../billing/cash_dialog.dart' show CashButton;
-import '../billing/charge_labels.dart';
+import '../billing/charge_labels.dart';
 import '../../core/ui/confirmation.dart';
 import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
@@ -575,7 +575,7 @@ class _Passage extends ConsumerWidget {
       await _encaisserAuComptoir(context, ref, outlet, commande.lignes);
       return;
     }
-    // Il consomme et paiera a la fin : une ardoise « Passage n°N ».
+    // Il consomme et paiera a la fin : une ardoise « Client divers n°N ».
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
     final String ardoise;
@@ -652,8 +652,11 @@ class _TuileArdoise extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${a.lignes} consommation${a.lignes > 1 ? 's' : ''} · '
-            '${formatAmount(a.ouverte ? a.reste : a.total)}',
+            [
+              ?a.numeroSousLeNom,
+              '${a.lignes} consommation${a.lignes > 1 ? 's' : ''}',
+              formatAmount(a.ouverte ? a.reste : a.total),
+            ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -684,7 +687,34 @@ class _TuileArdoise extends ConsumerWidget {
         await _porterALaChambre(context, ref);
       case _Geste.annuler:
         await _annuler(context, ref);
+      case _Geste.renommer:
+        await _renommer(context, ref);
     }
+  }
+
+  /// Nommer l'ardoise pour reconnaitre son client (« Table 4 »). Vide, elle
+  /// reprend son nom par defaut ; le numero ne change pas.
+  Future<void> _renommer(BuildContext context, WidgetRef ref) async {
+    final nom = await showDialog<String>(
+      context: context,
+      builder: (_) => _NomArdoise(ardoise: ardoise),
+    );
+    if (nom == null || !context.mounted) return;
+    try {
+      await ref
+          .read(outletTabRepositoryProvider)
+          .renommer(ardoiseId: ardoise.id, nom: nom);
+    } on StateError catch (e) {
+      if (context.mounted) montrerRefus(context, e.message);
+      return;
+    }
+    if (!context.mounted) return;
+    montrerSucces(
+      context,
+      nom.trim().isEmpty
+          ? 'L’ardoise reprend son nom : ${ardoise.nomParDefaut}.'
+          : '${ardoise.nomParDefaut} s’appelle maintenant « ${nom.trim()} ».',
+    );
   }
 
   Future<void> _ajouter(BuildContext context, WidgetRef ref) async {
@@ -825,7 +855,7 @@ class _TuileArdoise extends ConsumerWidget {
 }
 
 /// Ce que l'on fait d'une ardoise depuis sa fiche.
-enum _Geste { ajouter, payer, chambre, annuler }
+enum _Geste { ajouter, payer, chambre, annuler, renommer }
 
 /// La fiche d'une ardoise : ses consommations, et les gestes permis.
 class _FicheArdoise extends ConsumerWidget {
@@ -867,13 +897,26 @@ class _FicheArdoise extends ConsumerWidget {
           FicheEnTete(
             panneau: panneau,
             titre: ardoise.titre,
-            sousTitre: switch (ardoise.etat) {
-              EtatArdoise.aPayer => 'Il paie à la fin',
-              EtatArdoise.payee => 'Payée',
-              EtatArdoise.enChambre => 'Portée sur la chambre',
-              EtatArdoise.annulee => 'Annulée',
-            },
+            sousTitre: [
+              // Le numero reste sous le nom donne : c'est lui que le serveur
+              // et les rapports connaissent.
+              ?ardoise.numeroSousLeNom,
+              switch (ardoise.etat) {
+                EtatArdoise.aPayer => 'Il paie à la fin',
+                EtatArdoise.payee => 'Payée',
+                EtatArdoise.enChambre => 'Portée sur la chambre',
+                EtatArdoise.annulee => 'Annulée',
+              },
+            ].join(' · '),
             badge: _BadgePoint(outlet: outlet),
+            actions: [
+              if (ardoise.nommable)
+                FicheBoutonRond(
+                  icone: PhosphorIconsLight.tag,
+                  libelle: 'Nommer l’ardoise',
+                  onTap: () => Navigator.of(context).pop(_Geste.renommer),
+                ),
+            ],
             valeur: formatAmount(ouverte ? ardoise.reste : ardoise.total),
             legendeValeur: ouverte ? 'à payer' : 'au total',
           ),
@@ -1032,6 +1075,69 @@ class _MotifAnnulationState extends State<_MotifAnnulation> {
               : null,
           child: const Text('Annuler l’ardoise'),
         ),
+      ],
+    );
+  }
+}
+
+/// Le nom d'une ardoise de passage. Vide, elle reprend son nom par defaut.
+class _NomArdoise extends StatefulWidget {
+  const _NomArdoise({required this.ardoise});
+
+  final Ardoise ardoise;
+
+  @override
+  State<_NomArdoise> createState() => _NomArdoiseState();
+}
+
+class _NomArdoiseState extends State<_NomArdoise> {
+  late final _nom = TextEditingController(text: widget.ardoise.nom ?? '');
+
+  @override
+  void dispose() {
+    _nom.dispose();
+    super.dispose();
+  }
+
+  void _valider() => Navigator.of(context).pop(_nom.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(PhosphorIconsLight.tag, size: 30),
+      title: const Text('Nommer l’ardoise'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Pour reconnaître le client. Le numéro reste : '
+              '${widget.ardoise.nomParDefaut}.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nom,
+              autofocus: true,
+              maxLength: OutletTabRepository.longueurMaxNom,
+              textCapitalization: TextCapitalization.sentences,
+              onSubmitted: (_) => _valider(),
+              decoration: const InputDecoration(
+                labelText: 'Nom',
+                hintText: 'Table 4, homme en chemise bleue…',
+                helperText: 'Vide : le nom par défaut.',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Retour'),
+        ),
+        FilledButton(onPressed: _valider, child: const Text('Enregistrer')),
       ],
     );
   }

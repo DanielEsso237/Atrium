@@ -23003,6 +23003,18 @@ class $FoliosTable extends Folios with TableInfo<$FoliosTable, FolioRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tabLabelMeta = const VerificationMeta(
+    'tabLabel',
+  );
+  @override
+  late final GeneratedColumn<String> tabLabel = GeneratedColumn<String>(
+    'tab_label',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 60),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _chargesTotalMeta = const VerificationMeta(
     'chargesTotal',
   );
@@ -23091,6 +23103,7 @@ class $FoliosTable extends Folios with TableInfo<$FoliosTable, FolioRow> {
     restaurantTableId,
     outletId,
     tabNumber,
+    tabLabel,
     chargesTotal,
     paymentsTotal,
     balance,
@@ -23220,6 +23233,12 @@ class $FoliosTable extends Folios with TableInfo<$FoliosTable, FolioRow> {
       context.handle(
         _tabNumberMeta,
         tabNumber.isAcceptableOrUnknown(data['tab_number']!, _tabNumberMeta),
+      );
+    }
+    if (data.containsKey('tab_label')) {
+      context.handle(
+        _tabLabelMeta,
+        tabLabel.isAcceptableOrUnknown(data['tab_label']!, _tabLabelMeta),
       );
     }
     if (data.containsKey('charges_total')) {
@@ -23355,6 +23374,10 @@ class $FoliosTable extends Folios with TableInfo<$FoliosTable, FolioRow> {
         DriftSqlType.int,
         data['${effectivePrefix}tab_number'],
       ),
+      tabLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tab_label'],
+      ),
       chargesTotal: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}charges_total'],
@@ -23415,10 +23438,14 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
   final String? restaurantTableId;
 
   /// L'ardoise d'un comptoir (decision du 12 octobre) : le point de vente a
-  /// qui elle appartient, et son numero au comptoir (« Passage n°3 »). Le
-  /// client y consomme au fil de la soiree et paie a la fin.
+  /// qui elle appartient, et son numero au comptoir (« Client divers
+  /// n°3 »). Le client y consomme au fil de la soiree et paie a la fin.
   final String? outletId;
   final int? tabNumber;
+
+  /// Le nom que le comptoir donne a l'ardoise pour reconnaitre son client
+  /// (« Table 4 », demande du 14 octobre). Nul : le nom par defaut.
+  final String? tabLabel;
 
   /// Totaux tenus a jour a chaque ecriture, en francs CFA, entiers.
   ///
@@ -23451,6 +23478,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
     this.restaurantTableId,
     this.outletId,
     this.tabNumber,
+    this.tabLabel,
     required this.chargesTotal,
     required this.paymentsTotal,
     required this.balance,
@@ -23512,6 +23540,9 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
     if (!nullToAbsent || tabNumber != null) {
       map['tab_number'] = Variable<int>(tabNumber);
     }
+    if (!nullToAbsent || tabLabel != null) {
+      map['tab_label'] = Variable<String>(tabLabel);
+    }
     map['charges_total'] = Variable<int>(chargesTotal);
     map['payments_total'] = Variable<int>(paymentsTotal);
     map['balance'] = Variable<int>(balance);
@@ -23570,6 +23601,9 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
       tabNumber: tabNumber == null && nullToAbsent
           ? const Value.absent()
           : Value(tabNumber),
+      tabLabel: tabLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tabLabel),
       chargesTotal: Value(chargesTotal),
       paymentsTotal: Value(paymentsTotal),
       balance: Value(balance),
@@ -23620,6 +23654,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
       ),
       outletId: serializer.fromJson<String?>(json['outletId']),
       tabNumber: serializer.fromJson<int?>(json['tabNumber']),
+      tabLabel: serializer.fromJson<String?>(json['tabLabel']),
       chargesTotal: serializer.fromJson<int>(json['chargesTotal']),
       paymentsTotal: serializer.fromJson<int>(json['paymentsTotal']),
       balance: serializer.fromJson<int>(json['balance']),
@@ -23657,6 +23692,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
       'restaurantTableId': serializer.toJson<String?>(restaurantTableId),
       'outletId': serializer.toJson<String?>(outletId),
       'tabNumber': serializer.toJson<int?>(tabNumber),
+      'tabLabel': serializer.toJson<String?>(tabLabel),
       'chargesTotal': serializer.toJson<int>(chargesTotal),
       'paymentsTotal': serializer.toJson<int>(paymentsTotal),
       'balance': serializer.toJson<int>(balance),
@@ -23686,6 +23722,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
     Value<String?> restaurantTableId = const Value.absent(),
     Value<String?> outletId = const Value.absent(),
     Value<int?> tabNumber = const Value.absent(),
+    Value<String?> tabLabel = const Value.absent(),
     int? chargesTotal,
     int? paymentsTotal,
     int? balance,
@@ -23718,6 +23755,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
         : this.restaurantTableId,
     outletId: outletId.present ? outletId.value : this.outletId,
     tabNumber: tabNumber.present ? tabNumber.value : this.tabNumber,
+    tabLabel: tabLabel.present ? tabLabel.value : this.tabLabel,
     chargesTotal: chargesTotal ?? this.chargesTotal,
     paymentsTotal: paymentsTotal ?? this.paymentsTotal,
     balance: balance ?? this.balance,
@@ -23752,6 +23790,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
           : this.restaurantTableId,
       outletId: data.outletId.present ? data.outletId.value : this.outletId,
       tabNumber: data.tabNumber.present ? data.tabNumber.value : this.tabNumber,
+      tabLabel: data.tabLabel.present ? data.tabLabel.value : this.tabLabel,
       chargesTotal: data.chargesTotal.present
           ? data.chargesTotal.value
           : this.chargesTotal,
@@ -23787,6 +23826,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
           ..write('restaurantTableId: $restaurantTableId, ')
           ..write('outletId: $outletId, ')
           ..write('tabNumber: $tabNumber, ')
+          ..write('tabLabel: $tabLabel, ')
           ..write('chargesTotal: $chargesTotal, ')
           ..write('paymentsTotal: $paymentsTotal, ')
           ..write('balance: $balance, ')
@@ -23818,6 +23858,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
     restaurantTableId,
     outletId,
     tabNumber,
+    tabLabel,
     chargesTotal,
     paymentsTotal,
     balance,
@@ -23848,6 +23889,7 @@ class FolioRow extends DataClass implements Insertable<FolioRow> {
           other.restaurantTableId == this.restaurantTableId &&
           other.outletId == this.outletId &&
           other.tabNumber == this.tabNumber &&
+          other.tabLabel == this.tabLabel &&
           other.chargesTotal == this.chargesTotal &&
           other.paymentsTotal == this.paymentsTotal &&
           other.balance == this.balance &&
@@ -23876,6 +23918,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
   final Value<String?> restaurantTableId;
   final Value<String?> outletId;
   final Value<int?> tabNumber;
+  final Value<String?> tabLabel;
   final Value<int> chargesTotal;
   final Value<int> paymentsTotal;
   final Value<int> balance;
@@ -23903,6 +23946,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
     this.restaurantTableId = const Value.absent(),
     this.outletId = const Value.absent(),
     this.tabNumber = const Value.absent(),
+    this.tabLabel = const Value.absent(),
     this.chargesTotal = const Value.absent(),
     this.paymentsTotal = const Value.absent(),
     this.balance = const Value.absent(),
@@ -23931,6 +23975,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
     this.restaurantTableId = const Value.absent(),
     this.outletId = const Value.absent(),
     this.tabNumber = const Value.absent(),
+    this.tabLabel = const Value.absent(),
     this.chargesTotal = const Value.absent(),
     this.paymentsTotal = const Value.absent(),
     this.balance = const Value.absent(),
@@ -23963,6 +24008,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
     Expression<String>? restaurantTableId,
     Expression<String>? outletId,
     Expression<int>? tabNumber,
+    Expression<String>? tabLabel,
     Expression<int>? chargesTotal,
     Expression<int>? paymentsTotal,
     Expression<int>? balance,
@@ -23991,6 +24037,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
       if (restaurantTableId != null) 'restaurant_table_id': restaurantTableId,
       if (outletId != null) 'outlet_id': outletId,
       if (tabNumber != null) 'tab_number': tabNumber,
+      if (tabLabel != null) 'tab_label': tabLabel,
       if (chargesTotal != null) 'charges_total': chargesTotal,
       if (paymentsTotal != null) 'payments_total': paymentsTotal,
       if (balance != null) 'balance': balance,
@@ -24021,6 +24068,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
     Value<String?>? restaurantTableId,
     Value<String?>? outletId,
     Value<int?>? tabNumber,
+    Value<String?>? tabLabel,
     Value<int>? chargesTotal,
     Value<int>? paymentsTotal,
     Value<int>? balance,
@@ -24049,6 +24097,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
       restaurantTableId: restaurantTableId ?? this.restaurantTableId,
       outletId: outletId ?? this.outletId,
       tabNumber: tabNumber ?? this.tabNumber,
+      tabLabel: tabLabel ?? this.tabLabel,
       chargesTotal: chargesTotal ?? this.chargesTotal,
       paymentsTotal: paymentsTotal ?? this.paymentsTotal,
       balance: balance ?? this.balance,
@@ -24125,6 +24174,9 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
     if (tabNumber.present) {
       map['tab_number'] = Variable<int>(tabNumber.value);
     }
+    if (tabLabel.present) {
+      map['tab_label'] = Variable<String>(tabLabel.value);
+    }
     if (chargesTotal.present) {
       map['charges_total'] = Variable<int>(chargesTotal.value);
     }
@@ -24171,6 +24223,7 @@ class FoliosCompanion extends UpdateCompanion<FolioRow> {
           ..write('restaurantTableId: $restaurantTableId, ')
           ..write('outletId: $outletId, ')
           ..write('tabNumber: $tabNumber, ')
+          ..write('tabLabel: $tabLabel, ')
           ..write('chargesTotal: $chargesTotal, ')
           ..write('paymentsTotal: $paymentsTotal, ')
           ..write('balance: $balance, ')
@@ -80503,6 +80556,7 @@ typedef $$FoliosTableCreateCompanionBuilder =
       Value<String?> restaurantTableId,
       Value<String?> outletId,
       Value<int?> tabNumber,
+      Value<String?> tabLabel,
       Value<int> chargesTotal,
       Value<int> paymentsTotal,
       Value<int> balance,
@@ -80532,6 +80586,7 @@ typedef $$FoliosTableUpdateCompanionBuilder =
       Value<String?> restaurantTableId,
       Value<String?> outletId,
       Value<int?> tabNumber,
+      Value<String?> tabLabel,
       Value<int> chargesTotal,
       Value<int> paymentsTotal,
       Value<int> balance,
@@ -80668,6 +80723,11 @@ class $$FoliosTableFilterComposer
 
   ColumnFilters<int> get tabNumber => $composableBuilder(
     column: $table.tabNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tabLabel => $composableBuilder(
+    column: $table.tabLabel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -80831,6 +80891,11 @@ class $$FoliosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tabLabel => $composableBuilder(
+    column: $table.tabLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get chargesTotal => $composableBuilder(
     column: $table.chargesTotal,
     builder: (column) => ColumnOrderings(column),
@@ -80934,6 +80999,9 @@ class $$FoliosTableAnnotationComposer
   GeneratedColumn<int> get tabNumber =>
       $composableBuilder(column: $table.tabNumber, builder: (column) => column);
 
+  GeneratedColumn<String> get tabLabel =>
+      $composableBuilder(column: $table.tabLabel, builder: (column) => column);
+
   GeneratedColumn<int> get chargesTotal => $composableBuilder(
     column: $table.chargesTotal,
     builder: (column) => column,
@@ -81029,6 +81097,7 @@ class $$FoliosTableTableManager
                 Value<String?> restaurantTableId = const Value.absent(),
                 Value<String?> outletId = const Value.absent(),
                 Value<int?> tabNumber = const Value.absent(),
+                Value<String?> tabLabel = const Value.absent(),
                 Value<int> chargesTotal = const Value.absent(),
                 Value<int> paymentsTotal = const Value.absent(),
                 Value<int> balance = const Value.absent(),
@@ -81056,6 +81125,7 @@ class $$FoliosTableTableManager
                 restaurantTableId: restaurantTableId,
                 outletId: outletId,
                 tabNumber: tabNumber,
+                tabLabel: tabLabel,
                 chargesTotal: chargesTotal,
                 paymentsTotal: paymentsTotal,
                 balance: balance,
@@ -81085,6 +81155,7 @@ class $$FoliosTableTableManager
                 Value<String?> restaurantTableId = const Value.absent(),
                 Value<String?> outletId = const Value.absent(),
                 Value<int?> tabNumber = const Value.absent(),
+                Value<String?> tabLabel = const Value.absent(),
                 Value<int> chargesTotal = const Value.absent(),
                 Value<int> paymentsTotal = const Value.absent(),
                 Value<int> balance = const Value.absent(),
@@ -81112,6 +81183,7 @@ class $$FoliosTableTableManager
                 restaurantTableId: restaurantTableId,
                 outletId: outletId,
                 tabNumber: tabNumber,
+                tabLabel: tabLabel,
                 chargesTotal: chargesTotal,
                 paymentsTotal: paymentsTotal,
                 balance: balance,

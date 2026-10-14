@@ -881,6 +881,9 @@ class Descente {
                 // ce que la tablette sait de l'ardoise d'un comptoir.
                 outletId: Value.absentIfNull(f.outletId),
                 tabNumber: Value.absentIfNull(f.tabNumber),
+                tabLabel: f.tabLabelConnu
+                    ? Value(f.tabLabel)
+                    : const Value.absent(),
                 syncState: const Value(SyncState.synced),
               ),
             );

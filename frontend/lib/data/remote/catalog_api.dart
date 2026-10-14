@@ -831,6 +831,8 @@ class RemoteFolio {
     this.closedAt,
     this.outletId,
     this.tabNumber,
+    this.tabLabelConnu = false,
+    this.tabLabel,
   });
 
   final String id;
@@ -841,6 +843,12 @@ class RemoteFolio {
   /// L'ardoise d'un comptoir : son point de vente et son numero.
   final String? outletId;
   final int? tabNumber;
+
+  /// Le nom donne par le comptoir. `tabLabelConnu` dit si le serveur
+  /// l'envoie : nul, il remet le nom par defaut ; absent, un serveur plus
+  /// ancien ne le connait pas, et on garde ce que la tablette sait.
+  final bool tabLabelConnu;
+  final String? tabLabel;
   final int chargesTotal;
   final int paymentsTotal;
   final int balance;
@@ -870,6 +878,8 @@ class RemoteFolio {
       closedAt: _instant(raw['closed_at']),
       outletId: _texte(raw['outlet_id']),
       tabNumber: raw['tab_number'] == null ? null : _entier(raw['tab_number']),
+      tabLabelConnu: raw.containsKey('tab_label'),
+      tabLabel: _texte(raw['tab_label']),
     );
   }
 }
