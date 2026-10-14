@@ -25,6 +25,7 @@ import 'cash_dialog.dart';
 import 'charge_labels.dart';
 import 'invoice_dialog.dart';
 import 'payment_dialog.dart';
+import '../../core/ui/confirmation.dart';
 
 final foliosProvider = StreamProvider<List<FolioSummary>>(
   (ref) => ref.watch(folioRepositoryProvider).watchFolios(),
@@ -870,14 +871,10 @@ class _Actions extends ConsumerWidget {
           .close(folio.id, by: ref.read(sessionProvider).agent?.id);
       if (!context.mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ardoise ${folio.number} close.')));
+      montrerSucces(context, 'Ardoise ${folio.number} close.');
     } on StateError catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
   }
 }

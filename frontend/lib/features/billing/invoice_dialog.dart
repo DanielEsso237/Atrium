@@ -23,6 +23,7 @@ import '../auth/session.dart';
 import '../hotel/en_tete_hotel.dart';
 import '../hotel/logo_images.dart';
 import 'invoice_pdf.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Edite la facture si besoin, puis la montre.
 Future<void> showInvoiceDialog(
@@ -37,9 +38,7 @@ Future<void> showInvoiceDialog(
         .issue(folioId, by: ref.read(sessionProvider).agent?.id);
   } on StateError catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(e.message)));
+    montrerRefus(context, e.message);
     return;
   }
 
@@ -63,7 +62,6 @@ class _InvoiceDialog extends ConsumerWidget {
     InvoiceView vue, {
     required bool ticket,
   }) async {
-    final messager = ScaffoldMessenger.of(context);
     final boite = context.findRenderObject() as RenderBox?;
     final origine = boite == null
         ? null
@@ -86,9 +84,9 @@ class _InvoiceDialog extends ConsumerWidget {
         origine: origine,
       );
     } catch (e) {
-      messager.showSnackBar(
-        SnackBar(content: Text("Le PDF n'a pas pu être préparé : $e")),
-      );
+      if (context.mounted) {
+        montrerRefus(context, "Le PDF n'a pas pu être préparé : $e");
+      }
     }
   }
 

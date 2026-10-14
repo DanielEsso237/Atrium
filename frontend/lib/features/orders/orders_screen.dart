@@ -33,7 +33,8 @@ import '../../data/repositories/outlet_repository.dart'
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../billing/cash_dialog.dart' show CashButton;
-import '../billing/charge_labels.dart';
+import '../billing/charge_labels.dart';
+import '../../core/ui/confirmation.dart';
 import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
 import '../hotel/logo_images.dart' show logoTicketProvider;
@@ -438,7 +439,7 @@ class _Chambre extends ConsumerWidget {
           .read(outletTabRepositoryProvider)
           .ouvrir(pointDeVente: outlet, by: agent, guestId: chambre.guestId);
     } on StateError catch (e) {
-      if (context.mounted) _dire(context, e.message);
+      if (context.mounted) montrerRefus(context, e.message);
       return;
     }
     if (!context.mounted) return;
@@ -452,11 +453,6 @@ class _Chambre extends ConsumerWidget {
     );
   }
 }
-
-/// Un message en bas de l'ecran.
-void _dire(BuildContext context, String message) => ScaffoldMessenger.of(
-  context,
-).showSnackBar(SnackBar(content: Text(message)));
 
 /// Sert des lignes sur une ardoise, une apres l'autre : si le plafond du
 /// client arrete l'une d'elles, celles d'avant sont servies, et le message
@@ -492,14 +488,14 @@ Future<void> _servirSurArdoise(
       final deja = servies == 0
           ? ''
           : '$servies ligne(s) servie(s) (${formatAmount(total)}). ';
-      _dire(context, '$deja« $libelle » refusé : ${e.message}');
+      montrerRefus(context, '$deja« $libelle » refusé : ${e.message}');
       return;
     }
     servies++;
     total += prix * quantite;
   }
   if (context.mounted) {
-    _dire(context, '${formatAmount(total)} ajouté à $ou.');
+    montrerSucces(context, '${formatAmount(total)} ajouté à $ou.');
   }
 }
 
@@ -588,7 +584,7 @@ class _Passage extends ConsumerWidget {
           .read(outletTabRepositoryProvider)
           .ouvrir(pointDeVente: outlet, by: agent);
     } on StateError catch (e) {
-      if (context.mounted) _dire(context, e.message);
+      if (context.mounted) montrerRefus(context, e.message);
       return;
     }
     if (!context.mounted) return;
@@ -736,7 +732,7 @@ class _TuileArdoise extends ConsumerWidget {
             by: agent,
           );
     } on StateError catch (e) {
-      if (context.mounted) _dire(context, e.message);
+      if (context.mounted) montrerRefus(context, e.message);
       return;
     }
     if (!context.mounted) return;
@@ -761,7 +757,7 @@ class _TuileArdoise extends ConsumerWidget {
     final sejour = client == null ? null : await depot.ardoiseDuSejour(client);
     if (!context.mounted) return;
     if (sejour == null) {
-      _dire(
+      montrerRefus(
         context,
         'Ce client n’a plus de séjour en cours : son ardoise se paie au '
         'comptoir.',
@@ -796,11 +792,11 @@ class _TuileArdoise extends ConsumerWidget {
         ardoiseChambreId: sejour,
       );
     } on StateError catch (e) {
-      if (context.mounted) _dire(context, e.message);
+      if (context.mounted) montrerRefus(context, e.message);
       return;
     }
     if (context.mounted) {
-      _dire(
+      montrerSucces(
         context,
         '${formatAmount(ardoise.reste)} porté sur la chambre de '
         '${ardoise.titre}.',
@@ -821,10 +817,10 @@ class _TuileArdoise extends ConsumerWidget {
           .read(outletTabRepositoryProvider)
           .annuler(ardoiseId: ardoise.id, motif: motif, by: agent);
     } on StateError catch (e) {
-      if (context.mounted) _dire(context, e.message);
+      if (context.mounted) montrerRefus(context, e.message);
       return;
     }
-    if (context.mounted) _dire(context, '${ardoise.titre} annulée : $motif.');
+    if (context.mounted) montrerSucces(context, '${ardoise.titre} annulée : $motif.');
   }
 }
 
@@ -1080,9 +1076,7 @@ Future<void> _encaisserAuComptoir(
         .sellWalkIn(outlet: outlet, lines: lignes, method: moyen, by: agent);
   } on StateError catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
     return;
   }
@@ -1162,9 +1156,7 @@ Future<void> _proposerTicket(
     );
   } on Object catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Le ticket n’a pas pu être fait : $e')),
-      );
+      montrerRefus(context, 'Le ticket n’a pas pu être fait : $e');
     }
   }
 }

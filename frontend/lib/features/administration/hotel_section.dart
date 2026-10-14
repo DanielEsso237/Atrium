@@ -20,7 +20,8 @@ import '../../data/repositories/hotel_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../hotel/en_tete_hotel.dart';
-import '../hotel/logo_images.dart';
+import '../hotel/logo_images.dart';
+import '../../core/ui/confirmation.dart';
 
 class HotelSection extends ConsumerStatefulWidget {
   const HotelSection({super.key});
@@ -123,7 +124,6 @@ class _HotelSectionState extends ConsumerState<HotelSection> {
       setState(() => _enregistrement = false);
       return;
     }
-    final messager = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(hotelRepositoryProvider)
@@ -139,11 +139,9 @@ class _HotelSectionState extends ConsumerState<HotelSection> {
             by: ref.read(sessionProvider).agent?.id,
           );
       _chargeDe = null;
-      messager.showSnackBar(
-        const SnackBar(content: Text('Coordonnées de l’hôtel enregistrées.')),
-      );
+      if (mounted) montrerSucces(context, 'Coordonnées de l’hôtel enregistrées.');
     } on StateError catch (e) {
-      messager.showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) montrerRefus(context, e.message);
     } finally {
       if (mounted) setState(() => _enregistrement = false);
     }

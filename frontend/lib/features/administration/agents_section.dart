@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/confirmation.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/agent_repository.dart';
@@ -230,12 +231,18 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
       _dire(e.message);
       return;
     }
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    final qui = '${_prenom.text.trim()} ${_nom.text.trim()}'.trim();
+    // Rien ne disait que l'agent etait cree : la fenetre se fermait, et c'est
+    // tout (retour du 12 octobre).
+    Navigator.of(context).pop();
+    montrerSucces(
+      context,
+      _creation ? 'Agent $qui créé.' : 'Agent $qui enregistré.',
+    );
   }
 
-  void _dire(String message) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(message)));
+  void _dire(String message) => montrerRefus(context, message);
 
   @override
   Widget build(BuildContext context) {

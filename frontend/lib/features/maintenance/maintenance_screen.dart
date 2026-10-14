@@ -22,6 +22,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 class MaintenanceScreen extends ConsumerStatefulWidget {
   const MaintenanceScreen({super.key});
@@ -423,12 +424,9 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
         case TicketStatus.RESOLVED:
           await depot.close(t.id, by: agent);
           if (mounted && t.blocksRoom && t.roomNumber != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Ticket clos, chambre ${t.roomNumber} de nouveau en vente.',
-                ),
-              ),
+            montrerSucces(
+              context,
+              'Ticket clos, chambre ${t.roomNumber} de nouveau en vente.',
             );
           }
         default:
@@ -436,15 +434,11 @@ class _CarteTicketState extends ConsumerState<_CarteTicket> {
       }
     } on StateError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        montrerRefus(context, e.message);
       }
     } on Exception {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('La modification a échoué. Réessayez.')),
-        );
+        montrerRefus(context, 'La modification a échoué. Réessayez.');
       }
     } finally {
       if (mounted) setState(() => _occupe = false);
@@ -755,14 +749,11 @@ class _SignalementState extends ConsumerState<_Signalement> {
         );
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _bloque && _chambre != null
-              ? 'Ticket ouvert, la chambre est sortie de la vente.'
-              : 'Ticket ouvert.',
-        ),
-      ),
+    montrerSucces(
+      context,
+      _bloque && _chambre != null
+          ? 'Ticket ouvert, la chambre est sortie de la vente.'
+          : 'Ticket ouvert.',
     );
   }
 

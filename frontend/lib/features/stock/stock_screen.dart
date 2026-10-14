@@ -20,7 +20,8 @@ import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
-import '../auth/session.dart';
+import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 class _MagasinChoisi extends Notifier<String?> {
   @override
@@ -191,14 +192,8 @@ class StockScreen extends ConsumerWidget {
         if (m.id != depart.id) m,
     ]..sort((a, b) => (b.isCentral ? 1 : 0).compareTo(a.isCentral ? 1 : 0));
     if (autres.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Aucun autre magasin connu sur cette tablette : lancez une '
-            'synchronisation.',
-          ),
-        ),
-      );
+      montrerRefus(context, 'Aucun autre magasin connu sur cette tablette : lancez une '
+            'synchronisation.');
       return;
     }
     final saisie = await showDialog<_Saisie>(
@@ -238,11 +233,11 @@ Future<void> _faire(BuildContext context, Future<String> Function() geste) async
   try {
     final message = await geste();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      montrerSucces(context, message);
     }
   } on StateError catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
   }
 }

@@ -22,7 +22,8 @@ import '../../data/repositories/repository_providers.dart';
 import '../billing/payment_dialog.dart';
 import '../guests/id_photos.dart';
 import 'change_room_dialog.dart';
-import '../auth/session.dart';
+import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Enregistre l'arrivee apres confirmation.
 ///
@@ -59,9 +60,7 @@ Future<bool> confirmCheckIn(
       .checkIn(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$guestName est arrivé, chambre $roomNumber.')),
-    );
+    montrerSucces(context, '$guestName est arrivé, chambre $roomNumber.');
   }
   return true;
 }
@@ -105,13 +104,7 @@ Future<bool> confirmChangeRoom(
       );
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$guestName est maintenant en chambre ${nouvelle.number}.',
-        ),
-      ),
-    );
+    montrerSucces(context, '$guestName est maintenant en chambre ${nouvelle.number}.');
   }
   return true;
 }
@@ -131,14 +124,8 @@ Future<bool> confirmExtendStay(
   if (!context.mounted) return false;
 
   if (!regles.billsExtraHours) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Fixez d'abord le prix de l'heure supplémentaire dans "
-          "l'administration (Départ).",
-        ),
-      ),
-    );
+    montrerRefus(context, "Fixez d'abord le prix de l'heure supplémentaire dans "
+          "l'administration (Départ).");
     return false;
   }
 
@@ -164,19 +151,13 @@ Future<bool> confirmExtendStay(
         );
   } on StateError catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
     return false;
   }
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Prolongation de $heures h portée à l’ardoise de $guestName.'),
-      ),
-    );
+    montrerSucces(context, 'Prolongation de $heures h portée à l’ardoise de $guestName.');
   }
   return true;
 }
@@ -265,9 +246,7 @@ Future<bool> _proposerProlongation(
     // Seuil de consommation depasse : le depart n'a pas eu lieu, l'agent
     // appelle son responsable.
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
     return false;
   }
@@ -448,11 +427,7 @@ Future<bool> confirmCheckOut(
       .checkOut(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$guestName est parti, chambre $roomNumber à nettoyer.'),
-      ),
-    );
+    montrerSucces(context, '$guestName est parti, chambre $roomNumber à nettoyer.');
   }
   return true;
 }
@@ -715,16 +690,12 @@ Future<bool> confirmCancelReservation(
     );
   } on StateError catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
     }
     return false;
   }
   if (context.mounted) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Réservation $reference annulée.')));
+    montrerSucces(context, 'Réservation $reference annulée.');
   }
   return true;
 }

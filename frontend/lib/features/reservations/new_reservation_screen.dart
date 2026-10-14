@@ -25,6 +25,7 @@ import '../administration/deposit_section.dart' show formatRate;
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
 import 'deposit_dialog.dart';
+import '../../core/ui/confirmation.dart';
 
 final roomTypesProvider = FutureProvider<List<RoomTypeSummary>>(
   (ref) => ref.watch(databaseProvider).roomTypeSummaries(),
@@ -153,19 +154,14 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     } on StateError catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      montrerRefus(context, e.message);
       return;
     }
 
     if (!mounted) return;
     context.go('/reservations');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Réservation enregistrée, elle remonte au serveur.'),
-      ),
-    );
+    // L'exemple de Daniel : la reservation confirmee, au milieu de l'ecran.
+    montrerSucces(context, 'Réservation enregistrée.');
   }
 
   @override

@@ -14,7 +14,8 @@ import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../data/repositories/repository_providers.dart';
-import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/settings_repository.dart';
+import '../../core/ui/confirmation.dart';
 
 class StayRulesSection extends ConsumerStatefulWidget {
   const StayRulesSection({super.key});
@@ -64,9 +65,7 @@ class _StayRulesSectionState extends ConsumerState<StayRulesSection> {
         );
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Heure de départ enregistrée.')),
-    );
+    montrerSucces(context, 'Heure de départ enregistrée.');
   }
 
   @override

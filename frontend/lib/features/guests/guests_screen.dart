@@ -22,7 +22,8 @@ import '../../data/repositories/guest_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import 'guest_rules.dart';
-import 'id_photos.dart';
+import 'id_photos.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Texte saisi dans la barre de recherche.
 ///
@@ -712,11 +713,7 @@ class _GuestFormDialogState extends ConsumerState<_GuestFormDialog> {
 
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Fiche ${guest.code} créée, elle remonte au serveur.'),
-      ),
-    );
+    montrerSucces(context, 'Fiche ${guest.code} créée.');
   }
 
   Future<void> _update(GuestRow existing) async {
@@ -740,11 +737,7 @@ class _GuestFormDialogState extends ConsumerState<_GuestFormDialog> {
     // La fiche modifiee est rendue a l'appelant : le panneau lateral garde
     // sinon l'ancienne version sous les yeux.
     Navigator.of(context).pop(guest);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Fiche ${guest.code} modifiée, elle remonte au serveur.'),
-      ),
-    );
+    montrerSucces(context, 'Fiche ${guest.code} modifiée.');
   }
 
   @override

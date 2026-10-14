@@ -8,7 +8,8 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../data/repositories/repository_providers.dart';
-import '../auth/session.dart';
+import '../auth/session.dart';
+import '../../core/ui/confirmation.dart';
 
 /// Propose les chambres libres puis lance le menage de la selection.
 Future<void> showRoomCleaningDialog(BuildContext context) async {
@@ -17,11 +18,7 @@ Future<void> showRoomCleaningDialog(BuildContext context) async {
     builder: (_) => const _RoomCleaningDialog(),
   );
   if (count == null || !context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text('Ménage lancé pour $count chambre${count > 1 ? 's' : ''}.'),
-    ),
-  );
+  montrerSucces(context, 'Ménage lancé pour $count chambre${count > 1 ? 's' : ''}.');
 }
 
 class _RoomCleaningDialog extends ConsumerStatefulWidget {
