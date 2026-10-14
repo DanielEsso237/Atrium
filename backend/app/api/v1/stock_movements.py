@@ -27,6 +27,7 @@ from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import StockLevel, StockLocation, StockMovement, User
 from app.models.enums import StockMovementStatus, StockMovementType
+from app.services.costing import record_entry_cost
 from app.services.stock_levels import apply_movement
 from app.schemas.stock import (
     StockDecisionIn,
@@ -163,6 +164,9 @@ async def create_stock_movement(
     )
     session.add(movement)
     if movement.status == StockMovementStatus.APPROVED:
+        # Avant de compter l'entree : la moyenne se pondere par le stock
+        # d'avant la livraison.
+        await record_entry_cost(session, movement)
         await apply_movement(session, movement)
     await session.commit()
     await session.refresh(movement)

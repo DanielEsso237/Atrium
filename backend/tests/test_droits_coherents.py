@@ -177,3 +177,14 @@ def test_qui_demande_un_transfert_ne_le_valide_pas():
             continue
         acquis = _role(code)
         assert not {"stock.transfer.request", "stock.transfer.approve"} <= acquis, code
+
+
+def test_le_comptoir_et_l_econome_ne_lisent_pas_les_marges():
+    """La marge d'un point de vente donne sa recette, que le comptoir compte
+    a l'aveugle ; et c'est sur ses achats qu'on juge l'econome. La direction,
+    le controleur et le comptable la lisent."""
+    for code in ("MANAGER", "CONTROLEUR", "COMPTABLE"):
+        assert "accounting.read" in _role(code), code
+    for _, code, _ in ROLES:
+        if code not in ("ADMIN", "MANAGER", "CONTROLEUR", "COMPTABLE"):
+            assert "accounting.read" not in _role(code), code

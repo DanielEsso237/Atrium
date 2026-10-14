@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.v1.accounting import router as accounting_router
 from app.api.v1.attachments import router as attachments_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.billing import router as billing_router
@@ -29,6 +30,7 @@ from app.api.v1.stock_movements import router as stock_movements_router
 from app.api.v1.users import router as users_router
 
 router = APIRouter()
+router.include_router(accounting_router)
 router.include_router(attachments_router)
 router.include_router(auth_router)
 router.include_router(billing_router)

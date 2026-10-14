@@ -67,6 +67,12 @@ class Product(RefBase, HotelScoped):
     barcode: Mapped[str | None] = mapped_column(String(64), default=None)
     purchase_price: Mapped[int] = mapped_column(BigInteger, default=0)
     sale_price: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Cout moyen pondere, recalcule a chaque entree valorisee
+    # (`app/services/costing.py`). Zero tant qu'aucune entree n'a dit son
+    # prix : le cout du produit est alors son `purchase_price`. Le prix
+    # d'achat reste le tarif du fournisseur, saisi a la main ; celui-ci dit ce
+    # que le stock a reellement coute.
+    average_cost: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     # Seuil d'alerte de reapprovisionnement.
     min_stock: Mapped[int] = mapped_column(Integer, default=0)
     # Vendable directement (minibar) par opposition a un consommable interne.
