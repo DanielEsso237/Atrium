@@ -754,6 +754,95 @@ class RemotePayment {
 }
 
 /// Une depense de l'hotel hors stock (`ExpenseOut`), pour le benefice.
+/// Une ligne d'inventaire (`InventoryLineOut`) : la theorique figee par le
+/// serveur, et ce qui a ete compte.
+class RemoteInventoryLine {
+  const RemoteInventoryLine({
+    required this.id,
+    required this.productId,
+    required this.theoreticalQty,
+    required this.variance,
+    this.countedQty,
+  });
+
+  final String id;
+  final String productId;
+  final int theoreticalQty;
+  final int? countedQty;
+  final int variance;
+
+  static RemoteInventoryLine? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['product_id'] == null) {
+      return null;
+    }
+    return RemoteInventoryLine(
+      id: '${raw['id']}',
+      productId: '${raw['product_id']}',
+      theoreticalQty: _entier(raw['theoretical_qty']),
+      countedQty: (raw['counted_qty'] as num?)?.toInt(),
+      variance: _entier(raw['variance']),
+    );
+  }
+}
+
+/// L'inventaire d'un magasin (`InventoryOut`), avec ses lignes. Abandonne,
+/// il porte `deleted_at`.
+class RemoteInventory {
+  const RemoteInventory({
+    required this.id,
+    required this.stockLocationId,
+    required this.label,
+    required this.status,
+    required this.lines,
+    this.inventoryDate,
+    this.startedAt,
+    this.closedAt,
+    this.closedBy,
+    this.createdBy,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String stockLocationId;
+  final String label;
+  final String status;
+  final List<RemoteInventoryLine> lines;
+
+  /// Date seule, `AAAA-MM-JJ`.
+  final String? inventoryDate;
+  final DateTime? startedAt;
+  final DateTime? closedAt;
+  final String? closedBy;
+  final String? createdBy;
+  final DateTime? deletedAt;
+
+  static RemoteInventory? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['stock_location_id'] == null ||
+        raw['status'] == null) {
+      return null;
+    }
+    final lignes = raw['lines'];
+    return RemoteInventory(
+      id: '${raw['id']}',
+      stockLocationId: '${raw['stock_location_id']}',
+      label: '${raw['label'] ?? ''}',
+      status: '${raw['status']}',
+      lines: [
+        if (lignes is List)
+          for (final l in lignes) ?RemoteInventoryLine.fromJson(l),
+      ],
+      inventoryDate: _texte(raw['inventory_date']),
+      startedAt: _instant(raw['started_at']),
+      closedAt: _instant(raw['closed_at']),
+      closedBy: _texte(raw['closed_by']),
+      createdBy: _texte(raw['created_by']),
+      deletedAt: _instant(raw['deleted_at']),
+    );
+  }
+}
+
 class RemoteExpense {
   const RemoteExpense({
     required this.id,
@@ -1256,6 +1345,27 @@ class CatalogApi {
       );
     } on ApiException catch (e) {
       if (e.failure == ApiFailure.notFound) return const [];
+      rethrow;
+    }
+  }
+
+  /// Les inventaires de l'hotel : ceux encore ouverts, et ceux modifies
+  /// depuis `since` -- clos ou abandonnes compris, pour qu'une tablette
+  /// apprenne qu'un inventaire qu'elle croit ouvert ne l'est plus. `null`
+  /// quand le serveur ne connait pas encore la route : la tablette garde
+  /// alors ce qu'elle a.
+  Future<List<RemoteInventory>?> fetchInventories(DateTime since) async {
+    try {
+      final ouverts = await _lire('/inventories', RemoteInventory.fromJson);
+      final recents = await _lire(
+        '/inventories',
+        RemoteInventory.fromJson,
+        query: {'since': since.toUtc().toIso8601String()},
+      );
+      return {for (final i in [...ouverts, ...recents]) i.id: i}.values
+          .toList();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
       rethrow;
     }
   }
