@@ -185,6 +185,40 @@ void main() {
     await inventaires.ouvrir(magasinId: bar, by: _agent);
   });
 
+  test("l'ecran suit l'inventaire : abandonne ou clos, il disparait", () async {
+    // Un seul abonnement, comme l'ecran. Avant le 15 octobre, il restait
+    // accroche au premier inventaire lu : abandonne, celui-ci restait
+    // affiche, et chaque geste repondait « Inventaire introuvable ».
+    final vus = <String?>[];
+    final abonnement = inventaires
+        .watchOuvert(bar)
+        .listen((inv) => vus.add(inv?.id));
+    Future<void> laisserPasser() =>
+        Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final premier = await inventaires.ouvrir(magasinId: bar, by: _agent);
+    await laisserPasser();
+    expect(vus.last, premier);
+
+    await inventaires.abandonner(premier);
+    await laisserPasser();
+    expect(vus.last, isNull);
+
+    final second = await inventaires.ouvrir(magasinId: bar, by: _agent);
+    await laisserPasser();
+    expect(vus.last, second);
+    await inventaires.compter(
+      inventaireId: second,
+      productId: biere,
+      quantite: 20,
+    );
+    await inventaires.reequilibrer(inventaireId: second, by: _agent);
+    await laisserPasser();
+    expect(vus.last, isNull);
+
+    await abonnement.cancel();
+  });
+
   test('la file : ouvrir, compter, reequilibrer, vers les bonnes routes',
       () async {
     final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
