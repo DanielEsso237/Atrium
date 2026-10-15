@@ -930,7 +930,7 @@ class _FicheArdoise extends ConsumerWidget {
   final Ardoise ardoise;
   final bool panneau;
 
-  /// En plein ecran : la carte en tableau a gauche, la fiche a droite.
+  /// En plein ecran : la fiche a gauche, la carte en tableau a droite.
   final bool plein;
 
   @override
@@ -957,190 +957,237 @@ class _FicheArdoise extends ConsumerWidget {
     return FicheSurface(
       panneau: panneau,
       plein: plein,
-      child: Column(
-        children: [
-          FicheEnTete(
-            panneau: panneau,
-            retour: plein,
-            titre: ardoise.titre,
-            sousTitre: [
-              // Le numero reste sous le nom donne : c'est lui que le serveur
-              // et les rapports connaissent.
-              ?ardoise.numeroSousLeNom,
-              switch (ardoise.etat) {
-                EtatArdoise.aPayer => 'Il paie à la fin',
-                EtatArdoise.payee => 'Payée',
-                EtatArdoise.enChambre => 'Portée sur la chambre',
-                EtatArdoise.annulee => 'Annulée',
-              },
-            ].join(' · '),
-            badge: _BadgePoint(outlet: outlet),
-            actions: [
-              if (ardoise.nommable)
-                FicheBoutonRond(
-                  icone: PhosphorIconsLight.tag,
-                  libelle: 'Nommer l’ardoise',
-                  onTap: () => Navigator.of(context).pop(_Geste.renommer),
-                ),
-            ],
-            valeur: formatAmount(ouverte ? ardoise.reste : ardoise.total),
-            legendeValeur: ouverte ? 'à payer' : 'au total',
-          ),
-          Expanded(
-            child: _avecCarte(
-              plein: plein,
-              // Toucher un article l'ajoute : la saisie s'ouvre avec lui.
-              carte: ouverte
-                  ? TableauCarte(
-                      carte:
-                          ref.watch(menuForOutletProvider(outlet.id)).value ??
-                          const <MenuEntry>[],
-                      onChoisi: (e) => Navigator.of(context).pop(e),
-                    )
-                  : null,
-              fiche: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    children: [
-                      FicheCarte(
-                        titre: 'Consommations',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (lignes.isEmpty)
-                              Text(
-                                'Rien encore.',
-                                style: style.copyWith(color: p.textSecondary),
-                              ),
-                            for (final l in lignes)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${l.quantite} × ${l.libelle}',
-                                        style: style.copyWith(
-                                          decoration: l.annulee
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                          color: l.annulee
-                                              ? p.textSecondary
-                                              : p.text,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      formatAmount(l.montant),
-                                      style: style.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (ouverte)
-                  Container(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      14,
-                      20,
-                      14 + MediaQuery.paddingOf(context).bottom,
+      child: _miseEnPage(
+        plein: plein,
+        entete: FicheEnTete(
+          panneau: panneau,
+          retour: plein,
+          titre: ardoise.titre,
+          sousTitre: [
+            // Le numero reste sous le nom donne : c'est lui que le serveur
+            // et les rapports connaissent.
+            ?ardoise.numeroSousLeNom,
+            switch (ardoise.etat) {
+              EtatArdoise.aPayer => 'Il paie à la fin',
+              EtatArdoise.payee => 'Payée',
+              EtatArdoise.enChambre => 'Portée sur la chambre',
+              EtatArdoise.annulee => 'Annulée',
+            },
+          ].join(' · '),
+          badge: _BadgePoint(outlet: outlet),
+          actions: [
+            if (ardoise.nommable)
+              FicheBoutonRond(
+                icone: PhosphorIconsLight.tag,
+                libelle: 'Nommer l’ardoise',
+                onTap: () => Navigator.of(context).pop(_Geste.renommer),
+              ),
+          ],
+          valeur: formatAmount(ouverte ? ardoise.reste : ardoise.total),
+          legendeValeur: ouverte ? 'à payer' : 'au total',
+        ),
+        // Toucher un article l'ajoute : la saisie s'ouvre avec lui.
+        carte: ouverte
+            ? TableauCarte(
+                carte:
+                    ref.watch(menuForOutletProvider(outlet.id)).value ??
+                    const <MenuEntry>[],
+                onChoisi: (e) => Navigator.of(context).pop(e),
+              )
+            : null,
+        contenu: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            FicheCarte(
+              titre: 'Consommations',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (lignes.isEmpty)
+                    Text(
+                      'Rien encore.',
+                      style: style.copyWith(color: p.textSecondary),
                     ),
-                    decoration: BoxDecoration(
-                      color: AtriumDashColors.card,
-                      border: Border(
-                        top: BorderSide(color: AtriumDashColors.cardBorder),
+                  for (final l in lignes)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${l.quantite} × ${l.libelle}',
+                              style: style.copyWith(
+                                decoration: l.annulee
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: l.annulee ? p.textSecondary : p.text,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            formatAmount(l.montant),
+                            style: style.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: peutPayer
-                              ? () => Navigator.of(context).pop(_Geste.payer)
-                              : null,
-                          icon: const Icon(PhosphorIconsLight.coins),
-                          label: Text('Payer ${formatAmount(ardoise.reste)}'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              Navigator.of(context).pop(_Geste.ajouter),
-                          icon: const Icon(PhosphorIconsLight.plus),
-                          label: const Text('Ajouter'),
-                        ),
-                        // Aussi en bas : en plein ecran, l'etiquette du coin
-                        // de la photo se perdait (15 octobre).
-                        if (ardoise.nommable)
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                Navigator.of(context).pop(_Geste.renommer),
-                            icon: const Icon(PhosphorIconsLight.tag),
-                            label: const Text('Renommer'),
-                          ),
-                        if (peutPorter)
-                          OutlinedButton.icon(
-                            onPressed: ardoise.reste > 0
-                                ? () =>
-                                      Navigator.of(context).pop(_Geste.chambre)
-                                : null,
-                            icon: const Icon(PhosphorIconsLight.bed),
-                            label: const Text('Porter à la chambre'),
-                          ),
-                        if (peutAnnuler)
-                          TextButton.icon(
-                            onPressed: () =>
-                                Navigator.of(context).pop(_Geste.annuler),
-                            icon: const Icon(PhosphorIconsLight.x),
-                            label: const Text('Annuler l’ardoise'),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        barre: !ouverte
+            ? null
+            : Container(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  14,
+                  20,
+                  14 + MediaQuery.paddingOf(context).bottom,
+                ),
+                decoration: BoxDecoration(
+                  color: AtriumDashColors.card,
+                  border: Border(
+                    top: BorderSide(color: AtriumDashColors.cardBorder),
+                  ),
+                ),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: peutPayer
+                          ? () => Navigator.of(context).pop(_Geste.payer)
+                          : null,
+                      icon: const Icon(PhosphorIconsLight.coins),
+                      label: Text('Payer ${formatAmount(ardoise.reste)}'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_Geste.ajouter),
+                      icon: const Icon(PhosphorIconsLight.plus),
+                      label: const Text('Ajouter'),
+                    ),
+                    // Aussi en bas : en plein ecran, l'etiquette du coin
+                    // de la photo se perdait (15 octobre).
+                    if (ardoise.nommable)
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            Navigator.of(context).pop(_Geste.renommer),
+                        icon: const Icon(PhosphorIconsLight.tag),
+                        label: const Text('Renommer'),
+                      ),
+                    if (peutPorter)
+                      OutlinedButton.icon(
+                        onPressed: ardoise.reste > 0
+                            ? () => Navigator.of(context).pop(_Geste.chambre)
+                            : null,
+                        icon: const Icon(PhosphorIconsLight.bed),
+                        label: const Text('Porter à la chambre'),
+                      ),
+                    if (peutAnnuler)
+                      TextButton.icon(
+                        onPressed: () =>
+                            Navigator.of(context).pop(_Geste.annuler),
+                        icon: const Icon(PhosphorIconsLight.x),
+                        label: const Text('Annuler l’ardoise'),
+                      ),
+                  ],
+                ),
+              ),
       ),
     );
   }
 }
 
-/// En plein ecran, la carte en tableau a gauche et la fiche a droite, a sa
-/// largeur de panneau ; sinon la fiche seule.
-Widget _avecCarte({
+/// La mise en page des fiches du point de vente.
+///
+/// En plein ecran (demande du 15 octobre, revue avec le professeur) : a
+/// gauche, l'en-tete -- reduit a sa largeur -- et la commande ; a droite, la
+/// liste des produits sur toute la hauteur, avec en bas le total et les
+/// boutons de validation, qui ne bougent pas. Sinon, la fiche seule, en
+/// colonne.
+Widget _miseEnPage({
   required bool plein,
+  required Widget entete,
+  required Widget contenu,
   required Widget? carte,
-  required List<Widget> fiche,
+  Widget? barre,
 }) {
-  final colonne = Column(children: fiche);
-  if (!plein) return colonne;
+  if (!plein) {
+    return Column(
+      children: [
+        entete,
+        Expanded(child: contenu),
+        ?barre,
+      ],
+    );
+  }
   // Rien a choisir (ardoise close) : la fiche au milieu, pas etiree sur
   // toute la largeur.
   if (carte == null) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
-        child: colonne,
+        child: Column(
+          children: [
+            entete,
+            Expanded(child: contenu),
+            ?barre,
+          ],
+        ),
       ),
     );
   }
+  return LayoutBuilder(
+    builder: (context, zone) {
+      // En portrait, ou trop etroit pour deux colonnes : tout s'empile --
+      // la commande en haut, la liste des produits dessous, les boutons en
+      // bas (15 octobre). Deux colonnes y debordaient.
+      if (zone.maxWidth < 900 || zone.maxHeight > zone.maxWidth) {
+        return Column(
+          children: [
+            entete,
+            Expanded(flex: 2, child: contenu),
+            Divider(height: 1, color: AtriumDashColors.cardBorder),
+            Expanded(flex: 3, child: carte),
+            ?barre,
+          ],
+        );
+      }
+      return _deuxColonnes(entete, contenu, carte, barre);
+    },
+  );
+}
+
+/// En paysage : la fiche a gauche, la liste des produits a droite.
+Widget _deuxColonnes(
+  Widget entete,
+  Widget contenu,
+  Widget carte,
+  Widget? barre,
+) {
   return Row(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Expanded(child: carte),
+      SizedBox(
+        width: 460,
+        child: Column(
+          children: [
+            entete,
+            Expanded(child: contenu),
+          ],
+        ),
+      ),
       VerticalDivider(width: 1, color: AtriumDashColors.cardBorder),
-      SizedBox(width: 480, child: colonne),
+      Expanded(
+        child: Column(
+          children: [
+            Expanded(child: carte),
+            ?barre,
+          ],
+        ),
+      ),
     ],
   );
 }
@@ -1550,7 +1597,7 @@ class _Saisie extends ConsumerStatefulWidget {
 
   final OutletRow outlet;
 
-  /// En plein ecran : la carte en tableau a gauche, la commande a droite.
+  /// En plein ecran : la commande a gauche, la carte en tableau a droite.
   final bool plein;
 
   /// Un article deja touche dans la carte de la fiche d'ardoise.
@@ -1687,73 +1734,60 @@ class _SaisieState extends ConsumerState<_Saisie> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: Column(
-          children: [
-            FicheEnTete(
-              panneau: widget.panneau,
-              retour: widget.plein,
-              titre: ardoise != null
-                  ? ardoise.titre
-                  : chambre == null
-                  ? 'Nouveau client'
-                  : 'Chambre ${chambre.roomNumber}',
-              sousTitre: ardoise != null
-                  ? 'Ajouter à son ardoise'
-                  : chambre == null
-                  ? 'De passage : il paie à la fin, ou tout de suite'
-                  : chambre.departDepasse
-                  ? '${chambre.guestName} · départ dépassé'
-                  : chambre.guestName,
-              badge: _BadgePoint(outlet: widget.outlet),
-              valeur: ardoise != null
-                  ? formatAmount(ardoise.reste)
-                  : chambre == null
-                  ? null
-                  : formatAmount(chambre.balance),
-              legendeValeur: ardoise != null
-                  ? 'à payer'
-                  : chambre == null
-                  ? null
-                  : 'à l’ardoise de la chambre',
-              libelleFermer: 'Fermer sans servir',
-            ),
-            Expanded(
-              child: _avecCarte(
-                plein: widget.plein,
-                carte: TableauCarte(
-                  carte: _carte,
-                  dejaChoisis: _dansLaCommande,
-                  onChoisi: _choisirDansLeTableau,
-                ),
-                fiche: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                      children: [
-                        FicheCarte(titre: 'Commande', child: _formulaire()),
-                        // Ce que ce client a deja pris ici : le comptoir le voit
-                        // avant de porter.
-                        if (chambre != null) ...[
-                          const SizedBox(height: 16),
-                          _Historique(
-                            folioId: chambre.folioId,
-                            outlet: widget.outlet,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  _Barre(
-                    total: _total,
-                    articles: _nombreArticles,
-                    mode: mode,
-                    onValider: _pret ? _valider : null,
-                    onPayer: _pret ? () => _valider(payer: true) : null,
-                  ),
-                ],
-              ),
-            ),
-          ],
+        child: _miseEnPage(
+          plein: widget.plein,
+          entete: FicheEnTete(
+            panneau: widget.panneau,
+            retour: widget.plein,
+            titre: ardoise != null
+                ? ardoise.titre
+                : chambre == null
+                ? 'Nouveau client'
+                : 'Chambre ${chambre.roomNumber}',
+            sousTitre: ardoise != null
+                ? 'Ajouter à son ardoise'
+                : chambre == null
+                ? 'De passage : il paie à la fin, ou tout de suite'
+                : chambre.departDepasse
+                ? '${chambre.guestName} · départ dépassé'
+                : chambre.guestName,
+            badge: _BadgePoint(outlet: widget.outlet),
+            valeur: ardoise != null
+                ? formatAmount(ardoise.reste)
+                : chambre == null
+                ? null
+                : formatAmount(chambre.balance),
+            legendeValeur: ardoise != null
+                ? 'à payer'
+                : chambre == null
+                ? null
+                : 'à l’ardoise de la chambre',
+            libelleFermer: 'Fermer sans servir',
+          ),
+          carte: TableauCarte(
+            carte: _carte,
+            dejaChoisis: _dansLaCommande,
+            onChoisi: _choisirDansLeTableau,
+          ),
+          contenu: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            children: [
+              FicheCarte(titre: 'Commande', child: _formulaire()),
+              // Ce que ce client a deja pris ici : le comptoir le voit
+              // avant de porter.
+              if (chambre != null) ...[
+                const SizedBox(height: 16),
+                _Historique(folioId: chambre.folioId, outlet: widget.outlet),
+              ],
+            ],
+          ),
+          barre: _Barre(
+            total: _total,
+            articles: _nombreArticles,
+            mode: mode,
+            onValider: _pret ? _valider : null,
+            onPayer: _pret ? () => _valider(payer: true) : null,
+          ),
         ),
       ),
     );
@@ -1768,7 +1802,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              // En plein ecran, la ligne recoit l'article touche a gauche :
+              // En plein ecran, la ligne recoit l'article touche a droite :
               // plus de recherche ici, elle est dans le tableau.
               child: widget.plein
                   ? _ArticleDeLaLigne(
@@ -1865,7 +1899,7 @@ class _ArticleDeLaLigne extends StatelessWidget {
         floatingLabelBehavior: FloatingLabelBehavior.always,
       ),
       child: Text(
-        article?.label ?? 'Touchez un article à gauche',
+        article?.label ?? 'Touchez un article à droite',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(

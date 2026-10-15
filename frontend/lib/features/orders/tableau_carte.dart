@@ -1,4 +1,4 @@
-/// La carte du point de vente en tableau, a gauche des fiches en plein
+/// La carte du point de vente en tableau, a droite des fiches en plein
 /// ecran (demande du 15 octobre).
 ///
 /// Ce qui se vend le plus d'abord, et combien il en est parti : le comptoir

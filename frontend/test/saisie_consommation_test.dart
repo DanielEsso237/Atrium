@@ -18,6 +18,7 @@ import 'package:atrium/data/repositories/reservation_repository.dart';
 import 'package:atrium/data/repositories/repository_providers.dart';
 import 'package:atrium/features/auth/session.dart';
 import 'package:atrium/features/orders/orders_screen.dart';
+import 'package:atrium/features/orders/tableau_carte.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,6 +129,13 @@ void main() {
     // Sur son ardoise du bar (il paie a la fin), ou payer tout de suite.
     expect(find.text('Sur son ardoise'), findsOneWidget);
     expect(find.text('Payer maintenant'), findsOneWidget);
+    // Tablette en portrait (15 octobre) : plein ecran, la liste des
+    // produits sous la commande, sans debordement.
+    expect(find.byType(TableauCarte), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(TableauCarte)).dy,
+      greaterThan(tester.getTopLeft(find.text('Consommation')).dy),
+    );
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
