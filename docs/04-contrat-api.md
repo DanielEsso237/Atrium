@@ -284,7 +284,9 @@ sinon) ; avant l'arrivée, la chambre choisie part avec le check-in.
   devenir sale** : le client n'y a pas dormi. C'est l'inverse du départ.
 - Le folio est rattaché à la ligne, pas à la chambre : l'ardoise suit le
   client, rien n'y est écrit.
-- Refus : autre catégorie `422`, hors service ou déjà occupée `409`,
+- Refus : autre catégorie sans `upgrade` `422`, surclassement vers une
+  catégorie dont le `default_rate` n'est pas plus élevé `409` (15 octobre,
+  check-in compris), hors service ou déjà occupée `409`,
   chambre d'un autre hôtel `404`. Une chambre **sale n'est pas refusée** —
   la tablette ne la propose pas, mais son état de ménage peut être en retard,
   et un refus bloquerait sa file pour une question de propreté.

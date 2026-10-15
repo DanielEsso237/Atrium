@@ -248,12 +248,24 @@ async def _ensure_upgrade_available(
     surreserverait (decision du 14 octobre). Seules les nuits qui restent
     comptent -- celles deja passees ne prennent plus rien a personne. Un
     sejour en heures n'occupe aucune nuit.
+
+    **On ne surclasse que vers le haut** (decision du 15 octobre) : la
+    nouvelle categorie doit avoir un tarif de base plus eleve que la
+    categorie actuelle de la ligne. Vers une categorie egale ou moins chere,
+    c'est un changement de chambre a refaire dans la bonne categorie. La
+    tablette fait le meme refus avant d'envoyer.
     """
+    room_type = await session.get(RoomType, room.room_type_id)
+    actuelle = await session.get(RoomType, line.room_type_id)
+    if actuelle is not None and room_type.default_rate <= actuelle.default_rate:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Un surclassement va vers une categorie superieure.",
+        )
     if line.stay_unit == StayUnit.HOURS:
         return
     today = await current_business_date(session, user.hotel_id)
     start = min(max(line.arrival_date, today), line.departure_date - dt.timedelta(days=1))
-    room_type = await session.get(RoomType, room.room_type_id)
     await _lock_room_types(session, [room_type.id])
     await _ensure_available(
         session, user.hotel_id, room_type, start, line.departure_date, exclude_line_id=line.id
