@@ -70,18 +70,79 @@ Future<T?> afficherFicheLaterale<T>(
   );
 }
 
-/// Le fond de la fiche, arrondi du cote ou elle s'ouvre.
+/// Ouvre la fiche sur toute la zone de travail, jusqu'a la barre laterale
+/// (demande du 15 octobre, pour les fiches du point de vente) : la place
+/// gagnee a gauche recoit la carte en tableau. Un bouton Retour la referme.
+///
+/// La barre laterale reste visible : la fiche s'ouvre dans le navigateur de
+/// l'ecran, pas par-dessus toute l'application. Sur un telephone, la place
+/// manque : feuille qui monte du bas, comme [afficherFicheLaterale].
+///
+/// `fiche` recoit `true` en plein ecran.
+Future<T?> afficherFichePleinEcran<T>(
+  BuildContext context, {
+  required Widget Function(bool plein) fiche,
+}) {
+  final theme = Theme.of(context);
+  if (MediaQuery.sizeOf(context).width < 900) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Theme(
+        data: theme,
+        child: FractionallySizedBox(heightFactor: 0.94, child: fiche(false)),
+      ),
+    );
+  }
+  return showGeneralDialog<T>(
+    context: context,
+    useRootNavigator: false,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    transitionDuration: AtriumMotion.of(
+      context,
+      const Duration(milliseconds: 280),
+    ),
+    pageBuilder: (_, _, _) => Theme(
+      data: theme,
+      child: SizedBox.expand(child: fiche(true)),
+    ),
+    transitionBuilder: (_, animation, _, enfant) => SlideTransition(
+      position: Tween(begin: const Offset(0.08, 0), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+      ),
+      child: FadeTransition(opacity: animation, child: enfant),
+    ),
+  );
+}
+
+/// Le fond de la fiche, arrondi du cote ou elle s'ouvre ; droit en plein
+/// ecran, ou elle borde la barre laterale.
 class FicheSurface extends StatelessWidget {
-  const FicheSurface({super.key, required this.panneau, required this.child});
+  const FicheSurface({
+    super.key,
+    required this.panneau,
+    required this.child,
+    this.plein = false,
+  });
 
   final bool panneau;
+  final bool plein;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => Material(
     color: AtriumDashColors.page,
     clipBehavior: Clip.antiAlias,
-    borderRadius: panneau
+    borderRadius: plein
+        ? BorderRadius.zero
+        : panneau
         ? const BorderRadius.horizontal(left: Radius.circular(28))
         : const BorderRadius.vertical(top: Radius.circular(28)),
     child: child,
@@ -104,9 +165,13 @@ class FicheEnTete extends StatelessWidget {
     this.valeur,
     this.legendeValeur,
     this.libelleFermer = 'Fermer la fiche',
+    this.retour = false,
   });
 
   final bool panneau;
+
+  /// En plein ecran : un bouton Retour a gauche remplace la croix.
+  final bool retour;
   final String titre;
   final String sousTitre;
   final Widget? badge;
@@ -168,6 +233,14 @@ class FicheEnTete extends StatelessWidget {
                   ),
                 Row(
                   children: [
+                    if (retour) ...[
+                      FicheBoutonRond(
+                        icone: Icons.arrow_back_rounded,
+                        libelle: 'Retour',
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     ?badge,
                     const Spacer(),
                     for (final a in actions)
@@ -175,11 +248,12 @@ class FicheEnTete extends StatelessWidget {
                         padding: const EdgeInsets.only(right: 8),
                         child: a,
                       ),
-                    FicheBoutonRond(
-                      icone: Icons.close_rounded,
-                      libelle: libelleFermer,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
+                    if (!retour)
+                      FicheBoutonRond(
+                        icone: Icons.close_rounded,
+                        libelle: libelleFermer,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
                   ],
                 ),
                 const Spacer(),

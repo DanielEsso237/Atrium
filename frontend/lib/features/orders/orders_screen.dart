@@ -41,6 +41,7 @@ import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
 import '../hotel/logo_images.dart' show logoTicketProvider;
 import 'historique_du_jour.dart';
+import 'tableau_carte.dart';
 
 /// Le point de vente choisi : par les onglets de l'ecran, ou depuis la
 /// liste deroulante de la barre laterale.
@@ -110,7 +111,10 @@ class OrdersScreen extends ConsumerWidget {
         ),
       ),
       data: (tous) {
-        final liste = [for (final o in tous) if (o.kind == kind) o];
+        final liste = [
+          for (final o in tous)
+            if (o.kind == kind) o,
+        ];
         if (liste.isEmpty) return _AucunPointDeVente(titre: titre);
         final outlet = pointDeVenteOuvert(
           liste,
@@ -443,11 +447,14 @@ class _Chambre extends ConsumerWidget {
   }
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
-    final commande = await afficherFicheLaterale<_Commande>(
+    final commande = await afficherFichePleinEcran<_Commande>(
       context,
-      libelleFermer: 'Fermer sans porter',
-      fiche: (panneau) =>
-          _Saisie(outlet: outlet, chambre: chambre, panneau: panneau),
+      fiche: (plein) => _Saisie(
+        outlet: outlet,
+        chambre: chambre,
+        panneau: plein,
+        plein: plein,
+      ),
     );
     if (commande == null || commande.lignes.isEmpty || !context.mounted) {
       return;
@@ -600,11 +607,10 @@ class _Passage extends ConsumerWidget {
   }
 
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
-    final commande = await afficherFicheLaterale<_Commande>(
+    final commande = await afficherFichePleinEcran<_Commande>(
       context,
-      libelleFermer: 'Fermer sans encaisser',
-      fiche: (panneau) =>
-          _Saisie(outlet: outlet, chambre: null, panneau: panneau),
+      fiche: (plein) =>
+          _Saisie(outlet: outlet, chambre: null, panneau: plein, plein: plein),
     );
     if (commande == null || commande.lignes.isEmpty || !context.mounted) {
       return;
@@ -710,13 +716,22 @@ class _TuileArdoise extends ConsumerWidget {
   }
 
   Future<void> _ouvrir(BuildContext context, WidgetRef ref) async {
-    final geste = await afficherFicheLaterale<_Geste>(
+    // Un geste, ou un article touche dans la carte : on l'ajoute.
+    final geste = await afficherFichePleinEcran<Object>(
       context,
-      fiche: (panneau) =>
-          _FicheArdoise(outlet: outlet, ardoise: ardoise, panneau: panneau),
+      fiche: (plein) => _FicheArdoise(
+        outlet: outlet,
+        ardoise: ardoise,
+        panneau: plein,
+        plein: plein,
+      ),
     );
     if (geste == null || !context.mounted) return;
-    switch (geste) {
+    if (geste is MenuEntry) {
+      await _ajouter(context, ref, article: geste);
+      return;
+    }
+    switch (geste as _Geste) {
       case _Geste.ajouter:
         await _ajouter(context, ref);
       case _Geste.payer:
@@ -755,15 +770,20 @@ class _TuileArdoise extends ConsumerWidget {
     );
   }
 
-  Future<void> _ajouter(BuildContext context, WidgetRef ref) async {
-    final commande = await afficherFicheLaterale<_Commande>(
+  Future<void> _ajouter(
+    BuildContext context,
+    WidgetRef ref, {
+    MenuEntry? article,
+  }) async {
+    final commande = await afficherFichePleinEcran<_Commande>(
       context,
-      libelleFermer: 'Fermer sans servir',
-      fiche: (panneau) => _Saisie(
+      fiche: (plein) => _Saisie(
         outlet: outlet,
         chambre: null,
         ardoise: ardoise,
-        panneau: panneau,
+        panneau: plein,
+        plein: plein,
+        initial: article,
       ),
     );
     if (commande == null || commande.lignes.isEmpty || !context.mounted) {
@@ -888,7 +908,9 @@ class _TuileArdoise extends ConsumerWidget {
       if (context.mounted) montrerRefus(context, e.message);
       return;
     }
-    if (context.mounted) montrerSucces(context, '${ardoise.titre} annulée : $motif.');
+    if (context.mounted) {
+      montrerSucces(context, '${ardoise.titre} annulée : $motif.');
+    }
   }
 }
 
@@ -901,11 +923,15 @@ class _FicheArdoise extends ConsumerWidget {
     required this.outlet,
     required this.ardoise,
     required this.panneau,
+    this.plein = false,
   });
 
   final OutletRow outlet;
   final Ardoise ardoise;
   final bool panneau;
+
+  /// En plein ecran : la carte en tableau a gauche, la fiche a droite.
+  final bool plein;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -930,10 +956,12 @@ class _FicheArdoise extends ConsumerWidget {
 
     return FicheSurface(
       panneau: panneau,
+      plein: plein,
       child: Column(
         children: [
           FicheEnTete(
             panneau: panneau,
+            retour: plein,
             titre: ardoise.titre,
             sousTitre: [
               // Le numero reste sous le nom donne : c'est lui que le serveur
@@ -959,102 +987,153 @@ class _FicheArdoise extends ConsumerWidget {
             legendeValeur: ouverte ? 'à payer' : 'au total',
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              children: [
-                FicheCarte(
-                  titre: 'Consommations',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: _avecCarte(
+              plein: plein,
+              // Toucher un article l'ajoute : la saisie s'ouvre avec lui.
+              carte: ouverte
+                  ? TableauCarte(
+                      carte:
+                          ref.watch(menuForOutletProvider(outlet.id)).value ??
+                          const <MenuEntry>[],
+                      onChoisi: (e) => Navigator.of(context).pop(e),
+                    )
+                  : null,
+              fiche: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                     children: [
-                      if (lignes.isEmpty)
-                        Text(
-                          'Rien encore.',
-                          style: style.copyWith(color: p.textSecondary),
-                        ),
-                      for (final l in lignes)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${l.quantite} × ${l.libelle}',
-                                  style: style.copyWith(
-                                    decoration: l.annulee
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    color: l.annulee ? p.textSecondary : p.text,
-                                  ),
-                                ),
-                              ),
+                      FicheCarte(
+                        titre: 'Consommations',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (lignes.isEmpty)
                               Text(
-                                formatAmount(l.montant),
-                                style: style.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                'Rien encore.',
+                                style: style.copyWith(color: p.textSecondary),
+                              ),
+                            for (final l in lignes)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${l.quantite} × ${l.libelle}',
+                                        style: style.copyWith(
+                                          decoration: l.annulee
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: l.annulee
+                                              ? p.textSecondary
+                                              : p.text,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formatAmount(l.montant),
+                                      style: style.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
+                if (ouverte)
+                  Container(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      14,
+                      20,
+                      14 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AtriumDashColors.card,
+                      border: Border(
+                        top: BorderSide(color: AtriumDashColors.cardBorder),
+                      ),
+                    ),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: peutPayer
+                              ? () => Navigator.of(context).pop(_Geste.payer)
+                              : null,
+                          icon: const Icon(PhosphorIconsLight.coins),
+                          label: Text('Payer ${formatAmount(ardoise.reste)}'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.of(context).pop(_Geste.ajouter),
+                          icon: const Icon(PhosphorIconsLight.plus),
+                          label: const Text('Ajouter'),
+                        ),
+                        if (peutPorter)
+                          OutlinedButton.icon(
+                            onPressed: ardoise.reste > 0
+                                ? () =>
+                                      Navigator.of(context).pop(_Geste.chambre)
+                                : null,
+                            icon: const Icon(PhosphorIconsLight.bed),
+                            label: const Text('Porter à la chambre'),
+                          ),
+                        if (peutAnnuler)
+                          TextButton.icon(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_Geste.annuler),
+                            icon: const Icon(PhosphorIconsLight.x),
+                            label: const Text('Annuler l’ardoise'),
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          if (ouverte)
-            Container(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                14,
-                20,
-                14 + MediaQuery.paddingOf(context).bottom,
-              ),
-              decoration: BoxDecoration(
-                color: AtriumDashColors.card,
-                border: Border(
-                  top: BorderSide(color: AtriumDashColors.cardBorder),
-                ),
-              ),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  FilledButton.icon(
-                    onPressed: peutPayer
-                        ? () => Navigator.of(context).pop(_Geste.payer)
-                        : null,
-                    icon: const Icon(PhosphorIconsLight.coins),
-                    label: Text('Payer ${formatAmount(ardoise.reste)}'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(_Geste.ajouter),
-                    icon: const Icon(PhosphorIconsLight.plus),
-                    label: const Text('Ajouter'),
-                  ),
-                  if (peutPorter)
-                    OutlinedButton.icon(
-                      onPressed: ardoise.reste > 0
-                          ? () => Navigator.of(context).pop(_Geste.chambre)
-                          : null,
-                      icon: const Icon(PhosphorIconsLight.bed),
-                      label: const Text('Porter à la chambre'),
-                    ),
-                  if (peutAnnuler)
-                    TextButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pop(_Geste.annuler),
-                      icon: const Icon(PhosphorIconsLight.x),
-                      label: const Text('Annuler l’ardoise'),
-                    ),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
+}
+
+/// En plein ecran, la carte en tableau a gauche et la fiche a droite, a sa
+/// largeur de panneau ; sinon la fiche seule.
+Widget _avecCarte({
+  required bool plein,
+  required Widget? carte,
+  required List<Widget> fiche,
+}) {
+  final colonne = Column(children: fiche);
+  if (!plein) return colonne;
+  // Rien a choisir (ardoise close) : la fiche au milieu, pas etiree sur
+  // toute la largeur.
+  if (carte == null) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: colonne,
+      ),
+    );
+  }
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(child: carte),
+      VerticalDivider(width: 1, color: AtriumDashColors.cardBorder),
+      SizedBox(width: 480, child: colonne),
+    ],
+  );
 }
 
 /// Le motif d'une annulation : client parti sans payer, erreur de saisie.
@@ -1403,7 +1482,9 @@ class _Ligne {
   /// sortir le stock.
   List<(String, int, int, String?)> get consommations {
     if (articles.isEmpty) {
-      return [(saisie.text.trim(), int.parse(prix.text.trim()), quantite, null)];
+      return [
+        (saisie.text.trim(), int.parse(prix.text.trim()), quantite, null),
+      ];
     }
     final unitaire = unSeulArticle ? int.tryParse(prix.text.trim()) : null;
     final groupes = <String, (MenuEntry, int)>{};
@@ -1411,7 +1492,8 @@ class _Ligne {
       groupes[e.id] = (e, (groupes[e.id]?.$2 ?? 0) + 1);
     }
     return [
-      for (final (e, n) in groupes.values) (e.label, unitaire ?? e.price, n, e.id),
+      for (final (e, n) in groupes.values)
+        (e.label, unitaire ?? e.price, n, e.id),
     ];
   }
 
@@ -1453,9 +1535,17 @@ class _Saisie extends ConsumerStatefulWidget {
     required this.chambre,
     required this.panneau,
     this.ardoise,
+    this.plein = false,
+    this.initial,
   });
 
   final OutletRow outlet;
+
+  /// En plein ecran : la carte en tableau a gauche, la commande a droite.
+  final bool plein;
+
+  /// Un article deja touche dans la carte de la fiche d'ardoise.
+  final MenuEntry? initial;
 
   /// `null` : client de passage, ou ardoise deja ouverte.
   final ChargeableRoom? chambre;
@@ -1472,6 +1562,31 @@ class _Saisie extends ConsumerStatefulWidget {
 
 class _SaisieState extends ConsumerState<_Saisie> {
   final _lignes = [_Ligne()];
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    if (e != null) {
+      _lignes.first.articles.add(e);
+      _lignes.first.suivrePrix();
+    }
+  }
+
+  /// Combien de fois l'article est deja dans la commande, toutes lignes.
+  int _dansLaCommande(MenuEntry e) =>
+      _lignes.fold(0, (n, l) => n + l.nombre(e));
+
+  /// Un article touche dans le tableau : sur la ligne en cours, sauf si
+  /// elle porte deja un plat hors carte -- il en ouvre alors une nouvelle.
+  void _choisirDansLeTableau(MenuEntry e) {
+    var l = _enCours;
+    if (l.articles.isEmpty && l.saisie.text.trim().isNotEmpty) {
+      l = _Ligne();
+      _lignes.add(l);
+    }
+    _choisir(l, e);
+  }
 
   _Ligne get _enCours => _lignes.last;
 
@@ -1529,11 +1644,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
   /// Pret a porter : aucune ligne a moitie remplie.
   bool get _pret => _lignes.every((l) => l.complete);
 
-  void _valider({bool payer = false}) => Navigator.of(context).pop(
-    _Commande([
-      for (final l in _lignes) ...l.consommations,
-    ], payer: payer),
-  );
+  void _valider({bool payer = false}) => Navigator.of(
+    context,
+  ).pop(_Commande([for (final l in _lignes) ...l.consommations], payer: payer));
 
   @override
   Widget build(BuildContext context) {
@@ -1547,14 +1660,18 @@ class _SaisieState extends ConsumerState<_Saisie> {
 
     return FicheSurface(
       panneau: widget.panneau,
+      plein: widget.plein,
       child: Padding(
         // Le clavier monte : la barre du total monte avec lui au lieu de
         // passer dessous, et le bouton reste a portee de pouce.
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           children: [
             FicheEnTete(
               panneau: widget.panneau,
+              retour: widget.plein,
               titre: ardoise != null
                   ? ardoise.titre
                   : chambre == null
@@ -1581,25 +1698,40 @@ class _SaisieState extends ConsumerState<_Saisie> {
               libelleFermer: 'Fermer sans servir',
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                children: [
-                  FicheCarte(titre: 'Commande', child: _formulaire()),
-                  // Ce que ce client a deja pris ici : le comptoir le voit
-                  // avant de porter.
-                  if (chambre != null) ...[
-                    const SizedBox(height: 16),
-                    _Historique(folioId: chambre.folioId, outlet: widget.outlet),
-                  ],
+              child: _avecCarte(
+                plein: widget.plein,
+                carte: TableauCarte(
+                  carte: _carte,
+                  dejaChoisis: _dansLaCommande,
+                  onChoisi: _choisirDansLeTableau,
+                ),
+                fiche: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      children: [
+                        FicheCarte(titre: 'Commande', child: _formulaire()),
+                        // Ce que ce client a deja pris ici : le comptoir le voit
+                        // avant de porter.
+                        if (chambre != null) ...[
+                          const SizedBox(height: 16),
+                          _Historique(
+                            folioId: chambre.folioId,
+                            outlet: widget.outlet,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  _Barre(
+                    total: _total,
+                    articles: _nombreArticles,
+                    mode: mode,
+                    onValider: _pret ? _valider : null,
+                    onPayer: _pret ? () => _valider(payer: true) : null,
+                  ),
                 ],
               ),
-            ),
-            _Barre(
-              total: _total,
-              articles: _nombreArticles,
-              mode: mode,
-              onValider: _pret ? _valider : null,
-              onPayer: _pret ? () => _valider(payer: true) : null,
             ),
           ],
         ),
@@ -2070,91 +2202,101 @@ class _Suggestions extends StatelessWidget {
         ],
       ),
       child: Material(
-      color: p.paper,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AtriumRadii.md),
-        side: BorderSide(color: p.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: 288, maxWidth: largeur, minWidth: largeur),
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          shrinkWrap: true,
-          itemCount: articles.length,
-          itemBuilder: (context, i) {
-            final e = articles[i];
-            final n = ligne.nombre(e);
-            return InkWell(
-              onTap: () => onChoisi(e),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 52),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              e.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+        color: p.paper,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AtriumRadii.md),
+          side: BorderSide(color: p.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: 288,
+            maxWidth: largeur,
+            minWidth: largeur,
+          ),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            shrinkWrap: true,
+            itemCount: articles.length,
+            itemBuilder: (context, i) {
+              final e = articles[i];
+              final n = ligne.nombre(e);
+              return InkWell(
+                onTap: () => onChoisi(e),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 52),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                e.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.text,
+                                ),
+                              ),
+                              Text(
+                                e.categoryLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: p.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (n > 0)
+                          Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            constraints: const BoxConstraints(minWidth: 24),
+                            height: 24,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: p.accent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$n',
                               style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
-                                color: p.text,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: p.onAccent,
+                                fontFeatures: tabularFigures,
                               ),
                             ),
-                            Text(
-                              e.categoryLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: p.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (n > 0)
-                        Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          constraints: const BoxConstraints(minWidth: 24),
-                          height: 24,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: p.accent,
-                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            '$n',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: p.onAccent,
-                              fontFeatures: tabularFigures,
-                            ),
+                        Text(
+                          formatAmount(e.price),
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: p.text,
+                            fontFeatures: tabularFigures,
                           ),
                         ),
-                      Text(
-                        formatAmount(e.price),
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: p.text,
-                          fontFeatures: tabularFigures,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
       ),
     );
   }
