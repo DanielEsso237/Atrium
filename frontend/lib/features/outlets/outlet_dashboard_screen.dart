@@ -5,10 +5,9 @@
 /// bar ne voit que le bar. Un point de vente cree demain y apparait de
 /// lui-meme, sans une ligne de code.
 ///
-/// **Comptage a l'aveugle** (decision du 11 octobre) : tant que son tiroir
-/// est ouvert, l'agent d'un point de vente ne voit pas l'argent encaisse --
-/// fond plus encaisse, c'est l'attendu qu'il doit retrouver seul en
-/// comptant. Il voit ce qu'il a servi, et ce qui est porte aux chambres.
+/// L'argent encaisse s'affiche, tiroir ouvert ou non (decision du 15
+/// octobre, qui remplace le comptage a l'aveugle du 11). L'attendu d'un
+/// tiroir, lui, reste a la caisse centrale.
 library;
 
 import 'package:flutter/material.dart';
@@ -132,14 +131,6 @@ class _Tableau extends ConsumerWidget {
       reference: businessDayFor(DateTime.now()),
     );
 
-    // L'aveugle : l'agent rattache, sans la caisse centrale, dont un tiroir
-    // est ouvert sur l'un des points de vente regardes.
-    final tiroirs = ref.watch(tiroirsOuvertsProvider(agentId)).value ?? {};
-    final aveugle =
-        perimetre.rattache &&
-        !acces.peut('cash.central') &&
-        filtres.pointsDeVente.any(tiroirs.contains);
-
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 18.0 : 32.0;
     final notifier = ref.read(_choixProvider.notifier);
@@ -205,11 +196,7 @@ class _Tableau extends ConsumerWidget {
                   data: (t) => ListView(
                     padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
                     children: [
-                      if (aveugle) ...[
-                        const _BandeauAveugle(),
-                        const SizedBox(height: 16),
-                      ],
-                      _Chiffres(tableau: t, aveugle: aveugle),
+                      _Chiffres(tableau: t),
                       // Le comparatif : pour qui couvre tout l'hotel, quand
                       // il regarde tous les points de vente a la fois.
                       if (!perimetre.rattache &&
@@ -223,16 +210,15 @@ class _Tableau extends ConsumerWidget {
                         ),
                       ],
                       const SizedBox(height: 24),
-                      _HeuresDePointe(tableau: t, aveugle: aveugle),
+                      _HeuresDePointe(tableau: t),
                       const SizedBox(height: 24),
-                      _MeilleuresVentes(tableau: t, aveugle: aveugle),
+                      _MeilleuresVentes(tableau: t),
                       const SizedBox(height: 24),
                       _Tiroirs(
                         filtres: filtres,
                         libelles: {for (final o in points) o.id: o.label},
                         agentId: agentId,
-                        // L'attendu, c'est le chiffre que le comptage a
-                        // l'aveugle cache : a la caisse centrale seulement.
+                        // L'attendu d'un tiroir : a la caisse centrale.
                         voitAttendu: acces.peut('cash.central'),
                       ),
                       if (acces.peut('stock.read')) ...[
@@ -249,46 +235,12 @@ class _Tableau extends ConsumerWidget {
   }
 }
 
-/// Pourquoi des montants manquent : sans explication, l'agent croirait a
-/// une panne.
-class _BandeauAveugle extends StatelessWidget {
-  const _BandeauAveugle();
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return Bezel(
-      core: p.accentSoft,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Icon(PhosphorIconsLight.lockSimple, size: 22, color: p.text),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Votre caisse est ouverte : l’argent encaissé s’affichera après '
-              'votre versement. Vous le comptez sans le connaître, c’est ce '
-              'qui rend le comptage juste.',
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 14,
-                color: p.text,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // --- Les chiffres ---------------------------------------------------------------
 
 class _Chiffres extends StatelessWidget {
-  const _Chiffres({required this.tableau, required this.aveugle});
+  const _Chiffres({required this.tableau});
 
   final TableauDeBordPdv tableau;
-  final bool aveugle;
 
   String get _repere => switch (tableau.filtres.periode) {
     PeriodePdv.jour => 'hier',
@@ -303,8 +255,8 @@ class _Chiffres extends StatelessWidget {
     final tuiles = [
       _Tuile(
         libelle: 'Recette',
-        valeur: aveugle ? null : formatAmount(c.recette),
-        variation: aveugle ? null : _variation(c.recette, av.recette),
+        valeur: formatAmount(c.recette),
+        variation: _variation(c.recette, av.recette),
         repere: _repere,
       ),
       _Tuile(
@@ -316,8 +268,8 @@ class _Chiffres extends StatelessWidget {
       ),
       _Tuile(
         libelle: 'Ticket moyen',
-        valeur: aveugle ? null : formatAmount(c.ticketMoyen),
-        variation: aveugle ? null : _variation(c.ticketMoyen, av.ticketMoyen),
+        valeur: formatAmount(c.ticketMoyen),
+        variation: _variation(c.ticketMoyen, av.ticketMoyen),
         repere: _repere,
       ),
       _Tuile(
@@ -328,11 +280,9 @@ class _Chiffres extends StatelessWidget {
       ),
       _Tuile(
         libelle: 'Payé sur place',
-        valeur: aveugle ? null : formatAmount(c.surPlace),
+        valeur: formatAmount(c.surPlace),
         repere: _repere,
       ),
-      // Pas encore paye : ce n'est pas dans le tiroir, l'aveugle ne le cache
-      // pas.
       _Tuile(
         libelle: 'Ardoises à payer',
         valeur: formatAmount(c.aPayer),
@@ -383,7 +333,7 @@ class _Tuile extends StatelessWidget {
 
   final String libelle;
 
-  /// `null` : masque par le comptage a l'aveugle.
+  /// `null` : rien a montrer.
   final String? valeur;
   final int? variation;
   final String repere;
@@ -575,17 +525,15 @@ class _Comparatif extends ConsumerWidget {
 /// seule teinte, sans legende -- le titre la nomme. Le montant de chaque
 /// heure dans son info-bulle ; seule la pointe est etiquetee.
 class _HeuresDePointe extends StatelessWidget {
-  const _HeuresDePointe({required this.tableau, required this.aveugle});
+  const _HeuresDePointe({required this.tableau});
 
   final TableauDeBordPdv tableau;
-  final bool aveugle;
 
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    // A l'aveugle, les articles servis plutot que l'argent.
-    int mesure(HeurePdv h) => aveugle ? h.articles : h.montant;
-    String dire(int n) => aveugle ? '$n article${n > 1 ? 's' : ''}' : formatAmount(n);
+    int mesure(HeurePdv h) => h.montant;
+    String dire(int n) => formatAmount(n);
 
     final actives = tableau.parHeure.where((h) => mesure(h) > 0).toList();
     if (actives.isEmpty) {
@@ -899,10 +847,9 @@ class _Stock extends ConsumerWidget {
 // --- Les meilleures ventes ---------------------------------------------------------
 
 class _MeilleuresVentes extends StatelessWidget {
-  const _MeilleuresVentes({required this.tableau, required this.aveugle});
+  const _MeilleuresVentes({required this.tableau});
 
   final TableauDeBordPdv tableau;
-  final bool aveugle;
 
   @override
   Widget build(BuildContext context) {
@@ -946,17 +893,15 @@ class _MeilleuresVentes extends StatelessWidget {
                     ),
                   ),
                   Text('× ${l.quantite}', style: style),
-                  if (!aveugle) ...[
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: 110,
-                      child: Text(
-                        formatAmount(l.montant),
-                        textAlign: TextAlign.right,
-                        style: style.copyWith(fontWeight: FontWeight.w600),
-                      ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 110,
+                    child: Text(
+                      formatAmount(l.montant),
+                      textAlign: TextAlign.right,
+                      style: style.copyWith(fontWeight: FontWeight.w600),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),

@@ -1,8 +1,8 @@
 /// L'ecran Ventes : le tableau de bord des points de vente.
 ///
-/// Ce qui compte : l'agent du bar n'y voit que le bar, et tant que son
-/// tiroir est ouvert il ne voit pas l'argent encaisse (comptage a
-/// l'aveugle) -- il voit ce qu'il a servi.
+/// Ce qui compte : l'agent du bar n'y voit que le bar. Il voit l'argent
+/// encaisse meme tiroir ouvert (decision du 15 octobre) ; l'attendu de son
+/// tiroir reste a la caisse centrale.
 library;
 
 import 'package:atrium/core/business_day.dart';
@@ -158,13 +158,13 @@ void main() {
     await fermer(tester);
   });
 
-  testWidgets("tiroir ouvert, l'argent encaisse est masque", (tester) async {
+  testWidgets("tiroir ouvert, l'argent encaisse se voit", (tester) async {
     await tester.runAsync(ouvrirTiroir);
     await afficher(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Votre caisse est ouverte'), findsOneWidget);
-    expect(find.text('Après le versement'), findsNWidgets(3));
+    expect(find.textContaining('Votre caisse est ouverte'), findsNothing);
+    expect(find.text('Après le versement'), findsNothing);
     // Ce qu'il a servi reste visible.
     expect(find.text('Biere'), findsOneWidget);
     // Son tiroir, son fond -- jamais l'attendu.
@@ -183,7 +183,7 @@ void main() {
     await fermer(tester);
   });
 
-  testWidgets("sur un telephone, rien ne deborde, meme a l'aveugle", (
+  testWidgets('sur un telephone, rien ne deborde, tiroir ouvert', (
     tester,
   ) async {
     await tester.runAsync(ouvrirTiroir);
