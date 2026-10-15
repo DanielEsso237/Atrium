@@ -223,4 +223,61 @@ void main() {
     final e = (await db.select(db.outboxEntries).get()).single;
     expect((e.entityTable, e.op), ('stock_movements', SyncOp.INSERT));
   });
+
+  group('la sortie de stock (15 octobre)', () {
+    test('une utilisation sort du stock et part en OUT avec son motif',
+        () async {
+      await stocks.receive(placeId: economat, productId: biere, quantity: 48);
+      final id = await stocks.sortir(
+        placeId: economat,
+        productId: biere,
+        quantity: 6,
+        perte: false,
+        reason: '  Cuisine du soir ',
+      );
+      expect(await qte(economat), 42);
+      final p = await dernierEnvoi();
+      expect(
+        (p['id'], p['type'], p['quantity'], p['reason']),
+        (id, 'OUT', 6, 'Cuisine du soir'),
+      );
+    });
+
+    test('une perte part en LOSS, et peut passer sous zero', () async {
+      await stocks.sortir(
+        placeId: bar,
+        productId: biere,
+        quantity: 2,
+        perte: true,
+        reason: 'Bouteilles cassées',
+      );
+      expect(await qte(bar), -2);
+      expect((await dernierEnvoi())['type'], 'LOSS');
+    });
+
+    test('sans motif ou sans quantite : refusee, rien ne part', () async {
+      final avant = (await db.select(db.outboxEntries).get()).length;
+      await expectLater(
+        stocks.sortir(
+          placeId: bar,
+          productId: biere,
+          quantity: 1,
+          perte: true,
+          reason: '   ',
+        ),
+        throwsStateError,
+      );
+      await expectLater(
+        stocks.sortir(
+          placeId: bar,
+          productId: biere,
+          quantity: 0,
+          perte: false,
+          reason: 'x',
+        ),
+        throwsStateError,
+      );
+      expect((await db.select(db.outboxEntries).get()).length, avant);
+    });
+  });
 }
