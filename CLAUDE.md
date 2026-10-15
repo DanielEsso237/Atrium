@@ -394,8 +394,8 @@ dans la fenêtre d'arrivée, les catégories supérieures au changement de
 chambre, motif obligatoire, payant réservé à `reservation.manage`, et les
 mêmes refus avant la file. **On ne surclasse que vers une catégorie
 supérieure** (décision du 15 octobre) : un `default_rate` plus élevé que
-celui de la catégorie actuelle de la ligne. La tablette le refuse ; le
-serveur doit suivre. **La nouvelle catégorie doit rester libre sur toute la durée du
+celui de la catégorie actuelle de la ligne. La tablette le refuse, le
+serveur aussi (409, `_ensure_upgrade_available`). **La nouvelle catégorie doit rester libre sur toute la durée du
 séjour** (409 sinon, tranché par Daniel le 14 octobre) : une chambre libre
 ce soir mais promise demain ne se surclasse pas pour deux nuits.
 

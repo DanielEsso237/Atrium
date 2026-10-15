@@ -434,3 +434,37 @@ async def test_la_categorie_reservee_survit_a_un_second_surclassement(
     assert ligne["room_type_id"] == chambres["suite"] != id_vip
     assert ligne["booked_room_type_id"] == chambres["standard"]
     assert ligne["upgrade_reason"] == "Climatisation en panne"
+
+
+# --- Vers le haut seulement (15 octobre) ------------------------------------------
+
+
+async def test_pas_de_surclassement_vers_une_categorie_moins_chere(
+    client, session, auth_a, chambres
+):
+    res_id, line_id = await _reserver(client, auth_a, chambres["suite"])
+
+    r = await _arriver(client, auth_a, res_id, line_id, chambres["101"], OFFERT)
+
+    assert r.status_code == 409, r.text
+    ligne = await _ligne(session, line_id)
+    assert str(ligne.room_type_id) == chambres["suite"]
+    assert ligne.booked_room_type_id is None
+
+
+async def test_pas_de_surclassement_vers_une_categorie_au_meme_tarif(
+    client, session, hotel_a, auth_a, chambres
+):
+    hotel, _ = hotel_a
+    jumelle = RoomType(hotel_id=hotel.id, code="TWN", label="Twin", default_rate=25_000)
+    session.add(jumelle)
+    await session.flush()
+    r201 = Room(hotel_id=hotel.id, number="201", room_type_id=jumelle.id)
+    session.add(r201)
+    await session.commit()
+    id_201 = str(r201.id)
+    res_id, line_id = await _reserver(client, auth_a, chambres["standard"])
+
+    r = await _arriver(client, auth_a, res_id, line_id, id_201, OFFERT)
+
+    assert r.status_code == 409, r.text
