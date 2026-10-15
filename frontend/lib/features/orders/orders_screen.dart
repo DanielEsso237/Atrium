@@ -1079,6 +1079,15 @@ class _FicheArdoise extends ConsumerWidget {
                           icon: const Icon(PhosphorIconsLight.plus),
                           label: const Text('Ajouter'),
                         ),
+                        // Aussi en bas : en plein ecran, l'etiquette du coin
+                        // de la photo se perdait (15 octobre).
+                        if (ardoise.nommable)
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                Navigator.of(context).pop(_Geste.renommer),
+                            icon: const Icon(PhosphorIconsLight.tag),
+                            label: const Text('Renommer'),
+                          ),
                         if (peutPorter)
                           OutlinedButton.icon(
                             onPressed: ardoise.reste > 0

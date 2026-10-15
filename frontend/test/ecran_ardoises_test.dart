@@ -105,6 +105,9 @@ void main() {
     expect(find.text('1 × Biere'), findsOneWidget);
     expect(find.textContaining('Payer '), findsOneWidget);
     expect(find.text('Ajouter'), findsOneWidget);
+    // Renommer : l'etiquette sur la photo, et le bouton dans les actions.
+    expect(find.byTooltip('Nommer l’ardoise'), findsOneWidget);
+    expect(find.text('Renommer'), findsOneWidget);
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
