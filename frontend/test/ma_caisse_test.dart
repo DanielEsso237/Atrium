@@ -1,8 +1,8 @@
 /// Ma caisse : l'onglet Caisse de l'agent d'un point de vente.
 ///
-/// Ce qui compte : le barman y voit son tiroir et ses versements, jamais
-/// le montant des especes tant que le tiroir est ouvert (comptage a
-/// l'aveugle) ; la reception n'a pas cet onglet, elle a la caisse du jour.
+/// Ce qui compte : le barman y voit son tiroir, chaque moyen chiffre meme
+/// tiroir ouvert (decision du 15 octobre), et ses versements ; la reception
+/// n'a pas cet onglet, elle a la caisse du jour.
 library;
 
 import 'package:atrium/core/formats.dart';
@@ -141,9 +141,9 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Ouverte'), findsOneWidget);
     expect(find.textContaining('2 encaissements'), findsOneWidget);
-    // Les especes : a compter, pas a lire. Le mobile money se montre.
-    expect(find.text('à compter au versement'), findsOneWidget);
-    expect(find.text(formatAmount(1500)), findsNothing);
+    // Les especes se chiffrent, comme le mobile money.
+    expect(find.text('à compter au versement'), findsNothing);
+    expect(find.text(formatAmount(1500)), findsOneWidget);
     expect(find.text(formatAmount(4000)), findsOneWidget);
     // Le versement d'hier : declare, recu, et l'ecart constate.
     expect(find.textContaining('en attente'), findsNothing);

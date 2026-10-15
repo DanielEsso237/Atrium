@@ -1,8 +1,7 @@
 /// Les factures des points de vente (ticket D2, 14 octobre).
 ///
 /// Une facture du comptoir : un encaissement tombe dans le tiroir d'un point
-/// de vente, avec ce qui y a ete servi. Le total du jour reste cache tant
-/// qu'un tiroir est ouvert (comptage a l'aveugle).
+/// de vente, avec ce qui y a ete servi.
 library;
 
 import 'package:atrium/core/business_day.dart';
@@ -21,7 +20,6 @@ void main() {
   late AtriumDatabase db;
   late OutletRow bar;
   late OutletRow resto;
-  late String caisseBar;
   final aujourdhui = businessDayFor(DateTime.now());
 
   setUp(() async {
@@ -33,7 +31,7 @@ void main() {
     bar = await points.create(code: 'BAR', label: 'Bar');
     resto = await points.create(code: 'CAFE', label: 'Café');
     final caisses = CashRepository(db);
-    caisseBar = await caisses.open(
+    await caisses.open(
       userId: utilisateurDemo,
       openingFloat: 0,
       outletId: bar.id,
@@ -120,15 +118,5 @@ void main() {
           .first,
       isEmpty,
     );
-  });
-
-  test('le tiroir ouvert cache le total ; ferme, il se montre', () async {
-    expect(await db.watchTiroirOuvertPdv([bar.id]).first, isTrue);
-    await CashRepository(
-      db,
-    ).close(sessionId: caisseBar, countedAmount: 0, by: utilisateurDemo);
-    expect(await db.watchTiroirOuvertPdv([bar.id]).first, isFalse);
-    // Le cafe a encore son tiroir ouvert : ensemble, on reste a l'aveugle.
-    expect(await db.watchTiroirOuvertPdv([bar.id, resto.id]).first, isTrue);
   });
 }

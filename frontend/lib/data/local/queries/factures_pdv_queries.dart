@@ -138,24 +138,4 @@ extension FacturesPdvQueries on AtriumDatabase {
       return factures;
     });
   }
-
-  /// Un tiroir de ces points de vente est-il ouvert ? Tant qu'il l'est, le
-  /// total encaisse ne s'affiche pas : c'est le comptage a l'aveugle
-  /// (decision du 11 octobre).
-  Stream<bool> watchTiroirOuvertPdv(List<String> pointsDeVente) {
-    if (pointsDeVente.isEmpty) return Stream.value(false);
-    final dans = [
-      for (var i = 0; i < pointsDeVente.length; i++) '?${i + 1}',
-    ].join(', ');
-    return customSelect(
-      '''
-      SELECT 1 FROM cash_sessions
-       WHERE status = 'OPEN' AND deleted_at IS NULL
-         AND outlet_id IN ($dans)
-       LIMIT 1
-      ''',
-      variables: [for (final id in pointsDeVente) Variable.withString(id)],
-      readsFrom: {cashSessions},
-    ).watch().map((r) => r.isNotEmpty);
-  }
 }

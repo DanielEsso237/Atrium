@@ -5,10 +5,8 @@
 /// rien a faire. Ici, il voit ses tiroirs, les ouvre et les ferme sur place,
 /// et suit ses versements jusqu'a leur reception.
 ///
-/// **Comptage a l'aveugle** (decision du 11 octobre) : tant que le tiroir
-/// est ouvert, les especes ne se chiffrent pas -- fond plus especes, c'est
-/// l'attendu qu'il doit retrouver seul. Les autres moyens (carte, mobile
-/// money) ne sont pas dans le tiroir : ils se montrent.
+/// Chaque moyen se chiffre, especes comprises, tiroir ouvert ou non
+/// (decision du 15 octobre, qui remplace le comptage a l'aveugle du 11).
 library;
 
 import 'package:flutter/material.dart';
@@ -19,7 +17,6 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
-import '../../data/local/enums.dart';
 import '../../data/repositories/cash_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
@@ -163,16 +160,9 @@ class _Tiroir extends StatelessWidget {
                         style: _st(14, FontWeight.w500, p.text),
                       ),
                     ),
-                    // Les especes sont dans le tiroir : a compter, pas a lire.
                     Text(
-                      moyen == PaymentMethod.CASH
-                          ? 'à compter au versement'
-                          : formatAmount(montant),
-                      style: _st(
-                        14,
-                        FontWeight.w600,
-                        moyen == PaymentMethod.CASH ? p.textSecondary : p.text,
-                      ),
+                      formatAmount(montant),
+                      style: _st(14, FontWeight.w600, p.text),
                     ),
                   ],
                 ),
