@@ -184,6 +184,15 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                         tone: PillTone.accent,
                         onPressed: () => _entree(context, ref, magasin),
                       ),
+                    // Utilise ou perdu, dans n'importe quel magasin : le bar
+                    // casse aussi des bouteilles (demande du 15 octobre).
+                    if (peutGerer)
+                      PillButton(
+                        label: 'Sortie',
+                        icon: PhosphorIconsLight.minus,
+                        tone: PillTone.quiet,
+                        onPressed: () => _sortie(context, ref, magasin),
+                      ),
                     if (peutDemander)
                       PillButton(
                         label: 'Transfert',
@@ -379,6 +388,39 @@ class _StockScreenState extends ConsumerState<StockScreen> {
           );
       return '${saisie.quantite} ${saisie.produit.label} entrés à '
           '${magasin.label}.';
+    });
+  }
+
+  Future<void> _sortie(
+    BuildContext context,
+    WidgetRef ref,
+    StockPlace magasin, {
+    String? produitId,
+  }) async {
+    final saisie = await showDialog<_Saisie>(
+      context: context,
+      builder: (_) => _SaisieDialog(
+        titre: 'Sortie de ${magasin.label}',
+        entree: false,
+        sortie: true,
+        depart: magasin,
+        produitId: produitId,
+      ),
+    );
+    if (saisie == null || !context.mounted) return;
+    await _faire(context, () async {
+      await ref
+          .read(stockRepositoryProvider)
+          .sortir(
+            placeId: magasin.id,
+            productId: saisie.produit.id,
+            quantity: saisie.quantite,
+            perte: saisie.perte,
+            reason: saisie.motif ?? '',
+            by: ref.read(sessionProvider).agent?.id,
+          );
+      return '${saisie.quantite} ${saisie.produit.label} sortis de '
+          '${magasin.label} (${saisie.perte ? 'perte' : 'utilisation'}).';
     });
   }
 
@@ -1263,8 +1305,11 @@ class _Saisie {
     this.prixAchat = 0,
     this.destination,
     this.motif,
+    this.perte = false,
   });
 
+  /// Une sortie : perdue (casse, perime) plutot qu'utilisee.
+  final bool perte;
   final StockProduct produit;
   final int quantite;
   final int prixAchat;
@@ -1280,8 +1325,11 @@ class _SaisieDialog extends ConsumerStatefulWidget {
     this.depart,
     this.ravitaillement = false,
     this.produitId,
+    this.sortie = false,
   });
 
+  /// Une sortie sans vente : utilisation ou perte, motif obligatoire.
+  final bool sortie;
   final String titre;
 
   /// Le produit deja choisi : on ravitaille depuis sa ligne.
@@ -1306,6 +1354,7 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
   final _quantite = TextEditingController();
   final _prix = TextEditingController();
   final _motif = TextEditingController();
+  bool _perte = false;
 
   @override
   void dispose() {
@@ -1318,7 +1367,11 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
   int get _q => int.tryParse(_quantite.text.trim()) ?? 0;
 
   bool get _pret =>
-      _produit != null && _q > 0 && (widget.entree || _destination != null);
+      _produit != null &&
+      _q > 0 &&
+      (widget.sortie
+          ? _motif.text.trim().isNotEmpty
+          : (widget.entree || _destination != null));
 
   bool _initial = false;
 
@@ -1358,7 +1411,28 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                 }
               }),
             ),
-            if (!widget.entree) ...[
+            if (widget.sortie) ...[
+              const SizedBox(height: 14),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Utilisation')),
+                  ButtonSegment(value: true, label: Text('Perte / casse')),
+                ],
+                selected: {_perte},
+                onSelectionChanged: (v) => setState(() => _perte = v.first),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _perte
+                    ? 'Cassé, périmé, disparu : compté en perte.'
+                    : 'Utilisé sans être vendu : cuisine, chambres, spa.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AtriumColors.textSecondary,
+                ),
+              ),
+            ],
+            if (!widget.entree && !widget.sortie) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<StockPlace>(
                 initialValue: _destination,
@@ -1399,6 +1473,7 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
             // Ce qu'a le magasin d'ou part la marchandise : le choisi pour
             // un ravitaillement, celui de l'onglet pour un transfert.
             if (!widget.entree &&
+                !widget.sortie &&
                 _produit != null &&
                 (widget.ravitaillement ? _destination : widget.depart) != null)
               _DisponibleAuDepart(
@@ -1410,10 +1485,16 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
             TextField(
               controller: _motif,
               maxLength: 255,
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: widget.entree
                     ? 'Fournisseur, bon de livraison (facultatif)'
+                    : widget.sortie
+                    ? 'Motif'
                     : 'Motif (facultatif)',
+                hintText: widget.sortie
+                    ? (_perte ? 'Bouteille cassée au service' : 'Chambres du 2e étage')
+                    : null,
               ),
             ),
           ],
@@ -1434,10 +1515,13 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                     prixAchat: int.tryParse(_prix.text.trim()) ?? 0,
                     destination: _destination,
                     motif: _motif.text.trim().isEmpty ? null : _motif.text.trim(),
+                    perte: _perte,
                   ),
                 ),
           child: Text(
-            widget.entree
+            widget.sortie
+                ? 'Enregistrer la sortie'
+                : widget.entree
                 ? 'Enregistrer l’entrée'
                 : widget.ravitaillement
                 ? 'Demander le ravitaillement'

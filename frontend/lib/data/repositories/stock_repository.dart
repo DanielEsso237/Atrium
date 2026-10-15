@@ -295,6 +295,61 @@ class StockRepository with OutboxWriter {
     return id;
   }
 
+  /// Une sortie de stock sans vente (demande du 15 octobre) : ce qui est
+  /// **utilise** (savons des chambres, cuisine, spa) ou **perdu** (casse,
+  /// perime, vol). Le benefice les compte a part : cout d'utilisation d'un
+  /// cote, pertes de l'autre. Le motif est obligatoire : une sortie sans
+  /// raison ne se controle pas.
+  ///
+  /// Le stock peut passer sous zero, comme pour une vente : l'econome le
+  /// voit en rouge et corrige.
+  Future<String> sortir({
+    required String placeId,
+    required String productId,
+    required int quantity,
+    required bool perte,
+    required String reason,
+    String? by,
+  }) async {
+    if (quantity <= 0) throw StateError('La quantité doit être positive.');
+    final motif = reason.trim();
+    if (motif.isEmpty) throw StateError('Indiquez le motif de la sortie.');
+    if (motif.length > 255) {
+      throw StateError('Le motif fait 255 caractères au plus.');
+    }
+    final type = perte ? StockMovementType.LOSS : StockMovementType.OUT;
+    final id = newId();
+    final now = DateTime.now().toUtc();
+    await db.transaction(() async {
+      await _inserer(
+        id: id,
+        now: now,
+        productId: productId,
+        placeId: placeId,
+        type: type,
+        quantity: quantity,
+        reason: motif,
+        status: StockMovementStatus.APPROVED,
+        by: by,
+      );
+      await _ajouter(productId, placeId, -quantity, now);
+      await enqueue(
+        table: 'stock_movements',
+        id: id,
+        operation: SyncOp.INSERT,
+        payload: {
+          'id': id,
+          'product_id': productId,
+          'stock_location_id': placeId,
+          'type': type.name,
+          'quantity': quantity,
+          'reason': motif,
+        },
+      );
+    });
+    return id;
+  }
+
   /// Demande de transfert d'un magasin a un autre. Rien ne bouge avant la
   /// validation.
   Future<String> requestTransfer({
