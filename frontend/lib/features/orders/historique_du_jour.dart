@@ -17,7 +17,6 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
-import '../../data/local/queries/factures_pdv_queries.dart';
 import '../../data/local/queries/historique_pdv_queries.dart';
 import '../../data/local/queries/outlet_dashboard_queries.dart';
 import '../../data/repositories/repository_providers.dart';
