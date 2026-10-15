@@ -77,7 +77,16 @@ class Destination {
     this.raccourci = false,
     this.indicateur,
     this.sauf,
+    this.aussi,
   });
+
+  /// Une seconde permission exigee, pour un geste qui en declenche un autre :
+  /// l'arrivee directe ouvre l'ardoise (`folio.write`) en plus du sejour.
+  final String? aussi;
+
+  /// Une sous-entree des reservations (Arrivees, Departs, Faire une
+  /// reservation) : rangee sous son entree, et depliee avec elle.
+  bool get sousReservations => raccourci;
 
   /// Masquee a qui a cette permission : il a deja mieux ailleurs. « Ma
   /// caisse » n'a rien a apprendre a la reception, qui voit la caisse du jour.
@@ -162,6 +171,27 @@ final destinations = <Destination>[
     filtre: ReservationFilter.departuresToday,
     raccourci: true,
     indicateur: (r) => r.departsRestants == 0 ? null : '${r.departsRestants}',
+  ),
+  // Demande du 15 octobre : le formulaire a un geste, sous Reservations.
+  const Destination(
+    'Faire une réservation',
+    PhosphorIconsLight.calendarPlus,
+    PhosphorIconsFill.calendarDots,
+    '/reservations/nouvelle',
+    'reservation.create',
+    Groupe.sejours,
+    raccourci: true,
+  ),
+  // Un voyageur sans reservation : une entree a part, pas une vue des
+  // reservations (demande du 15 octobre).
+  const Destination(
+    'Arrivée directe',
+    PhosphorIconsLight.doorOpen,
+    PhosphorIconsFill.signIn,
+    '/reservations/arrivee-directe',
+    'reservation.create',
+    Groupe.sejours,
+    aussi: 'folio.write',
   ),
   Destination(
     'Chambres',
@@ -303,6 +333,7 @@ List<Destination> destinationsPour(SessionState session) {
   return [
     for (final d in destinations)
       if ((d.permission == null || session.acces.peut(d.permission!)) &&
+          (d.aussi == null || session.acces.peut(d.aussi!)) &&
           (d.sauf == null || !session.acces.peut(d.sauf!)) &&
           // Le barman ne voit pas Services, le maitre-nageur pas Points de
           // vente : meme droit, mais pas les memes points de vente.
@@ -327,6 +358,12 @@ int _indexActif(
     );
     if (vue >= 0) return vue;
   }
+  // Une sous-entree qui a sa propre page (« Faire une réservation ») :
+  // c'est elle qui s'allume, pas Reservations.
+  final page = liste.indexWhere(
+    (d) => d.sousReservations && d.filtre == null && d.route == chemin,
+  );
+  if (page >= 0) return page;
   var meilleur = -1;
   var longueur = -1;
   for (var i = 0; i < liste.length; i++) {
@@ -542,7 +579,9 @@ class _BarreState extends State<_Barre> {
   }
 
   bool get _surReservations =>
-      widget.actif >= 0 && widget.liste[widget.actif].route == '/reservations';
+      widget.actif >= 0 &&
+      (widget.liste[widget.actif].route == '/reservations' ||
+          widget.liste[widget.actif].sousReservations);
 
   @override
   void initState() {
@@ -602,7 +641,7 @@ class _BarreState extends State<_Barre> {
 
     for (var i = 0; i < liste.length; i++) {
       final d = liste[i];
-      final sousEntree = d.route == '/reservations' && d.filtre != null;
+      final sousEntree = d.sousReservations;
       if (sousEntree && !_reservationsOuvertes) continue;
       if (d.groupe == Groupe.reglages) {
         reglages.add(i);
@@ -1078,7 +1117,7 @@ class _Rail extends StatelessWidget {
               i == actif ||
               (d.route == '/reservations' &&
                   actif >= 0 &&
-                  liste[actif].filtre != null),
+                  liste[actif].sousReservations),
           onTap: () => d.route == '/reservations'
               ? _choisirVueReservations(context, liste, actif, onSelect)
               : onSelect(i),
@@ -1201,13 +1240,15 @@ void _choisirVueReservations(
               ),
             ),
             for (var i = 0; i < liste.length; i++)
-              if (liste[i].route == '/reservations')
+              if (liste[i].route == '/reservations' ||
+                  liste[i].sousReservations)
                 ListTile(
                   leading: Icon(
                     i == actif ? liste[i].iconActive : liste[i].icon,
                   ),
                   title: Text(
-                    liste[i].filtre == null
+                    liste[i].route == '/reservations' &&
+                            liste[i].filtre == null
                         ? 'Toutes les réservations'
                         : liste[i].label,
                   ),
@@ -1256,7 +1297,7 @@ class _CadreTelephone extends StatelessWidget {
 
     final onglets = navigables.take(_visibles).toList();
     final reste = navigables.skip(_visibles).toList();
-    final principal = actif >= 0 && liste[actif].filtre != null
+    final principal = actif >= 0 && liste[actif].sousReservations
         ? liste.indexWhere(
             (d) => d.route == '/reservations' && d.filtre == null,
           )
