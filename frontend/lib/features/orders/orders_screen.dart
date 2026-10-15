@@ -1577,11 +1577,16 @@ class _SaisieState extends ConsumerState<_Saisie> {
   int _dansLaCommande(MenuEntry e) =>
       _lignes.fold(0, (n, l) => n + l.nombre(e));
 
-  /// Un article touche dans le tableau : sur la ligne en cours, sauf si
-  /// elle porte deja un plat hors carte -- il en ouvre alors une nouvelle.
+  /// Un article touche dans le tableau : une ligne par article (demande du
+  /// 15 octobre). Deja dans la commande, il s'ajoute a sa ligne ; nouveau, il
+  /// prend la ligne vide s'il y en a une, sinon une ligne en dessous.
   void _choisirDansLeTableau(MenuEntry e) {
-    var l = _enCours;
-    if (l.articles.isEmpty && l.saisie.text.trim().isNotEmpty) {
+    final sienne = _lignes
+        .where((l) => l.articles.isNotEmpty && l.articles.first.id == e.id)
+        .firstOrNull;
+    var l = sienne ?? _enCours;
+    if (sienne == null &&
+        (l.articles.isNotEmpty || l.saisie.text.trim().isNotEmpty)) {
       l = _Ligne();
       _lignes.add(l);
     }
@@ -1605,6 +1610,12 @@ class _SaisieState extends ConsumerState<_Saisie> {
     } else {
       l.articles.removeLast();
       l.suivrePrix();
+      // En plein ecran, une ligne videe disparait : elle ne se remplit plus
+      // qu'a partir du tableau, et bloquerait la validation.
+      if (widget.plein && l.articles.isEmpty && _lignes.length > 1) {
+        _lignes.remove(l);
+        l.dispose();
+      }
     }
   });
 
@@ -1748,18 +1759,27 @@ class _SaisieState extends ConsumerState<_Saisie> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _ChampConsommation(
-                // L'etat suit la ligne, pas sa place : retirer la premiere
-                // ne doit pas donner son focus a la suivante.
-                key: ObjectKey(l),
-                ligne: l,
-                libelle: _lignes.length > 1
-                    ? 'Consommation ${i + 1}'
-                    : 'Consommation',
-                onTape: () => setState(() {}),
-                onValide: (e) => _choisir(l, e),
-                carte: _carte,
-              ),
+              // En plein ecran, la ligne recoit l'article touche a gauche :
+              // plus de recherche ici, elle est dans le tableau.
+              child: widget.plein
+                  ? _ArticleDeLaLigne(
+                      ligne: l,
+                      libelle: _lignes.length > 1
+                          ? 'Consommation ${i + 1}'
+                          : 'Consommation',
+                    )
+                  : _ChampConsommation(
+                      // L'etat suit la ligne, pas sa place : retirer la premiere
+                      // ne doit pas donner son focus a la suivante.
+                      key: ObjectKey(l),
+                      ligne: l,
+                      libelle: _lignes.length > 1
+                          ? 'Consommation ${i + 1}'
+                          : 'Consommation',
+                      onTape: () => setState(() {}),
+                      onValide: (e) => _choisir(l, e),
+                      carte: _carte,
+                    ),
             ),
             const SizedBox(width: 8),
             SizedBox(
@@ -1794,16 +1814,20 @@ class _SaisieState extends ConsumerState<_Saisie> {
           ],
         ),
       ],
-      const SizedBox(height: 10),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          // Une ligne vide de plus ne sert a rien : on remplit d'abord.
-          onPressed: _enCours.complete ? _ajouter : null,
-          icon: const Icon(PhosphorIconsLight.plus, size: 18),
-          label: const Text('Ajouter une ligne'),
+      // En plein ecran, les lignes naissent du tableau : un article de plus,
+      // une ligne de plus.
+      if (!widget.plein) ...[
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            // Une ligne vide de plus ne sert a rien : on remplit d'abord.
+            onPressed: _enCours.complete ? _ajouter : null,
+            icon: const Icon(PhosphorIconsLight.plus, size: 18),
+            label: const Text('Ajouter une ligne'),
+          ),
         ),
-      ),
+      ],
     ],
   );
 
@@ -1811,6 +1835,37 @@ class _SaisieState extends ConsumerState<_Saisie> {
   List<MenuEntry> get _carte =>
       ref.watch(menuForOutletProvider(widget.outlet.id)).asData?.value ??
       const <MenuEntry>[];
+}
+
+/// La consommation d'une ligne en plein ecran : l'article touche dans le
+/// tableau, a lire seulement.
+class _ArticleDeLaLigne extends StatelessWidget {
+  const _ArticleDeLaLigne({required this.ligne, required this.libelle});
+
+  final _Ligne ligne;
+  final String libelle;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final article = ligne.articles.firstOrNull;
+    return InputDecorator(
+      isEmpty: false,
+      decoration: InputDecoration(
+        labelText: libelle,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+      ),
+      child: Text(
+        article?.label ?? 'Touchez un article à gauche',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontWeight: article == null ? null : FontWeight.w600,
+          color: article == null ? p.textSecondary : p.text,
+        ),
+      ),
+    );
+  }
 }
 
 /// Le point de vente, en pastille sur la photo : on sait ou l'on porte.
