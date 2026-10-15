@@ -85,41 +85,50 @@ class InventoryRepository with OutboxWriter {
   static const defaultHotelId = '01920000-0000-7000-8000-000000000001';
 
   /// L'inventaire ouvert de ce magasin, ou `null` s'il n'y en a pas.
+  ///
+  /// Une seule lecture, en-tete et lignes ensemble : elle se relance a
+  /// chaque changement de l'un ou des autres. Avant, les lignes s'ecoutaient
+  /// a part, accrochees au premier en-tete lu (`asyncExpand`) : un inventaire
+  /// abandonne ou clos restait a l'ecran, et chaque geste repondait
+  /// « Inventaire introuvable » (15 octobre).
   Stream<Inventaire?> watchOuvert(String magasinId) {
-    final entete =
-        (db.select(db.inventories)
-              ..where(
-                (i) =>
-                    i.stockLocationId.equals(magasinId) &
-                    i.deletedAt.isNull() &
-                    i.status.equalsValue(InventoryStatus.CLOSED).not(),
-              )
-              ..limit(1))
-            .watchSingleOrNull();
-    return entete.asyncExpand((inv) {
-      if (inv == null) return Stream.value(null);
-      return db
-          .customSelect(
-            '''
-        SELECT l.product_id, l.theoretical_qty, l.counted_qty,
-               p.label, p.unit
-          FROM inventory_lines l
-          JOIN products p ON p.id = l.product_id
-         WHERE l.inventory_id = ?1 AND l.deleted_at IS NULL
-         ORDER BY p.label
-        ''',
-            variables: [Variable.withString(inv.id)],
-            readsFrom: {db.inventoryLines, db.products},
-          )
-          .watch()
-          .map(
-            (rangs) => Inventaire(
-              id: inv.id,
-              magasinId: magasinId,
-              libelle: inv.label,
-              ouvertLe: inv.startedAt,
-              lignes: [
-                for (final r in rangs)
+    return db
+        .customSelect(
+          '''
+      WITH ouvert AS (
+        SELECT id, label, started_at FROM inventories
+         WHERE stock_location_id = ?1
+           AND deleted_at IS NULL
+           AND status <> 'CLOSED'
+         ORDER BY created_at
+         LIMIT 1
+      )
+      SELECT o.id AS inventaire, o.label AS libelle_inventaire,
+             o.started_at AS ouvert_le,
+             l.product_id, l.theoretical_qty, l.counted_qty,
+             p.label, p.unit
+        FROM ouvert o
+        LEFT JOIN inventory_lines l
+               ON l.inventory_id = o.id AND l.deleted_at IS NULL
+        LEFT JOIN products p ON p.id = l.product_id
+       ORDER BY p.label
+      ''',
+          variables: [Variable.withString(magasinId)],
+          readsFrom: {db.inventories, db.inventoryLines, db.products},
+        )
+        .watch()
+        .map((rangs) {
+          if (rangs.isEmpty) return null;
+          final premier = rangs.first;
+          return Inventaire(
+            id: premier.read<String>('inventaire'),
+            magasinId: magasinId,
+            libelle: premier.read<String>('libelle_inventaire'),
+            ouvertLe: premier.readNullable<DateTime>('ouvert_le'),
+            lignes: [
+              for (final r in rangs)
+                if (r.readNullable<String>('product_id') != null &&
+                    r.readNullable<String>('label') != null)
                   LigneInventaire(
                     productId: r.read<String>('product_id'),
                     libelle: r.read<String>('label'),
@@ -127,10 +136,9 @@ class InventoryRepository with OutboxWriter {
                     theorique: r.read<int>('theoretical_qty'),
                     compte: r.readNullable<int>('counted_qty'),
                   ),
-              ],
-            ),
+            ],
           );
-    });
+        });
   }
 
   /// Ouvre l'inventaire d'un magasin ; rend son identifiant.
