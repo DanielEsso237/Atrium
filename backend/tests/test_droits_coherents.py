@@ -84,6 +84,9 @@ IMPLICATIONS = [
     # L'ecran des depenses les liste avant de proposer d'en saisir : qui les
     # saisit doit pouvoir les lire.
     ("expense.write", "accounting.read"),
+    # L'ecran Inventaire montre le stock du magasin a compter.
+    ("stock.inventory", "stock.read"),
+    ("stock.rebalance", "stock.read"),
 ]
 
 
