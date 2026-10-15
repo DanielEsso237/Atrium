@@ -30,6 +30,7 @@ from app.models.enums import StockMovementStatus, StockMovementType
 from app.services.costing import record_entry_cost
 from app.services.stock_levels import apply_movement
 from app.schemas.stock import (
+    StockAdjustIn,
     StockDecisionIn,
     StockLevelOut,
     StockMovementIn,
@@ -171,6 +172,40 @@ async def create_stock_movement(
     await session.commit()
     await session.refresh(movement)
     return movement
+
+
+@router.post("/stock-movements/{movement_id}/adjust", response_model=StockMovementOut)
+async def adjust_stock_movement(
+    movement_id: uuid.UUID,
+    payload: StockAdjustIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("stock.manage")),
+) -> StockMovement:
+    """L'economat ajuste la quantite d'une demande de transfert (15 octobre).
+
+    Le bar demande 10 bieres, l'economat n'en a que 12 : il en accorde 8.
+    Il ajuste, il ne valide pas -- la validation reste au controleur ou au
+    comptable, et deplace la quantite ajustee. La demande d'origine reste
+    lisible dans le motif. Rejoue avec la meme quantite, rien ne change.
+    """
+    m = await _mouvement(session, movement_id, user)
+    if m.type != StockMovementType.TRANSFER:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Seul un transfert s'ajuste."
+        )
+    if m.quantity == payload.quantity:
+        return m
+    if m.status != StockMovementStatus.PENDING:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ce transfert n'est plus en attente."
+        )
+    ajuste = f"demandé : {m.quantity}, accordé : {payload.quantity}"
+    m.reason = (f"{m.reason} ({ajuste})" if m.reason else ajuste.capitalize())[:255]
+    m.quantity = payload.quantity
+    m.updated_by = user.id
+    await session.commit()
+    await session.refresh(m)
+    return m
 
 
 @router.post("/stock-movements/{movement_id}/approve", response_model=StockMovementOut)

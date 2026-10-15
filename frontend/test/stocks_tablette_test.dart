@@ -100,6 +100,27 @@ void main() {
     expect((p['id'], p['action'], p['note']), (t, 'APPROVE', 'OK'));
   });
 
+  test('l economat ajuste, le controleur valide la quantite ajustee', () async {
+    // Le bar demande 10 bieres, l'economat n'en a que 12 : il en accorde 8.
+    await stocks.receive(placeId: economat, productId: biere, quantity: 12);
+    final t = await stocks.requestTransfer(
+      fromPlaceId: economat, toPlaceId: bar, productId: biere, quantity: 10,
+    );
+    await expectLater(stocks.ajuster(t, quantite: 0), throwsStateError);
+
+    await stocks.ajuster(t, quantite: 8);
+    // Ajuster ne valide pas : rien ne bouge encore.
+    expect(await qte(bar), 0);
+    expect((await stocks.watchPendingTransfers().first).single.quantity, 8);
+    final p = await dernierEnvoi();
+    expect((p['action'], p['quantity']), ('ADJUST', 8));
+
+    await stocks.approve(t, by: 'controleur');
+    expect(await qte(economat), 4);
+    expect(await qte(bar), 8);
+    await expectLater(stocks.ajuster(t, quantite: 6), throwsStateError);
+  });
+
   test('un transfert refuse ne bouge rien, et ne se valide plus', () async {
     final t = await stocks.requestTransfer(
       fromPlaceId: economat, toPlaceId: bar, productId: biere, quantity: 5,
