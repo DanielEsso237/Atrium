@@ -15,7 +15,6 @@ import 'package:atrium/data/repositories/inventory_repository.dart';
 import 'package:atrium/data/repositories/stock_repository.dart';
 // Importe pour verifier que l'ecran compile avec le reste.
 import 'package:atrium/features/stock/inventory_screen.dart';
-import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 
 const _hotel = '01920000-0000-7000-8000-000000000001';
