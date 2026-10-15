@@ -59,6 +59,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'users' => db.users,
     'roles' => db.roles,
     'stock_movements' => db.stockMovements,
+    'inventories' => db.inventories,
     'hotels' => db.hotels,
     _ => null,
   };
@@ -623,6 +624,29 @@ class OutboxSender {
 
       case 'housekeeping_tasks':
         return _menage(entree, p);
+
+      // L'inventaire d'un magasin (demande du 15 octobre) : ouvrir, compter,
+      // reequilibrer, abandonner. Chaque route est rejouable.
+      case 'inventories':
+        final id = p['id'];
+        return switch (p['action']) {
+          'OPEN' => _Envoi('/inventories', {
+            'id': id,
+            'stock_location_id': p['stock_location_id'],
+            'label': p['label'],
+            'lines': p['lines'],
+          }),
+          'COUNT' => _Envoi(
+            '/inventories/$id/lines/${p['product_id']}',
+            {'counted_qty': p['counted_qty']},
+            methode: _Methode.put,
+          ),
+          'REBALANCE' => _Envoi('/inventories/$id/rebalance', {
+            'movement_ids': p['movement_ids'],
+          }),
+          'CANCEL' => _Envoi('/inventories/$id/cancel', const {}),
+          _ => null,
+        };
 
       case 'cash_sessions':
         // Ouverture et fermeture sont deux routes distinctes, comme pour le

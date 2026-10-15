@@ -174,6 +174,12 @@ class Descente {
       // Les depenses, pour le benefice : sous `accounting.read`, un 403
       // pour le comptoir, qui saute la ressource.
       final depenses = await _siPermis(() => _catalog.fetchExpenses(depuis));
+      // Les inventaires des magasins : un second poste reprend celui qu'un
+      // collegue a ouvert, au lieu d'en ouvrir un autre. Sous `stock.read`.
+      final inventaires = await _siPermisOuRien<RemoteInventory>(
+        () async =>
+            await _catalog.fetchInventories(depuis) ?? const <RemoteInventory>[],
+      );
       // Et ce que chaque journee a coute en stock : les mouvements, eux, ne
       // descendent pas. Un 403 vaut « rien a ecrire », comme un 404.
       List<RemoteDailyCost>? couts;
@@ -278,6 +284,9 @@ class Descente {
         maintenant,
       );
       ecartees += await _ecrireDepenses(depenses, maintenant);
+      if (inventaires != null) {
+        ecartees += await _ecrireInventaires(inventaires, maintenant);
+      }
       if (couts != null) await _ecrireCouts(couts, depuis, maintenant);
       ecartees += await _ecrireCaisses(
         {for (final c in [...caisses, ...activite.cashSessions]) c.id: c}
@@ -1286,6 +1295,71 @@ class Descente {
                 syncState: const Value(SyncState.synced),
               ),
             );
+      }
+    });
+    return sautes;
+  }
+
+  // --- Les inventaires -------------------------------------------------------
+
+  /// Rend le nombre d'inventaires ecartes : en attente d'envoi ici (un
+  /// comptage pas encore remonte fait foi), ou d'un etat que cette version
+  /// ne connait pas.
+  ///
+  /// Un comptage part dans la file sous l'id de l'inventaire : c'est donc
+  /// l'inventaire entier, lignes comprises, qu'on epargne.
+  Future<int> _ecrireInventaires(
+    List<RemoteInventory> inventaires,
+    DateTime maintenant,
+  ) async {
+    final proteges = await _sync.lignesEnAttente(db.inventories);
+    var sautes = 0;
+    await db.transaction(() async {
+      for (final inv in inventaires) {
+        final etat = InventoryStatus.values
+            .where((s) => s.name == inv.status)
+            .firstOrNull;
+        if (proteges.contains(inv.id) || etat == null) {
+          sautes++;
+          continue;
+        }
+        await db
+            .into(db.inventories)
+            .insertOnConflictUpdate(
+              InventoriesCompanion.insert(
+                id: inv.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                deletedAt: Value(inv.deletedAt),
+                createdBy: Value(inv.createdBy),
+                hotelId: hotelId,
+                stockLocationId: inv.stockLocationId,
+                label: inv.label,
+                status: Value(etat),
+                inventoryDate: Value(inv.inventoryDate),
+                startedAt: Value(inv.startedAt),
+                closedAt: Value(inv.closedAt),
+                closedBy: Value(inv.closedBy),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+        for (final l in inv.lines) {
+          await db
+              .into(db.inventoryLines)
+              .insertOnConflictUpdate(
+                InventoryLinesCompanion.insert(
+                  id: l.id,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  inventoryId: inv.id,
+                  productId: l.productId,
+                  theoreticalQty: Value(l.theoreticalQty),
+                  countedQty: Value(l.countedQty),
+                  variance: Value(l.variance),
+                  syncState: const Value(SyncState.synced),
+                ),
+              );
+        }
       }
     });
     return sautes;

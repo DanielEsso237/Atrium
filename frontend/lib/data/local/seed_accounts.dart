@@ -265,6 +265,20 @@ const _permissions = <_PermissionDemo>[
     "Saisir et annuler les depenses de l'hotel",
     'accounting',
   ),
+  // L'inventaire (15 octobre) : compter, et reequilibrer -- deux droits,
+  // comme cote serveur.
+  (
+    '01920000-0000-7000-8000-000000004141',
+    'stock.inventory',
+    "Faire l'inventaire d'un magasin",
+    'stock',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004142',
+    'stock.rebalance',
+    'Reequilibrer le stock apres inventaire',
+    'stock',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -296,6 +310,8 @@ const _droits = <(String role, String permission)>[
   // depenses restait cache a l'administrateur connecte hors ligne.
   (_roleAdmin, '01920000-0000-7000-8000-000000004139'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004140'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004141'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004142'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les

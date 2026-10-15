@@ -422,6 +422,32 @@ séjour entier. Migration 0025 : `is_walk_in`, `stay_unit`, `departure_at`,
 - Le tableau de bord lit des vues (`v_occupancy`) que la base de test n'a
   pas : sa logique testable vit dans des fonctions (`count_departures`).
 
+## L'inventaire (15 octobre)
+
+Un tableau à quatre colonnes par magasin : l'article, la quantité théorique
+(**figée à l'ouverture** de l'inventaire), la quantité comptée sur le terrain
+(seule colonne saisie) et l'écart. **Rééquilibrer** aligne le stock : un
+manque devient une perte (`LOSS`, visible dans le bénéfice), un surplus un
+ajustement (`ADJUSTMENT`) ; les lignes non comptées ne bougent pas. Un seul
+inventaire ouvert par magasin. Deux droits : `stock.inventory` (ouvrir,
+compter, abandonner) et `stock.rebalance` (rééquilibrer) ; l'un ou l'autre
+ouvre l'écran (`AccessProfile.peutUnDe`, exigence `a|b`).
+
+Tablette : `/inventaire`, `InventoryRepository`, tables `inventories` et
+`inventory_lines` (déjà au schéma). Serveur (`feature/inventaire-serveur`,
+migration 0027) : `POST /inventories`,
+`PUT /inventories/{id}/lines/{product_id}`, `POST /inventories/{id}/rebalance`
+(avec les `movement_ids` de la tablette), `POST /inventories/{id}/cancel`,
+`GET /inventories`. **Fusionner le serveur d'abord** : sans ses routes,
+ouvrir un inventaire bloque la file d'envoi (404).
+
+**La descente** (`Descente._ecrireInventaires`) rapporte les inventaires
+ouverts et ceux modifiés sur la fenêtre des rapports, abandonnés et clos
+compris : un second poste reprend celui d'un collègue, avec la théorique du
+serveur et ce qui est déjà compté. Un inventaire qui a un envoi en attente
+ici est épargné en entier, lignes comprises : un comptage part dans la file
+sous l'id de l'inventaire.
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
