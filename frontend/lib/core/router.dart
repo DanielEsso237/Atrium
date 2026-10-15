@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/accounting/accounting_screen.dart';
 import '../features/administration/administration_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
@@ -58,6 +59,8 @@ const _permissionParZone = <String, String>{
   '/rapports': 'folio.read',
   // Les depenses se lisent avec les marges : le comptoir ne les voit pas.
   '/depenses': 'accounting.read',
+  // Les marges et la valeur du stock (ticket D8) : le droit du serveur.
+  '/comptabilite': 'accounting.read',
   '/maintenance': 'maintenance.read',
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
@@ -166,6 +169,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/caisse', builder: (_, _) => const CashScreen()),
           GoRoute(path: '/rapports', builder: (_, _) => const ReportsScreen()),
           GoRoute(path: '/depenses', builder: (_, _) => const ExpensesScreen()),
+          GoRoute(
+            path: '/comptabilite',
+            builder: (_, _) => const AccountingScreen(),
+          ),
           GoRoute(
             path: '/maintenance',
             builder: (_, _) => const MaintenanceScreen(),

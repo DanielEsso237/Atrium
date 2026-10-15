@@ -327,6 +327,15 @@ final destinations = <Destination>[
     'accounting.read',
     Groupe.finances,
   ),
+  // Les marges des points de vente et la valeur du stock (ticket D8).
+  const Destination(
+    'Comptabilité',
+    PhosphorIconsLight.coins,
+    PhosphorIconsFill.coins,
+    '/comptabilite',
+    'accounting.read',
+    Groupe.finances,
+  ),
   // Une periode, des filtres, et de quoi la remettre au comptable.
   const Destination(
     'Rapports',

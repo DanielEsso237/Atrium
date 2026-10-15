@@ -562,6 +562,7 @@ class Descente {
                 unit: Value(p.unit),
                 purchasePrice: Value(p.purchasePrice),
                 salePrice: Value(p.salePrice),
+                averageCost: Value(p.averageCost),
                 minStock: Value(p.minStock),
                 syncState: const Value(SyncState.synced),
               ),

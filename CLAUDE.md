@@ -362,9 +362,15 @@ serveur : données d'essai, non reprises (décision du 11 octobre).
 
 ## Prix, marges et valeur du stock (14 octobre)
 
-« La compta en gros », côté serveur seulement — l'écran de la tablette reste
-à faire, et ses rapports calculent encore la marge au prix d'achat
-(`report_queries.dart`).
+« La compta en gros ». Sur la tablette, l'écran **Comptabilité**
+(`/comptabilite`, `accounting.read`, ticket D8, schéma local 13) : marge de
+chaque point de vente sur une période, article par article, marge d'une
+unité de chaque produit, valeur du stock de chaque magasin
+(`data/local/queries/compta_queries.dart`). Il lit `products.average_cost`,
+qui descend avec les produits ; les Rapports calculent encore leur marge au
+prix d'achat (`report_queries.dart`). **Écart connu** : le serveur fige le
+coût d'une vente sur sa sortie de stock, la tablette prend le coût du jour
+(ses mouvements de stock ne descendent pas).
 
 - **Coût moyen pondéré** : `products.average_cost` (migration 0022),
   recalculé à chaque entrée `IN` qui dit son prix, pour tout l'hôtel

@@ -52679,6 +52679,18 @@ class $ProductsTable extends Products
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _averageCostMeta = const VerificationMeta(
+    'averageCost',
+  );
+  @override
+  late final GeneratedColumn<int> averageCost = GeneratedColumn<int>(
+    'average_cost',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _minStockMeta = const VerificationMeta(
     'minStock',
   );
@@ -52747,6 +52759,7 @@ class $ProductsTable extends Products
     barcode,
     purchasePrice,
     salePrice,
+    averageCost,
     minStock,
     isSellable,
     defaultSupplierId,
@@ -52881,6 +52894,15 @@ class $ProductsTable extends Products
         salePrice.isAcceptableOrUnknown(data['sale_price']!, _salePriceMeta),
       );
     }
+    if (data.containsKey('average_cost')) {
+      context.handle(
+        _averageCostMeta,
+        averageCost.isAcceptableOrUnknown(
+          data['average_cost']!,
+          _averageCostMeta,
+        ),
+      );
+    }
     if (data.containsKey('min_stock')) {
       context.handle(
         _minStockMeta,
@@ -52991,6 +53013,10 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}sale_price'],
       )!,
+      averageCost: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}average_cost'],
+      )!,
       minStock: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}min_stock'],
@@ -53041,6 +53067,11 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
   final int purchasePrice;
   final int salePrice;
 
+  /// Cout moyen pondere, calcule par le serveur a chaque livraison qui dit
+  /// son prix ; 0 tant qu'aucune ne l'a dit, et le cout est alors le prix
+  /// d'achat. La tablette le recoit, elle ne le recalcule pas.
+  final int averageCost;
+
   /// Seuil d'alerte de reapprovisionnement, entier, dans l'unite du produit.
   final int minStock;
 
@@ -53068,6 +53099,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     this.barcode,
     required this.purchasePrice,
     required this.salePrice,
+    required this.averageCost,
     required this.minStock,
     required this.isSellable,
     this.defaultSupplierId,
@@ -53112,6 +53144,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     }
     map['purchase_price'] = Variable<int>(purchasePrice);
     map['sale_price'] = Variable<int>(salePrice);
+    map['average_cost'] = Variable<int>(averageCost);
     map['min_stock'] = Variable<int>(minStock);
     map['is_sellable'] = Variable<bool>(isSellable);
     if (!nullToAbsent || defaultSupplierId != null) {
@@ -53157,6 +53190,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           : Value(barcode),
       purchasePrice: Value(purchasePrice),
       salePrice: Value(salePrice),
+      averageCost: Value(averageCost),
       minStock: Value(minStock),
       isSellable: Value(isSellable),
       defaultSupplierId: defaultSupplierId == null && nullToAbsent
@@ -53194,6 +53228,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       barcode: serializer.fromJson<String?>(json['barcode']),
       purchasePrice: serializer.fromJson<int>(json['purchasePrice']),
       salePrice: serializer.fromJson<int>(json['salePrice']),
+      averageCost: serializer.fromJson<int>(json['averageCost']),
       minStock: serializer.fromJson<int>(json['minStock']),
       isSellable: serializer.fromJson<bool>(json['isSellable']),
       defaultSupplierId: serializer.fromJson<String?>(
@@ -53226,6 +53261,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       'barcode': serializer.toJson<String?>(barcode),
       'purchasePrice': serializer.toJson<int>(purchasePrice),
       'salePrice': serializer.toJson<int>(salePrice),
+      'averageCost': serializer.toJson<int>(averageCost),
       'minStock': serializer.toJson<int>(minStock),
       'isSellable': serializer.toJson<bool>(isSellable),
       'defaultSupplierId': serializer.toJson<String?>(defaultSupplierId),
@@ -53252,6 +53288,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     Value<String?> barcode = const Value.absent(),
     int? purchasePrice,
     int? salePrice,
+    int? averageCost,
     int? minStock,
     bool? isSellable,
     Value<String?> defaultSupplierId = const Value.absent(),
@@ -53277,6 +53314,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     barcode: barcode.present ? barcode.value : this.barcode,
     purchasePrice: purchasePrice ?? this.purchasePrice,
     salePrice: salePrice ?? this.salePrice,
+    averageCost: averageCost ?? this.averageCost,
     minStock: minStock ?? this.minStock,
     isSellable: isSellable ?? this.isSellable,
     defaultSupplierId: defaultSupplierId.present
@@ -53310,6 +53348,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           ? data.purchasePrice.value
           : this.purchasePrice,
       salePrice: data.salePrice.present ? data.salePrice.value : this.salePrice,
+      averageCost: data.averageCost.present
+          ? data.averageCost.value
+          : this.averageCost,
       minStock: data.minStock.present ? data.minStock.value : this.minStock,
       isSellable: data.isSellable.present
           ? data.isSellable.value
@@ -53342,6 +53383,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           ..write('barcode: $barcode, ')
           ..write('purchasePrice: $purchasePrice, ')
           ..write('salePrice: $salePrice, ')
+          ..write('averageCost: $averageCost, ')
           ..write('minStock: $minStock, ')
           ..write('isSellable: $isSellable, ')
           ..write('defaultSupplierId: $defaultSupplierId, ')
@@ -53370,6 +53412,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     barcode,
     purchasePrice,
     salePrice,
+    averageCost,
     minStock,
     isSellable,
     defaultSupplierId,
@@ -53397,6 +53440,7 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           other.barcode == this.barcode &&
           other.purchasePrice == this.purchasePrice &&
           other.salePrice == this.salePrice &&
+          other.averageCost == this.averageCost &&
           other.minStock == this.minStock &&
           other.isSellable == this.isSellable &&
           other.defaultSupplierId == this.defaultSupplierId &&
@@ -53422,6 +53466,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
   final Value<String?> barcode;
   final Value<int> purchasePrice;
   final Value<int> salePrice;
+  final Value<int> averageCost;
   final Value<int> minStock;
   final Value<bool> isSellable;
   final Value<String?> defaultSupplierId;
@@ -53446,6 +53491,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     this.barcode = const Value.absent(),
     this.purchasePrice = const Value.absent(),
     this.salePrice = const Value.absent(),
+    this.averageCost = const Value.absent(),
     this.minStock = const Value.absent(),
     this.isSellable = const Value.absent(),
     this.defaultSupplierId = const Value.absent(),
@@ -53471,6 +53517,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     this.barcode = const Value.absent(),
     this.purchasePrice = const Value.absent(),
     this.salePrice = const Value.absent(),
+    this.averageCost = const Value.absent(),
     this.minStock = const Value.absent(),
     this.isSellable = const Value.absent(),
     this.defaultSupplierId = const Value.absent(),
@@ -53501,6 +53548,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Expression<String>? barcode,
     Expression<int>? purchasePrice,
     Expression<int>? salePrice,
+    Expression<int>? averageCost,
     Expression<int>? minStock,
     Expression<bool>? isSellable,
     Expression<String>? defaultSupplierId,
@@ -53526,6 +53574,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       if (barcode != null) 'barcode': barcode,
       if (purchasePrice != null) 'purchase_price': purchasePrice,
       if (salePrice != null) 'sale_price': salePrice,
+      if (averageCost != null) 'average_cost': averageCost,
       if (minStock != null) 'min_stock': minStock,
       if (isSellable != null) 'is_sellable': isSellable,
       if (defaultSupplierId != null) 'default_supplier_id': defaultSupplierId,
@@ -53553,6 +53602,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Value<String?>? barcode,
     Value<int>? purchasePrice,
     Value<int>? salePrice,
+    Value<int>? averageCost,
     Value<int>? minStock,
     Value<bool>? isSellable,
     Value<String?>? defaultSupplierId,
@@ -53578,6 +53628,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       barcode: barcode ?? this.barcode,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       salePrice: salePrice ?? this.salePrice,
+      averageCost: averageCost ?? this.averageCost,
       minStock: minStock ?? this.minStock,
       isSellable: isSellable ?? this.isSellable,
       defaultSupplierId: defaultSupplierId ?? this.defaultSupplierId,
@@ -53645,6 +53696,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     if (salePrice.present) {
       map['sale_price'] = Variable<int>(salePrice.value);
     }
+    if (averageCost.present) {
+      map['average_cost'] = Variable<int>(averageCost.value);
+    }
     if (minStock.present) {
       map['min_stock'] = Variable<int>(minStock.value);
     }
@@ -53684,6 +53738,7 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
           ..write('barcode: $barcode, ')
           ..write('purchasePrice: $purchasePrice, ')
           ..write('salePrice: $salePrice, ')
+          ..write('averageCost: $averageCost, ')
           ..write('minStock: $minStock, ')
           ..write('isSellable: $isSellable, ')
           ..write('defaultSupplierId: $defaultSupplierId, ')
@@ -97265,6 +97320,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<String?> barcode,
       Value<int> purchasePrice,
       Value<int> salePrice,
+      Value<int> averageCost,
       Value<int> minStock,
       Value<bool> isSellable,
       Value<String?> defaultSupplierId,
@@ -97291,6 +97347,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<String?> barcode,
       Value<int> purchasePrice,
       Value<int> salePrice,
+      Value<int> averageCost,
       Value<int> minStock,
       Value<bool> isSellable,
       Value<String?> defaultSupplierId,
@@ -97395,6 +97452,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<int> get salePrice => $composableBuilder(
     column: $table.salePrice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get averageCost => $composableBuilder(
+    column: $table.averageCost,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -97518,6 +97580,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get averageCost => $composableBuilder(
+    column: $table.averageCost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get minStock => $composableBuilder(
     column: $table.minStock,
     builder: (column) => ColumnOrderings(column),
@@ -97608,6 +97675,11 @@ class $$ProductsTableAnnotationComposer
   GeneratedColumn<int> get salePrice =>
       $composableBuilder(column: $table.salePrice, builder: (column) => column);
 
+  GeneratedColumn<int> get averageCost => $composableBuilder(
+    column: $table.averageCost,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get minStock =>
       $composableBuilder(column: $table.minStock, builder: (column) => column);
 
@@ -97674,6 +97746,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<int> purchasePrice = const Value.absent(),
                 Value<int> salePrice = const Value.absent(),
+                Value<int> averageCost = const Value.absent(),
                 Value<int> minStock = const Value.absent(),
                 Value<bool> isSellable = const Value.absent(),
                 Value<String?> defaultSupplierId = const Value.absent(),
@@ -97698,6 +97771,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 purchasePrice: purchasePrice,
                 salePrice: salePrice,
+                averageCost: averageCost,
                 minStock: minStock,
                 isSellable: isSellable,
                 defaultSupplierId: defaultSupplierId,
@@ -97724,6 +97798,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<int> purchasePrice = const Value.absent(),
                 Value<int> salePrice = const Value.absent(),
+                Value<int> averageCost = const Value.absent(),
                 Value<int> minStock = const Value.absent(),
                 Value<bool> isSellable = const Value.absent(),
                 Value<String?> defaultSupplierId = const Value.absent(),
@@ -97748,6 +97823,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 purchasePrice: purchasePrice,
                 salePrice: salePrice,
+                averageCost: averageCost,
                 minStock: minStock,
                 isSellable: isSellable,
                 defaultSupplierId: defaultSupplierId,
