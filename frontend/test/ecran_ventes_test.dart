@@ -1,8 +1,8 @@
 /// L'ecran Ventes : le tableau de bord des points de vente.
 ///
 /// Ce qui compte : l'agent du bar n'y voit que le bar. Il voit l'argent
-/// encaisse meme tiroir ouvert (decision du 15 octobre) ; l'attendu de son
-/// tiroir reste a la caisse centrale.
+/// encaisse et l'attendu de son tiroir, meme tiroir ouvert (decision du 15
+/// octobre).
 library;
 
 import 'package:atrium/core/business_day.dart';
@@ -167,7 +167,7 @@ void main() {
     expect(find.text('Après le versement'), findsNothing);
     // Ce qu'il a servi reste visible.
     expect(find.text('Biere'), findsOneWidget);
-    // Son tiroir, son fond -- jamais l'attendu.
+    // Son tiroir, son fond et l'attendu.
     await tester.scrollUntilVisible(
       find.text('Bar · Vous'),
       300,
@@ -179,7 +179,7 @@ void main() {
           .first,
     );
     expect(find.textContaining('fond'), findsOneWidget);
-    expect(find.textContaining('attendu'), findsNothing);
+    expect(find.textContaining('attendu'), findsOneWidget);
     await fermer(tester);
   });
 

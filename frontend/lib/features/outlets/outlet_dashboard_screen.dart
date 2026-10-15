@@ -5,9 +5,8 @@
 /// bar ne voit que le bar. Un point de vente cree demain y apparait de
 /// lui-meme, sans une ligne de code.
 ///
-/// L'argent encaisse s'affiche, tiroir ouvert ou non (decision du 15
-/// octobre, qui remplace le comptage a l'aveugle du 11). L'attendu d'un
-/// tiroir, lui, reste a la caisse centrale.
+/// L'argent encaisse et l'attendu des tiroirs s'affichent, tiroir ouvert ou
+/// non (decision du 15 octobre, qui remplace le comptage a l'aveugle du 11).
 library;
 
 import 'package:flutter/material.dart';
@@ -218,8 +217,6 @@ class _Tableau extends ConsumerWidget {
                         filtres: filtres,
                         libelles: {for (final o in points) o.id: o.label},
                         agentId: agentId,
-                        // L'attendu d'un tiroir : a la caisse centrale.
-                        voitAttendu: acces.peut('cash.central'),
                       ),
                       if (acces.peut('stock.read')) ...[
                         const SizedBox(height: 24),
@@ -649,13 +646,11 @@ class _Tiroirs extends ConsumerWidget {
     required this.filtres,
     required this.libelles,
     required this.agentId,
-    required this.voitAttendu,
   });
 
   final FiltresPdv filtres;
   final Map<String, String> libelles;
   final String agentId;
-  final bool voitAttendu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -734,13 +729,13 @@ class _Tiroirs extends ConsumerWidget {
             : 'Ouvert depuis ${_heure(t.ouvertLe!)}',
       );
       parts.add('fond ${formatAmount(t.fond)}');
-      if (voitAttendu) parts.add('attendu ${formatAmount(t.attendu)}');
+      parts.add('attendu ${formatAmount(t.attendu)}');
       return parts.join(' · ');
     }
     if (t.declare != null) parts.add('versé ${formatAmount(t.declare!)}');
     if (t.enAttente) {
       parts.add('en attente de la réception');
-      if (voitAttendu && t.declare != null) {
+      if (t.declare != null) {
         parts.add('attendu ${formatAmount(t.attendu)}');
         final ecart = t.declare! - t.attendu;
         if (ecart != 0) parts.add('écart ${_signe(ecart)}');
