@@ -224,6 +224,21 @@ const _permissions = <_PermissionDemo>[
     'Enregistrer arrivee/depart, annuler une reservation',
     'reservation',
   ),
+  // Creer une reservation, et porter sur l'ardoise : memes identifiants que
+  // le serveur. Sans eux, hors ligne, l'arrivee directe et « Faire une
+  // réservation » restaient cachees, meme a l'administrateur.
+  (
+    '01920000-0000-7000-8000-000000004101',
+    'reservation.create',
+    'Creer une reservation',
+    'reservation',
+  ),
+  (
+    '01920000-0000-7000-8000-000000004122',
+    'folio.write',
+    'Porter des charges, encaisser, clore un folio',
+    'folio',
+  ),
   (
     '01920000-0000-7000-8000-000000004131',
     'reservation.read',
@@ -272,6 +287,11 @@ const _droits = <(String role, String permission)>[
   // ligne, faute des droits que le serveur aurait donnes.
   (_roleAdmin, '01920000-0000-7000-8000-000000004120'),
   (_roleReception, '01920000-0000-7000-8000-000000004120'),
+  // Creer une reservation et porter sur l'ardoise, comme cote serveur.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004101'),
+  (_roleReception, '01920000-0000-7000-8000-000000004101'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004122'),
+  (_roleReception, '01920000-0000-7000-8000-000000004122'),
   // Le benefice et les depenses, comme cote serveur : sans eux, l'ecran des
   // depenses restait cache a l'administrateur connecte hors ligne.
   (_roleAdmin, '01920000-0000-7000-8000-000000004139'),

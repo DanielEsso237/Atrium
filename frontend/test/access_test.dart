@@ -37,7 +37,9 @@ void main() {
     return l.read<String>('id');
   }
 
-  test('la reception voit son perimetre, et rien de plus', () async {
+  test(
+      "la reception voit « Faire une réservation » et « Arrivée directe », "
+      "le menage ni l'un ni l'autre", () async {
     final acces = await accessProfileFor(db, await idDe('RECEP01'));
 
     expect(acces.peut('rooms.read'), isTrue);
@@ -283,5 +285,28 @@ void main() {
     expect(genreDeLaZone('/services'), 'SERVICE');
     expect(genreDeLaZone('/commandes/bar'), 'OUTLET');
     expect(genreDeLaZone('/stocks'), isNull);
+  });
+
+  test(
+      'la reception voit « Faire une réservation » et « Arrivée directe », '
+      "le menage ni l'un ni l'autre", () async {
+    final reception = destinationsPour(
+      SessionState(acces: await accessProfileFor(db, await idDe('RECEP01'))),
+    );
+    final parLibelle = {for (final d in reception) d.label: d};
+    expect(parLibelle['Faire une réservation']?.route, '/reservations/nouvelle');
+    expect(parLibelle['Faire une réservation']?.sousReservations, isTrue);
+    expect(
+      parLibelle['Arrivée directe']?.route,
+      '/reservations/arrivee-directe',
+    );
+    // Une entree a part, pas une vue des reservations.
+    expect(parLibelle['Arrivée directe']?.sousReservations, isFalse);
+
+    final menage = destinationsPour(
+      SessionState(acces: await accessProfileFor(db, await idDe('MENAGE01'))),
+    ).map((d) => d.label);
+    expect(menage, isNot(contains('Faire une réservation')));
+    expect(menage, isNot(contains('Arrivée directe')));
   });
 }
