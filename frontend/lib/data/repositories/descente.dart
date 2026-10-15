@@ -854,6 +854,9 @@ class Descente {
                   stayUnit: Value(l.stayUnit),
                   departureAt: Value(l.departureAt),
                   rateSetBy: Value(l.rateSetBy),
+                  bookedRoomTypeId: Value(l.bookedRoomTypeId),
+                  upgradeReason: Value(l.upgradeReason),
+                  upgradedBy: Value(l.upgradedBy),
                   syncState: const Value(SyncState.synced),
                 ),
               );

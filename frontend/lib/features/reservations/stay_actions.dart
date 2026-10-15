@@ -19,10 +19,13 @@ import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../data/repositories/reservation_repository.dart'
+    show AvailableRoom, Surclassement;
 import '../billing/payment_dialog.dart';
 import '../guests/id_photos.dart';
 import 'change_room_dialog.dart';
-import '../auth/session.dart';
+import '../auth/session.dart';
+
 import '../../core/ui/confirmation.dart';
 
 /// Enregistre l'arrivee apres confirmation.
@@ -40,6 +43,8 @@ Future<bool> confirmCheckIn(
       .guestIdOfLine(lineId);
   if (!context.mounted) return false;
 
+  final acces = ref.read(sessionProvider).acces;
+  final choix = _ChoixSurclassement();
   final ok = await _confirm(
     context,
     title: "Enregistrer l'arrivée",
@@ -48,21 +53,146 @@ Future<bool> confirmCheckIn(
         "La chambre passera en occupée sur le plan, et son ardoise s'ouvre "
         'pour recevoir ses consommations.',
     action: "Enregistrer l'arrivée",
-    // Le comptoir est le seul moment ou l'on a la piece en main. Les photos
-    // ne bloquent pas l'arrivee pour autant : un client sans sa piece, ou
-    // une tablette sans appareil photo, doit pouvoir etre installe.
-    extra: guestId == null ? null : _PieceArrivee(guestId: guestId),
+    extra: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Le surclassement se decide au comptoir, au moment de donner la
+        // cle (demande du 14 octobre).
+        _SurclassementArrivee(
+          lineId: lineId,
+          guestName: guestName,
+          roomNumber: roomNumber,
+          peutFacturer: acces.peut('reservation.manage'),
+          choix: choix,
+        ),
+        // Le comptoir est le seul moment ou l'on a la piece en main. Les
+        // photos ne bloquent pas l'arrivee pour autant : un client sans sa
+        // piece, ou une tablette sans appareil photo, doit pouvoir etre
+        // installe.
+        if (guestId != null) _PieceArrivee(guestId: guestId),
+      ],
+    ),
   );
   if (!ok) return false;
 
-  await ref
-      .read(reservationRepositoryProvider)
-      .checkIn(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
+  final chambre = choix.chambre?.number ?? roomNumber;
+  try {
+    await ref
+        .read(reservationRepositoryProvider)
+        .checkIn(
+          lineId: lineId,
+          by: ref.read(sessionProvider).agent?.id,
+          roomId: choix.chambre?.id,
+          surclassement: choix.surclassement,
+          peutChangerTarif: acces.peut('reservation.manage'),
+        );
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
 
   if (context.mounted) {
-    montrerSucces(context, '$guestName est arrivé, chambre $roomNumber.');
+    montrerSucces(
+      context,
+      choix.surclassement == null
+          ? '$guestName est arrivé, chambre $chambre.'
+          : '$guestName est arrivé, surclassé en chambre $chambre '
+                '(${choix.chambre?.categorie}).',
+    );
   }
   return true;
+}
+
+/// Le surclassement choisi dans la fenetre d'arrivee, lu apres sa fermeture.
+class _ChoixSurclassement {
+  AvailableRoom? chambre;
+  Surclassement? surclassement;
+}
+
+/// « Donner une chambre supérieure » : choisir la chambre, puis le motif et
+/// offert ou payant. Rien n'est ecrit avant « Enregistrer l'arrivée ».
+class _SurclassementArrivee extends StatefulWidget {
+  const _SurclassementArrivee({
+    required this.lineId,
+    required this.guestName,
+    required this.roomNumber,
+    required this.peutFacturer,
+    required this.choix,
+  });
+
+  final String lineId;
+  final String guestName;
+  final String roomNumber;
+  final bool peutFacturer;
+  final _ChoixSurclassement choix;
+
+  @override
+  State<_SurclassementArrivee> createState() => _SurclassementArriveeState();
+}
+
+class _SurclassementArriveeState extends State<_SurclassementArrivee> {
+  Future<void> _choisir() async {
+    final chambre = await pickRoomForChange(
+      context,
+      lineId: widget.lineId,
+      guestName: widget.guestName,
+      currentRoomNumber: widget.roomNumber,
+      surclassementSeulement: true,
+    );
+    if (chambre == null || !mounted) return;
+    final s = await demanderSurclassement(
+      context,
+      chambre: chambre,
+      peutFacturer: widget.peutFacturer,
+    );
+    if (s == null || !mounted) return;
+    setState(() {
+      widget.choix
+        ..chambre = chambre
+        ..surclassement = s;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.choix;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: c.surclassement == null
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _choisir,
+                icon: const Icon(PhosphorIconsLight.arrowFatUp),
+                label: const Text('Donner une chambre supérieure'),
+              ),
+            )
+          : Row(
+              children: [
+                const Icon(PhosphorIconsLight.arrowFatUp),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Surclassé en ${c.chambre!.number} '
+                    '(${c.chambre!.categorie}), '
+                    '${c.surclassement!.garderTarif ? 'offert' : 'payant'} : '
+                    '${c.surclassement!.motif}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Garder la chambre ${widget.roomNumber}',
+                  onPressed: () => setState(() {
+                    c
+                      ..chambre = null
+                      ..surclassement = null;
+                  }),
+                  icon: const Icon(PhosphorIconsLight.x),
+                ),
+              ],
+            ),
+    );
+  }
 }
 
 /// Installe un client deja arrive dans une autre chambre.
@@ -83,28 +213,53 @@ Future<bool> confirmChangeRoom(
   );
   if (nouvelle == null || !context.mounted) return false;
 
+  // Une chambre d'une categorie superieure : c'est un surclassement, il lui
+  // faut un motif (demande du 14 octobre).
+  final acces = ref.read(sessionProvider).acces;
+  Surclassement? surclassement;
+  if (nouvelle.categorie != null) {
+    surclassement = await demanderSurclassement(
+      context,
+      chambre: nouvelle,
+      peutFacturer: acces.peut('reservation.manage'),
+    );
+    if (surclassement == null || !context.mounted) return false;
+  }
+
   final ok = await _confirm(
     context,
-    title: 'Changer de chambre',
+    title: surclassement == null ? 'Changer de chambre' : 'Surclasser',
     message:
-        '$guestName quitte la chambre $roomNumber pour la ${nouvelle.number}.'
+        '$guestName quitte la chambre $roomNumber pour la ${nouvelle.number}'
+        '${surclassement == null ? '' : ' (${nouvelle.categorie}, '
+                  '${surclassement.garderTarif ? 'offert' : 'payant'})'}.'
         '\n\n'
         'La $roomNumber redevient libre, sans passer par le menage : personne '
         'n\'y a dormi. L\'ardoise suit le client.',
-    action: 'Changer de chambre',
+    action: surclassement == null ? 'Changer de chambre' : 'Surclasser',
   );
   if (!ok) return false;
 
-  await ref
-      .read(reservationRepositoryProvider)
-      .changeRoom(
-        lineId: lineId,
-        roomId: nouvelle.id,
-        by: ref.read(sessionProvider).agent?.id,
-      );
+  try {
+    await ref
+        .read(reservationRepositoryProvider)
+        .changeRoom(
+          lineId: lineId,
+          roomId: nouvelle.id,
+          by: ref.read(sessionProvider).agent?.id,
+          surclassement: surclassement,
+          peutChangerTarif: acces.peut('reservation.manage'),
+        );
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
 
   if (context.mounted) {
-    montrerSucces(context, '$guestName est maintenant en chambre ${nouvelle.number}.');
+    montrerSucces(
+      context,
+      '$guestName est maintenant en chambre ${nouvelle.number}.',
+    );
   }
   return true;
 }

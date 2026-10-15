@@ -98,6 +98,14 @@ class ReservationRooms extends Table with SyncedTableColumns {
 
   /// Qui a saisi le prix, quand il differe du tarif de la categorie.
   TextColumn get rateSetBy => text().nullable()();
+
+  /// Le surclassement (demande du 14 octobre) : la categorie reservee, gardee
+  /// quand le client dort dans une categorie superieure (`roomTypeId` est
+  /// celle de sa chambre), le motif et qui l'a decide. Nuls sans
+  /// surclassement.
+  TextColumn get bookedRoomTypeId => text().nullable()();
+  TextColumn get upgradeReason => text().withLength(max: 255).nullable()();
+  TextColumn get upgradedBy => text().nullable()();
 }
 
 /// Une nuit facturable d'un sejour.

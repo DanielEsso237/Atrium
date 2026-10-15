@@ -75,10 +75,38 @@ class ReservationSummary {
 
 /// Une chambre libre, proposee a l'attribution.
 class AvailableRoom {
-  const AvailableRoom({required this.id, required this.number});
+  const AvailableRoom({
+    required this.id,
+    required this.number,
+    this.categorie,
+    this.tarif,
+  });
 
   final String id;
   final String number;
+
+  /// La categorie et son tarif par nuit, pour une chambre de surclassement.
+  final String? categorie;
+  final int? tarif;
+}
+
+/// Un surclassement (demande du 14 octobre) : le client dort dans une
+/// categorie superieure a celle qu'il a reservee.
+class Surclassement {
+  const Surclassement({required this.motif, this.garderTarif = true});
+
+  /// Pourquoi : « Standard en travaux », « client fidele ».
+  final String motif;
+
+  /// Offert par defaut : le tarif reserve reste. Faux, le tarif de la
+  /// nouvelle categorie s'applique aux nuits pas encore portees, et il faut
+  /// `reservation.manage`.
+  final bool garderTarif;
+
+  Map<String, Object?> get payload => {
+    'keep_rate': garderTarif,
+    'reason': motif.trim(),
+  };
 }
 
 /// Une chambre ou installer un voyageur sans reservation.
@@ -270,13 +298,29 @@ class ReservationRepository with OutboxWriter {
   ///
   /// La ligne elle-meme est exclue du test de chevauchement : sans ca, sa
   /// propre occupation la ferait paraitre en conflit avec toutes les chambres.
-  Future<List<AvailableRoom>> roomsForChange(String lineId) async {
+  ///
+  /// Avec `surclassement`, les chambres des categories **superieures** --
+  /// un tarif par nuit plus eleve que celui de la categorie du client --,
+  /// les moins cheres d'abord (decision du 14 octobre : on ne surclasse que
+  /// vers le haut).
+  Future<List<AvailableRoom>> roomsForChange(
+    String lineId, {
+    bool surclassement = false,
+  }) async {
+    final categorie = surclassement
+        ? '''r.room_type_id IN (
+               SELECT t.id FROM room_types t
+                WHERE t.deleted_at IS NULL
+                  AND t.default_rate > (SELECT default_rate FROM room_types
+                                         WHERE id = l.room_type_id))'''
+        : 'r.room_type_id = l.room_type_id';
     final rows = await db
         .customSelect(
           '''
-      SELECT r.id, r.number
+      SELECT r.id, r.number, t.label AS categorie, t.default_rate AS tarif
         FROM reservation_rooms l
-        JOIN rooms r ON r.room_type_id = l.room_type_id
+        JOIN rooms r ON $categorie
+        JOIN room_types t ON t.id = r.room_type_id
        WHERE l.id = ?1
          AND r.id <> COALESCE(l.room_id, '')
          AND r.deleted_at IS NULL
@@ -293,10 +337,10 @@ class ReservationRepository with OutboxWriter {
                   AND rr.arrival_date   < l.departure_date
                   AND rr.departure_date > l.arrival_date
              )
-       ORDER BY r.number
+       ORDER BY t.default_rate, r.number
       ''',
           variables: [Variable.withString(lineId)],
-          readsFrom: {db.rooms, db.reservationRooms},
+          readsFrom: {db.rooms, db.reservationRooms, db.roomTypes},
         )
         .get();
 
@@ -305,9 +349,132 @@ class ReservationRepository with OutboxWriter {
           (r) => AvailableRoom(
             id: r.read<String>('id'),
             number: r.read<String>('number'),
+            categorie: surclassement ? r.read<String>('categorie') : null,
+            tarif: surclassement ? r.read<int>('tarif') : null,
           ),
         )
         .toList();
+  }
+
+  /// Verifie qu'un surclassement passera, sans rien ecrire.
+  ///
+  /// Les refus de `check-in` et `change-room` avec `upgrade`, recopies avant
+  /// la file : un refus par la file la bloquerait. Categorie identique, motif
+  /// vide, tarif payant sans le droit, categorie inferieure (decision du 14
+  /// octobre), et la nouvelle categorie complete une des nuits qui restent
+  /// -- de la journee hoteliere en cours au depart. Un sejour en heures
+  /// n'occupe aucune nuit : jamais bloque.
+  Future<void> verifierSurclassement({
+    required String lineId,
+    required String roomId,
+    required Surclassement surclassement,
+    required bool peutChangerTarif,
+  }) async {
+    final ligne = await (db.select(
+      db.reservationRooms,
+    )..where((l) => l.id.equals(lineId))).getSingle();
+    final chambre = await (db.select(
+      db.rooms,
+    )..where((r) => r.id.equals(roomId))).getSingle();
+    if (chambre.roomTypeId == ligne.roomTypeId) {
+      throw StateError(
+        'La chambre ${chambre.number} est de la même catégorie : ce n’est '
+        'pas un surclassement.',
+      );
+    }
+    final motif = surclassement.motif.trim();
+    if (motif.isEmpty) throw StateError('Indiquez le motif du surclassement.');
+    if (motif.length > 255) {
+      throw StateError('Le motif fait 255 caractères au plus.');
+    }
+    if (!surclassement.garderTarif && !peutChangerTarif) {
+      throw StateError(
+        'Seul un responsable peut faire payer un surclassement : il change '
+        'le prix du séjour.',
+      );
+    }
+    final actuelle = await (db.select(
+      db.roomTypes,
+    )..where((t) => t.id.equals(ligne.roomTypeId))).getSingle();
+    final nouvelle = await (db.select(
+      db.roomTypes,
+    )..where((t) => t.id.equals(chambre.roomTypeId))).getSingle();
+    if (nouvelle.defaultRate <= actuelle.defaultRate) {
+      throw StateError(
+        'On ne surclasse que vers une catégorie supérieure : '
+        '${nouvelle.label} n’est pas au-dessus de ${actuelle.label}.',
+      );
+    }
+    if (ligne.stayUnit == UniteSejour.HOURS.name) return;
+
+    final aujourdhui = businessDayFor(DateTime.now());
+    final arrivee = parseIsoDate(ligne.arrivalDate)!;
+    final depart = parseIsoDate(ligne.departureDate)!;
+    final total = await db
+        .customSelect(
+          '''
+      SELECT COUNT(*) AS n FROM rooms
+       WHERE room_type_id = ?1 AND deleted_at IS NULL
+         AND is_active = 1 AND is_out_of_order = 0
+      ''',
+          variables: [Variable.withString(nouvelle.id)],
+          readsFrom: {db.rooms},
+        )
+        .getSingle();
+    final chambres = total.read<int>('n');
+    for (
+      var nuit = arrivee.isAfter(aujourdhui) ? arrivee : aujourdhui;
+      nuit.isBefore(depart);
+      nuit = DateTime(nuit.year, nuit.month, nuit.day + 1)
+    ) {
+      final jour = formatIsoDate(nuit);
+      final prises = await db
+          .customSelect(
+            '''
+        SELECT COUNT(*) AS n FROM reservation_rooms
+         WHERE room_type_id = ?1 AND id <> ?3 AND deleted_at IS NULL
+           AND status IN ('PENDING','CONFIRMED','CHECKED_IN')
+           AND COALESCE(stay_unit, 'NIGHTS') <> 'HOURS'
+           AND arrival_date <= ?2 AND departure_date > ?2
+        ''',
+            variables: [
+              Variable.withString(nouvelle.id),
+              Variable.withString(jour),
+              Variable.withString(lineId),
+            ],
+            readsFrom: {db.reservationRooms},
+          )
+          .getSingle();
+      if (prises.read<int>('n') >= chambres) {
+        throw StateError(
+          'Plus de disponibilité pour « ${nouvelle.label} » la nuit du '
+          '${formatShortDate(nuit)} : elle est promise à une réservation.',
+        );
+      }
+    }
+  }
+
+  /// Ce qu'un surclassement ecrit sur la ligne : la categorie de la
+  /// chambre, la categorie reservee gardee (meme apres un second
+  /// surclassement), le motif, et le tarif si le surclassement est payant.
+  Future<ReservationRoomsCompanion> _ecritureSurclassement(
+    ReservationRoomRow ligne,
+    RoomRow chambre,
+    Surclassement s,
+    String? by,
+  ) async {
+    final nouvelle = await (db.select(
+      db.roomTypes,
+    )..where((t) => t.id.equals(chambre.roomTypeId))).getSingle();
+    return ReservationRoomsCompanion(
+      roomTypeId: Value(chambre.roomTypeId),
+      bookedRoomTypeId: Value(ligne.bookedRoomTypeId ?? ligne.roomTypeId),
+      upgradeReason: Value(s.motif.trim()),
+      upgradedBy: Value(by),
+      nightlyRate: s.garderTarif
+          ? const Value.absent()
+          : Value(nouvelle.defaultRate),
+    );
   }
 
   /// Cree une reservation et sa ligne de sejour.
@@ -888,11 +1055,49 @@ class ReservationRepository with OutboxWriter {
   /// Le folio est cree ici et non au depart : rien ne peut se consommer sans
   /// ardoise, et le client peut commander un cafe dans la minute qui suit son
   /// arrivee.
-  Future<void> checkIn({required String lineId, String? by}) async {
+  ///
+  /// Avec `surclassement`, le client prend `roomId`, une chambre d'une
+  /// categorie superieure, au lieu de celle qui lui etait attribuee.
+  Future<void> checkIn({
+    required String lineId,
+    String? by,
+    String? roomId,
+    Surclassement? surclassement,
+    bool peutChangerTarif = false,
+  }) async {
     final now = DateTime.now().toUtc();
-    final line = await (db.select(
+    var line = await (db.select(
       db.reservationRooms,
     )..where((rr) => rr.id.equals(lineId))).getSingle();
+
+    ReservationRoomsCompanion? surclasse;
+    if (surclassement != null) {
+      if (roomId == null) {
+        throw StateError('Choisissez la chambre du surclassement.');
+      }
+      await verifierSurclassement(
+        lineId: lineId,
+        roomId: roomId,
+        surclassement: surclassement,
+        peutChangerTarif: peutChangerTarif,
+      );
+      final chambre = await (db.select(
+        db.rooms,
+      )..where((r) => r.id.equals(roomId))).getSingle();
+      if (chambre.isOutOfOrder || !chambre.isActive) {
+        throw StateError('La chambre ${chambre.number} est hors service.');
+      }
+      if (chambre.occupancyStatus == OccupancyStatus.OCCUPIED) {
+        throw StateError('La chambre ${chambre.number} est déjà occupée.');
+      }
+      surclasse = await _ecritureSurclassement(
+        line,
+        chambre,
+        surclassement,
+        by,
+      );
+      line = line.copyWith(roomId: Value(roomId));
+    }
 
     if (line.roomId == null) {
       throw StateError(
@@ -917,12 +1122,18 @@ class ReservationRepository with OutboxWriter {
       )..where((rr) => rr.id.equals(lineId))).write(
         ReservationRoomsCompanion(
           status: const Value(ReservationStatus.CHECKED_IN),
+          roomId: Value(line.roomId),
           checkedInAt: Value(now),
           checkedInBy: Value(by),
           updatedAt: Value(now),
           syncState: const Value(SyncState.pending),
         ),
       );
+      if (surclasse != null) {
+        await (db.update(
+          db.reservationRooms,
+        )..where((rr) => rr.id.equals(lineId))).write(surclasse);
+      }
 
       await (db.update(
         db.reservations,
@@ -987,6 +1198,8 @@ class ReservationRepository with OutboxWriter {
           'checked_in_at': now.toIso8601String(),
           'folio_id': folioId,
           'checked_in_by': by,
+          if (surclassement != null) 'room_id': line.roomId,
+          if (surclassement != null) 'upgrade': surclassement.payload,
         },
       );
     });
@@ -1095,6 +1308,8 @@ class ReservationRepository with OutboxWriter {
     required String lineId,
     required String roomId,
     String? by,
+    Surclassement? surclassement,
+    bool peutChangerTarif = false,
   }) async {
     final now = DateTime.now().toUtc();
     final line = await (db.select(
@@ -1108,7 +1323,16 @@ class ReservationRepository with OutboxWriter {
       throw StateError('Seul un client arrive change de chambre.');
     }
     if (line.roomId == roomId) return;
-    if (room.roomTypeId != line.roomTypeId) {
+    ReservationRoomsCompanion? surclasse;
+    if (surclassement != null) {
+      await verifierSurclassement(
+        lineId: lineId,
+        roomId: roomId,
+        surclassement: surclassement,
+        peutChangerTarif: peutChangerTarif,
+      );
+      surclasse = await _ecritureSurclassement(line, room, surclassement, by);
+    } else if (room.roomTypeId != line.roomTypeId) {
       throw StateError(
         'Cette chambre n\'appartient pas a la categorie reservee.',
       );
@@ -1131,6 +1355,11 @@ class ReservationRepository with OutboxWriter {
           syncState: const Value(SyncState.pending),
         ),
       );
+      if (surclasse != null) {
+        await (db.update(
+          db.reservationRooms,
+        )..where((rr) => rr.id.equals(lineId))).write(surclasse);
+      }
 
       await (db.update(db.rooms)..where((r) => r.id.equals(roomId))).write(
         RoomsCompanion(
@@ -1163,6 +1392,7 @@ class ReservationRepository with OutboxWriter {
           'action': 'CHANGE_ROOM',
           'room_id': roomId,
           'updated_by': by,
+          if (surclassement != null) 'upgrade': surclassement.payload,
         },
       );
     });

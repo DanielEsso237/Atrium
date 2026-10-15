@@ -18698,6 +18698,40 @@ class $ReservationRoomsTable extends ReservationRooms
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _bookedRoomTypeIdMeta = const VerificationMeta(
+    'bookedRoomTypeId',
+  );
+  @override
+  late final GeneratedColumn<String> bookedRoomTypeId = GeneratedColumn<String>(
+    'booked_room_type_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _upgradeReasonMeta = const VerificationMeta(
+    'upgradeReason',
+  );
+  @override
+  late final GeneratedColumn<String> upgradeReason = GeneratedColumn<String>(
+    'upgrade_reason',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 255),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _upgradedByMeta = const VerificationMeta(
+    'upgradedBy',
+  );
+  @override
+  late final GeneratedColumn<String> upgradedBy = GeneratedColumn<String>(
+    'upgraded_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -18731,6 +18765,9 @@ class $ReservationRoomsTable extends ReservationRooms
     stayUnit,
     departureAt,
     rateSetBy,
+    bookedRoomTypeId,
+    upgradeReason,
+    upgradedBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -18974,6 +19011,30 @@ class $ReservationRoomsTable extends ReservationRooms
         rateSetBy.isAcceptableOrUnknown(data['rate_set_by']!, _rateSetByMeta),
       );
     }
+    if (data.containsKey('booked_room_type_id')) {
+      context.handle(
+        _bookedRoomTypeIdMeta,
+        bookedRoomTypeId.isAcceptableOrUnknown(
+          data['booked_room_type_id']!,
+          _bookedRoomTypeIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upgrade_reason')) {
+      context.handle(
+        _upgradeReasonMeta,
+        upgradeReason.isAcceptableOrUnknown(
+          data['upgrade_reason']!,
+          _upgradeReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upgraded_by')) {
+      context.handle(
+        _upgradedByMeta,
+        upgradedBy.isAcceptableOrUnknown(data['upgraded_by']!, _upgradedByMeta),
+      );
+    }
     return context;
   }
 
@@ -19111,6 +19172,18 @@ class $ReservationRoomsTable extends ReservationRooms
         DriftSqlType.string,
         data['${effectivePrefix}rate_set_by'],
       ),
+      bookedRoomTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}booked_room_type_id'],
+      ),
+      upgradeReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}upgrade_reason'],
+      ),
+      upgradedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}upgraded_by'],
+      ),
     );
   }
 
@@ -19180,6 +19253,14 @@ class ReservationRoomRow extends DataClass
 
   /// Qui a saisi le prix, quand il differe du tarif de la categorie.
   final String? rateSetBy;
+
+  /// Le surclassement (demande du 14 octobre) : la categorie reservee, gardee
+  /// quand le client dort dans une categorie superieure (`roomTypeId` est
+  /// celle de sa chambre), le motif et qui l'a decide. Nuls sans
+  /// surclassement.
+  final String? bookedRoomTypeId;
+  final String? upgradeReason;
+  final String? upgradedBy;
   const ReservationRoomRow({
     required this.id,
     required this.createdAt,
@@ -19212,6 +19293,9 @@ class ReservationRoomRow extends DataClass
     this.stayUnit,
     this.departureAt,
     this.rateSetBy,
+    this.bookedRoomTypeId,
+    this.upgradeReason,
+    this.upgradedBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -19293,6 +19377,15 @@ class ReservationRoomRow extends DataClass
     if (!nullToAbsent || rateSetBy != null) {
       map['rate_set_by'] = Variable<String>(rateSetBy);
     }
+    if (!nullToAbsent || bookedRoomTypeId != null) {
+      map['booked_room_type_id'] = Variable<String>(bookedRoomTypeId);
+    }
+    if (!nullToAbsent || upgradeReason != null) {
+      map['upgrade_reason'] = Variable<String>(upgradeReason);
+    }
+    if (!nullToAbsent || upgradedBy != null) {
+      map['upgraded_by'] = Variable<String>(upgradedBy);
+    }
     return map;
   }
 
@@ -19365,6 +19458,15 @@ class ReservationRoomRow extends DataClass
       rateSetBy: rateSetBy == null && nullToAbsent
           ? const Value.absent()
           : Value(rateSetBy),
+      bookedRoomTypeId: bookedRoomTypeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bookedRoomTypeId),
+      upgradeReason: upgradeReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(upgradeReason),
+      upgradedBy: upgradedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(upgradedBy),
     );
   }
 
@@ -19413,6 +19515,9 @@ class ReservationRoomRow extends DataClass
       stayUnit: serializer.fromJson<String?>(json['stayUnit']),
       departureAt: serializer.fromJson<DateTime?>(json['departureAt']),
       rateSetBy: serializer.fromJson<String?>(json['rateSetBy']),
+      bookedRoomTypeId: serializer.fromJson<String?>(json['bookedRoomTypeId']),
+      upgradeReason: serializer.fromJson<String?>(json['upgradeReason']),
+      upgradedBy: serializer.fromJson<String?>(json['upgradedBy']),
     );
   }
   @override
@@ -19458,6 +19563,9 @@ class ReservationRoomRow extends DataClass
       'stayUnit': serializer.toJson<String?>(stayUnit),
       'departureAt': serializer.toJson<DateTime?>(departureAt),
       'rateSetBy': serializer.toJson<String?>(rateSetBy),
+      'bookedRoomTypeId': serializer.toJson<String?>(bookedRoomTypeId),
+      'upgradeReason': serializer.toJson<String?>(upgradeReason),
+      'upgradedBy': serializer.toJson<String?>(upgradedBy),
     };
   }
 
@@ -19493,6 +19601,9 @@ class ReservationRoomRow extends DataClass
     Value<String?> stayUnit = const Value.absent(),
     Value<DateTime?> departureAt = const Value.absent(),
     Value<String?> rateSetBy = const Value.absent(),
+    Value<String?> bookedRoomTypeId = const Value.absent(),
+    Value<String?> upgradeReason = const Value.absent(),
+    Value<String?> upgradedBy = const Value.absent(),
   }) => ReservationRoomRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -19531,6 +19642,13 @@ class ReservationRoomRow extends DataClass
     stayUnit: stayUnit.present ? stayUnit.value : this.stayUnit,
     departureAt: departureAt.present ? departureAt.value : this.departureAt,
     rateSetBy: rateSetBy.present ? rateSetBy.value : this.rateSetBy,
+    bookedRoomTypeId: bookedRoomTypeId.present
+        ? bookedRoomTypeId.value
+        : this.bookedRoomTypeId,
+    upgradeReason: upgradeReason.present
+        ? upgradeReason.value
+        : this.upgradeReason,
+    upgradedBy: upgradedBy.present ? upgradedBy.value : this.upgradedBy,
   );
   ReservationRoomRow copyWithCompanion(ReservationRoomsCompanion data) {
     return ReservationRoomRow(
@@ -19595,6 +19713,15 @@ class ReservationRoomRow extends DataClass
           ? data.departureAt.value
           : this.departureAt,
       rateSetBy: data.rateSetBy.present ? data.rateSetBy.value : this.rateSetBy,
+      bookedRoomTypeId: data.bookedRoomTypeId.present
+          ? data.bookedRoomTypeId.value
+          : this.bookedRoomTypeId,
+      upgradeReason: data.upgradeReason.present
+          ? data.upgradeReason.value
+          : this.upgradeReason,
+      upgradedBy: data.upgradedBy.present
+          ? data.upgradedBy.value
+          : this.upgradedBy,
     );
   }
 
@@ -19631,7 +19758,10 @@ class ReservationRoomRow extends DataClass
           ..write('isWalkIn: $isWalkIn, ')
           ..write('stayUnit: $stayUnit, ')
           ..write('departureAt: $departureAt, ')
-          ..write('rateSetBy: $rateSetBy')
+          ..write('rateSetBy: $rateSetBy, ')
+          ..write('bookedRoomTypeId: $bookedRoomTypeId, ')
+          ..write('upgradeReason: $upgradeReason, ')
+          ..write('upgradedBy: $upgradedBy')
           ..write(')'))
         .toString();
   }
@@ -19669,6 +19799,9 @@ class ReservationRoomRow extends DataClass
     stayUnit,
     departureAt,
     rateSetBy,
+    bookedRoomTypeId,
+    upgradeReason,
+    upgradedBy,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -19704,7 +19837,10 @@ class ReservationRoomRow extends DataClass
           other.isWalkIn == this.isWalkIn &&
           other.stayUnit == this.stayUnit &&
           other.departureAt == this.departureAt &&
-          other.rateSetBy == this.rateSetBy);
+          other.rateSetBy == this.rateSetBy &&
+          other.bookedRoomTypeId == this.bookedRoomTypeId &&
+          other.upgradeReason == this.upgradeReason &&
+          other.upgradedBy == this.upgradedBy);
 }
 
 class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
@@ -19739,6 +19875,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
   final Value<String?> stayUnit;
   final Value<DateTime?> departureAt;
   final Value<String?> rateSetBy;
+  final Value<String?> bookedRoomTypeId;
+  final Value<String?> upgradeReason;
+  final Value<String?> upgradedBy;
   final Value<int> rowid;
   const ReservationRoomsCompanion({
     this.id = const Value.absent(),
@@ -19772,6 +19911,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     this.stayUnit = const Value.absent(),
     this.departureAt = const Value.absent(),
     this.rateSetBy = const Value.absent(),
+    this.bookedRoomTypeId = const Value.absent(),
+    this.upgradeReason = const Value.absent(),
+    this.upgradedBy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ReservationRoomsCompanion.insert({
@@ -19806,6 +19948,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     this.stayUnit = const Value.absent(),
     this.departureAt = const Value.absent(),
     this.rateSetBy = const Value.absent(),
+    this.bookedRoomTypeId = const Value.absent(),
+    this.upgradeReason = const Value.absent(),
+    this.upgradedBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -19846,6 +19991,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     Expression<String>? stayUnit,
     Expression<DateTime>? departureAt,
     Expression<String>? rateSetBy,
+    Expression<String>? bookedRoomTypeId,
+    Expression<String>? upgradeReason,
+    Expression<String>? upgradedBy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -19882,6 +20030,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
       if (stayUnit != null) 'stay_unit': stayUnit,
       if (departureAt != null) 'departure_at': departureAt,
       if (rateSetBy != null) 'rate_set_by': rateSetBy,
+      if (bookedRoomTypeId != null) 'booked_room_type_id': bookedRoomTypeId,
+      if (upgradeReason != null) 'upgrade_reason': upgradeReason,
+      if (upgradedBy != null) 'upgraded_by': upgradedBy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -19918,6 +20069,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     Value<String?>? stayUnit,
     Value<DateTime?>? departureAt,
     Value<String?>? rateSetBy,
+    Value<String?>? bookedRoomTypeId,
+    Value<String?>? upgradeReason,
+    Value<String?>? upgradedBy,
     Value<int>? rowid,
   }) {
     return ReservationRoomsCompanion(
@@ -19953,6 +20107,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
       stayUnit: stayUnit ?? this.stayUnit,
       departureAt: departureAt ?? this.departureAt,
       rateSetBy: rateSetBy ?? this.rateSetBy,
+      bookedRoomTypeId: bookedRoomTypeId ?? this.bookedRoomTypeId,
+      upgradeReason: upgradeReason ?? this.upgradeReason,
+      upgradedBy: upgradedBy ?? this.upgradedBy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -20061,6 +20218,15 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
     if (rateSetBy.present) {
       map['rate_set_by'] = Variable<String>(rateSetBy.value);
     }
+    if (bookedRoomTypeId.present) {
+      map['booked_room_type_id'] = Variable<String>(bookedRoomTypeId.value);
+    }
+    if (upgradeReason.present) {
+      map['upgrade_reason'] = Variable<String>(upgradeReason.value);
+    }
+    if (upgradedBy.present) {
+      map['upgraded_by'] = Variable<String>(upgradedBy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -20101,6 +20267,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoomRow> {
           ..write('stayUnit: $stayUnit, ')
           ..write('departureAt: $departureAt, ')
           ..write('rateSetBy: $rateSetBy, ')
+          ..write('bookedRoomTypeId: $bookedRoomTypeId, ')
+          ..write('upgradeReason: $upgradeReason, ')
+          ..write('upgradedBy: $upgradedBy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -79755,6 +79924,9 @@ typedef $$ReservationRoomsTableCreateCompanionBuilder =
       Value<String?> stayUnit,
       Value<DateTime?> departureAt,
       Value<String?> rateSetBy,
+      Value<String?> bookedRoomTypeId,
+      Value<String?> upgradeReason,
+      Value<String?> upgradedBy,
       Value<int> rowid,
     });
 typedef $$ReservationRoomsTableUpdateCompanionBuilder =
@@ -79790,6 +79962,9 @@ typedef $$ReservationRoomsTableUpdateCompanionBuilder =
       Value<String?> stayUnit,
       Value<DateTime?> departureAt,
       Value<String?> rateSetBy,
+      Value<String?> bookedRoomTypeId,
+      Value<String?> upgradeReason,
+      Value<String?> upgradedBy,
       Value<int> rowid,
     });
 
@@ -80028,6 +80203,21 @@ class $$ReservationRoomsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get bookedRoomTypeId => $composableBuilder(
+    column: $table.bookedRoomTypeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get upgradeReason => $composableBuilder(
+    column: $table.upgradeReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get upgradedBy => $composableBuilder(
+    column: $table.upgradedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ReservationsTableFilterComposer get reservationId {
     final $$ReservationsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -80261,6 +80451,21 @@ class $$ReservationRoomsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get bookedRoomTypeId => $composableBuilder(
+    column: $table.bookedRoomTypeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get upgradeReason => $composableBuilder(
+    column: $table.upgradeReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get upgradedBy => $composableBuilder(
+    column: $table.upgradedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ReservationsTableOrderingComposer get reservationId {
     final $$ReservationsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -80412,6 +80617,21 @@ class $$ReservationRoomsTableAnnotationComposer
   GeneratedColumn<String> get rateSetBy =>
       $composableBuilder(column: $table.rateSetBy, builder: (column) => column);
 
+  GeneratedColumn<String> get bookedRoomTypeId => $composableBuilder(
+    column: $table.bookedRoomTypeId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get upgradeReason => $composableBuilder(
+    column: $table.upgradeReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get upgradedBy => $composableBuilder(
+    column: $table.upgradedBy,
+    builder: (column) => column,
+  );
+
   $$ReservationsTableAnnotationComposer get reservationId {
     final $$ReservationsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -80552,6 +80772,9 @@ class $$ReservationRoomsTableTableManager
                 Value<String?> stayUnit = const Value.absent(),
                 Value<DateTime?> departureAt = const Value.absent(),
                 Value<String?> rateSetBy = const Value.absent(),
+                Value<String?> bookedRoomTypeId = const Value.absent(),
+                Value<String?> upgradeReason = const Value.absent(),
+                Value<String?> upgradedBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReservationRoomsCompanion(
                 id: id,
@@ -80585,6 +80808,9 @@ class $$ReservationRoomsTableTableManager
                 stayUnit: stayUnit,
                 departureAt: departureAt,
                 rateSetBy: rateSetBy,
+                bookedRoomTypeId: bookedRoomTypeId,
+                upgradeReason: upgradeReason,
+                upgradedBy: upgradedBy,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -80620,6 +80846,9 @@ class $$ReservationRoomsTableTableManager
                 Value<String?> stayUnit = const Value.absent(),
                 Value<DateTime?> departureAt = const Value.absent(),
                 Value<String?> rateSetBy = const Value.absent(),
+                Value<String?> bookedRoomTypeId = const Value.absent(),
+                Value<String?> upgradeReason = const Value.absent(),
+                Value<String?> upgradedBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReservationRoomsCompanion.insert(
                 id: id,
@@ -80653,6 +80882,9 @@ class $$ReservationRoomsTableTableManager
                 stayUnit: stayUnit,
                 departureAt: departureAt,
                 rateSetBy: rateSetBy,
+                bookedRoomTypeId: bookedRoomTypeId,
+                upgradeReason: upgradeReason,
+                upgradedBy: upgradedBy,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
