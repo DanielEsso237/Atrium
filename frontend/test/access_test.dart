@@ -309,4 +309,26 @@ void main() {
     expect(menage, isNot(contains('Faire une réservation')));
     expect(menage, isNot(contains('Arrivée directe')));
   });
+
+  test(
+    "« Factures » du comptoir : le comptoir la voit, pas la reception "
+    "qui a deja toutes les factures",
+    () async {
+      // Un agent de comptoir : il sert et tient sa caisse, sans lire les
+      // factures de l'hotel.
+      final comptoir = destinationsPour(
+        SessionState(
+          acces: const AccessProfile(
+            permissions: {'order.read', 'folio.charge', 'cash.session'},
+          ),
+        ),
+      ).map((d) => d.route);
+      expect(comptoir, contains('/mes-factures'));
+      final reception = destinationsPour(
+        SessionState(acces: await accessProfileFor(db, await idDe('RECEP01'))),
+      ).map((d) => d.route);
+      expect(reception, isNot(contains('/mes-factures')));
+      expect(permissionPour('/mes-factures'), 'order.read');
+    },
+  );
 }

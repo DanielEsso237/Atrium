@@ -298,6 +298,17 @@ final destinations = <Destination>[
     Groupe.finances,
     sauf: 'folio.read',
   ),
+  // Les ventes payees du comptoir et leurs tickets (ticket D2). Masquee a
+  // qui lit deja toutes les factures de l'hotel.
+  const Destination(
+    'Factures',
+    PhosphorIconsLight.receipt,
+    PhosphorIconsFill.receipt,
+    '/mes-factures',
+    'order.read',
+    Groupe.finances,
+    sauf: 'folio.read',
+  ),
   // Ce que l'hotel paie hors stock : le benefice des rapports en depend.
   const Destination(
     'Dépenses',
