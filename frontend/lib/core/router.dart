@@ -18,6 +18,7 @@ import '../features/guests/guests_screen.dart';
 import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/outlets/outlet_cash_screen.dart';
+import '../features/outlets/outlet_invoices_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/reservations/arrivee_directe_screen.dart';
@@ -68,6 +69,8 @@ const _permissionParZone = <String, String>{
   // L'onglet Caisse d'un point de vente : ses tiroirs, sans l'attendu. Le
   // droit de tenir une caisse, pas celui de lire les ardoises de l'hotel.
   '/ma-caisse': 'cash.session',
+  // Les factures du comptoir : qui sert a un point de vente (ticket D2).
+  '/mes-factures': 'order.read',
   // Le meme droit que le serveur exige pour creer un agent : tout ce que cet
   // ecran ecrit, il le refuserait sinon, et la file se bloquerait.
   '/administration': 'users.write',
@@ -177,6 +180,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/ma-caisse',
             builder: (_, _) => const OutletCashScreen(),
+          ),
+          GoRoute(
+            path: '/mes-factures',
+            builder: (_, _) => const OutletInvoicesScreen(),
           ),
           GoRoute(
             path: '/services',
