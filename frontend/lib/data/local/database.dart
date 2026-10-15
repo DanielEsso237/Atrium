@@ -119,7 +119,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -218,6 +218,11 @@ class AtriumDatabase extends _$AtriumDatabase {
         await m.createTable(expenses);
         await customStatement(_indexDepenses);
         await m.createTable(dailyCosts);
+      }
+      // 12 -> 13 : l'ecran Comptabilite. Le cout moyen des produits, celui
+      // du serveur, pour les marges.
+      if (depuis < 13) {
+        await m.addColumn(products, products.averageCost);
       }
     },
     beforeOpen: (details) async {

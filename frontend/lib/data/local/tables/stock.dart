@@ -42,6 +42,11 @@ class Products extends Table
   IntColumn get purchasePrice => integer().withDefault(const Constant(0))();
   IntColumn get salePrice => integer().withDefault(const Constant(0))();
 
+  /// Cout moyen pondere, calcule par le serveur a chaque livraison qui dit
+  /// son prix ; 0 tant qu'aucune ne l'a dit, et le cout est alors le prix
+  /// d'achat. La tablette le recoit, elle ne le recalcule pas.
+  IntColumn get averageCost => integer().withDefault(const Constant(0))();
+
   /// Seuil d'alerte de reapprovisionnement, entier, dans l'unite du produit.
   IntColumn get minStock => integer().withDefault(const Constant(0))();
 

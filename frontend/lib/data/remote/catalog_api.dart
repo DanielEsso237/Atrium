@@ -249,6 +249,7 @@ class RemoteProduct {
     required this.purchasePrice,
     required this.salePrice,
     required this.minStock,
+    this.averageCost = 0,
     this.categoryId,
   });
 
@@ -260,6 +261,9 @@ class RemoteProduct {
   /// Francs CFA entiers.
   final int purchasePrice;
   final int salePrice;
+
+  /// Cout moyen pondere ; 0 sans livraison valorisee.
+  final int averageCost;
 
   /// Seuil d'alerte : en dessous, l'econome est prevenu.
   final int minStock;
@@ -275,6 +279,7 @@ class RemoteProduct {
       purchasePrice: _entier(raw['purchase_price']),
       salePrice: _entier(raw['sale_price']),
       minStock: _entier(raw['min_stock']),
+      averageCost: _entier(raw['average_cost']),
       categoryId: _texte(raw['category_id']),
     );
   }
