@@ -43,6 +43,11 @@ class AccessProfile {
 
   bool peut(String permission) => permissions.contains(permission);
 
+  /// L'un de ces droits suffit : `'stock.inventory|stock.rebalance'`. Le
+  /// comptable reequilibre un inventaire sans le compter, et doit pourtant
+  /// ouvrir l'ecran.
+  bool peutUnDe(String exigence) => exigence.split('|').any(peut);
+
   /// L'agent a-t-il affaire a ce genre de point de vente ? Le barman n'a
   /// rien a faire dans l'onglet Services, ni le maitre-nageur dans Points de
   /// vente.

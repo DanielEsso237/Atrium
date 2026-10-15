@@ -331,4 +331,23 @@ void main() {
       expect(permissionPour('/mes-factures'), 'order.read');
     },
   );
+
+  test("l'inventaire s'ouvre avec l'un ou l'autre droit", () {
+    List<String?> routes(Set<String> droits) => destinationsPour(
+      SessionState(acces: AccessProfile(permissions: droits)),
+    ).map((d) => d.route).toList();
+
+    expect(routes({'stock.inventory'}), contains('/inventaire'));
+    expect(routes({'stock.rebalance'}), contains('/inventaire'));
+    expect(routes({'stock.read'}), isNot(contains('/inventaire')));
+    final exigence = permissionPour('/inventaire')!;
+    expect(
+      const AccessProfile(permissions: {'stock.rebalance'}).peutUnDe(exigence),
+      isTrue,
+    );
+    expect(
+      const AccessProfile(permissions: {'stock.read'}).peutUnDe(exigence),
+      isFalse,
+    );
+  });
 }

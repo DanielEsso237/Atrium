@@ -24,6 +24,7 @@ import 'guest_repository.dart';
 import 'hotel_repository.dart';
 import 'housekeeping_repository.dart';
 import 'id_photo_repository.dart';
+import 'inventory_repository.dart';
 import 'invoice_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
@@ -225,6 +226,16 @@ final stockLinesProvider =
 
 final stockProductsProvider = StreamProvider<List<StockProduct>>(
   (ref) => ref.watch(stockRepositoryProvider).watchProducts(),
+);
+
+final inventoryRepositoryProvider = Provider<InventoryRepository>(
+  (ref) => InventoryRepository(ref.watch(databaseProvider)),
+);
+
+/// L'inventaire ouvert d'un magasin, ou `null`.
+final inventaireOuvertProvider = StreamProvider.family<Inventaire?, String>(
+  (ref, magasinId) =>
+      ref.watch(inventoryRepositoryProvider).watchOuvert(magasinId),
 );
 
 /// Les transferts qui attendent une validation.

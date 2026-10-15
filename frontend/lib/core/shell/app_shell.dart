@@ -270,6 +270,15 @@ final destinations = <Destination>[
     'stock.read',
     Groupe.services,
   ),
+  // Compter un magasin et realigner son stock (15 octobre).
+  const Destination(
+    'Inventaire',
+    PhosphorIconsLight.checks,
+    PhosphorIconsLight.checks,
+    '/inventaire',
+    'stock.inventory|stock.rebalance',
+    Groupe.services,
+  ),
   const Destination(
     'Factures',
     PhosphorIconsLight.receipt,
@@ -343,7 +352,7 @@ List<Destination> destinationsPour(SessionState session) {
   final ecranUnique = accueil != null && accueil != '/';
   return [
     for (final d in destinations)
-      if ((d.permission == null || session.acces.peut(d.permission!)) &&
+      if ((d.permission == null || session.acces.peutUnDe(d.permission!)) &&
           (d.aussi == null || session.acces.peut(d.aussi!)) &&
           (d.sauf == null || !session.acces.peut(d.sauf!)) &&
           // Le barman ne voit pas Services, le maitre-nageur pas Points de

@@ -28,6 +28,7 @@ import '../features/billing/cash_screen.dart';
 import '../features/maintenance/maintenance_screen.dart';
 import '../features/stats/stats_screen.dart';
 import '../features/stock/stock_screen.dart';
+import '../features/stock/inventory_screen.dart';
 import '../data/local/enums.dart';
 import '../data/local/queries/access_queries.dart' show genreDeLaZone;
 import '../features/today/today_screen.dart';
@@ -61,6 +62,8 @@ const _permissionParZone = <String, String>{
   '/menage': 'housekeeping.read',
   '/commandes': 'order.read',
   '/stocks': 'stock.read',
+  // Compter ou reequilibrer : l'un des deux ouvre l'ecran (15 octobre).
+  '/inventaire': 'stock.inventory|stock.rebalance',
   '/services': 'order.read',
   // Le tableau de bord des points de vente : le meme droit que leurs
   // onglets. Chacun n'y voit que son perimetre, et a l'aveugle tant que son
@@ -117,7 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (surConnexion) {
         final accueil = session.acces.homeRoute;
         final requise = accueil == null ? null : permissionPour(accueil);
-        final autorise = requise == null || session.acces.peut(requise);
+        final autorise = requise == null || session.acces.peutUnDe(requise);
         return autorise ? (accueil ?? '/') : '/';
       }
 
@@ -133,7 +136,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Le tableau de bord reste ouvert aux autres : c'est le point de repli
       // de cette regle, il ne peut pas etre lui-meme refuse.
       final requise = permissionPour(etat.matchedLocation);
-      if (requise != null && !session.acces.peut(requise)) return '/';
+      if (requise != null && !session.acces.peutUnDe(requise)) return '/';
       final genre = genreDeLaZone(etat.matchedLocation);
       if (genre != null && !session.acces.voitGenre(genre)) {
         return accueil ?? '/';
@@ -173,6 +176,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
           GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),
+          GoRoute(
+            path: '/inventaire',
+            builder: (_, _) => const InventoryScreen(),
+          ),
           GoRoute(
             path: '/ventes',
             builder: (_, _) => const OutletDashboardScreen(),

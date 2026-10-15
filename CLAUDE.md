@@ -422,6 +422,26 @@ séjour entier. Migration 0025 : `is_walk_in`, `stay_unit`, `departure_at`,
 - Le tableau de bord lit des vues (`v_occupancy`) que la base de test n'a
   pas : sa logique testable vit dans des fonctions (`count_departures`).
 
+## L'inventaire (15 octobre)
+
+Un tableau à quatre colonnes par magasin : l'article, la quantité théorique
+(**figée à l'ouverture** de l'inventaire), la quantité comptée sur le terrain
+(seule colonne saisie) et l'écart. **Rééquilibrer** aligne le stock : un
+manque devient une perte (`LOSS`, visible dans le bénéfice), un surplus un
+ajustement (`ADJUSTMENT`) ; les lignes non comptées ne bougent pas. Un seul
+inventaire ouvert par magasin. Deux droits : `stock.inventory` (ouvrir,
+compter, abandonner) et `stock.rebalance` (rééquilibrer) ; l'un ou l'autre
+ouvre l'écran (`AccessProfile.peutUnDe`, exigence `a|b`).
+
+Tablette : `/inventaire`, `InventoryRepository`, tables `inventories` et
+`inventory_lines` (déjà au schéma). Serveur : ticket O4 d'Oriol, routes
+`POST /inventories`, `PUT /inventories/{id}/lines/{product_id}`,
+`POST /inventories/{id}/rebalance` (avec les `movement_ids` de la tablette),
+`POST /inventories/{id}/cancel`, `GET /inventories`. **Tant qu'elles
+n'existent pas, ouvrir un inventaire bloque la file d'envoi** (404). La
+descente des inventaires reste à faire après O4 : aujourd'hui, compter et
+rééquilibrer se font sur la même tablette.
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
