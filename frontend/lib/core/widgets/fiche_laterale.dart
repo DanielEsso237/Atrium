@@ -72,7 +72,7 @@ Future<T?> afficherFicheLaterale<T>(
 
 /// Ouvre la fiche sur toute la zone de travail, jusqu'a la barre laterale
 /// (demande du 15 octobre, pour les fiches du point de vente) : la place
-/// gagnee a gauche recoit la carte en tableau. Un bouton Retour la referme.
+/// gagnee recoit la carte en tableau. Un bouton Retour la referme.
 ///
 /// La barre laterale reste visible : la fiche s'ouvre dans le navigateur de
 /// l'ecran, pas par-dessus toute l'application. Sur un telephone, la place
@@ -84,7 +84,9 @@ Future<T?> afficherFichePleinEcran<T>(
   required Widget Function(bool plein) fiche,
 }) {
   final theme = Theme.of(context);
-  if (MediaQuery.sizeOf(context).width < 900) {
+  // Une tablette, couchee ou debout : plein ecran. Le plus petit cote
+  // seulement, sinon une tablette en portrait retombait sur la feuille.
+  if (MediaQuery.sizeOf(context).shortestSide < 600) {
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,
