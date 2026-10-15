@@ -73,6 +73,22 @@ enum _Tri {
   final String libelle;
 }
 
+/// Deux lectures des memes produits : le tableau pour comparer d'un coup
+/// d'oeil, les cartes pour lire un produit a la fois (demande du 15
+/// octobre). Le tableau par defaut.
+enum _Vue { liste, cartes }
+
+/// Garde le choix tant que l'application tourne : on change de magasin, on
+/// part valider un transfert, on revient sur la meme vue.
+class _VueStock extends Notifier<_Vue> {
+  @override
+  _Vue build() => _Vue.liste;
+
+  void choisir(_Vue v) => state = v;
+}
+
+final _vueStockProvider = NotifierProvider<_VueStock, _Vue>(_VueStock.new);
+
 extension on StockLine {
   /// Negatif : moins que rien, une vente a ete faite sans stock. Rupture :
   /// plus rien. Bas : moins que le seuil fixe par l'econome.
@@ -265,6 +281,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       ];
     }
     final p = AtriumPalette.current;
+    final vue = ref.watch(_vueStockProvider);
     final recherche = Recherche(_recherche);
     final trouvees = [
       for (final l in toutes)
@@ -315,7 +332,12 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                 ),
             ],
           );
-          if (c.maxWidth >= 1000) {
+          final choixVue = _ChoixVue(
+            vue: vue,
+            compact: c.maxWidth < 700,
+            onChoisi: ref.read(_vueStockProvider.notifier).choisir,
+          );
+          if (c.maxWidth >= 1240) {
             return Row(
               children: [
                 SizedBox(width: 300, child: recherchePill),
@@ -323,6 +345,20 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                 Expanded(child: filtres),
                 const SizedBox(width: 12),
                 tri,
+                const SizedBox(width: 10),
+                choixVue,
+              ],
+            );
+          }
+          if (c.maxWidth < 600) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                recherchePill,
+                const SizedBox(height: 10),
+                Row(children: [tri, const Spacer(), choixVue]),
+                const SizedBox(height: 10),
+                filtres,
               ],
             );
           }
@@ -334,6 +370,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   Expanded(child: recherchePill),
                   const SizedBox(width: 10),
                   tri,
+                  const SizedBox(width: 10),
+                  choixVue,
                 ],
               ),
               const SizedBox(height: 10),
@@ -352,10 +390,30 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               : 'Vérifiez l’orthographe, ou cherchez par référence.',
         )
       else
-        _GrilleProduits(
-          lignes: montrees,
-          voitValeur: voitValeur,
-          onRavitailler: onRavitailler,
+        // Un fondu au changement de vue : la reponse au geste, rien de plus.
+        AnimatedSwitcher(
+          duration: AtriumMotion.of(context, AtriumMotion.base),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          layoutBuilder: (actuel, anciens) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...anciens, ?actuel],
+          ),
+          child: vue == _Vue.liste
+              ? _TableauProduits(
+                  key: const ValueKey(_Vue.liste),
+                  lignes: montrees,
+                  voitValeur: voitValeur,
+                  tri: _tri,
+                  onTri: (t) => setState(() => _tri = t),
+                  onRavitailler: onRavitailler,
+                )
+              : _GrilleProduits(
+                  key: const ValueKey(_Vue.cartes),
+                  lignes: montrees,
+                  voitValeur: voitValeur,
+                  onRavitailler: onRavitailler,
+                ),
         ),
     ];
   }
@@ -896,6 +954,7 @@ class _MenuTri extends StatelessWidget {
 /// Les produits en cartes blanches, toutes de la meme taille.
 class _GrilleProduits extends StatelessWidget {
   const _GrilleProduits({
+    super.key,
     required this.lignes,
     required this.voitValeur,
     required this.onRavitailler,
@@ -1081,6 +1140,521 @@ class _CarteProduit extends StatelessWidget {
               ],
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- La vue en tableau -------------------------------------------------------
+
+/// Le choix entre tableau et cartes : deux segments, une pastille qui glisse
+/// sous celui retenu. Sur telephone, les icones seules.
+class _ChoixVue extends StatelessWidget {
+  const _ChoixVue({
+    required this.vue,
+    required this.compact,
+    required this.onChoisi,
+  });
+
+  final _Vue vue;
+  final bool compact;
+  final ValueChanged<_Vue> onChoisi;
+
+  static const _segments = [
+    (_Vue.liste, 'Liste', PhosphorIconsLight.list),
+    (_Vue.cartes, 'Cartes', PhosphorIconsLight.squaresFour),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final largeur = compact ? 46.0 : 96.0;
+    final rayon = BorderRadius.circular(AtriumRadii.md - 2);
+    final index = _segments.indexWhere((s) => s.$1 == vue);
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: p.paper,
+        borderRadius: rayon,
+        border: Border.all(color: p.border),
+      ),
+      child: SizedBox(
+        width: largeur * _segments.length,
+        child: Stack(
+          children: [
+            AnimatedPositioned(
+              duration: AtriumMotion.of(context, AtriumMotion.base),
+              curve: atriumSpring,
+              left: largeur * index,
+              top: 0,
+              bottom: 0,
+              width: largeur,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: p.selected,
+                  borderRadius: BorderRadius.circular(AtriumRadii.sm),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                for (final (valeur, libelle, icone) in _segments)
+                  SizedBox(
+                    width: largeur,
+                    child: Tooltip(
+                      message: valeur == _Vue.liste
+                          ? 'Afficher en tableau'
+                          : 'Afficher en cartes',
+                      child: Semantics(
+                        button: true,
+                        selected: valeur == vue,
+                        label: libelle,
+                        excludeSemantics: true,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AtriumRadii.sm),
+                          onTap: () => onChoisi(valeur),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  icone,
+                                  size: 18,
+                                  color: valeur == vue
+                                      ? p.onSelected
+                                      : p.textSecondary,
+                                ),
+                                if (!compact) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    libelle,
+                                    style: TextStyle(
+                                      fontFamily: atriumFontFamily,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: valeur == vue
+                                          ? p.onSelected
+                                          : p.text,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Le bouton Ravitailler tient sur une ligne : sa colonne a une largeur
+/// fixe, les autres se partagent le reste.
+const _largeurAction = 136.0;
+
+/// Les colonnes du tableau. Les chiffres s'alignent a droite, comme dans un
+/// registre : les unites tombent sous les unites.
+enum _ColStock {
+  produit('Produit', 30),
+  etat('État', 15),
+  quantite('Quantité', 14, droite: true),
+  seuil('Seuil', 10, droite: true),
+  ecart('Écart au seuil', 14, droite: true),
+  valeur('Valeur', 17, droite: true),
+  action('', 0);
+
+  const _ColStock(this.titre, this.flex, {this.droite = false});
+
+  final String titre;
+  final int flex;
+  final bool droite;
+
+  /// La colonne qui trie quand on touche son titre.
+  _Tri? get tri => switch (this) {
+    _ColStock.produit => _Tri.nom,
+    _ColStock.etat => _Tri.urgence,
+    _ColStock.quantite => _Tri.quantite,
+    _ => null,
+  };
+}
+
+/// Les produits en tableau : une ligne par produit, les memes chiffres
+/// exacts que les cartes. Les colonnes accessoires tombent quand la largeur
+/// manque ; le produit, son etat et sa quantite restent.
+class _TableauProduits extends StatelessWidget {
+  const _TableauProduits({
+    super.key,
+    required this.lignes,
+    required this.voitValeur,
+    required this.tri,
+    required this.onTri,
+    required this.onRavitailler,
+  });
+
+  final List<StockLine> lignes;
+  final bool voitValeur;
+  final _Tri tri;
+  final ValueChanged<_Tri> onTri;
+  final void Function(StockLine)? onRavitailler;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        // Sur telephone, l'etat passe sous le nom du produit : en colonne,
+        // il ne tenait qu'en rapetissant.
+        final etroit = w < 620;
+        final colonnes = [
+          _ColStock.produit,
+          if (!etroit) _ColStock.etat,
+          _ColStock.quantite,
+          if (w >= 720) ...[_ColStock.seuil, _ColStock.ecart],
+          if (voitValeur && w >= 900) _ColStock.valeur,
+          if (onRavitailler != null && w >= 620) _ColStock.action,
+        ];
+        // Sur telephone, Ravitailler devient une icone en bout de ligne.
+        final boutonSeul = onRavitailler != null && etroit;
+        return Bezel(
+          radius: 22,
+          padding: EdgeInsets.zero,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: p.surface,
+                    border: Border(bottom: BorderSide(color: p.border)),
+                  ),
+                  child: Row(
+                    children: [
+                      for (final col in colonnes)
+                        if (col == _ColStock.action)
+                          const SizedBox(width: _largeurAction)
+                        else
+                          Expanded(
+                            flex: col.flex,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _TitreColonne(
+                                colonne: col,
+                                actif: col.tri != null && col.tri == tri,
+                                onTri: onTri,
+                              ),
+                            ),
+                          ),
+                      if (boutonSeul) const SizedBox(width: 44),
+                    ],
+                  ),
+                ),
+                for (final (i, l) in lignes.indexed)
+                  _LigneProduit(
+                    ligne: l,
+                    colonnes: colonnes,
+                    filet: i < lignes.length - 1,
+                    etroit: etroit,
+                    boutonSeul: boutonSeul,
+                    onRavitailler: onRavitailler,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TitreColonne extends StatelessWidget {
+  const _TitreColonne({
+    required this.colonne,
+    required this.actif,
+    required this.onTri,
+  });
+
+  final _ColStock colonne;
+  final bool actif;
+  final ValueChanged<_Tri> onTri;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final texte = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            colonne.titre,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: actif ? p.text : p.textSecondary,
+            ),
+          ),
+        ),
+        if (actif) ...[
+          const SizedBox(width: 4),
+          Icon(PhosphorIconsLight.caretDown, size: 13, color: p.accent),
+        ],
+      ],
+    );
+    final aligne = Align(
+      alignment: colonne.droite ? Alignment.centerRight : Alignment.centerLeft,
+      child: texte,
+    );
+    final tri = colonne.tri;
+    if (tri == null) return aligne;
+    return Semantics(
+      button: true,
+      selected: actif,
+      label: 'Trier par ${tri.libelle.toLowerCase()}',
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onTri(tri),
+          child: aligne,
+        ),
+      ),
+    );
+  }
+}
+
+class _LigneProduit extends StatelessWidget {
+  const _LigneProduit({
+    required this.ligne,
+    required this.colonnes,
+    required this.filet,
+    required this.etroit,
+    required this.boutonSeul,
+    required this.onRavitailler,
+  });
+
+  final StockLine ligne;
+  final List<_ColStock> colonnes;
+  final bool filet;
+  final bool etroit;
+  final bool boutonSeul;
+  final void Function(StockLine)? onRavitailler;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final l = ligne;
+    final alerte = l.etat != _Etat.enStock;
+    final chiffre = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 14.5,
+      fontWeight: FontWeight.w600,
+      color: p.text,
+      fontFeatures: tabularFigures,
+    );
+    final discret = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: p.placeholder,
+    );
+
+    Widget cellule(_ColStock c) {
+      switch (c) {
+        case _ColStock.produit:
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: atriumFontFamily,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: p.text,
+                ),
+              ),
+              if (etroit) ...[
+                const SizedBox(height: 6),
+                _BadgeEtat(etat: l.etat),
+              ] else if (l.reference.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  l.reference,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    color: p.textSecondary,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ],
+            ],
+          );
+        case _ColStock.etat:
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _BadgeEtat(etat: l.etat),
+            ),
+          );
+        case _ColStock.quantite:
+          if (etroit) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${l.quantity}',
+                  maxLines: 1,
+                  style: chiffre.copyWith(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  l.unit,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    color: p.textSecondary,
+                  ),
+                ),
+              ],
+            );
+          }
+          return Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${l.quantity}',
+                  style: chiffre.copyWith(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${l.unit}',
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    color: p.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          );
+        case _ColStock.seuil:
+          return Text(
+            l.minStock == 0 ? 'Non fixé' : '${l.minStock}',
+            maxLines: 1,
+            textAlign: TextAlign.right,
+            style: l.minStock == 0 ? discret : chiffre,
+          );
+        case _ColStock.ecart:
+          final seuil = l.minStock;
+          if (seuil == 0) {
+            return Text(
+              'Sans seuil',
+              maxLines: 1,
+              textAlign: TextAlign.right,
+              style: discret,
+            );
+          }
+          return Text(
+            l.quantity < seuil
+                ? 'Il manque ${seuil - l.quantity}'
+                : '+${l.quantity - seuil}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: l.quantity < seuil
+                ? chiffre.copyWith(fontWeight: FontWeight.w700)
+                : chiffre.copyWith(
+                    color: p.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+          );
+        case _ColStock.valeur:
+          return Text(
+            formatAmount(math.max(0, l.quantity) * l.purchasePrice),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: chiffre,
+          );
+        case _ColStock.action:
+          if (!alerte) return const SizedBox.shrink();
+          return Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => onRavitailler!(l),
+              icon: const Icon(PhosphorIconsLight.arrowsLeftRight, size: 16),
+              label: const Text('Ravitailler'),
+            ),
+          );
+      }
+    }
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      decoration: BoxDecoration(
+        border: filet ? Border(bottom: BorderSide(color: p.grid)) : null,
+      ),
+      child: Row(
+        children: [
+          for (final c in colonnes)
+            if (c == _ColStock.action)
+              SizedBox(width: _largeurAction, child: cellule(c))
+            else
+              Expanded(
+                flex: c.flex,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: cellule(c),
+                ),
+              ),
+          if (boutonSeul)
+            SizedBox(
+              width: 44,
+              child: alerte
+                  ? IconButton(
+                      tooltip: 'Ravitailler',
+                      onPressed: () => onRavitailler!(l),
+                      icon: Icon(
+                        PhosphorIconsLight.arrowsLeftRight,
+                        size: 20,
+                        color: p.accent,
+                      ),
+                    )
+                  : null,
+            ),
         ],
       ),
     );

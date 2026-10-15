@@ -69,6 +69,7 @@ abstract final class PhosphorIconsLight {
   );
   static const info = IconData(0xe2ce, fontFamily: 'PhosphorLight');
   static const lightning = IconData(0xe2de, fontFamily: 'PhosphorLight');
+  static const list = IconData(0xe2f0, fontFamily: 'PhosphorLight');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorLight');
   static const lockSimpleOpen = IconData(0xe30a, fontFamily: 'PhosphorLight');
   static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorLight');

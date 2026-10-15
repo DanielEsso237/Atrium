@@ -26,12 +26,60 @@ class GuestStay {
     required this.arrival,
     required this.departure,
     required this.status,
+    this.roomNumber,
+    this.roomType,
+    this.hourly = false,
   });
 
   final String reference;
   final String arrival;
   final String departure;
   final String status;
+
+  /// Nul tant qu'aucune chambre n'est attribuee : une reservation a venir
+  /// n'a souvent que sa categorie.
+  final String? roomNumber;
+  final String? roomType;
+
+  /// Un sejour en heures : sa `departure` vaut le lendemain parce que le
+  /// schema l'exige, elle ne dit rien de la duree.
+  final bool hourly;
+
+  int get nights {
+    if (hourly) return 0;
+    final a = DateTime.tryParse(arrival);
+    final d = DateTime.tryParse(departure);
+    if (a == null || d == null) return 0;
+    return d.difference(a).inDays;
+  }
+}
+
+/// Ce que l'hotel sait d'un client au-dela de sa fiche : sa fidelite, ou il
+/// dort ce soir, ce qu'il doit encore.
+class GuestStats {
+  const GuestStats({
+    this.stays = 0,
+    this.nights = 0,
+    this.lastArrival,
+    this.currentRoom,
+    this.nextArrival,
+    this.openBalance = 0,
+  });
+
+  /// Sejours commences : en cours ou termines. Une reservation annulee ou
+  /// jamais honoree n'est pas un passage.
+  final int stays;
+  final int nights;
+
+  /// Dates seules (`AAAA-MM-JJ`) : jamais de fuseau dessus.
+  final String? lastArrival;
+  final String? currentRoom;
+  final String? nextArrival;
+
+  /// Reste du sur ses ardoises ouvertes, chambre et comptoirs, en francs CFA.
+  final int openBalance;
+
+  static const vide = GuestStats();
 }
 
 class GuestRepository with OutboxWriter {
@@ -74,6 +122,89 @@ class GuestRepository with OutboxWriter {
 
   Future<GuestRow?> byId(String id) =>
       (db.select(db.guests)..where((g) => g.id.equals(id))).getSingleOrNull();
+
+  /// Une fiche, suivie : modifiee depuis la page, elle s'y redessine seule.
+  Stream<GuestRow?> watchGuest(String id) =>
+      (db.select(db.guests)..where((g) => g.id.equals(id)))
+          .watchSingleOrNull();
+
+  /// Les chiffres de chaque client, en une requete pour tout le fichier.
+  ///
+  /// [businessDate] borne la prochaine arrivee : une reservation confirmee
+  /// d'avant-hier, pas encore passee en non-presentation, n'est pas « a
+  /// venir ». Une date d'exploitation, jamais le calendrier.
+  Stream<Map<String, GuestStats>> watchGuestStats({
+    required String businessDate,
+  }) {
+    return db
+        .customSelect(
+          '''
+      WITH s AS (
+        SELECT r.guest_id AS guest_id,
+               SUM(CASE WHEN rr.status IN ('CHECKED_IN', 'CHECKED_OUT')
+                        THEN 1 ELSE 0 END) AS sejours,
+               SUM(CASE WHEN rr.status IN ('CHECKED_IN', 'CHECKED_OUT')
+                         AND COALESCE(rr.stay_unit, 'NIGHTS') = 'NIGHTS'
+                        THEN CAST(julianday(rr.departure_date)
+                                  - julianday(rr.arrival_date) AS INTEGER)
+                        ELSE 0 END) AS nuits,
+               MAX(CASE WHEN rr.status IN ('CHECKED_IN', 'CHECKED_OUT')
+                        THEN rr.arrival_date END) AS dernier,
+               MAX(CASE WHEN rr.status = 'CHECKED_IN'
+                        THEN ro.number END) AS chambre,
+               MIN(CASE WHEN rr.status IN ('PENDING', 'CONFIRMED')
+                         AND rr.arrival_date >= ?2
+                        THEN rr.arrival_date END) AS prochaine
+          FROM reservations r
+          JOIN reservation_rooms rr
+            ON rr.reservation_id = r.id AND rr.deleted_at IS NULL
+          LEFT JOIN rooms ro ON ro.id = rr.room_id
+         WHERE r.deleted_at IS NULL
+         GROUP BY r.guest_id
+      ),
+      f AS (
+        SELECT guest_id, SUM(balance) AS solde
+          FROM folios
+         WHERE deleted_at IS NULL AND status = 'OPEN' AND guest_id IS NOT NULL
+         GROUP BY guest_id
+      )
+      SELECT g.id AS guest_id,
+             COALESCE(s.sejours, 0) AS sejours,
+             COALESCE(s.nuits, 0) AS nuits,
+             s.dernier, s.chambre, s.prochaine,
+             COALESCE(f.solde, 0) AS solde
+        FROM guests g
+        LEFT JOIN s ON s.guest_id = g.id
+        LEFT JOIN f ON f.guest_id = g.id
+       WHERE g.deleted_at IS NULL AND g.hotel_id = ?1
+      ''',
+          variables: [
+            Variable.withString(hotelId),
+            Variable.withString(businessDate),
+          ],
+          readsFrom: {
+            db.guests,
+            db.reservations,
+            db.reservationRooms,
+            db.rooms,
+            db.folios,
+          },
+        )
+        .watch()
+        .map(
+          (rows) => {
+            for (final r in rows)
+              r.read<String>('guest_id'): GuestStats(
+                stays: r.read<int>('sejours'),
+                nights: r.read<int>('nuits'),
+                lastArrival: r.readNullable<String>('dernier'),
+                currentRoom: r.readNullable<String>('chambre'),
+                nextArrival: r.readNullable<String>('prochaine'),
+                openBalance: r.read<int>('solde'),
+              ),
+          },
+        );
+  }
 
   /// Cree une fiche client et enfile l'ecriture.
   ///
@@ -251,31 +382,46 @@ class GuestRepository with OutboxWriter {
   }
 
   /// Les sejours d'un client, du plus recent au plus ancien.
-  Future<List<GuestStay>> stays(String guestId) async {
-    final rows = await db
+  ///
+  /// Suivis et non lus une fois : la fiche reste ouverte au comptoir pendant
+  /// qu'on enregistre l'arrivee, elle doit montrer le sejour qui commence.
+  Stream<List<GuestStay>> watchStays(String guestId) {
+    return db
         .customSelect(
           '''
-      SELECT r.reference, rr.arrival_date, rr.departure_date, rr.status
+      SELECT r.reference, rr.arrival_date, rr.departure_date, rr.status,
+             rr.stay_unit, ro.number AS room_number, rt.label AS room_type
         FROM reservations r
-        JOIN reservation_rooms rr ON rr.reservation_id = r.id
+        JOIN reservation_rooms rr
+          ON rr.reservation_id = r.id AND rr.deleted_at IS NULL
+        LEFT JOIN rooms ro ON ro.id = rr.room_id
+        LEFT JOIN room_types rt ON rt.id = rr.room_type_id
        WHERE r.guest_id = ?1 AND r.deleted_at IS NULL
        ORDER BY rr.arrival_date DESC
-       LIMIT 20
+       LIMIT 50
       ''',
           variables: [Variable.withString(guestId)],
-          readsFrom: {db.reservations, db.reservationRooms},
+          readsFrom: {
+            db.reservations,
+            db.reservationRooms,
+            db.rooms,
+            db.roomTypes,
+          },
         )
-        .get();
-
-    return rows
+        .watch()
         .map(
-          (r) => GuestStay(
-            reference: r.read<String>('reference'),
-            arrival: r.read<String>('arrival_date'),
-            departure: r.read<String>('departure_date'),
-            status: r.read<String>('status'),
-          ),
-        )
-        .toList();
+          (rows) => [
+            for (final r in rows)
+              GuestStay(
+                reference: r.read<String>('reference'),
+                arrival: r.read<String>('arrival_date'),
+                departure: r.read<String>('departure_date'),
+                status: r.read<String>('status'),
+                roomNumber: r.readNullable<String>('room_number'),
+                roomType: r.readNullable<String>('room_type'),
+                hourly: r.readNullable<String>('stay_unit') == 'HOURS',
+              ),
+          ],
+        );
   }
 }

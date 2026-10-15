@@ -15,6 +15,7 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/expenses/expenses_screen.dart';
+import '../features/guests/guest_detail_screen.dart';
 import '../features/guests/guests_screen.dart';
 import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
@@ -31,6 +32,7 @@ import '../features/stats/stats_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/stock/inventory_screen.dart';
 import '../data/local/enums.dart';
+import 'ui/atrium_ui.dart' show atriumSpring;
 import '../data/local/queries/access_queries.dart' show genreDeLaZone;
 import '../features/today/today_screen.dart';
 import 'shell/app_shell.dart';
@@ -149,6 +151,42 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
+      // La fiche d'un client, hors de la coque : elle prend tout l'ecran et
+      // se referme par sa croix (demande du 15 octobre). Elle monte du bas,
+      // par-dessus le fichier qui reste dessous, a sa place.
+      GoRoute(
+        path: '/clients/:id',
+        pageBuilder: (context, state) {
+          final sansAnimation = MediaQuery.disableAnimationsOf(context);
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            transitionDuration: sansAnimation
+                ? Duration.zero
+                : const Duration(milliseconds: 420),
+            reverseTransitionDuration: sansAnimation
+                ? Duration.zero
+                : const Duration(milliseconds: 240),
+            child: GuestDetailScreen(guestId: state.pathParameters['id']!),
+            transitionsBuilder: (context, animation, _, child) {
+              final courbe = CurvedAnimation(
+                parent: animation,
+                curve: atriumSpring,
+                reverseCurve: Curves.easeInCubic,
+              );
+              return FadeTransition(
+                opacity: courbe,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, 0.035),
+                    end: Offset.zero,
+                  ).animate(courbe),
+                  child: child,
+                ),
+              );
+            },
+          );
+        },
+      ),
       // Tout le reste vit dans la coque : la navigation reste visible sur
       // chaque ecran, sous la forme qui convient a la largeur.
       ShellRoute(
