@@ -683,6 +683,23 @@ marge d'une semaine passée ne bouge pas à la livraison suivante.
   marges) : par magasin, l'économat d'abord, `value` et le détail par produit (quantité × coût). Un stock
   négatif vaut zéro : c'est une livraison pas encore saisie, pas une dette.
 
+## L'inventaire d'un magasin
+
+Un seul inventaire ouvert par magasin. Chaque route se rejoue sans effet.
+
+| Route | Droit | Corps | Effet |
+|---|---|---|---|
+| `POST /inventories` | `stock.inventory` | `{id, stock_location_id, label, lines: [{id, product_id}]}` | ouvre ; le serveur **fige sa** quantité théorique (`theoretical_qty`) ; 409 si un autre est ouvert sur ce magasin |
+| `PUT /inventories/{id}/lines/{product_id}` | `stock.inventory` | `{counted_qty}` (≥ 0, ou `null` pour effacer) | enregistre le comptage ; 409 si l'inventaire n'est plus ouvert (sauf renvoi identique) |
+| `POST /inventories/{id}/rebalance` | `stock.rebalance` | `{movement_ids: {product_id: uuid}}` | un mouvement par ligne comptée avec écart : manque = `LOSS` (quantité positive, coût du jour figé), surplus = `ADJUSTMENT` ; `source_table = 'inventories'` ; puis `CLOSED` |
+| `POST /inventories/{id}/cancel` | `stock.inventory` | — | abandon : `deleted_at`, le stock ne bouge pas |
+| `GET /inventories?since=` | `stock.read` | — | la descente, abandonnés compris ; sans `since`, ceux encore ouverts |
+
+L'écart se calcule sur la théorique du serveur. Un écart que la tablette
+n'avait pas vu (une vente faite sur un autre poste) prend un id du serveur ;
+un id de la tablette sans écart côté serveur reste inutilisé. La perte entre
+dans les pertes de `/accounting/daily-costs`, donc dans le bénéfice.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

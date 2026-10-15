@@ -103,6 +103,7 @@ _PERMISSIONS_NEEDED = [
     "hotel.write",
     "accounting.read",
     "expense.write",
+    "stock.inventory", "stock.rebalance",
 ]
 
 

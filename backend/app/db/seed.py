@@ -135,6 +135,8 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004138"), "tab.cancel", "Annuler l'ardoise d'un client parti sans payer", "folio"),
     (uuid.UUID("01920000-0000-7000-8000-000000004139"), "accounting.read", "Lire les marges et la valeur du stock", "accounting"),
     (uuid.UUID("01920000-0000-7000-8000-000000004140"), "expense.write", "Saisir et annuler les depenses de l'hotel", "accounting"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004141"), "stock.inventory", "Faire l'inventaire d'un magasin", "stock"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004142"), "stock.rebalance", "Reequilibrer le stock apres inventaire", "stock"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -168,6 +170,8 @@ STOCK_TRANSFER_REQUEST = PERMISSIONS[36][0]
 TAB_CANCEL = PERMISSIONS[37][0]
 ACCOUNTING_READ = PERMISSIONS[38][0]
 EXPENSE_WRITE = PERMISSIONS[39][0]
+STOCK_INVENTORY = PERMISSIONS[40][0]
+STOCK_REBALANCE = PERMISSIONS[41][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -281,6 +285,17 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # controleur les lit avec les marges, il ne les ecrit pas.
     (MANAGER_ROLE, EXPENSE_WRITE),
     (COMPTABLE_ROLE, EXPENSE_WRITE),
+    # L'inventaire (15 octobre) : compter, puis reequilibrer -- deux gestes,
+    # deux droits. L'econome compte son economat, il ne decide pas seul que
+    # le manque est une perte : le controleur ou le comptable le fait. La
+    # direction fait les deux, et lit donc le stock qu'elle compte.
+    (MANAGER_ROLE, STOCK_READ),
+    (MANAGER_ROLE, STOCK_INVENTORY),
+    (MANAGER_ROLE, STOCK_REBALANCE),
+    (ECONOME_ROLE, STOCK_INVENTORY),
+    (CONTROLEUR_ROLE, STOCK_INVENTORY),
+    (CONTROLEUR_ROLE, STOCK_REBALANCE),
+    (COMPTABLE_ROLE, STOCK_REBALANCE),
 ]
 
 DEMO_ADMIN = uuid.UUID("01920000-0000-7000-8000-000000050001")
