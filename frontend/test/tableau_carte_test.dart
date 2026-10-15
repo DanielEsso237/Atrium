@@ -14,15 +14,15 @@ import 'package:flutter_test/flutter_test.dart';
 const _carte = [
   MenuEntry(
     id: 'castel', label: 'Castel', price: 1200, isAvailable: true,
-    categoryLabel: 'Bières', vendus: 42,
+    categoryLabel: 'Bières', vendus: 42, enStock: 10,
   ),
   MenuEntry(
     id: 'jus', label: 'Jus d’orange', price: 1000, isAvailable: true,
-    categoryLabel: 'Jus', vendus: 7,
+    categoryLabel: 'Jus', vendus: 7, enStock: 0,
   ),
   MenuEntry(
     id: 'whisky', label: 'Whisky', price: 5000, isAvailable: false,
-    categoryLabel: 'Alcools',
+    categoryLabel: 'Alcools', vendus: 1,
   ),
 ];
 
@@ -50,6 +50,10 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('42'), findsOneWidget);
+    // En stock : 10 Castel, plus de jus, le whisky ne sort d'aucun stock.
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
     // Deja deux fois dans la commande.
     expect(find.text('2'), findsOneWidget);
     expect(find.text('Alcools · rupture'), findsOneWidget);

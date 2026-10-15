@@ -87,6 +87,7 @@ class MenuEntry {
     required this.isAvailable,
     required this.categoryLabel,
     this.vendus = 0,
+    this.enStock,
   });
 
   final String id;
@@ -103,6 +104,11 @@ class MenuEntry {
   /// Combien ce point de vente en a servi : la carte se presente par ventes
   /// decroissantes, ce qui part le plus a portee de doigt.
   final int vendus;
+
+  /// Combien il en reste a vendre dans le magasin de ce point de vente :
+  /// le stock du produit relie, divise par ce qu'un article en consomme.
+  /// `null` quand l'article ne sort d'aucun stock (un plat du jour).
+  final int? enStock;
 }
 
 /// Une consommation passee d'un client dans un point de vente.
@@ -322,7 +328,20 @@ class OrderRepository with OutboxWriter {
              i.price         AS price,
              i.is_available  AS is_available,
              c.label         AS category_label,
-             COALESCE(v.vendus, 0) AS vendus
+             COALESCE(v.vendus, 0) AS vendus,
+             -- Ce qui reste a vendre ici (demande du 15 octobre) : le stock
+             -- du magasin de ce point de vente, en articles.
+             CASE WHEN i.product_id IS NULL THEN NULL
+                  ELSE COALESCE((SELECT SUM(sl.quantity)
+                                   FROM stock_levels sl
+                                   JOIN stock_locations loc
+                                     ON loc.id = sl.stock_location_id
+                                  WHERE loc.outlet_id = ?1
+                                    AND loc.deleted_at IS NULL
+                                    AND sl.deleted_at IS NULL
+                                    AND sl.product_id = i.product_id), 0)
+                       / MAX(i.stock_quantity, 1)
+             END AS en_stock
         FROM menu_items i
         JOIN menu_categories c ON c.id = i.menu_category_id
         -- Une consommation garde le nom de l'article, pas son identifiant :
@@ -338,7 +357,13 @@ class OrderRepository with OutboxWriter {
     ORDER BY vendus DESC, c.sort_order, c.label, i.sort_order, i.label
       ''',
           variables: [Variable.withString(outletId)],
-          readsFrom: {db.menuItems, db.menuCategories, db.folioItems},
+          readsFrom: {
+            db.menuItems,
+            db.menuCategories,
+            db.folioItems,
+            db.stockLevels,
+            db.stockLocations,
+          },
         )
         .watch()
         .map(
@@ -351,6 +376,7 @@ class OrderRepository with OutboxWriter {
                   isAvailable: l.read<bool>('is_available'),
                   categoryLabel: l.read<String>('category_label'),
                   vendus: l.read<int>('vendus'),
+                  enStock: l.readNullable<int>('en_stock'),
                 ),
               )
               .toList(),
@@ -429,7 +455,9 @@ class OrderRepository with OutboxWriter {
   /// montre tel quel.
   Future<String> sellWalkIn({
     required OutletRow outlet,
-    required List<(String label, int unitPrice, int quantity, String? menuItemId)>
+    required List<
+      (String label, int unitPrice, int quantity, String? menuItemId)
+    >
     lines,
     required PaymentMethod method,
     required String by,

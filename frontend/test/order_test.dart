@@ -306,6 +306,65 @@ void main() {
       expect(libellesBoutique, isNot(contains('Biere')));
     });
 
+    test('le stock du point de vente, en articles a vendre', () async {
+      await garnirLaCarte();
+      final bar = await pointDeVente(barId);
+      final t0 = DateTime.utc(2026, 10, 1);
+      const produit = '01920000-0000-7000-8000-0000000b1e01';
+      const magasin = '01920000-0000-7000-8000-0000000b1e02';
+      await db
+          .into(db.products)
+          .insert(
+            ProductsCompanion.insert(
+              id: produit,
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: bar.hotelId,
+              reference: 'BIE',
+              label: 'Biere 65 cl',
+            ),
+          );
+      await db
+          .into(db.stockLocations)
+          .insert(
+            StockLocationsCompanion.insert(
+              id: magasin,
+              createdAt: t0,
+              updatedAt: t0,
+              hotelId: bar.hotelId,
+              code: 'BAR',
+              label: 'Bar',
+              outletId: Value(barId),
+            ),
+          );
+      await db
+          .into(db.stockLevels)
+          .insert(
+            StockLevelsCompanion.insert(
+              id: '01920000-0000-7000-8000-0000000b1e03',
+              createdAt: t0,
+              updatedAt: t0,
+              productId: produit,
+              stockLocationId: magasin,
+              quantity: const Value(9),
+            ),
+          );
+      // Un article en consomme deux : 9 bouteilles font 4 articles.
+      await (db.update(db.menuItems)..where((i) => i.id.equals(biereId)))
+          .write(
+            const MenuItemsCompanion(
+              productId: Value(produit),
+              stockQuantity: Value(2),
+            ),
+          );
+
+      final carte = await commandes.watchMenu(barId).first;
+
+      expect(carte.firstWhere((e) => e.label == 'Biere').enStock, 4);
+      // Un plat ne sort d'aucun stock.
+      expect(carte.firstWhere((e) => e.label == 'Poulet DG').enStock, isNull);
+    });
+
     test('un article en rupture reste dans la carte, marque indisponible',
         () async {
       await garnirLaCarte();

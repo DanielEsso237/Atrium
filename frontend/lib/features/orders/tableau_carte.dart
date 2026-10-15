@@ -8,6 +8,8 @@
 /// pouvoir etre choisi.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/formats.dart';
@@ -70,6 +72,14 @@ class _TableauCarteState extends State<TableauCarte> {
             child: Row(
               children: [
                 Expanded(child: Text('Article', style: entete)),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    'En stock',
+                    style: entete,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 SizedBox(
                   width: 90,
                   child: Text(
@@ -168,6 +178,23 @@ class _LigneArticle extends StatelessWidget {
                       style: TextStyle(fontSize: 12, color: p.textSecondary),
                     ),
                   ],
+                ),
+              ),
+              // Ce qui reste a vendre ici ; a zero, en rouge : on previent le
+              // client avant de servir (le stock peut passer sous zero).
+              SizedBox(
+                width: 90,
+                child: Text(
+                  e.enStock == null ? '—' : '${math.max(e.enStock!, 0)}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: e.enStock != null && e.enStock! <= 0
+                        ? p.error
+                        : encre,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
               ),
               // La quantite vendue, mise en avant : c'est elle qui range le

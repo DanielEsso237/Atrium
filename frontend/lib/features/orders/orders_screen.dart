@@ -2303,7 +2303,13 @@ class _Suggestions extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                e.categoryLabel,
+                                // Le stock du point de vente, quand l'article
+                                // en sort (15 octobre).
+                                e.enStock == null
+                                    ? e.categoryLabel
+                                    : '${e.categoryLabel} · '
+                                          '${e.enStock! < 0 ? 0 : e.enStock} '
+                                          'en stock',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
