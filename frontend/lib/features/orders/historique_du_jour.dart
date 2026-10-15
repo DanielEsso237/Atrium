@@ -3,10 +3,8 @@
 /// dernieres ventes -- ce qui vient d'etre servi, a qui, et ou en est
 /// l'argent.
 ///
-/// **Comptage a l'aveugle** (decision du 11 octobre) : tant que le tiroir de
-/// ce point de vente est ouvert, la recette ne s'affiche pas -- ce serait
-/// l'attendu. Le nombre de ventes, les articles et ce qui reste a payer se
-/// montrent : ce n'est pas dans le tiroir. La caisse centrale voit tout.
+/// La recette s'affiche, tiroir ouvert ou non (decision du 15 octobre) :
+/// chaque vente dit deja son montant.
 library;
 
 import 'package:flutter/material.dart';
@@ -32,11 +30,6 @@ final _dernieresVentesProvider =
           .watchDernieresVentesPdv(pointDeVente: cle.$1, jour: cle.$2),
     );
 
-final _tiroirOuvertProvider = StreamProvider.family<bool, String>(
-  (ref, outletId) =>
-      ref.watch(databaseProvider).watchTiroirOuvertPdv([outletId]),
-);
-
 class HistoriqueDuJour extends ConsumerWidget {
   const HistoriqueDuJour({super.key, required this.outlet});
 
@@ -61,9 +54,6 @@ class HistoriqueDuJour extends ConsumerWidget {
     final ventes =
         ref.watch(_dernieresVentesProvider((outlet.id, jour))).value ??
         const <VentePdv>[];
-    final aveugle =
-        !acces.peut('cash.central') &&
-        (ref.watch(_tiroirOuvertProvider(outlet.id)).value ?? true);
     final c = tableau?.chiffres ?? const ChiffresPdv();
     final meilleures = tableau?.meilleuresVentes.take(3).toList() ?? const [];
 
@@ -107,10 +97,7 @@ class HistoriqueDuJour extends ConsumerWidget {
             children: [
               case_('${c.ventes}', 'vente${c.ventes > 1 ? 's' : ''}'),
               case_('${c.articles}', 'article${c.articles > 1 ? 's' : ''}'),
-              case_(
-                aveugle ? '—' : formatAmount(c.recette),
-                aveugle ? 'recette, à la fermeture' : 'recette',
-              ),
+              case_(formatAmount(c.recette), 'recette'),
               case_(formatAmount(c.aPayer), 'à payer (ardoises)'),
             ],
           ),

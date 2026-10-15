@@ -4,10 +4,8 @@
 /// montant, son moyen, ce qui a ete servi, et le ticket a refaire quand un
 /// client le redemande. Un jour a la fois, aujourd'hui par defaut.
 ///
-/// **Comptage a l'aveugle** (decision du 11 octobre) : chaque facture dit son
-/// montant -- l'agent l'a vu en encaissant --, mais le total du jour ne
-/// s'affiche pas tant qu'un tiroir de ces points de vente est ouvert : ce
-/// serait l'attendu, qu'il doit retrouver seul en comptant.
+/// Le total du jour s'affiche, tiroir ouvert ou non (decision du 15 octobre) :
+/// chaque facture disait deja son montant, cacher la somme ne protegeait rien.
 library;
 
 import 'dart:typed_data';
@@ -44,11 +42,6 @@ final _facturesProvider = StreamProvider.family<List<FacturePdv>, _Cle>(
         pointsDeVente: c.pointsDeVente.split(','),
         jour: c.jour,
       ),
-);
-
-final _tiroirOuvertProvider = StreamProvider.family<bool, String>(
-  (ref, ids) =>
-      ref.watch(databaseProvider).watchTiroirOuvertPdv(ids.split(',')),
 );
 
 class OutletInvoicesScreen extends ConsumerStatefulWidget {
@@ -111,7 +104,6 @@ class _OutletInvoicesScreenState extends ConsumerState<OutletInvoicesScreen> {
     final factures =
         ref.watch(_facturesProvider((pointsDeVente: cle, jour: _jour))).value ??
         const <FacturePdv>[];
-    final aveugle = ref.watch(_tiroirOuvertProvider(cle)).value ?? true;
     final recherche = Recherche(_cherche);
     final visibles = [
       for (final f in factures)
@@ -191,7 +183,7 @@ class _OutletInvoicesScreenState extends ConsumerState<OutletInvoicesScreen> {
                 ? 'Aucune vente payée ce jour-là.'
                 : '${factures.length} vente${factures.length > 1 ? 's' : ''}'
                       ' payée${factures.length > 1 ? 's' : ''}'
-                      '${aveugle ? '' : ' · ${formatAmount(total)}'}',
+                      ' · ${formatAmount(total)}',
             style: TextStyle(
               fontFamily: atriumFontFamily,
               fontSize: 15,
@@ -200,14 +192,6 @@ class _OutletInvoicesScreenState extends ConsumerState<OutletInvoicesScreen> {
               fontFeatures: tabularFigures,
             ),
           ),
-          if (aveugle && factures.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Le total s’affiche une fois la caisse fermée.',
-                style: TextStyle(fontSize: 13, color: p.textSecondary),
-              ),
-            ),
           const SizedBox(height: 12),
           for (final f in visibles) ...[
             _Facture(facture: f, plusieurs: points.length > 1),
