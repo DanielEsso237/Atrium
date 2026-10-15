@@ -40,6 +40,7 @@ import '../../core/ui/confirmation.dart';
 import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
 import '../hotel/logo_images.dart' show logoTicketProvider;
+import 'historique_du_jour.dart';
 
 /// Le point de vente choisi : par les onglets de l'ecran, ou depuis la
 /// liste deroulante de la barre laterale.
@@ -127,7 +128,11 @@ class OrdersScreen extends ConsumerWidget {
         final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
 
         return ModuleScaffold(
-          title: titre,
+          // Le point de vente ouvert, pas seulement le genre de l'onglet :
+          // « Point de vente : Bar » (demande du 15 octobre).
+          title: kind == OutletKind.SERVICE
+              ? 'Service : ${outlet.label}'
+              : 'Point de vente : ${outlet.label}',
           // La caisse s'ouvre sur ce point de vente : c'est lui qui versera
           // sa recette a la reception le soir.
           action: caisse ? CashButton(outletId: outlet.id) : null,
@@ -293,32 +298,54 @@ class _Onglet extends ConsumerWidget {
             ],
           ),
         ),
+        // Les tuiles, puis la journee du point de vente en dessous : un seul
+        // defilement (demande du 15 octobre).
         Expanded(
-          child: tuiles.isEmpty
-              ? EmptyState(
-                  icon: recherche.isEmpty
-                      ? PhosphorIconsLight.receipt
-                      : PhosphorIconsLight.magnifyingGlass,
-                  title: recherche.isEmpty
-                      ? 'Aucune ardoise'
-                      : 'Rien ne correspond',
-                  message: recherche.isEmpty
-                      ? 'Les ardoises de ${outlet.label} apparaissent ici.'
-                      : '« $recherche » ne correspond à aucune ardoise ni '
-                            'aucun séjour.',
-                )
-              : GridView.builder(
-                  padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 250,
-                    mainAxisExtent: 150,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
+          child: CustomScrollView(
+            slivers: [
+              if (tuiles.isEmpty)
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 240,
+                    child: EmptyState(
+                      icon: recherche.isEmpty
+                          ? PhosphorIconsLight.receipt
+                          : PhosphorIconsLight.magnifyingGlass,
+                      title: recherche.isEmpty
+                          ? 'Aucune ardoise'
+                          : 'Rien ne correspond',
+                      message: recherche.isEmpty
+                          ? 'Les ardoises de ${outlet.label} apparaissent ici.'
+                          : '« $recherche » ne correspond à aucune ardoise ni '
+                                'aucun séjour.',
+                    ),
                   ),
-                  itemCount: tuiles.length,
-                  itemBuilder: (_, i) =>
-                      FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(marge, 4, marge, 16),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 250,
+                          mainAxisExtent: 150,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                        ),
+                    delegate: SliverChildBuilderDelegate(
+                      (_, i) => FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
+                      childCount: tuiles.length,
+                    ),
+                  ),
                 ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(marge, 0, marge, 32),
+                sliver: SliverToBoxAdapter(
+                  child: HistoriqueDuJour(outlet: outlet),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

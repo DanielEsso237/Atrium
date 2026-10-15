@@ -92,11 +92,13 @@ void main() {
     await attendre(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Client divers n°1'), findsOneWidget);
-    expect(find.text('À payer'), findsOneWidget);
+    // La tuile, et la meme ardoise dans les dernieres ventes en dessous
+    // (15 octobre) : la tuile vient d'abord.
+    expect(find.text('Client divers n°1'), findsNWidgets(2));
+    expect(find.text('À payer'), findsNWidgets(2));
     expect(find.text('En cours, non payées'), findsOneWidget);
 
-    await tester.tap(find.text('Client divers n°1'));
+    await tester.tap(find.text('Client divers n°1').first);
     await attendre(tester);
 
     expect(tester.takeException(), isNull);
