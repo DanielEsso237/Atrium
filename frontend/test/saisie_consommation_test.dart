@@ -21,6 +21,8 @@ import 'package:atrium/features/orders/orders_screen.dart';
 import 'package:atrium/features/orders/tableau_carte.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,6 +40,18 @@ void main() {
   late AtriumDatabase db;
   late UserRow agent;
 
+  // La vraie police : celle des tests, plus large, couperait des libelles
+  // qui tiennent sur la tablette.
+  setUpAll(() async {
+    final roboto = FontLoader('Roboto');
+    for (final graisse in [400, 500, 600, 700, 800]) {
+      roboto.addFont(
+        rootBundle.load('assets/fonts/roboto/Roboto-$graisse.ttf'),
+      );
+    }
+    await roboto.load();
+  });
+
   setUp(() async {
     db = AtriumDatabase.memory();
     await seedDemoData(db);
@@ -52,16 +66,25 @@ void main() {
         .into(db.menuCategories)
         .insert(
           MenuCategoriesCompanion.insert(
-            id: categorie, createdAt: now, updatedAt: now, hotelId: _hotel,
-            label: 'Bières', outletId: Value(bar.id),
+            id: categorie,
+            createdAt: now,
+            updatedAt: now,
+            hotelId: _hotel,
+            label: 'Bières',
+            outletId: Value(bar.id),
           ),
         );
     await db
         .into(db.menuItems)
         .insert(
           MenuItemsCompanion.insert(
-            id: newId(), createdAt: now, updatedAt: now, hotelId: _hotel,
-            code: 'MUTZIG', label: 'Mutzig', menuCategoryId: categorie,
+            id: newId(),
+            createdAt: now,
+            updatedAt: now,
+            hotelId: _hotel,
+            code: 'MUTZIG',
+            label: 'Mutzig',
+            menuCategoryId: categorie,
             price: const Value(1000),
           ),
         );
@@ -70,8 +93,9 @@ void main() {
 
   tearDown(() => db.close().timeout(const Duration(seconds: 5)));
 
-  testWidgets('la fenetre d un client loge s affiche, avec son historique',
-      (tester) async {
+  testWidgets('la fenetre d un client loge s affiche, avec son historique', (
+    tester,
+  ) async {
     // Un client en chambre 101, avec son ardoise ouverte.
     await tester.runAsync(() async {
       final client = await GuestRepository(
@@ -99,7 +123,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final acces = (await tester.runAsync(() => accessProfileFor(db, agent.id)))!;
+    final acces = (await tester.runAsync(
+      () => accessProfileFor(db, agent.id),
+    ))!;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -146,7 +172,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final acces = (await tester.runAsync(() => accessProfileFor(db, agent.id)))!;
+    final acces = (await tester.runAsync(
+      () => accessProfileFor(db, agent.id),
+    ))!;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -176,6 +204,15 @@ void main() {
     // Une ardoise ouverte (il paie a la fin), ou payer tout de suite.
     expect(find.text('Ouvrir une ardoise'), findsOneWidget);
     expect(find.text('Payer maintenant'), findsOneWidget);
+    // Tablette couchee (16 octobre) : la liste des produits garde le nom et
+    // le stock sur 460 px, la commande prend le reste.
+    expect(tester.getSize(find.byType(TableauCarte)).width, 460);
+    expect(tester.getTopLeft(find.byType(TableauCarte)).dx, greaterThan(800));
+    // Les boutons, plus etroits, ne coupent pas leur libelle.
+    for (final libelle in ['Ouvrir une ardoise', 'Payer maintenant']) {
+      final texte = tester.renderObject<RenderParagraph>(find.text(libelle));
+      expect(texte.didExceedMaxLines, isFalse, reason: libelle);
+    }
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());

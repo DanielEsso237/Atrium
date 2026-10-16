@@ -5,6 +5,8 @@
 /// comptoir retrouve ses reperes, et une retouche de l'une vaut pour l'autre.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../tokens.dart';
@@ -416,12 +418,16 @@ class FicheCarte extends StatelessWidget {
 /// liste des produits sur toute la hauteur, avec en bas le total et les
 /// boutons de validation, qui ne bougent pas. Sinon, la fiche seule, en
 /// colonne.
+///
+/// [largeurCarte] fixe la largeur de la liste des produits : la fiche prend
+/// alors le reste. Sans elle, la fiche garde 460 px.
 Widget miseEnPageFiche({
   required bool plein,
   required Widget entete,
   required Widget contenu,
   required Widget? carte,
   Widget? barre,
+  double? largeurCarte,
 }) {
   if (!plein) {
     return Column(
@@ -464,6 +470,11 @@ Widget miseEnPageFiche({
           ],
         );
       }
+      if (largeurCarte != null) {
+        // La fiche garde au moins ses 460 px.
+        final droite = math.min(largeurCarte, zone.maxWidth - 461);
+        return _deuxColonnes(entete, contenu, carte, barre, droite: droite);
+      }
       return _deuxColonnes(entete, contenu, carte, barre);
     },
   );
@@ -474,29 +485,33 @@ Widget _deuxColonnes(
   Widget entete,
   Widget contenu,
   Widget carte,
-  Widget? barre,
-) {
+  Widget? barre, {
+  double? droite,
+}) {
+  final fiche = Column(
+    children: [
+      entete,
+      Expanded(child: contenu),
+    ],
+  );
+  final produits = Column(
+    children: [
+      Expanded(child: carte),
+      ?barre,
+    ],
+  );
   return Row(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      SizedBox(
-        width: 460,
-        child: Column(
-          children: [
-            entete,
-            Expanded(child: contenu),
-          ],
-        ),
-      ),
+      if (droite == null)
+        SizedBox(width: 460, child: fiche)
+      else
+        Expanded(child: fiche),
       VerticalDivider(width: 1, color: AtriumDashColors.cardBorder),
-      Expanded(
-        child: Column(
-          children: [
-            Expanded(child: carte),
-            ?barre,
-          ],
-        ),
-      ),
+      if (droite == null)
+        Expanded(child: produits)
+      else
+        SizedBox(width: droite, child: produits),
     ],
   );
 }
