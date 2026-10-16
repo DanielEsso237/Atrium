@@ -26,6 +26,7 @@ import '../administration/deposit_section.dart' show formatRate;
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
 import '../guests/id_photos.dart';
+import 'etape_formulaire.dart';
 import 'deposit_dialog.dart';
 import '../../core/ui/confirmation.dart';
 
@@ -179,8 +180,8 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     // Les numeros suivent les etapes affichees : la piece et la chambre
     // n'apparaissent qu'une fois le client, puis la categorie, choisis.
     var numero = 0;
-    final etapes = <_Etape>[
-      _Etape(
+    final etapes = <EtapeFormulaire>[
+      EtapeFormulaire(
         numero: ++numero,
         titre: 'Le client',
         fait: _guestId != null,
@@ -194,7 +195,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
       // reste meme si la reservation n'est pas enregistree, et l'arrivee la
       // retrouve.
       if (_guestId != null)
-        _Etape(
+        EtapeFormulaire(
           numero: ++numero,
           titre: 'La pièce d’identité',
           facultatif: true,
@@ -228,7 +229,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
             ],
           ),
         ),
-      _Etape(
+      EtapeFormulaire(
         numero: ++numero,
         titre: 'Le séjour',
         fait: _nights > 0,
@@ -273,7 +274,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
           ],
         ),
       ),
-      _Etape(
+      EtapeFormulaire(
         numero: ++numero,
         titre: 'La catégorie',
         fait: _roomType != null,
@@ -299,7 +300,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
         ),
       ),
       if (_roomType != null && _dates != null)
-        _Etape(
+        EtapeFormulaire(
           numero: ++numero,
           titre: 'La chambre',
           facultatif: true,
@@ -311,7 +312,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
             onSelect: (id) => setState(() => _roomId = id),
           ),
         ),
-      _Etape(
+      EtapeFormulaire(
         numero: ++numero,
         titre: 'Tarif et notes',
         fait: _rate > 0,
@@ -421,90 +422,6 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Une etape du formulaire : son numero dans une pastille, qui se coche une
-/// fois l'etape remplie. On voit d'un coup d'oeil ce qui manque.
-class _Etape extends StatelessWidget {
-  const _Etape({
-    required this.numero,
-    required this.titre,
-    required this.fait,
-    required this.child,
-    this.facultatif = false,
-  });
-
-  final int numero;
-  final String titre;
-  final bool fait;
-  final bool facultatif;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 420));
-    return Bezel(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
-                duration: duree,
-                curve: atriumSpring,
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: fait ? p.accent : p.surfaceMuted,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: AnimatedSwitcher(
-                  duration: duree,
-                  child: fait
-                      ? Icon(
-                          PhosphorIconsFill.check,
-                          key: const ValueKey('ok'),
-                          size: 17,
-                          color: p.onAccent,
-                        )
-                      : Text(
-                          '$numero',
-                          key: const ValueKey('n'),
-                          style: TextStyle(
-                            fontFamily: atriumFontFamily,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: p.textSecondary,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                titre,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                  color: p.text,
-                ),
-              ),
-              if (facultatif) ...[
-                const SizedBox(width: 10),
-                const Tag('Facultatif'),
-              ],
-            ],
-          ),
-          const SizedBox(height: 18),
-          child,
-        ],
       ),
     );
   }
