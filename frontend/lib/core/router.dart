@@ -15,6 +15,7 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
+import '../features/finances/finances_screen.dart';
 import '../features/expenses/expenses_screen.dart';
 import '../features/guests/guest_detail_screen.dart';
 import '../features/guests/guests_screen.dart';
@@ -75,6 +76,9 @@ const _permissionParZone = <String, String>{
   // Les deux tuiles de l'entretien : chacune ne s'affiche qu'a qui lit son
   // metier, l'ecran s'ouvre a qui lit l'un des deux.
   '/entretien': 'housekeeping.read|maintenance.read',
+  // Les tuiles des finances (16 octobre) : chacune ne s'affiche qu'a qui
+  // ouvre son ecran ; la page s'ouvre a qui en ouvre un.
+  '/finances': 'folio.read|accounting.read|cash.session',
   '/commandes': 'order.read',
   '/stocks': 'stock.read',
   // Compter ou reequilibrer : l'un des deux ouvre l'ecran (15 octobre).
@@ -235,6 +239,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/entretien',
             builder: (_, _) => const EntretienScreen(),
           ),
+          GoRoute(path: '/finances', builder: (_, _) => const FinancesScreen()),
           GoRoute(
             path: '/mouvements',
             builder: (_, _) => const MouvementsScreen(),

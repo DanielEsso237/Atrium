@@ -60,7 +60,9 @@ extension on Groupe {
     // « Services » est desormais l'onglet des prestations (spa, piscine,
     // salles) : le groupe qui le contient prend un autre nom.
     Groupe.services => 'Exploitation',
-    Groupe.finances => 'Finances',
+    // Une seule entree, « Finances », qui range tout le reste : un titre
+    // la repeterait.
+    Groupe.finances => null,
     Groupe.reglages => null,
   };
 }
@@ -346,6 +348,18 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/stocks',
   ),
+  // L'argent sous un meme toit (16 octobre), comme Mouvements et
+  // Entretien : un clic ouvre ses tuiles, la fleche deplie ses ecrans.
+  // Sans chiffre en bout de ligne : le comptoir l'ouvre aussi, et n'a pas a
+  // lire la recette de l'hotel. Caisse du jour garde la sienne.
+  const Destination(
+    'Finances',
+    PhosphorIconsLight.bank,
+    PhosphorIconsLight.bank,
+    '/finances',
+    'folio.read|accounting.read|cash.session',
+    Groupe.finances,
+  ),
   const Destination(
     'Factures',
     PhosphorIconsLight.receipt,
@@ -353,6 +367,7 @@ final destinations = <Destination>[
     '/factures',
     'folio.read',
     Groupe.finances,
+    parent: '/finances',
   ),
   Destination(
     'Caisse du jour',
@@ -361,6 +376,7 @@ final destinations = <Destination>[
     '/caisse',
     'folio.read',
     Groupe.finances,
+    parent: '/finances',
     indicateur: (r) => montantCompact(r.caDuJour),
   ),
   // L'onglet Caisse des points de vente : leurs tiroirs et leurs
@@ -373,6 +389,7 @@ final destinations = <Destination>[
     'cash.session',
     Groupe.finances,
     sauf: 'folio.read',
+    parent: '/finances',
   ),
   // Les ventes payees du comptoir et leurs tickets (ticket D2). Masquee a
   // qui lit deja toutes les factures de l'hotel.
@@ -384,9 +401,9 @@ final destinations = <Destination>[
     'order.read',
     Groupe.finances,
     sauf: 'folio.read',
+    parent: '/finances',
   ),
-  // Les marges des points de vente et la valeur du stock (ticket D8). La
-  // fleche deplie les depenses et les rapports (16 octobre).
+  // Les marges des points de vente et la valeur du stock (ticket D8).
   const Destination(
     'Comptabilité',
     PhosphorIconsLight.coins,
@@ -394,6 +411,7 @@ final destinations = <Destination>[
     '/comptabilite',
     'accounting.read',
     Groupe.finances,
+    parent: '/finances',
   ),
   // Ce que l'hotel paie hors stock : le benefice des rapports en depend.
   const Destination(
@@ -403,7 +421,7 @@ final destinations = <Destination>[
     '/depenses',
     'accounting.read',
     Groupe.finances,
-    parent: '/comptabilite',
+    parent: '/finances',
   ),
   // Une periode, des filtres, et de quoi la remettre au comptable.
   const Destination(
@@ -413,7 +431,7 @@ final destinations = <Destination>[
     '/rapports',
     'folio.read',
     Groupe.finances,
-    parent: '/comptabilite',
+    parent: '/finances',
   ),
   // La liste du personnel et ce que chacun genere (15 octobre).
   const Destination(
@@ -437,10 +455,10 @@ final destinations = <Destination>[
 
 /// Les routes des tableaux de bord qui rangent des sous-entrees. Un metier a
 /// ecran unique n'y passe pas.
-const _parents = {'/mouvements', '/entretien'};
+const _parents = {'/mouvements', '/entretien', '/finances'};
 
 /// Les parents dont l'ecran est un tableau de bord : le menu du rail l'appelle
-/// ainsi. Stocks et Comptabilite gardent leur nom.
+/// ainsi. Stocks garde son nom.
 const _tableauxDeBord = {..._parents, '/ventes'};
 
 /// Les entrees permises a cet agent, dans l'ordre du menu.

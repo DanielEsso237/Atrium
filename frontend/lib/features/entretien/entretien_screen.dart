@@ -12,10 +12,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/business_day.dart';
-import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import '../../core/widgets/tuile_metier.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/mouvements_queries.dart';
 import '../auth/session.dart';
@@ -36,7 +36,7 @@ class EntretienScreen extends ConsumerWidget {
 
     List<Widget> tuilesPour({required bool etiree}) => <Widget>[
       if (acces.peut('housekeeping.read'))
-        _TuileMetier(
+        TuileMetier(
           titre: 'Ménage',
           icone: PhosphorIconsLight.broom,
           phrase: r == null
@@ -61,14 +61,18 @@ class EntretienScreen extends ConsumerWidget {
               '${r?.tachesFaites ?? 0} / ${r?.taches ?? 0}',
               false,
             ),
-            ('Non assignées', '${r?.nonAssignees ?? 0}', (r?.nonAssignees ?? 0) > 0),
+            (
+              'Non assignées',
+              '${r?.nonAssignees ?? 0}',
+              (r?.nonAssignees ?? 0) > 0,
+            ),
           ],
           bouton: 'Ouvrir le ménage',
           onOuvrir: () => context.go('/menage'),
           etiree: etiree,
         ),
       if (acces.peut('maintenance.read'))
-        _TuileMetier(
+        TuileMetier(
           titre: 'Maintenance',
           icone: PhosphorIconsLight.wrench,
           phrase: r == null
@@ -91,7 +95,11 @@ class EntretienScreen extends ConsumerWidget {
             ('Ouverts', '${r?.ticketsOuverts ?? 0}', false),
             ('Urgents', '${r?.urgents ?? 0}', (r?.urgents ?? 0) > 0),
             ('En intervention', '${r?.enIntervention ?? 0}', false),
-            ('Hors service', '${r?.horsService ?? 0}', (r?.horsService ?? 0) > 0),
+            (
+              'Hors service',
+              '${r?.horsService ?? 0}',
+              (r?.horsService ?? 0) > 0,
+            ),
             ('Résolus sur 7 jours', '${r?.resolus7Jours ?? 0}', false),
           ],
           bouton: 'Ouvrir la maintenance',
@@ -130,159 +138,6 @@ class EntretienScreen extends ConsumerWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// La tuile d'un metier : une phrase qui dit l'essentiel, une jauge, les
-/// chiffres, et le bouton qui ouvre l'ecran.
-class _TuileMetier extends StatelessWidget {
-  const _TuileMetier({
-    required this.titre,
-    required this.icone,
-    required this.phrase,
-    required this.chiffres,
-    required this.bouton,
-    required this.onOuvrir,
-    this.alerte = false,
-    this.progression,
-    this.legende,
-    this.etiree = false,
-  });
-
-  /// Posee dans une rangee de hauteur fixe (cote a cote).
-  final bool etiree;
-
-  final String titre;
-  final IconData icone;
-  final String phrase;
-  final bool alerte;
-
-  /// Entre 0 et 1 ; `null` : pas de jauge.
-  final double? progression;
-  final String? legende;
-
-  /// Libelle, valeur, a surveiller.
-  final List<(String, String, bool)> chiffres;
-  final String bouton;
-  final VoidCallback onOuvrir;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    return Bezel(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: p.accentTint,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: p.accentSoft),
-                ),
-                child: Icon(icone, size: 24, color: p.accent),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(titre, style: atriumDisplay(26, color: p.text)),
-                    Text(
-                      phrase,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: alerte ? p.error : p.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (progression != null) ...[
-            const SizedBox(height: 18),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progression!.clamp(0, 1),
-                minHeight: 10,
-                backgroundColor: p.surfaceMuted,
-                color: p.success,
-              ),
-            ),
-            if (legende != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                legende!,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: p.textSecondary,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-            ],
-          ],
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final (libelle, valeur, aSurveiller) in chiffres)
-                Container(
-                  constraints: const BoxConstraints(minWidth: 118),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: aSurveiller
-                        ? p.error.withValues(alpha: 0.08)
-                        : p.surfaceMuted,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        valeur,
-                        style: atriumDisplay(
-                          22,
-                          color: aSurveiller ? p.error : p.text,
-                        ).copyWith(fontFeatures: tabularFigures),
-                      ),
-                      Text(
-                        libelle,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: p.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          // Cote a cote, les deux boutons s'alignent en bas ; empilees, la
-          // tuile n'a pas de hauteur imposee et le bouton suit les chiffres.
-          if (etiree) const Spacer(),
-          const SizedBox(height: 20),
-          PillButton(
-            label: bouton,
-            icon: PhosphorIconsLight.arrowRight,
-            tone: PillTone.accent,
-            expand: true,
-            onPressed: onOuvrir,
-          ),
-        ],
       ),
     );
   }

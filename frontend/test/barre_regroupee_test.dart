@@ -1,6 +1,6 @@
 /// La barre laterale regroupee (16 octobre), sur le modele de Mouvements et
 /// d'Entretien : Ventes range les points de vente et les services, Stocks
-/// l'inventaire, Comptabilité les dépenses et les rapports. Un clic ouvre
+/// l'inventaire, Finances la caisse, les factures et les comptes. Un clic ouvre
 /// l'entree, la fleche deplie ce qu'elle range.
 library;
 
@@ -68,28 +68,41 @@ void main() {
     expect(parLibelle['Services']?.parent, '/ventes');
     expect(parLibelle['Stocks']?.parent, isNull);
     expect(parLibelle['Inventaire']?.parent, '/stocks');
-    expect(parLibelle['Comptabilité']?.parent, isNull);
-    expect(parLibelle['Dépenses']?.parent, '/comptabilite');
-    expect(parLibelle['Rapports']?.parent, '/comptabilite');
+    expect(parLibelle['Finances']?.parent, isNull);
+    for (final vue in [
+      'Caisse du jour',
+      'Factures',
+      'Dépenses',
+      'Comptabilité',
+      'Rapports',
+    ]) {
+      expect(parLibelle[vue]?.parent, '/finances', reason: vue);
+    }
     // Ce qui ne se regroupe pas reste au premier niveau.
-    expect(parLibelle['Factures']?.parent, isNull);
-    expect(parLibelle['Caisse du jour']?.parent, isNull);
+    expect(parLibelle['Chambres']?.parent, isNull);
 
     // Chaque parent precede ce qu'il range.
     final routes = tout.map((d) => d.route).toList();
     expect(routes.indexOf('/ventes'), lessThan(routes.indexOf('/commandes')));
     expect(routes.indexOf('/stocks'), lessThan(routes.indexOf('/inventaire')));
-    expect(
-      routes.indexOf('/comptabilite'),
-      lessThan(routes.indexOf('/depenses')),
-    );
+    expect(routes.indexOf('/finances'), lessThan(routes.indexOf('/caisse')));
   });
 
   test('sans le parent, la sous-entree remonte au premier niveau', () {
-    // La reception lit les rapports, pas la comptabilite.
-    final reception = _pour({'folio.read'});
-    expect(reception.map((d) => d.label), isNot(contains('Comptabilité')));
-    expect(reception.firstWhere((d) => d.label == 'Rapports').parent, isNull);
+    // Un comptoir qui sert sans tenir de caisse : ses factures, sans les
+    // finances de l'hotel.
+    final serveur = _pour({'order.read'});
+    expect(serveur.map((d) => d.label), isNot(contains('Finances')));
+    expect(serveur.firstWhere((d) => d.label == 'Factures').parent, isNull);
+
+    // Le comptoir qui tient sa caisse : Finances range sa caisse et ses
+    // factures, sans la caisse de l'hotel.
+    final caissier = _pour({'order.read', 'cash.session'});
+    final vues = [
+      for (final d in caissier)
+        if (d.parent == '/finances') d.label,
+    ];
+    expect(vues, ['Ma caisse', 'Factures']);
 
     // Qui compte un magasin sans lire le stock garde son inventaire.
     final compteur = _pour({'stock.inventory'});
@@ -136,6 +149,9 @@ void main() {
                 '/services',
                 '/stocks',
                 '/inventaire',
+                '/finances',
+                '/caisse',
+                '/factures',
                 '/comptabilite',
                 '/depenses',
                 '/rapports',
@@ -213,7 +229,7 @@ void main() {
 
       // Les fleches deplient Stocks et Comptabilité sans changer de page.
       // La barre defile : chaque fleche est amenee a l'ecran avant le geste.
-      for (final fleche in ['Déplier stocks', 'Déplier comptabilité']) {
+      for (final fleche in ['Déplier stocks', 'Déplier finances']) {
         await tester.ensureVisible(find.byTooltip(fleche));
         await attendre();
         await tester.tap(find.byTooltip(fleche));
