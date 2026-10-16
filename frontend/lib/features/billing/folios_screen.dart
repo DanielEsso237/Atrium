@@ -20,6 +20,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/folio_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../annulations/accord_responsable.dart';
 import '../auth/session.dart';
 import 'add_charge_dialog.dart';
 import 'cash_dialog.dart';
@@ -146,12 +147,16 @@ class FoliosScreen extends ConsumerWidget {
               FilterOption(
                 _Filtre.ouvertes,
                 'Ouvertes',
-                count: trouvees.where((f) => _garde(_Filtre.ouvertes, f)).length,
+                count: trouvees
+                    .where((f) => _garde(_Filtre.ouvertes, f))
+                    .length,
               ),
               FilterOption(
                 _Filtre.aEncaisser,
                 'À encaisser',
-                count: trouvees.where((f) => _garde(_Filtre.aEncaisser, f)).length,
+                count: trouvees
+                    .where((f) => _garde(_Filtre.aEncaisser, f))
+                    .length,
                 color: AtriumColors.error,
               ),
               FilterOption(
@@ -706,11 +711,12 @@ class _FolioDetail extends ConsumerWidget {
                             : Column(
                                 children: [
                                   for (final pay in lignes)
-                                    _Line(
-                                      label: paymentMethodLabel(pay.method),
-                                      detail: pay.reference ?? '',
-                                      amount: pay.amount,
-                                      paiement: true,
+                                    _LignePaiement(
+                                      paiement: pay,
+                                      annule: lignes.any(
+                                        (r) => r.reversesPaymentId == pay.id,
+                                      ),
+                                      quoi: current.guestName,
                                     ),
                                 ],
                               ),
@@ -922,6 +928,63 @@ class _Actions extends ConsumerWidget {
       if (!context.mounted) return;
       montrerRefus(context, e.message);
     }
+  }
+}
+
+/// Un encaissement de l'ardoise. Le remboursement qui en annule un autre
+/// s'affiche en negatif ; l'encaissement annule le dit, et ne propose plus
+/// rien.
+class _LignePaiement extends ConsumerWidget {
+  const _LignePaiement({
+    required this.paiement,
+    required this.annule,
+    required this.quoi,
+  });
+
+  final PaymentRow paiement;
+  final bool annule;
+  final String quoi;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pay = paiement;
+    final peutAnnuler =
+        !pay.isRefund &&
+        !annule &&
+        ref.watch(sessionProvider).acces.peut('cash.session');
+    final detail = [
+      if (pay.isRefund) 'remboursement',
+      if (annule) 'annulé',
+      if (pay.reference != null && pay.reference!.isNotEmpty) pay.reference!,
+    ].join(' · ');
+    return Row(
+      children: [
+        Expanded(
+          child: _Line(
+            label: paymentMethodLabel(pay.method),
+            detail: detail,
+            amount: pay.isRefund ? -pay.amount : pay.amount,
+            paiement: !pay.isRefund,
+          ),
+        ),
+        if (peutAnnuler)
+          IconButton(
+            tooltip: "Annuler l'encaissement",
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(
+              PhosphorIconsLight.arrowCounterClockwise,
+              size: 18,
+            ),
+            onPressed: () => annulerEncaissement(
+              context,
+              ref,
+              paymentId: pay.id,
+              amount: pay.amount,
+              quoi: quoi,
+            ),
+          ),
+      ],
+    );
   }
 }
 

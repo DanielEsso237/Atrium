@@ -28,6 +28,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/cash_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../annulations/accord_responsable.dart';
 import '../auth/session.dart';
 import 'cash_dialog.dart';
 import 'charge_labels.dart';
@@ -708,9 +709,14 @@ class _EncaissementsState extends State<_Encaissements> {
                 onChanged: (m) => setState(() => _moyen = m),
                 options: [
                   FilterOption(null, 'Tous', count: trouves.length),
-                  for (final e in moyens.entries.toList()
-                    ..sort((a, b) => b.value.compareTo(a.value)))
-                    FilterOption(e.key, paymentMethodLabel(e.key), count: e.value),
+                  for (final e
+                      in moyens.entries.toList()
+                        ..sort((a, b) => b.value.compareTo(a.value)))
+                    FilterOption(
+                      e.key,
+                      paymentMethodLabel(e.key),
+                      count: e.value,
+                    ),
                 ],
               ),
             ],
@@ -747,15 +753,19 @@ class _EncaissementsState extends State<_Encaissements> {
   }
 }
 
-class _LigneEncaissement extends StatelessWidget {
+class _LigneEncaissement extends ConsumerWidget {
   const _LigneEncaissement({required this.paiement});
 
   final DayPayment paiement;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final x = paiement;
+    // Le geste est celui d'un encaissement : il faut pouvoir tenir une
+    // caisse. Le code du responsable est demande dans tous les cas.
+    final peutAnnuler =
+        x.annulable && ref.watch(sessionProvider).acces.peut('cash.session');
     final qui = [
       x.guestName ?? 'Client de passage',
       if (x.roomNumber != null) 'chambre ${x.roomNumber}',
@@ -764,6 +774,7 @@ class _LigneEncaissement extends StatelessWidget {
       paymentMethodLabel(x.method),
       if (x.agentName != null) 'par ${x.agentName}',
       if (x.reference != null && x.reference!.isNotEmpty) x.reference!,
+      if (x.annule) 'annulé',
     ].join(', ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -809,6 +820,22 @@ class _LigneEncaissement extends StatelessWidget {
             '${x.amount < 0 ? '' : '+'}${formatAmount(x.amount)}',
             style: _st(15, FontWeight.w700, x.amount < 0 ? p.error : p.success),
           ),
+          if (peutAnnuler)
+            IconButton(
+              tooltip: "Annuler l'encaissement",
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                PhosphorIconsLight.arrowCounterClockwise,
+                size: 18,
+              ),
+              onPressed: () => annulerEncaissement(
+                context,
+                ref,
+                paymentId: x.id,
+                amount: x.amount,
+                quoi: qui,
+              ),
+            ),
         ],
       ),
     );

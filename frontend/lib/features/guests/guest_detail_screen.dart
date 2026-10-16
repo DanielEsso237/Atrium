@@ -16,15 +16,29 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/local/database.dart';
+import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
+import '../../data/local/queries/mouvements_queries.dart';
 import '../../data/repositories/guest_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../auth/session.dart';
+import '../mouvements/annuler_mouvement.dart';
+import '../mouvements/mouvements_widgets.dart';
 import 'guests_screen.dart';
 import 'id_photos.dart';
 
 final _ficheProvider = StreamProvider.autoDispose.family<GuestRow?, String>(
   (ref, id) => ref.watch(guestRepositoryProvider).watchGuest(id),
 );
+
+/// Ce que le client a vecu a l'hotel et qui peut encore se defaire.
+final _annulablesProvider = StreamProvider.autoDispose
+    .family<List<Mouvement>, String>(
+      (ref, id) => ref
+          .watch(databaseProvider)
+          .watchMouvements(guestId: id)
+          .map((ms) => ms.where((m) => m.annulable).toList()),
+    );
 
 final _sejoursProvider = StreamProvider.autoDispose
     .family<List<GuestStay>, String>(
@@ -224,7 +238,13 @@ class _Contenu extends StatelessWidget {
                 const SizedBox(height: 20),
                 _Suivi(guest: guest),
               ];
-              final sejours = _Sejours(guestId: guest.id);
+              final sejours = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Sejours(guestId: guest.id),
+                  _Annulations(guestId: guest.id),
+                ],
+              );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -347,7 +367,11 @@ class _Bandeau extends StatelessWidget {
     final chiffres = [
       ('${stats.stays}', stats.stays > 1 ? 'Séjours' : 'Séjour', false),
       ('${stats.nights}', stats.nights > 1 ? 'Nuits' : 'Nuit', false),
-      (dernier == null ? 'Jamais' : dateCourte(dernier), 'Dernier passage', false),
+      (
+        dernier == null ? 'Jamais' : dateCourte(dernier),
+        'Dernier passage',
+        false,
+      ),
       (
         stats.openBalance > 0 ? formatAmount(stats.openBalance) : 'Rien',
         'Reste dû',
@@ -765,8 +789,7 @@ class _Suivi extends StatelessWidget {
                       'cette tablette'
                 : 'Fiche enregistrée sur le serveur',
           ),
-          if (notes.isNotEmpty)
-            _Info(PhosphorIconsLight.info, 'Notes', notes),
+          if (notes.isNotEmpty) _Info(PhosphorIconsLight.info, 'Notes', notes),
         ],
       ),
     );
@@ -794,6 +817,42 @@ String _periode(GuestStay s) {
   return a.year == d.year
       ? 'Du ${formatDayMonth(a)} au ${dateCourte(d)}'
       : 'Du ${dateCourte(a)} au ${dateCourte(d)}';
+}
+
+/// Revenir en arriere pour ce client : arrivee, depart ou encaissement
+/// saisis par erreur, chacun sur le code d'un responsable (16 octobre).
+/// Le panneau disparait quand il n'y a rien a defaire, ou que l'agent n'a
+/// le droit de rien defaire.
+class _Annulations extends ConsumerWidget {
+  const _Annulations({required this.guestId});
+
+  final String guestId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final acces = ref.watch(sessionProvider).acces;
+    final liste = (ref.watch(_annulablesProvider(guestId)).value ?? const [])
+        .where((m) => peutProposerAnnulation(acces, m))
+        .toList();
+    if (liste.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: _Panneau(
+        titre: 'Revenir en arrière',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final m in liste)
+              LigneMouvement(
+                mouvement: m,
+                avecDate: true,
+                onAnnuler: () => annulerMouvement(context, ref, m),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Sejours extends ConsumerWidget {

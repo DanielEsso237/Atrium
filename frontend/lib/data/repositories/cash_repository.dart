@@ -190,6 +190,8 @@ class DayPayment {
     required this.folioNumber,
     required this.agentName,
     required this.reference,
+    this.annulable = false,
+    this.annule = false,
   });
 
   final String id;
@@ -203,6 +205,13 @@ class DayPayment {
   final String? folioNumber;
   final String? agentName;
   final String? reference;
+
+  /// Un encaissement d'ardoise, pas encore annule : il peut l'etre, sur le
+  /// code d'un responsable. Ni un remboursement ni des arrhes.
+  final bool annulable;
+
+  /// Un remboursement l'a deja annule.
+  final bool annule;
 }
 
 /// Une caisse, ouverte ou fermee, pour l'historique.
@@ -393,7 +402,10 @@ class CashRepository with OutboxWriter {
         .customSelect(
           '''
           SELECT p.id, p.amount, p.is_refund, p.method, p.received_at,
-                 p.reference,
+                 p.reference, p.folio_id,
+                 EXISTS (SELECT 1 FROM payments r
+                          WHERE r.reverses_payment_id = p.id
+                            AND r.deleted_at IS NULL) AS annule,
                  f.number AS folio_number,
                  g.first_name, g.last_name,
                  ch.number AS room_number,
@@ -442,6 +454,11 @@ class CashRepository with OutboxWriter {
                   r.readNullable<String>('agent_first'),
                   r.readNullable<String>('agent_last'),
                 ),
+                annule: r.read<bool>('annule'),
+                annulable:
+                    !r.read<bool>('is_refund') &&
+                    r.readNullable<String>('folio_id') != null &&
+                    !r.read<bool>('annule'),
               ),
           ],
         );
@@ -760,7 +777,8 @@ class CashRepository with OutboxWriter {
             if (!duSoir) continue;
 
             final point = r.read<String>('outlet_id');
-            final libelle = r.readNullable<String>('outlet_label') ?? 'Point de vente';
+            final libelle =
+                r.readNullable<String>('outlet_label') ?? 'Point de vente';
             libelles[point] = libelle;
             parPoint
                 .putIfAbsent(point, () => [])
@@ -869,7 +887,10 @@ class CashRepository with OutboxWriter {
       )..where((c) => c.id.equals(localId))).getSingleOrNull();
       if (locale == null) return;
 
-      final vars = [Variable.withString(serverId), Variable.withString(localId)];
+      final vars = [
+        Variable.withString(serverId),
+        Variable.withString(localId),
+      ];
       // Une fermeture qui attend encore : la version locale reste en attente,
       // pour que la descente ne la rouvre pas avant qu'elle soit remontee.
       final suite = await db
@@ -882,7 +903,9 @@ class CashRepository with OutboxWriter {
             variables: [Variable.withString(localId)],
           )
           .getSingle();
-      await (db.delete(db.cashSessions)..where((c) => c.id.equals(localId))).go();
+      await (db.delete(
+        db.cashSessions,
+      )..where((c) => c.id.equals(localId))).go();
       await db
           .into(db.cashSessions)
           .insertOnConflictUpdate(

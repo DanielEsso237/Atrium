@@ -5,6 +5,7 @@
 /// chronologie, la liste des clients deja venus et son parcours.
 library;
 
+import 'package:atrium/core/business_day.dart';
 import 'package:atrium/core/theme.dart';
 import 'package:atrium/core/tokens.dart';
 import 'package:atrium/data/local/database.dart';
@@ -103,6 +104,33 @@ void main() {
     expect(parcours.single.lignes, hasLength(2));
     expect(parcours.single.paiements.single.montant, 20000);
     expect(parcours.single.solde, 30000);
+  });
+
+  test('les mouvements d un client et l encaissement annule', () async {
+    final siens = await db.watchMouvements(guestId: clientId).first;
+    expect(siens, isNotEmpty);
+    expect(siens.every((m) => m.guestId == clientId), isTrue);
+    expect(await db.watchMouvements(guestId: 'personne').first, isEmpty);
+
+    final caisse = CashRepository(db);
+    final jour = businessDateNow();
+    final avant = (await caisse.watchDayPayments(jour).first).single;
+    expect(avant.annulable, isTrue);
+    expect(avant.annule, isFalse);
+
+    await FolioRepository(db).annulerEncaissement(
+      paymentId: avant.id,
+      approuvePar: utilisateurDemo,
+      motif: 'Erreur de saisie',
+      by: utilisateurDemo,
+    );
+    final apres = await caisse.watchDayPayments(jour).first;
+    final origine = apres.firstWhere((x) => x.id == avant.id);
+    expect(origine.annule, isTrue);
+    expect(origine.annulable, isFalse);
+    final rendu = apres.firstWhere((x) => x.id != avant.id);
+    expect(rendu.amount, -20000);
+    expect(rendu.annulable, isFalse);
   });
 
   for (final largeur in [1280.0, 400.0]) {

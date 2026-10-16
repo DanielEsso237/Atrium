@@ -206,7 +206,11 @@ String? _nom(String? prenom, String? nom) {
 extension MouvementsQueries on AtriumDatabase {
   /// La chronologie, la plus recente d'abord, a partir de [depuis] (un
   /// instant UTC) ; tout l'historique si `null`.
-  Stream<List<Mouvement>> watchMouvements({DateTime? depuis, int limite = 400}) {
+  Stream<List<Mouvement>> watchMouvements({
+    DateTime? depuis,
+    int limite = 400,
+    String? guestId,
+  }) {
     final borne = (depuis ?? DateTime.utc(2000)).toUtc().toIso8601String();
     return customSelect(
       '''
@@ -303,10 +307,15 @@ extension MouvementsQueries on AtriumDatabase {
            AND julianday(p.received_at) >= julianday(?1)
       )
       WHERE moment IS NOT NULL
+        AND (?3 IS NULL OR guest_id = ?3)
       ORDER BY julianday(moment) DESC
       LIMIT ?2
       ''',
-      variables: [Variable.withString(borne), Variable.withInt(limite)],
+      variables: [
+        Variable.withString(borne),
+        Variable.withInt(limite),
+        Variable(guestId),
+      ],
       readsFrom: {
         reservations,
         reservationRooms,
