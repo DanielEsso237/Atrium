@@ -99,95 +99,131 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    return AlertDialog(
-      icon: const Icon(PhosphorIconsLight.shieldCheck, size: 32),
-      title: Text(widget.titre),
-      scrollable: true,
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.explication, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: p.accentSoft,
-                borderRadius: BorderRadius.circular(12),
+    // Un Dialog et non un AlertDialog : celui-ci mesure la largeur
+    // naturelle de son contenu (IntrinsicWidth), et les cases du PIN
+    // reposent sur un LayoutBuilder, qui ne sait pas la donner. La fenetre
+    // plantait avant de s'afficher.
+    final titre = Theme.of(context).textTheme.headlineSmall;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 468),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(
+                PhosphorIconsLight.shieldCheck,
+                size: 32,
+                color: Theme.of(context).colorScheme.secondary,
               ),
-              child: Text(
-                "Un responsable doit saisir son code, même s'il est déjà "
-                'connecté sur cette tablette.',
-                style: TextStyle(fontSize: 14, color: p.text),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _code,
-              enabled: !_verification,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Code agent du responsable',
-                hintText: 'ADMIN01',
-              ),
-              onChanged: (_) => setState(() => _erreur = null),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Son code PIN',
-              style: TextStyle(fontSize: 14, color: p.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            PinCells(
-              filled: _pin.length,
-              length: _longueurPin,
-              error: _erreur != null,
-              busy: _verification,
-            ),
-            const SizedBox(height: 12),
-            PinKeypad(
-              enabled: !_verification,
-              keyHeight: 52,
-              onDigit: (c) {
-                if (_pin.length >= _longueurPin) return;
-                setState(() {
-                  _pin += c;
-                  _erreur = null;
-                });
-              },
-              onDelete: () {
-                if (_pin.isEmpty) return;
-                setState(() => _pin = _pin.substring(0, _pin.length - 1));
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _motif,
-              enabled: !_verification,
-              maxLength: 200,
-              decoration: const InputDecoration(
-                labelText: 'Motif (obligatoire)',
-                hintText: 'Ex. : mauvaise chambre, saisie en double',
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            if (_erreur != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                _erreur!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              const SizedBox(height: 16),
+              Text(widget.titre, textAlign: TextAlign.center, style: titre),
+              const SizedBox(height: 16),
+              _contenu(context, p),
+              const SizedBox(height: 20),
+              _actions(context),
             ],
-          ],
+          ),
         ),
       ),
-      actions: [
+    );
+  }
+
+  Widget _contenu(BuildContext context, AtriumPalette p) {
+    return SizedBox(
+      width: 420,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(widget.explication, style: const TextStyle(fontSize: 16)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: p.accentSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              "Un responsable doit saisir son code, même s'il est déjà "
+              'connecté sur cette tablette.',
+              style: TextStyle(fontSize: 14, color: p.text),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _code,
+            enabled: !_verification,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Code agent du responsable',
+              hintText: 'ADMIN01',
+            ),
+            onChanged: (_) => setState(() => _erreur = null),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Son code PIN',
+            style: TextStyle(fontSize: 14, color: p.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          PinCells(
+            filled: _pin.length,
+            length: _longueurPin,
+            error: _erreur != null,
+            busy: _verification,
+          ),
+          const SizedBox(height: 12),
+          PinKeypad(
+            enabled: !_verification,
+            keyHeight: 52,
+            onDigit: (c) {
+              if (_pin.length >= _longueurPin) return;
+              setState(() {
+                _pin += c;
+                _erreur = null;
+              });
+            },
+            onDelete: () {
+              if (_pin.isEmpty) return;
+              setState(() => _pin = _pin.substring(0, _pin.length - 1));
+            },
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _motif,
+            enabled: !_verification,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              labelText: 'Motif (obligatoire)',
+              hintText: 'Ex. : mauvaise chambre, saisie en double',
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (_erreur != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              _erreur!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _actions(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
         TextButton(
           onPressed: _verification ? null : () => Navigator.of(context).pop(),
           child: const Text('Renoncer'),
