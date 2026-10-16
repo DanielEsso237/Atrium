@@ -1,23 +1,26 @@
 /// La carte du point de vente en tableau, a droite des fiches en plein
 /// ecran (demande du 15 octobre).
 ///
-/// Ce qui se vend le plus d'abord, et combien il en est parti : le comptoir
-/// trouve l'article d'un coup d'oeil au lieu de le chercher dans la liste
-/// deroulante. Une barre de recherche resserre le tableau ; toucher une
-/// ligne ajoute l'article. Un article en rupture reste visible, grise, sans
-/// pouvoir etre choisi.
+/// Ce qui se vend le plus d'abord : le comptoir trouve l'article d'un coup
+/// d'oeil au lieu de le chercher dans la liste deroulante. Seuls le nom et
+/// le stock restent (16 octobre) : la commande, a gauche, gagne la place des
+/// colonnes Vendus et Prix. Une barre de recherche resserre le tableau ;
+/// toucher une ligne ajoute l'article. Un article en rupture reste visible,
+/// grise, sans pouvoir etre choisi.
 library;
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../core/formats.dart';
 import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/order_repository.dart' show MenuEntry;
+
+/// La largeur du tableau a cote d'une fiche en plein ecran.
+const double largeurCarteFiche = 460;
 
 class TableauCarte extends StatefulWidget {
   const TableauCarte({
@@ -78,22 +81,6 @@ class _TableauCarteState extends State<TableauCarte> {
                     'En stock',
                     style: entete,
                     textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 90,
-                  child: Text(
-                    'Vendus',
-                    style: entete,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 110,
-                  child: Text(
-                    'Prix',
-                    style: entete,
-                    textAlign: TextAlign.right,
                   ),
                 ),
                 const SizedBox(width: 44),
@@ -193,47 +180,6 @@ class _LigneArticle extends StatelessWidget {
                     color: e.enStock != null && e.enStock! <= 0
                         ? p.error
                         : encre,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-              ),
-              // La quantite vendue, mise en avant : c'est elle qui range le
-              // tableau.
-              SizedBox(
-                width: 90,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: e.vendus > 0
-                          ? p.accent.withValues(alpha: 0.14)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${e.vendus}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: e.vendus > 0 ? p.text : p.textSecondary,
-                        fontFeatures: tabularFigures,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 110,
-                child: Text(
-                  formatAmount(e.price),
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: encre,
                     fontFeatures: tabularFigures,
                   ),
                 ),

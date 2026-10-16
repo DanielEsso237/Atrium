@@ -13,23 +13,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _carte = [
   MenuEntry(
-    id: 'castel', label: 'Castel', price: 1200, isAvailable: true,
-    categoryLabel: 'Bières', vendus: 42, enStock: 10,
+    id: 'castel',
+    label: 'Castel',
+    price: 1200,
+    isAvailable: true,
+    categoryLabel: 'Bières',
+    vendus: 42,
+    enStock: 10,
   ),
   MenuEntry(
-    id: 'jus', label: 'Jus d’orange', price: 1000, isAvailable: true,
-    categoryLabel: 'Jus', vendus: 7, enStock: 0,
+    id: 'jus',
+    label: 'Jus d’orange',
+    price: 1000,
+    isAvailable: true,
+    categoryLabel: 'Jus',
+    vendus: 7,
+    enStock: 0,
   ),
   MenuEntry(
-    id: 'whisky', label: 'Whisky', price: 5000, isAvailable: false,
-    categoryLabel: 'Alcools', vendus: 1,
+    id: 'whisky',
+    label: 'Whisky',
+    price: 5000,
+    isAvailable: false,
+    categoryLabel: 'Alcools',
+    vendus: 1,
   ),
 ];
 
 void main() {
-  testWidgets('les ventes en avant, la recherche, la rupture', (tester) async {
+  testWidgets('le nom et le stock, la recherche, la rupture', (tester) async {
     AtriumPalette.current = AtriumPalette.light;
-    tester.view.physicalSize = const Size(900, 900);
+    tester.view.physicalSize = const Size(460, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -49,7 +63,11 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('42'), findsOneWidget);
+    // Ni les ventes ni le prix (16 octobre) : la commande a la place.
+    expect(find.text('42'), findsNothing);
+    expect(find.text('Vendus'), findsNothing);
+    expect(find.text('Prix'), findsNothing);
+    expect(find.text('En stock'), findsOneWidget);
     // En stock : 10 Castel, plus de jus, le whisky ne sort d'aucun stock.
     expect(find.text('10'), findsOneWidget);
     expect(find.text('0'), findsOneWidget);

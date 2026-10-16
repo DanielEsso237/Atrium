@@ -986,6 +986,9 @@ class _FicheArdoise extends ConsumerWidget {
           valeur: formatAmount(ouverte ? ardoise.reste : ardoise.total),
           legendeValeur: ouverte ? 'à payer' : 'au total',
         ),
+        // La liste ne montre que le nom et le stock : la commande prend
+        // le reste de la largeur.
+        largeurCarte: largeurCarteFiche,
         // Toucher un article l'ajoute : la saisie s'ouvre avec lui.
         carte: ouverte
             ? TableauCarte(
@@ -1672,6 +1675,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
                 : 'à l’ardoise de la chambre',
             libelleFermer: 'Fermer sans servir',
           ),
+          largeurCarte: largeurCarteFiche,
           carte: TableauCarte(
             carte: _carte,
             dejaChoisis: _dansLaCommande,
@@ -1978,8 +1982,9 @@ class _Barre extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
+              // Deux moities : la barre tient sous la liste des produits,
+              // plus etroite depuis le 16 octobre, sans couper les libelles.
               Expanded(
-                flex: 2,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 54),
