@@ -39,16 +39,11 @@ enum ReservationFilter {
   departuresToday('Départs du jour', {
     ReservationStatus.CHECKED_IN,
   }, jour: ReservationDay.depart),
-  expected('Attendues', {
+  expected('Réservations', {
     ReservationStatus.PENDING,
     ReservationStatus.CONFIRMED,
   }),
-  inHouse('En cours', {ReservationStatus.CHECKED_IN}),
-  done('Terminées', {
-    ReservationStatus.CHECKED_OUT,
-    ReservationStatus.CANCELLED,
-    ReservationStatus.NO_SHOW,
-  });
+  inHouse('En cours', {ReservationStatus.CHECKED_IN});
 
   const ReservationFilter(this.label, this.statuses, {this.jour});
 
