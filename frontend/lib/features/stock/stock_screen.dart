@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/fenetre_motif.dart';
 import '../../core/formats.dart';
 import '../../core/recherche.dart';
 import '../../core/tokens.dart';
@@ -1877,47 +1878,19 @@ class _Transfert extends ConsumerWidget {
     required bool approuve,
   }) async {
     final t = transfert;
-    final motif = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: Text(approuve ? 'Valider le transfert' : 'Refuser le transfert'),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${t.quantity} ${t.unit} de ${t.productLabel}, de '
-                '${t.fromLabel} vers ${t.toLabel}.'
-                '${approuve && t.availableAtSource < t.quantity ? '\n\n${t.fromLabel} n’en a que ${t.availableAtSource} : son stock passera sous zéro.' : ''}',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: motif,
-                maxLength: 255,
-                decoration: const InputDecoration(labelText: 'Motif (facultatif)'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(false),
-            child: const Text('Retour'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(d).pop(true),
-            child: Text(approuve ? 'Valider' : 'Refuser'),
-          ),
-        ],
+    final note = await demanderMotif(
+      context,
+      titre: approuve ? 'Valider le transfert' : 'Refuser le transfert',
+      libelleRenoncer: 'Retour',
+      libelleConfirmer: approuve ? 'Valider' : 'Refuser',
+      contenu: Text(
+        '${t.quantity} ${t.unit} de ${t.productLabel}, de '
+        '${t.fromLabel} vers ${t.toLabel}.'
+        '${approuve && t.availableAtSource < t.quantity ? '\n\n${t.fromLabel} n’en a que ${t.availableAtSource} : son stock passera sous zéro.' : ''}',
+        style: const TextStyle(fontSize: 16),
       ),
     );
-    final note = motif.text;
-    motif.dispose();
-    if (ok != true || !context.mounted) return;
+    if (note == null || !context.mounted) return;
     await _faire(context, () async {
       final depot = ref.read(stockRepositoryProvider);
       final agent = ref.read(sessionProvider).agent?.id;
