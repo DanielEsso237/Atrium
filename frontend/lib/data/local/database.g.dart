@@ -30180,6 +30180,18 @@ class $PaymentsTable extends Payments
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversesPaymentIdMeta = const VerificationMeta(
+    'reversesPaymentId',
+  );
+  @override
+  late final GeneratedColumn<String> reversesPaymentId =
+      GeneratedColumn<String>(
+        'reverses_payment_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -30204,6 +30216,7 @@ class $PaymentsTable extends Payments
     businessDate,
     isRefund,
     notes,
+    reversesPaymentId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -30353,6 +30366,15 @@ class $PaymentsTable extends Payments
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('reverses_payment_id')) {
+      context.handle(
+        _reversesPaymentIdMeta,
+        reversesPaymentId.isAcceptableOrUnknown(
+          data['reverses_payment_id']!,
+          _reversesPaymentIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -30454,6 +30476,10 @@ class $PaymentsTable extends Payments
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      reversesPaymentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_payment_id'],
+      ),
     );
   }
 
@@ -30496,6 +30522,11 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
   final String? businessDate;
   final bool isRefund;
   final String? notes;
+
+  /// L'encaissement que ce remboursement annule (erreur de saisie, sur le
+  /// code d'un responsable). Un encaissement ne s'efface pas : l'argent est
+  /// sorti du tiroir, et l'attendu doit le voir sortir.
+  final String? reversesPaymentId;
   const PaymentRow({
     required this.id,
     required this.createdAt,
@@ -30519,6 +30550,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     this.businessDate,
     required this.isRefund,
     this.notes,
+    this.reversesPaymentId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -30579,6 +30611,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || reversesPaymentId != null) {
+      map['reverses_payment_id'] = Variable<String>(reversesPaymentId);
+    }
     return map;
   }
 
@@ -30632,6 +30667,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      reversesPaymentId: reversesPaymentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesPaymentId),
     );
   }
 
@@ -30667,6 +30705,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       businessDate: serializer.fromJson<String?>(json['businessDate']),
       isRefund: serializer.fromJson<bool>(json['isRefund']),
       notes: serializer.fromJson<String?>(json['notes']),
+      reversesPaymentId: serializer.fromJson<String?>(
+        json['reversesPaymentId'],
+      ),
     );
   }
   @override
@@ -30699,6 +30740,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       'businessDate': serializer.toJson<String?>(businessDate),
       'isRefund': serializer.toJson<bool>(isRefund),
       'notes': serializer.toJson<String?>(notes),
+      'reversesPaymentId': serializer.toJson<String?>(reversesPaymentId),
     };
   }
 
@@ -30725,6 +30767,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     Value<String?> businessDate = const Value.absent(),
     bool? isRefund,
     Value<String?> notes = const Value.absent(),
+    Value<String?> reversesPaymentId = const Value.absent(),
   }) => PaymentRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -30752,6 +30795,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     businessDate: businessDate.present ? businessDate.value : this.businessDate,
     isRefund: isRefund ?? this.isRefund,
     notes: notes.present ? notes.value : this.notes,
+    reversesPaymentId: reversesPaymentId.present
+        ? reversesPaymentId.value
+        : this.reversesPaymentId,
   );
   PaymentRow copyWithCompanion(PaymentsCompanion data) {
     return PaymentRow(
@@ -30787,6 +30833,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           : this.businessDate,
       isRefund: data.isRefund.present ? data.isRefund.value : this.isRefund,
       notes: data.notes.present ? data.notes.value : this.notes,
+      reversesPaymentId: data.reversesPaymentId.present
+          ? data.reversesPaymentId.value
+          : this.reversesPaymentId,
     );
   }
 
@@ -30814,7 +30863,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           ..write('receivedAt: $receivedAt, ')
           ..write('businessDate: $businessDate, ')
           ..write('isRefund: $isRefund, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('reversesPaymentId: $reversesPaymentId')
           ..write(')'))
         .toString();
   }
@@ -30843,6 +30893,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     businessDate,
     isRefund,
     notes,
+    reversesPaymentId,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -30869,7 +30920,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           other.receivedAt == this.receivedAt &&
           other.businessDate == this.businessDate &&
           other.isRefund == this.isRefund &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.reversesPaymentId == this.reversesPaymentId);
 }
 
 class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
@@ -30895,6 +30947,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
   final Value<String?> businessDate;
   final Value<bool> isRefund;
   final Value<String?> notes;
+  final Value<String?> reversesPaymentId;
   final Value<int> rowid;
   const PaymentsCompanion({
     this.id = const Value.absent(),
@@ -30919,6 +30972,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     this.businessDate = const Value.absent(),
     this.isRefund = const Value.absent(),
     this.notes = const Value.absent(),
+    this.reversesPaymentId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PaymentsCompanion.insert({
@@ -30944,6 +30998,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     this.businessDate = const Value.absent(),
     this.isRefund = const Value.absent(),
     this.notes = const Value.absent(),
+    this.reversesPaymentId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -30974,6 +31029,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Expression<String>? businessDate,
     Expression<bool>? isRefund,
     Expression<String>? notes,
+    Expression<String>? reversesPaymentId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -30999,6 +31055,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       if (businessDate != null) 'business_date': businessDate,
       if (isRefund != null) 'is_refund': isRefund,
       if (notes != null) 'notes': notes,
+      if (reversesPaymentId != null) 'reverses_payment_id': reversesPaymentId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -31026,6 +31083,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Value<String?>? businessDate,
     Value<bool>? isRefund,
     Value<String?>? notes,
+    Value<String?>? reversesPaymentId,
     Value<int>? rowid,
   }) {
     return PaymentsCompanion(
@@ -31051,6 +31109,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       businessDate: businessDate ?? this.businessDate,
       isRefund: isRefund ?? this.isRefund,
       notes: notes ?? this.notes,
+      reversesPaymentId: reversesPaymentId ?? this.reversesPaymentId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -31128,6 +31187,9 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (reversesPaymentId.present) {
+      map['reverses_payment_id'] = Variable<String>(reversesPaymentId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -31159,6 +31221,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
           ..write('businessDate: $businessDate, ')
           ..write('isRefund: $isRefund, ')
           ..write('notes: $notes, ')
+          ..write('reversesPaymentId: $reversesPaymentId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -85938,6 +86001,7 @@ typedef $$PaymentsTableCreateCompanionBuilder =
       Value<String?> businessDate,
       Value<bool> isRefund,
       Value<String?> notes,
+      Value<String?> reversesPaymentId,
       Value<int> rowid,
     });
 typedef $$PaymentsTableUpdateCompanionBuilder =
@@ -85964,6 +86028,7 @@ typedef $$PaymentsTableUpdateCompanionBuilder =
       Value<String?> businessDate,
       Value<bool> isRefund,
       Value<String?> notes,
+      Value<String?> reversesPaymentId,
       Value<int> rowid,
     });
 
@@ -86087,6 +86152,11 @@ class $$PaymentsTableFilterComposer
     column: $table.notes,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get reversesPaymentId => $composableBuilder(
+    column: $table.reversesPaymentId,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$PaymentsTableOrderingComposer
@@ -86207,6 +86277,11 @@ class $$PaymentsTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get reversesPaymentId => $composableBuilder(
+    column: $table.reversesPaymentId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PaymentsTableAnnotationComposer
@@ -86293,6 +86368,11 @@ class $$PaymentsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get reversesPaymentId => $composableBuilder(
+    column: $table.reversesPaymentId,
+    builder: (column) => column,
+  );
 }
 
 class $$PaymentsTableTableManager
@@ -86348,6 +86428,7 @@ class $$PaymentsTableTableManager
                 Value<String?> businessDate = const Value.absent(),
                 Value<bool> isRefund = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> reversesPaymentId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion(
                 id: id,
@@ -86372,6 +86453,7 @@ class $$PaymentsTableTableManager
                 businessDate: businessDate,
                 isRefund: isRefund,
                 notes: notes,
+                reversesPaymentId: reversesPaymentId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -86398,6 +86480,7 @@ class $$PaymentsTableTableManager
                 Value<String?> businessDate = const Value.absent(),
                 Value<bool> isRefund = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> reversesPaymentId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion.insert(
                 id: id,
@@ -86422,6 +86505,7 @@ class $$PaymentsTableTableManager
                 businessDate: businessDate,
                 isRefund: isRefund,
                 notes: notes,
+                reversesPaymentId: reversesPaymentId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

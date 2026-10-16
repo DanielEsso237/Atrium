@@ -26,6 +26,8 @@ import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
+import 'reservations_screen.dart'
+    show ReservationFilter, reservationFilterProvider;
 import '../guests/id_photos.dart';
 import 'etape_formulaire.dart';
 
@@ -110,6 +112,9 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
       '$nom est arrivé, chambre ${chambre.numero}, $_dureeTexte pour '
       '${formatAmount(prix)}.',
     );
+    // Sur « Toutes », comme apres une reservation : le sejour qu'on vient
+    // d'ouvrir doit etre la, quel que soit le filtre laisse le matin.
+    ref.read(reservationFilterProvider.notifier).select(ReservationFilter.all);
     context.go('/reservations');
   }
 

@@ -137,6 +137,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004140"), "expense.write", "Saisir et annuler les depenses de l'hotel", "accounting"),
     (uuid.UUID("01920000-0000-7000-8000-000000004141"), "stock.inventory", "Faire l'inventaire d'un magasin", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004142"), "stock.rebalance", "Reequilibrer le stock apres inventaire", "stock"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004143"), "operations.undo", "Autoriser une annulation (arrivee, depart, encaissement)", "operations"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -172,6 +173,7 @@ ACCOUNTING_READ = PERMISSIONS[38][0]
 EXPENSE_WRITE = PERMISSIONS[39][0]
 STOCK_INVENTORY = PERMISSIONS[40][0]
 STOCK_REBALANCE = PERMISSIONS[41][0]
+OPERATIONS_UNDO = PERMISSIONS[42][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -230,6 +232,10 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # Un client parti sans payer : l'ardoise s'annule avec un motif, par un
     # responsable -- celui qui a servi ne l'efface pas lui-meme.
     (MANAGER_ROLE, TAB_CANCEL),
+    # Revenir sur une arrivee, un depart ou un encaissement saisis par
+    # erreur : le responsable donne son code, celui qui s'est trompe ne
+    # s'autorise pas lui-meme.
+    (MANAGER_ROLE, OPERATIONS_UNDO),
     # Les marges et la valeur du stock : la direction, et les deux metiers
     # qui controlent les comptes. Pas le comptoir, qui compte son tiroir a
     # l'aveugle -- une marge lui donnerait sa recette --, ni l'econome, dont

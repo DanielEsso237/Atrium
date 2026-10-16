@@ -63,3 +63,21 @@ class UserOut(BaseModel):
     # Ses points de vente (vide = tous) : la tablette, partagee, en tire les
     # onglets de l'ecran Commande de l'agent connecte.
     outlet_ids: list[uuid.UUID] = []
+
+
+class AuthorizeIn(BaseModel):
+    """Le code d'un responsable, saisi sur la tablette d'un collegue.
+
+    Verifie sans ouvrir de session : le responsable autorise un geste, il ne
+    se connecte pas a la place de l'agent.
+    """
+
+    employee_code: str
+    secret: str
+    permission: str
+
+
+class AuthorizeOut(BaseModel):
+    user_id: uuid.UUID
+    first_name: str
+    last_name: str

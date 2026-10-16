@@ -1291,6 +1291,291 @@ class ReservationRepository with OutboxWriter {
     }
   }
 
+  /// Annule une arrivee enregistree par erreur (demande du 16 octobre).
+  ///
+  /// [approuvePar] est le responsable dont le code a ete saisi : le serveur
+  /// reverifie son droit (`operations.undo`). Les refus du serveur sont
+  /// repris ici, **avant** d'ecrire, sinon ils bloqueraient la file :
+  ///
+  /// - un encaissement sur l'ardoise s'annule d'abord (l'argent est dans un
+  ///   tiroir) ;
+  /// - une consommation portee empeche l'annulation (elle est sortie du
+  ///   stock).
+  ///
+  /// La ligne redevient confirmee -- annulee pour une arrivee directe, qui
+  /// n'avait pas de reservation --, la chambre libre, et l'ardoise est
+  /// retiree : ses lignes annulees, ses arrhes rendues au dossier.
+  Future<void> annulerArrivee({
+    required String lineId,
+    required String approuvePar,
+    required String motif,
+    String? by,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final line = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingle();
+    if (line.status != ReservationStatus.CHECKED_IN) {
+      throw StateError("Ce séjour n'est pas en cours : rien à annuler.");
+    }
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(line.reservationId))).getSingle();
+    final arrhes = depositNote(dossier.reference);
+    final ardoise =
+        await (db.select(db.folios)..where(
+              (f) => f.reservationRoomId.equals(lineId) & f.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
+
+    if (ardoise != null) {
+      final encaisse = await db
+          .customSelect(
+            '''
+            SELECT COALESCE(SUM(CASE WHEN is_refund = 1 THEN -amount
+                                     ELSE amount END), 0) AS n
+              FROM payments
+             WHERE folio_id = ?1 AND deleted_at IS NULL
+               AND COALESCE(notes, '') <> ?2
+            ''',
+            variables: [
+              Variable.withString(ardoise.id),
+              Variable.withString(arrhes),
+            ],
+            readsFrom: {db.payments},
+          )
+          .getSingle();
+      if (encaisse.read<int>('n') != 0) {
+        throw StateError(
+          "Des encaissements sont enregistrés sur l'ardoise : annulez-les "
+          "d'abord.",
+        );
+      }
+      final autres = await db
+          .customSelect(
+            '''
+            SELECT COUNT(*) AS n FROM folio_items
+             WHERE folio_id = ?1 AND deleted_at IS NULL AND is_void = 0
+               AND category <> 'ROOM'
+            ''',
+            variables: [Variable.withString(ardoise.id)],
+            readsFrom: {db.folioItems},
+          )
+          .getSingle();
+      if (autres.read<int>('n') > 0) {
+        throw StateError(
+          "Des consommations sont portées sur l'ardoise : l'arrivée ne peut "
+          'plus être annulée.',
+        );
+      }
+    }
+
+    await db.transaction(() async {
+      if (ardoise != null) {
+        await (db.update(db.folioItems)..where(
+              (i) =>
+                  i.folioId.equals(ardoise.id) &
+                  i.isVoid.equals(false) &
+                  i.deletedAt.isNull(),
+            ))
+            .write(
+              FolioItemsCompanion(
+                isVoid: const Value(true),
+                voidReason: Value(_borne('Arrivée annulée : $motif')),
+                voidedBy: Value(approuvePar),
+                updatedAt: Value(now),
+              ),
+            );
+        // Les arrhes reviennent sur le dossier : une nouvelle arrivee les
+        // fera basculer a nouveau, comme la premiere fois.
+        if (!line.isWalkIn) {
+          await db.customUpdate(
+            'UPDATE payments SET folio_id = NULL '
+            'WHERE folio_id = ?1 AND notes = ?2 AND is_refund = 0 '
+            'AND deleted_at IS NULL',
+            variables: [
+              Variable.withString(ardoise.id),
+              Variable.withString(arrhes),
+            ],
+            updates: {db.payments},
+          );
+        }
+        await FolioRepository(db, hotelId: hotelId).recalculer(ardoise.id);
+        // Retiree et non close : une nouvelle arrivee ouvrira une ardoise
+        // neuve, comme cote serveur.
+        await (db.update(
+          db.folios,
+        )..where((f) => f.id.equals(ardoise.id))).write(
+          FoliosCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
+      }
+
+      await (db.update(
+        db.reservationRooms,
+      )..where((rr) => rr.id.equals(lineId))).write(
+        ReservationRoomsCompanion(
+          status: Value(
+            line.isWalkIn
+                ? ReservationStatus.CANCELLED
+                : ReservationStatus.CONFIRMED,
+          ),
+          checkedInAt: const Value(null),
+          checkedInBy: const Value(null),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+
+      if (line.roomId != null) {
+        final ailleurs =
+            await (db.select(db.reservationRooms)..where(
+                  (rr) =>
+                      rr.roomId.equals(line.roomId!) &
+                      rr.id.equals(lineId).not() &
+                      rr.status.equalsValue(ReservationStatus.CHECKED_IN) &
+                      rr.deletedAt.isNull(),
+                ))
+                .get();
+        if (ailleurs.isEmpty) {
+          await (db.update(
+            db.rooms,
+          )..where((r) => r.id.equals(line.roomId!))).write(
+            RoomsCompanion(
+              occupancyStatus: const Value(OccupancyStatus.VACANT),
+              updatedAt: Value(now),
+              syncState: const Value(SyncState.pending),
+            ),
+          );
+        }
+      }
+
+      await _recalculerStatutDossier(line.reservationId, now);
+
+      await enqueue(
+        table: 'reservation_rooms',
+        id: lineId,
+        operation: SyncOp.UPDATE,
+        payload: {
+          'id': lineId,
+          'action': 'UNDO_CHECK_IN',
+          'approved_by': approuvePar,
+          'reason': motif,
+        },
+      );
+    });
+  }
+
+  /// Annule un depart enregistre par erreur : le client reprend sa chambre.
+  ///
+  /// Refuse si la chambre a deja ete redonnee, comme le serveur. L'ardoise
+  /// se rouvre si elle avait ete close ; la chambre garde son etat de
+  /// menage.
+  Future<void> annulerDepart({
+    required String lineId,
+    required String approuvePar,
+    required String motif,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final line = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingle();
+    if (line.status != ReservationStatus.CHECKED_OUT) {
+      throw StateError("Ce séjour n'est pas parti : rien à annuler.");
+    }
+    if (line.roomId != null) {
+      final chambre = await (db.select(
+        db.rooms,
+      )..where((r) => r.id.equals(line.roomId!))).getSingleOrNull();
+      if (chambre != null &&
+          chambre.occupancyStatus == OccupancyStatus.OCCUPIED) {
+        throw StateError(
+          'La chambre ${chambre.number} est déjà occupée par un autre séjour.',
+        );
+      }
+    }
+
+    await db.transaction(() async {
+      await (db.update(
+        db.reservationRooms,
+      )..where((rr) => rr.id.equals(lineId))).write(
+        ReservationRoomsCompanion(
+          status: const Value(ReservationStatus.CHECKED_IN),
+          checkedOutAt: const Value(null),
+          checkedOutBy: const Value(null),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+      if (line.roomId != null) {
+        await (db.update(
+          db.rooms,
+        )..where((r) => r.id.equals(line.roomId!))).write(
+          RoomsCompanion(
+            occupancyStatus: const Value(OccupancyStatus.OCCUPIED),
+            updatedAt: Value(now),
+            syncState: const Value(SyncState.pending),
+          ),
+        );
+      }
+      await (db.update(db.folios)..where(
+            (f) =>
+                f.reservationRoomId.equals(lineId) &
+                f.deletedAt.isNull() &
+                f.status.equalsValue(FolioStatus.OPEN).not(),
+          ))
+          .write(
+            FoliosCompanion(
+              status: const Value(FolioStatus.OPEN),
+              closedAt: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+      await _recalculerStatutDossier(line.reservationId, now);
+
+      await enqueue(
+        table: 'reservation_rooms',
+        id: lineId,
+        operation: SyncOp.UPDATE,
+        payload: {
+          'id': lineId,
+          'action': 'UNDO_CHECK_OUT',
+          'approved_by': approuvePar,
+          'reason': motif,
+        },
+      );
+    });
+  }
+
+  /// Le statut du dossier suit sa ligne la plus avancee, comme le serveur.
+  Future<void> _recalculerStatutDossier(
+    String reservationId,
+    DateTime now,
+  ) async {
+    final lignes =
+        await (db.select(db.reservationRooms)..where(
+              (rr) =>
+                  rr.reservationId.equals(reservationId) & rr.deletedAt.isNull(),
+            ))
+            .get();
+    final statuts = lignes.map((l) => l.status).toSet();
+    final statut = [
+      ReservationStatus.CHECKED_IN,
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.PENDING,
+      ReservationStatus.CHECKED_OUT,
+      ReservationStatus.NO_SHOW,
+    ].firstWhere(statuts.contains, orElse: () => ReservationStatus.CANCELLED);
+    await (db.update(
+      db.reservations,
+    )..where((r) => r.id.equals(reservationId))).write(
+      ReservationsCompanion(
+        status: Value(statut),
+        updatedAt: Value(now),
+        syncState: const Value(SyncState.pending),
+      ),
+    );
+  }
+
   /// Installe un client deja arrive dans une autre chambre.
   ///
   /// L'ancienne redevient libre **sans** devenir sale : personne n'y a dormi.
@@ -1611,3 +1896,7 @@ class ReservationRepository with OutboxWriter {
 /// La note qui rattache des arrhes a leur dossier, le temps qu'elles
 /// attendent l'ardoise ouverte a l'arrivee.
 String depositNote(String reference) => 'Arrhes $reference';
+
+/// Un motif tient en 255 caracteres, comme la colonne du serveur.
+String _borne(String texte) =>
+    texte.length <= 255 ? texte : texte.substring(0, 255);

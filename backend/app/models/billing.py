@@ -343,6 +343,14 @@ class Payment(SyncBase, HotelScoped):
             unique=True,
             postgresql_where=text("reservation_id IS NOT NULL AND deleted_at IS NULL"),
         ),
+        # Un encaissement ne s'annule qu'une fois : un renvoi de la tablette
+        # ne doit pas rembourser deux fois le meme argent.
+        Index(
+            "uq_payments_reverses",
+            "reverses_payment_id",
+            unique=True,
+            postgresql_where=text("reverses_payment_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
     )
 
     folio_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -373,6 +381,12 @@ class Payment(SyncBase, HotelScoped):
     business_date: Mapped[dt.date | None] = mapped_column(Date, default=None)
     is_refund: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(String(255), default=None)
+    # L'encaissement que ce remboursement annule (erreur de saisie, sur le
+    # code d'un responsable). Un encaissement ne se supprime pas : l'argent
+    # est sorti du tiroir, et l'attendu doit le voir sortir.
+    reverses_payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("payments.id", ondelete="SET NULL"), default=None
+    )
 
 
 class Expense(SyncBase, HotelScoped):

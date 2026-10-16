@@ -14,6 +14,7 @@ import '../features/administration/administration_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
+import '../features/entretien/entretien_screen.dart';
 import '../features/expenses/expenses_screen.dart';
 import '../features/guests/guest_detail_screen.dart';
 import '../features/guests/guests_screen.dart';
@@ -29,6 +30,8 @@ import '../features/reservations/new_reservation_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/billing/cash_screen.dart';
 import '../features/maintenance/maintenance_screen.dart';
+import '../features/mouvements/historique_screen.dart';
+import '../features/mouvements/mouvements_screen.dart';
 import '../features/stats/stats_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/stock/inventory_screen.dart';
@@ -55,6 +58,9 @@ const _permissionParZone = <String, String>{
   // Avant '/reservations' : la premiere zone qui correspond l'emporte.
   '/reservations/arrivee-directe': 'reservation.create',
   '/reservations': 'reservation.read',
+  // Le tableau de bord des mouvements et l'historique (16 octobre) : la
+  // lecture des reservations, comme la liste qu'ils resument.
+  '/mouvements': 'reservation.read',
   '/clients': 'guests.read',
   '/factures': 'folio.read',
   '/caisse': 'folio.read',
@@ -66,6 +72,9 @@ const _permissionParZone = <String, String>{
   '/comptabilite': 'accounting.read',
   '/maintenance': 'maintenance.read',
   '/menage': 'housekeeping.read',
+  // Les deux tuiles de l'entretien : chacune ne s'affiche qu'a qui lit son
+  // metier, l'ecran s'ouvre a qui lit l'un des deux.
+  '/entretien': 'housekeeping.read|maintenance.read',
   '/commandes': 'order.read',
   '/stocks': 'stock.read',
   // Compter ou reequilibrer : l'un des deux ouvre l'ecran (15 octobre).
@@ -221,6 +230,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/menage',
             builder: (_, _) => const HousekeepingScreen(),
+          ),
+          GoRoute(
+            path: '/entretien',
+            builder: (_, _) => const EntretienScreen(),
+          ),
+          GoRoute(
+            path: '/mouvements',
+            builder: (_, _) => const MouvementsScreen(),
+            routes: [
+              GoRoute(
+                path: 'historique',
+                // `?client=` ouvre d'emblee le parcours de ce client.
+                builder: (_, state) => HistoriqueScreen(
+                  clientId: state.uri.queryParameters['client'],
+                ),
+              ),
+            ],
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
           GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),

@@ -139,6 +139,8 @@ class PaymentOut(BaseModel):
     # « Arrhes RES-... » : c'est a elle que la tablette reconnait les arrhes
     # a basculer sur l'ardoise au check-in.
     notes: str | None = None
+    # Un remboursement qui annule un encaissement saisi par erreur.
+    reverses_payment_id: uuid.UUID | None = None
 
 
 class InvoiceLineOut(BaseModel):

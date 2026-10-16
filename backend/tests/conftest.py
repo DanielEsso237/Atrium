@@ -104,6 +104,7 @@ _PERMISSIONS_NEEDED = [
     "accounting.read",
     "expense.write",
     "stock.inventory", "stock.rebalance",
+    "operations.undo",
 ]
 
 

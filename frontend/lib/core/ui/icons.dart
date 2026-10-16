@@ -130,6 +130,9 @@ abstract final class PhosphorIconsLight {
   static const trendDown = IconData(0xe4ac, fontFamily: 'PhosphorLight');
   static const trendUp = IconData(0xe4ae, fontFamily: 'PhosphorLight');
   static const uploadSimple = IconData(0xe4c0, fontFamily: 'PhosphorLight');
+  static const shieldCheck = IconData(0xe40c, fontFamily: 'PhosphorLight');
+  static const clockCounterClockwise = IconData(0xe1a0, fontFamily: 'PhosphorLight');
+  static const toolbox = IconData(0xeca0, fontFamily: 'PhosphorLight');
   static const xCircle = IconData(0xe4f8, fontFamily: 'PhosphorLight');
 }
 
@@ -151,4 +154,7 @@ abstract final class PhosphorIconsFill {
   static const wallet = IconData(0xe68a, fontFamily: 'PhosphorFill');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorFill');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorFill');
+  static const arrowsLeftRight = IconData(0xe0a0, fontFamily: 'PhosphorFill');
+  static const clockCounterClockwise = IconData(0xe1a0, fontFamily: 'PhosphorFill');
+  static const toolbox = IconData(0xeca0, fontFamily: 'PhosphorFill');
 }

@@ -497,6 +497,121 @@ class FolioRepository with OutboxWriter {
     });
   }
 
+  /// Annule un encaissement saisi par erreur (demande du 16 octobre).
+  ///
+  /// Rien ne s'efface : un remboursement du meme montant et du meme moyen
+  /// sort du tiroir de [by], pour le point de vente de l'encaissement (la
+  /// caisse centrale pour la reception). [approuvePar] est le responsable
+  /// dont le code a ete saisi. L'ardoise se rouvre si le paiement l'avait
+  /// close. Les refus du serveur sont repris ici, avant la file.
+  Future<void> annulerEncaissement({
+    required String paymentId,
+    required String approuvePar,
+    required String motif,
+    required String? by,
+  }) async {
+    final id = newId();
+    final now = DateTime.now().toUtc();
+
+    await db.transaction(() async {
+      final p = await (db.select(
+        db.payments,
+      )..where((x) => x.id.equals(paymentId))).getSingleOrNull();
+      if (p == null || p.deletedAt != null) {
+        throw StateError('Encaissement introuvable.');
+      }
+      if (p.isRefund) {
+        throw StateError("Un remboursement ne s'annule pas.");
+      }
+      if (p.folioId == null) {
+        throw StateError(
+          "Des arrhes ne s'annulent pas ici : elles suivent le dossier.",
+        );
+      }
+      final deja =
+          await (db.select(db.payments)..where(
+                (x) =>
+                    x.reversesPaymentId.equals(paymentId) & x.deletedAt.isNull(),
+              ))
+              .get();
+      if (deja.isNotEmpty) {
+        throw StateError('Cet encaissement est déjà annulé.');
+      }
+      if (by == null) {
+        throw StateError('Aucun agent connecté : reconnectez-vous.');
+      }
+      String? pointDeVente;
+      if (p.cashSessionId != null) {
+        final tiroir = await (db.select(
+          db.cashSessions,
+        )..where((c) => c.id.equals(p.cashSessionId!))).getSingleOrNull();
+        pointDeVente = tiroir?.outletId;
+      }
+      final caisse = await CashRepository(
+        db,
+      ).openSessionId(by, outletId: pointDeVente);
+      if (caisse == null) {
+        throw StateError(
+          "Ouvrez votre caisse avant d'annuler : l'argent rendu sort d'un "
+          'tiroir.',
+        );
+      }
+
+      final note = 'Annulation : $motif';
+      await db
+          .into(db.payments)
+          .insert(
+            PaymentsCompanion.insert(
+              id: id,
+              createdAt: now,
+              updatedAt: now,
+              hotelId: hotelId,
+              folioId: Value(p.folioId),
+              method: p.method,
+              amount: p.amount,
+              reference: Value(p.reference),
+              receivedBy: Value(by),
+              cashSessionId: Value(caisse),
+              receivedAt: Value(now),
+              businessDate: Value(businessDateNow()),
+              isRefund: const Value(true),
+              reversesPaymentId: Value(paymentId),
+              notes: Value(note.length <= 255 ? note : note.substring(0, 255)),
+              syncState: const Value(SyncState.pending),
+            ),
+          );
+      await _recomputeTotals(p.folioId!);
+      final ardoise = await (db.select(
+        db.folios,
+      )..where((f) => f.id.equals(p.folioId!))).getSingle();
+      if (ardoise.status != FolioStatus.OPEN && ardoise.balance != 0) {
+        await (db.update(
+          db.folios,
+        )..where((f) => f.id.equals(ardoise.id))).write(
+          FoliosCompanion(
+            status: const Value(FolioStatus.OPEN),
+            closedAt: const Value(null),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+
+      await enqueue(
+        table: 'payments',
+        id: id,
+        operation: SyncOp.INSERT,
+        payload: {
+          'id': id,
+          'action': 'REVERSE',
+          'reverses_payment_id': paymentId,
+          'folio_id': p.folioId,
+          'approved_by': approuvePar,
+          'reason': motif,
+        },
+      );
+    });
+  }
+
   /// Porte au folio les nuits du sejour qui n'y sont pas encore.
   ///
   /// Sans cet appel, un client repart en payant ses consommations et **zero
@@ -764,20 +879,26 @@ class FolioRepository with OutboxWriter {
                                         WHERE folio_id = ?1
                                           AND deleted_at IS NULL
                                           AND is_void = 0), 0),
-             payments_total = COALESCE((SELECT SUM(amount) FROM payments
+             -- Un remboursement se retranche, comme cote serveur : c'est
+             -- ainsi qu'un encaissement annule rend son du a l'ardoise.
+             payments_total = COALESCE((SELECT SUM(CASE WHEN is_refund = 1
+                                                        THEN -amount
+                                                        ELSE amount END)
+                                          FROM payments
                                          WHERE folio_id = ?1
-                                           AND deleted_at IS NULL
-                                           AND is_refund = 0), 0),
+                                           AND deleted_at IS NULL), 0),
              -- Une ligne annulee ne se doit plus : le serveur l'exclut de
              -- meme. Sans ce filtre, une ardoise annulee gardait son solde.
              balance = COALESCE((SELECT SUM(amount) FROM folio_items
                                   WHERE folio_id = ?1
                                     AND deleted_at IS NULL
                                     AND is_void = 0), 0)
-                     - COALESCE((SELECT SUM(amount) FROM payments
+                     - COALESCE((SELECT SUM(CASE WHEN is_refund = 1
+                                                 THEN -amount
+                                                 ELSE amount END)
+                                   FROM payments
                                   WHERE folio_id = ?1
-                                    AND deleted_at IS NULL
-                                    AND is_refund = 0), 0)
+                                    AND deleted_at IS NULL), 0)
        WHERE id = ?1
       ''',
       // `customUpdate` et non `customStatement` : le second ecrit sans

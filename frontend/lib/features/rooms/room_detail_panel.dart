@@ -25,6 +25,7 @@ import '../../data/local/queries/rooms_queries.dart';
 import '../../core/ui/confirmation.dart';
 import '../../data/repositories/repository_providers.dart'
     show housekeepingRepositoryProvider, stayRulesProvider;
+import '../annulations/accord_responsable.dart';
 import '../billing/add_charge_dialog.dart';
 import '../auth/session.dart';
 import '../billing/charge_labels.dart';
@@ -933,6 +934,23 @@ class _Actions extends ConsumerWidget {
               folioId: ardoise,
               guestName: sejour.guestName,
             ),
+          ),
+        // Une arrivee enregistree par erreur, sur le code d'un responsable
+        // (demande du 16 octobre).
+        if (ref.watch(sessionProvider).acces.peut('reservation.manage'))
+          _BoutonAction(
+            libelle: "Annuler l'arrivée",
+            icone: Icons.undo_rounded,
+            onPressed: () async {
+              final fait = await annulerArrivee(
+                context,
+                ref,
+                lineId: sejour.lineId,
+                guestName: sejour.guestName,
+                roomNumber: chambre.number,
+              );
+              if (fait && context.mounted) Navigator.of(context).pop();
+            },
           ),
       ];
       // Une grille de deux colonnes : sur une seule ligne, quatre boutons se

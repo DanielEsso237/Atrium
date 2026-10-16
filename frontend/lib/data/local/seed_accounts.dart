@@ -279,6 +279,14 @@ const _permissions = <_PermissionDemo>[
     'Reequilibrer le stock apres inventaire',
     'stock',
   ),
+  // Revenir sur une arrivee, un depart, un encaissement (16 octobre) : le
+  // code d'un responsable, meme identifiant que le serveur.
+  (
+    '01920000-0000-7000-8000-000000004143',
+    'operations.undo',
+    'Autoriser une annulation (arrivee, depart, encaissement)',
+    'operations',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -312,6 +320,9 @@ const _droits = <(String role, String permission)>[
   (_roleAdmin, '01920000-0000-7000-8000-000000004140'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004141'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004142'),
+  // Autoriser une annulation : l'administrateur, comme cote serveur (la
+  // direction aussi, mais elle n'a pas de compte de demonstration).
+  (_roleAdmin, '01920000-0000-7000-8000-000000004143'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les

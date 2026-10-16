@@ -157,6 +157,10 @@ void main() {
                   const Scaffold(body: Text('Statistiques test')),
             ),
             GoRoute(
+              path: '/mouvements',
+              builder: (_, _) => const Scaffold(body: Text('Tableau test')),
+            ),
+            GoRoute(
               path: '/reservations',
               builder: (_, _) => const ReservationsScreen(),
             ),
@@ -202,21 +206,40 @@ void main() {
     ),
   );
 
+  /// La feuille qui s'ouvre sur un parent, dans le rail et sur telephone.
+  Finder dansLaFeuille(String label) => find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.text(label),
+  );
+
   testWidgets('Le sous-menu se déplie et se replie sans changer de page', (
     tester,
   ) async {
     await open(tester);
     expect(find.text('Arrivées'), findsNothing);
     expect(find.text('Départs'), findsNothing);
-    await tester.tap(find.byTooltip('Déplier les réservations'));
+    await tester.tap(find.byTooltip('Déplier mouvements'));
     await tester.pumpAndSettle();
     expect(find.text('Arrivées'), findsOneWidget);
     expect(find.text('Départs'), findsOneWidget);
+    expect(find.text('Historique'), findsOneWidget);
     expect(find.text('Accueil test'), findsOneWidget);
-    await tester.tap(find.byTooltip('Replier les réservations'));
+    await tester.tap(find.byTooltip('Replier mouvements'));
     await tester.pumpAndSettle();
     expect(find.text('Arrivées'), findsNothing);
     expect(find.text('Accueil test'), findsOneWidget);
+    await close(tester);
+  });
+
+  testWidgets('Mouvements ouvre son tableau de bord et deplie ses vues', (
+    tester,
+  ) async {
+    await open(tester);
+    await tester.tap(find.text('Mouvements'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tableau test'), findsOneWidget);
+    expect(selected('Mouvements'), findsOneWidget);
+    expect(find.text('Arrivées'), findsOneWidget);
     await close(tester);
   });
 
@@ -224,7 +247,7 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(find.text('Réservations'));
+    await tester.tap(find.text('Mouvements'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Arrivées'));
     await tester.pumpAndSettle();
@@ -242,6 +265,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(reservationFilterProvider), ReservationFilter.all);
     expect(find.text('Client demain'), findsOneWidget);
+    expect(selected('Réservations'), findsOneWidget);
     await close(tester);
   });
 
@@ -260,10 +284,10 @@ void main() {
       await tester.tap(find.text('Départs du jour'));
       await tester.pumpAndSettle();
       expect(selected('Départs'), findsOneWidget);
-      await tester.tap(find.byTooltip('Replier les réservations'));
+      await tester.tap(find.byTooltip('Replier mouvements'));
       await tester.pumpAndSettle();
       expect(find.text('Départs'), findsNothing);
-      expect(selected('Réservations'), findsOneWidget);
+      expect(selected('Mouvements'), findsOneWidget);
       expect(
         container.read(reservationFilterProvider),
         ReservationFilter.departuresToday,
@@ -277,23 +301,24 @@ void main() {
       tester,
     ) async {
       await open(tester, size: size);
-      final label = size.width < 600 ? 'Réservations' : 'Résas';
+      final label = size.width < 600 ? 'Mouvements' : 'Mouvts';
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Arrivées'));
+      expect(dansLaFeuille('Tableau de bord'), findsOneWidget);
+      await tester.tap(dansLaFeuille('Arrivées'));
       await tester.pumpAndSettle();
       expect(find.text('Client arrivée'), findsOneWidget);
       expect(find.text('Client demain'), findsNothing);
       await tester.tap(find.text(label).last);
       await tester.pumpAndSettle();
       expect(selected('Arrivées'), findsOneWidget);
-      await tester.tap(find.text('Départs'));
+      await tester.tap(dansLaFeuille('Départs'));
       await tester.pumpAndSettle();
       expect(find.text('Client départ'), findsOneWidget);
       expect(find.text('Client arrivée'), findsNothing);
       await tester.tap(find.text(label).last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Toutes les réservations'));
+      await tester.tap(dansLaFeuille('Réservations'));
       await tester.pumpAndSettle();
       expect(container.read(reservationFilterProvider), ReservationFilter.all);
       await close(tester);
@@ -304,9 +329,9 @@ void main() {
     tester,
   ) async {
     await open(tester, allowed: false);
-    expect(find.text('Réservations'), findsNothing);
+    expect(find.text('Mouvements'), findsNothing);
     expect(find.text('Arrivées'), findsNothing);
-    expect(find.byTooltip('Déplier les réservations'), findsNothing);
+    expect(find.byTooltip('Déplier mouvements'), findsNothing);
     await close(tester);
   });
 
@@ -314,10 +339,10 @@ void main() {
     tester,
   ) async {
     await open(tester, size: const Size(375, 667), textScale: 2, dark: true);
-    await tester.tap(find.text('Réservations'));
+    await tester.tap(find.text('Mouvements'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Départs'));
-    expect(find.text('Départs').hitTestable(), findsOneWidget);
+    await tester.ensureVisible(dansLaFeuille('Départs'));
+    expect(dansLaFeuille('Départs').hitTestable(), findsOneWidget);
     await close(tester);
   });
 }

@@ -6,7 +6,8 @@
 library;
 
 import 'package:atrium/core/router.dart';
-import 'package:atrium/core/shell/app_shell.dart' show destinationsPour;
+import 'package:atrium/core/shell/app_shell.dart'
+    show Destination, destinationsPour;
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
@@ -288,27 +289,69 @@ void main() {
   });
 
   test(
-      'la reception voit « Faire une réservation » et « Arrivée directe », '
-      "le menage ni l'un ni l'autre", () async {
+      'la reception voit Mouvements et ses vues, Nouvelle arrivée en tête ; '
+      "le menage n'en voit rien", () async {
     final reception = destinationsPour(
       SessionState(acces: await accessProfileFor(db, await idDe('RECEP01'))),
     );
     final parLibelle = {for (final d in reception) d.label: d};
+    expect(parLibelle['Mouvements']?.route, '/mouvements');
     expect(parLibelle['Faire une réservation']?.route, '/reservations/nouvelle');
-    expect(parLibelle['Faire une réservation']?.sousReservations, isTrue);
+    expect(parLibelle['Faire une réservation']?.parent, '/mouvements');
     expect(
       parLibelle['Nouvelle arrivée']?.route,
       '/reservations/arrivee-directe',
     );
-    // Une entree a part, pas une vue des reservations.
-    expect(parLibelle['Nouvelle arrivée']?.sousReservations, isFalse);
+    expect(parLibelle['Historique']?.parent, '/mouvements');
+    // Demande du 16 octobre : Nouvelle arrivée d'abord, sous Mouvements.
+    final vues = [
+      for (final d in reception)
+        if (d.parent == '/mouvements') d.label,
+    ];
+    expect(vues.first, 'Nouvelle arrivée');
+    expect(
+      vues,
+      containsAll(['Réservations', 'Arrivées', 'Départs', 'Historique']),
+    );
 
     final menage = destinationsPour(
       SessionState(acces: await accessProfileFor(db, await idDe('MENAGE01'))),
-    ).map((d) => d.label);
-    expect(menage, isNot(contains('Faire une réservation')));
-    expect(menage, isNot(contains('Nouvelle arrivée')));
+    );
+    final libelles = menage.map((d) => d.label);
+    expect(libelles, isNot(contains('Faire une réservation')));
+    expect(libelles, isNot(contains('Nouvelle arrivée')));
+    expect(libelles, isNot(contains('Mouvements')));
+    // Un metier a ecran unique : pas de tableau Entretien, son ecran Menage
+    // remonte au premier niveau.
+    expect(libelles, isNot(contains('Entretien')));
+    expect(menage.firstWhere((d) => d.label == 'Ménage').parent, isNull);
   });
+
+  test(
+    "Entretien range Ménage et Maintenance, et s'ouvre avec l'un des deux",
+    () {
+      List<Destination> pour(Set<String> droits) => destinationsPour(
+        SessionState(acces: AccessProfile(permissions: droits)),
+      );
+
+      final tout = pour({'housekeeping.read', 'maintenance.read'});
+      final parLibelle = {for (final d in tout) d.label: d};
+      expect(parLibelle['Entretien']?.route, '/entretien');
+      expect(parLibelle['Ménage']?.parent, '/entretien');
+      expect(parLibelle['Maintenance']?.parent, '/entretien');
+
+      final technicien = pour({'maintenance.read'});
+      expect(technicien.map((d) => d.route), contains('/entretien'));
+      expect(technicien.map((d) => d.route), isNot(contains('/menage')));
+      expect(
+        const AccessProfile(
+          permissions: {'maintenance.read'},
+        ).peutUnDe(permissionPour('/entretien')!),
+        isTrue,
+      );
+      expect(permissionPour('/mouvements/historique'), 'reservation.read');
+    },
+  );
 
   test(
     "« Factures » du comptoir : le comptoir la voit, pas la reception "

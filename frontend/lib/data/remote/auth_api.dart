@@ -119,6 +119,30 @@ class AuthApi {
     await _tokens.clear();
   }
 
+  /// Le code d'un responsable, verifie par le serveur sans ouvrir de
+  /// session : il autorise un geste, il ne remplace pas l'agent connecte.
+  ///
+  /// Sans jeton (agent connecte hors ligne), la requete n'est pas tentee :
+  /// elle repartirait sans `Authorization`, et le 401 deconnecterait
+  /// l'agent. L'appelant verifie alors sur la tablette.
+  Future<Map<String, dynamic>> authorize({
+    required String employeeCode,
+    required String secret,
+    required String permission,
+  }) async {
+    if (await _tokens.readAccess() == null) {
+      throw const ApiException(ApiFailure.offline, 'Aucune session en ligne.');
+    }
+    return _client.post(
+      '/auth/authorize',
+      body: {
+        'employee_code': employeeCode.trim().toUpperCase(),
+        'secret': secret,
+        'permission': permission,
+      },
+    );
+  }
+
   /// L'agent deja connecte, si un jeton valide a survecu au redemarrage.
   ///
   /// Renvoie `null` hors ligne comme sur jeton expire : dans les deux cas

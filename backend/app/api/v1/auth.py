@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, permission_codes
 from app.core.config import settings
 from app.core.security import (
     create_access_token,
@@ -34,7 +34,14 @@ from app.core.security import (
 )
 from app.db.session import get_session
 from app.models import Device, RefreshToken, User
-from app.schemas.auth import LoginIn, RefreshIn, TokenOut, UserOut
+from app.schemas.auth import (
+    AuthorizeIn,
+    AuthorizeOut,
+    LoginIn,
+    RefreshIn,
+    TokenOut,
+    UserOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["authentification"])
 
@@ -222,3 +229,65 @@ async def logout(payload: RefreshIn, session: AsyncSession = Depends(get_session
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@router.post("/authorize", response_model=AuthorizeOut)
+async def authorize(
+    payload: AuthorizeIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> AuthorizeOut:
+    """Un responsable donne son code sur la tablette d'un agent.
+
+    Demande du 16 octobre : revenir sur une arrivee, un depart ou un
+    encaissement exige le code d'un superieur, **meme quand c'est lui qui est
+    connecte** -- l'agent doit aller le chercher, et le responsable le saisir.
+    Aucune session n'est ouverte : on verifie le secret et le droit, puis on
+    rend qui a autorise. Le geste lui-meme repart par la file d'envoi, avec
+    cet identifiant, et le serveur reverifie le droit a ce moment-la.
+
+    Reserve a un agent connecte, et soumis au meme verrouillage que la
+    connexion : sans cela, la route servirait a deviner des PIN.
+    """
+    # 403 et non 401 : un 401 dit a la tablette que la session de l'agent
+    # connecte est finie, et elle le deconnecterait pour un code mal tape.
+    refus = HTTPException(status.HTTP_403_FORBIDDEN, "Code du responsable incorrect.")
+    responsable = await session.scalar(
+        select(User).where(
+            User.employee_code == payload.employee_code.strip().upper(),
+            User.hotel_id == user.hotel_id,
+            User.deleted_at.is_(None),
+        )
+    )
+    if responsable is None:
+        raise refus
+    now = dt.datetime.now(dt.timezone.utc)
+    if responsable.locked_until is not None and responsable.locked_until > now:
+        raise HTTPException(
+            status.HTTP_423_LOCKED,
+            "Compte du responsable temporairement verrouille, reessayez plus tard.",
+        )
+    if not secret_accepte(payload.secret, responsable.password_hash, responsable.pin_hash):
+        responsable.failed_login_count += 1
+        if responsable.failed_login_count >= 5:
+            responsable.locked_until = now + dt.timedelta(minutes=15)
+        await session.commit()
+        raise refus
+    if not responsable.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte du responsable desactive.")
+    responsable.failed_login_count = 0
+    await session.commit()
+    # populate_existing : les roles et leurs droits relus apres le commit,
+    # meme quand le responsable est l'agent connecte.
+    responsable = await session.get(User, responsable.id, populate_existing=True)
+    if payload.permission not in permission_codes(responsable):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"{responsable.first_name} {responsable.last_name} n'a pas le droit "
+            f"d'autoriser ce geste (permission {payload.permission}).",
+        )
+    return AuthorizeOut(
+        user_id=responsable.id,
+        first_name=responsable.first_name,
+        last_name=responsable.last_name,
+    )

@@ -1285,6 +1285,7 @@ class Descente {
                 receivedAt: Value(p.receivedAt),
                 businessDate: Value(p.businessDate),
                 isRefund: Value(p.isRefund),
+                reversesPaymentId: Value(p.reversesPaymentId),
                 // Sans la note, des arrhes ne se reconnaissaient plus au
                 // check-in : elles restaient hors de l'ardoise, la tablette
                 // croyait le sejour entier du, et l'encaissement du tout

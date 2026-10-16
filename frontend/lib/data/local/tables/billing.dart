@@ -229,6 +229,11 @@ class Payments extends Table with SyncedTableColumns, HotelScoped {
   TextColumn get businessDate => text().withLength(max: 10).nullable()();
   BoolColumn get isRefund => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().withLength(max: 255).nullable()();
+
+  /// L'encaissement que ce remboursement annule (erreur de saisie, sur le
+  /// code d'un responsable). Un encaissement ne s'efface pas : l'argent est
+  /// sorti du tiroir, et l'attendu doit le voir sortir.
+  TextColumn get reversesPaymentId => text().nullable()();
 }
 
 /// Une depense de l'hotel qui ne passe pas par le stock : salaires,

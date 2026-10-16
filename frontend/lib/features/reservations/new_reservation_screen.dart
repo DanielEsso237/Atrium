@@ -29,6 +29,8 @@ import '../guests/id_photos.dart';
 import 'etape_formulaire.dart';
 import 'deposit_dialog.dart';
 import '../../core/ui/confirmation.dart';
+import 'reservations_screen.dart'
+    show ReservationFilter, reservationFilterProvider;
 
 final roomTypesProvider = FutureProvider<List<RoomTypeSummary>>(
   (ref) => ref.watch(databaseProvider).roomTypeSummaries(),
@@ -162,6 +164,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
     }
 
     if (!mounted) return;
+    // Sur « Toutes » (demande du 16 octobre) : sur le filtre du matin
+    // (« Attendues », « Arrivées du jour »), une reservation pour la semaine
+    // prochaine n'apparaissait pas, et l'agent croyait l'avoir perdue.
+    ref.read(reservationFilterProvider.notifier).select(ReservationFilter.all);
     context.go('/reservations');
     // L'exemple de Daniel : la reservation confirmee, au milieu de l'ecran.
     montrerSucces(context, 'Réservation enregistrée.');
