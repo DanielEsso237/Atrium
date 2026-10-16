@@ -164,6 +164,11 @@ flèche, c'est promettre un ailleurs qui n'existe pas.
   `_dependents.isEmpty` (retour d'Android sur « Annuler la réservation »,
   16 octobre). Le contrôleur appartient à la fenêtre (un `State`) ; pour un
   motif, `demanderMotif` (`core/ui/fenetre_motif.dart`).
+- **Pas de `LayoutBuilder` dans un `AlertDialog`.** Il mesure la largeur
+  naturelle de son contenu (`IntrinsicWidth`), ce qu'un `LayoutBuilder` ne
+  sait pas donner : la fenêtre plante avant de s'afficher. Les cases du PIN
+  (`PinCells`) en contiennent un — la fenêtre du code responsable est un
+  `Dialog` (16 octobre).
 - Hot reload refusé après un changement de champs d'une classe `const` :
   utiliser `R` (restart), pas `r`.
 - `StateProvider` n'existe plus en Riverpod 3 — utiliser un `Notifier`.
