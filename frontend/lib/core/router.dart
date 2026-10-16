@@ -22,6 +22,7 @@ import '../features/orders/orders_screen.dart';
 import '../features/outlets/outlet_cash_screen.dart';
 import '../features/outlets/outlet_invoices_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
+import '../features/personnel/personnel_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/reservations/arrivee_directe_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
@@ -82,6 +83,8 @@ const _permissionParZone = <String, String>{
   // Le meme droit que le serveur exige pour creer un agent : tout ce que cet
   // ecran ecrit, il le refuserait sinon, et la file se bloquerait.
   '/administration': 'users.write',
+  // Le personnel et son chiffre d'affaires : qui lit les agents.
+  '/personnel': 'users.read|users.write',
 };
 
 /// La permission exigee par un chemin, sous-routes comprises.
@@ -244,6 +247,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/administration',
             builder: (_, _) => const AdministrationScreen(),
+          ),
+          GoRoute(
+            path: '/personnel',
+            builder: (_, _) => const PersonnelScreen(),
           ),
           GoRoute(
             path: '/reservations',
