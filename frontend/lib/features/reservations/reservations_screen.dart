@@ -182,7 +182,7 @@ class ReservationsScreen extends ConsumerWidget {
           // exige, sinon l'arrivee bloquerait la file.
           if (acces.peut('reservation.create') && acces.peut('folio.write'))
             PillButton(
-              label: 'Arrivée directe',
+              label: 'Nouvelle arrivée',
               icon: PhosphorIconsLight.doorOpen,
               tone: PillTone.quiet,
               onPressed: () => context.go('/reservations/arrivee-directe'),

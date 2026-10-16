@@ -185,7 +185,7 @@ final destinations = <Destination>[
   // Un voyageur sans reservation : une entree a part, pas une vue des
   // reservations (demande du 15 octobre).
   const Destination(
-    'Arrivée directe',
+    'Nouvelle arrivée',
     PhosphorIconsLight.doorOpen,
     PhosphorIconsFill.signIn,
     '/reservations/arrivee-directe',

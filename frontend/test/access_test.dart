@@ -297,17 +297,17 @@ void main() {
     expect(parLibelle['Faire une réservation']?.route, '/reservations/nouvelle');
     expect(parLibelle['Faire une réservation']?.sousReservations, isTrue);
     expect(
-      parLibelle['Arrivée directe']?.route,
+      parLibelle['Nouvelle arrivée']?.route,
       '/reservations/arrivee-directe',
     );
     // Une entree a part, pas une vue des reservations.
-    expect(parLibelle['Arrivée directe']?.sousReservations, isFalse);
+    expect(parLibelle['Nouvelle arrivée']?.sousReservations, isFalse);
 
     final menage = destinationsPour(
       SessionState(acces: await accessProfileFor(db, await idDe('MENAGE01'))),
     ).map((d) => d.label);
     expect(menage, isNot(contains('Faire une réservation')));
-    expect(menage, isNot(contains('Arrivée directe')));
+    expect(menage, isNot(contains('Nouvelle arrivée')));
   });
 
   test(
