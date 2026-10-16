@@ -293,6 +293,18 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/entretien',
   ),
+  // Le tableau de bord des points de vente et des services : tout l'hotel
+  // pour la direction et la reception, le sien pour l'agent d'un comptoir.
+  // Comme Mouvements et Entretien (16 octobre) : un clic ouvre ce tableau de
+  // bord, la fleche deplie les points de vente et les services.
+  const Destination(
+    'Ventes',
+    PhosphorIconsLight.storefront,
+    PhosphorIconsLight.storefront,
+    '/ventes',
+    'order.read',
+    Groupe.services,
+  ),
   const Destination(
     'Points de vente',
     PhosphorIconsLight.shoppingBagOpen,
@@ -300,6 +312,7 @@ final destinations = <Destination>[
     '/commandes',
     'order.read',
     Groupe.services,
+    parent: '/ventes',
   ),
   // Les prestations : spa, piscine, salle de sport, salles de conference et
   // de banquet. Meme ecran que les points de vente, filtre sur le genre.
@@ -310,18 +323,7 @@ final destinations = <Destination>[
     '/services',
     'order.read',
     Groupe.services,
-  ),
-  // Le tableau de bord des points de vente et des services : tout l'hotel
-  // pour la direction et la reception, le sien pour l'agent d'un comptoir.
-  // Apres ses onglets : l'agent ouvre sur ses commandes, ses chiffres sont a
-  // un geste.
-  const Destination(
-    'Ventes',
-    PhosphorIconsLight.storefront,
-    PhosphorIconsLight.storefront,
-    '/ventes',
-    'order.read',
-    Groupe.services,
+    parent: '/ventes',
   ),
   // L'economat et le stock de chaque point de vente. L'icone pleine est la
   // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
@@ -333,7 +335,8 @@ final destinations = <Destination>[
     'stock.read',
     Groupe.services,
   ),
-  // Compter un magasin et realigner son stock (15 octobre).
+  // Compter un magasin et realigner son stock (15 octobre) : deplie sous
+  // Stocks (16 octobre).
   const Destination(
     'Inventaire',
     PhosphorIconsLight.checks,
@@ -341,6 +344,7 @@ final destinations = <Destination>[
     '/inventaire',
     'stock.inventory|stock.rebalance',
     Groupe.services,
+    parent: '/stocks',
   ),
   const Destination(
     'Factures',
@@ -381,6 +385,16 @@ final destinations = <Destination>[
     Groupe.finances,
     sauf: 'folio.read',
   ),
+  // Les marges des points de vente et la valeur du stock (ticket D8). La
+  // fleche deplie les depenses et les rapports (16 octobre).
+  const Destination(
+    'Comptabilité',
+    PhosphorIconsLight.coins,
+    PhosphorIconsFill.coins,
+    '/comptabilite',
+    'accounting.read',
+    Groupe.finances,
+  ),
   // Ce que l'hotel paie hors stock : le benefice des rapports en depend.
   const Destination(
     'Dépenses',
@@ -389,15 +403,7 @@ final destinations = <Destination>[
     '/depenses',
     'accounting.read',
     Groupe.finances,
-  ),
-  // Les marges des points de vente et la valeur du stock (ticket D8).
-  const Destination(
-    'Comptabilité',
-    PhosphorIconsLight.coins,
-    PhosphorIconsFill.coins,
-    '/comptabilite',
-    'accounting.read',
-    Groupe.finances,
+    parent: '/comptabilite',
   ),
   // Une periode, des filtres, et de quoi la remettre au comptable.
   const Destination(
@@ -407,6 +413,7 @@ final destinations = <Destination>[
     '/rapports',
     'folio.read',
     Groupe.finances,
+    parent: '/comptabilite',
   ),
   // La liste du personnel et ce que chacun genere (15 octobre).
   const Destination(
@@ -428,8 +435,13 @@ final destinations = <Destination>[
   ),
 ];
 
-/// Les routes des tableaux de bord qui rangent des sous-entrees.
+/// Les routes des tableaux de bord qui rangent des sous-entrees. Un metier a
+/// ecran unique n'y passe pas.
 const _parents = {'/mouvements', '/entretien'};
+
+/// Les parents dont l'ecran est un tableau de bord : le menu du rail l'appelle
+/// ainsi. Stocks et Comptabilite gardent leur nom.
+const _tableauxDeBord = {..._parents, '/ventes'};
 
 /// Les entrees permises a cet agent, dans l'ordre du menu.
 List<Destination> destinationsPour(SessionState session) {
@@ -459,7 +471,10 @@ List<Destination> destinationsPour(SessionState session) {
   final presents = {for (final d in permises) d.route};
   return [
     for (final d in permises)
-      if (d.parent != null && !presents.contains(d.parent)) d.sansParent() else d,
+      if (d.parent != null && !presents.contains(d.parent))
+        d.sansParent()
+      else
+        d,
   ];
 }
 
@@ -798,9 +813,7 @@ class _BarreState extends State<_Barre> {
       final points = widget.sousListes[d.route] ?? const <OutletRow>[];
       final depliable = points.length > 1;
       final deplie = depliable && _deplies.contains(d.route);
-      final hauteur = parent || sousEntree || depliable
-          ? 48.0
-          : _Mesures.ligne;
+      final hauteur = parent || sousEntree || depliable ? 48.0 : _Mesures.ligne;
       // Liste depliee, c'est la ligne du point de vente ouvert qui s'allume.
       // Parent replie, c'est lui qui s'allume pour la sous-entree courante.
       final selectionne =
@@ -874,12 +887,12 @@ class _BarreState extends State<_Barre> {
           if (allume) {
             hautActif = y;
             hauteurActif = haut;
-            retraitActif = 16;
+            retraitActif = sousEntree ? 32 : 16;
           }
           lignes.add(
             Padding(
-              padding: const EdgeInsets.only(
-                left: 16,
+              padding: EdgeInsets.only(
+                left: sousEntree ? 32 : 16,
                 bottom: _Mesures.pas - _Mesures.ligne,
               ),
               child: _LigneNav(
@@ -1382,7 +1395,9 @@ void _choisirVue(
                     i == actif ? liste[i].iconActive : liste[i].icon,
                   ),
                   title: Text(
-                    i == parent ? 'Tableau de bord' : liste[i].label,
+                    i == parent && _tableauxDeBord.contains(route)
+                        ? 'Tableau de bord'
+                        : liste[i].label,
                   ),
                   selected: i == actif,
                   selectedTileColor: AtriumPalette.current.accentSoft,
