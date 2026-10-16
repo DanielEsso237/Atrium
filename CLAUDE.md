@@ -158,6 +158,12 @@ flèche, c'est promettre un ailleurs qui n'existe pas.
   (`flutter run` n'envoie pas les en-têtes d'isolation d'origine). Le journal
   dit le mode retenu au démarrage ; seul `inMemory` perd les données.
   **Développer sur un appareil Android évite toute cette famille de pièges.**
+- **Un `TextEditingController` ne se détruit pas juste après `showDialog`.**
+  La fenêtre est encore à l'écran pendant son animation de sortie : son
+  champ lit un contrôleur détruit, et l'application lève
+  `_dependents.isEmpty` (retour d'Android sur « Annuler la réservation »,
+  16 octobre). Le contrôleur appartient à la fenêtre (un `State`) ; pour un
+  motif, `demanderMotif` (`core/ui/fenetre_motif.dart`).
 - Hot reload refusé après un changement de champs d'une classe `const` :
   utiliser `R` (restart), pas `r`.
 - `StateProvider` n'existe plus en Riverpod 3 — utiliser un `Notifier`.

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/fenetre_motif.dart';
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
 import '../../core/recherche.dart';
@@ -621,42 +622,23 @@ class _FicheDepenseState extends ConsumerState<_FicheDepense> {
   }
 
   Future<void> _annuler() async {
-    final motif = TextEditingController();
-    final confirme = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Annuler la dépense'),
-        content: SizedBox(
-          width: 420,
-          child: TextField(
-            controller: motif,
-            autofocus: true,
-            maxLength: 255,
-            decoration: const InputDecoration(
-              labelText: 'Motif',
-              hintText: 'Saisie en double, mauvais montant…',
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Garder la dépense'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Annuler la dépense'),
-          ),
-        ],
-      ),
+    final motif = await demanderMotif(
+      context,
+      titre: 'Annuler la dépense',
+      libelleRenoncer: 'Garder la dépense',
+      libelleConfirmer: 'Annuler la dépense',
+      libelleMotif: 'Motif',
+      indice: 'Saisie en double, mauvais montant…',
+      autofocus: true,
+      largeur: 420,
     );
-    if (confirme != true || !mounted) return;
+    if (motif == null || !mounted) return;
     try {
       await ref
           .read(expenseRepositoryProvider)
           .annuler(
             widget.existante!.id,
-            motif: motif.text,
+            motif: motif,
             by: ref.read(sessionProvider).agent?.id,
           );
       if (!mounted) return;
@@ -664,8 +646,6 @@ class _FicheDepenseState extends ConsumerState<_FicheDepense> {
       montrerSucces(context, 'Dépense annulée.');
     } on StateError catch (e) {
       if (mounted) montrerRefus(context, e.message);
-    } finally {
-      motif.dispose();
     }
   }
 

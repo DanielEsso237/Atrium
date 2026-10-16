@@ -14,6 +14,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/fenetre_motif.dart';
 import '../../core/formats.dart';
 import '../../core/prolongation.dart';
 import '../../core/tokens.dart';
@@ -279,8 +280,11 @@ Future<bool> confirmExtendStay(
   if (!context.mounted) return false;
 
   if (!regles.billsExtraHours) {
-    montrerRefus(context, "Fixez d'abord le prix de l'heure supplémentaire dans "
-          "l'administration (Départ).");
+    montrerRefus(
+      context,
+      "Fixez d'abord le prix de l'heure supplémentaire dans "
+      "l'administration (Départ).",
+    );
     return false;
   }
 
@@ -312,7 +316,10 @@ Future<bool> confirmExtendStay(
   }
 
   if (context.mounted) {
-    montrerSucces(context, 'Prolongation de $heures h portée à l’ardoise de $guestName.');
+    montrerSucces(
+      context,
+      'Prolongation de $heures h portée à l’ardoise de $guestName.',
+    );
   }
   return true;
 }
@@ -582,7 +589,10 @@ Future<bool> confirmCheckOut(
       .checkOut(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
 
   if (context.mounted) {
-    montrerSucces(context, '$guestName est parti, chambre $roomNumber à nettoyer.');
+    montrerSucces(
+      context,
+      '$guestName est parti, chambre $roomNumber à nettoyer.',
+    );
   }
   return true;
 }
@@ -781,61 +791,35 @@ Future<bool> confirmCancelReservation(
   final arrhes = await repo.keptDeposit(reservationId);
   if (!context.mounted) return false;
 
-  final motif = TextEditingController();
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      icon: const Icon(PhosphorIconsLight.warningCircle, size: 32),
-      title: const Text('Annuler la réservation'),
-      scrollable: true,
-      content: SizedBox(
-        width: 460,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Le dossier $reference de $guestName sera annulé, et sa chambre '
-              'libérée.',
-              style: const TextStyle(fontSize: 17),
-            ),
-            if (arrhes != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Les arrhes encaissées (${formatAmount(arrhes)}) restent '
-                "acquises à l'hôtel : elles ne sont pas remboursées.",
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: motif,
-              maxLength: 255,
-              decoration: const InputDecoration(
-                labelText: 'Motif (facultatif)',
-              ),
-            ),
-          ],
+  final raison = await demanderMotif(
+    context,
+    icone: PhosphorIconsLight.warningCircle,
+    titre: 'Annuler la réservation',
+    libelleRenoncer: 'Garder la réservation',
+    libelleConfirmer: 'Annuler la réservation',
+    danger: true,
+    largeur: 460,
+    contenu: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Le dossier $reference de $guestName sera annulé, et sa chambre '
+          'libérée.',
+          style: const TextStyle(fontSize: 17),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Garder la réservation'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(dialogContext).colorScheme.error,
+        if (arrhes != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Les arrhes encaissées (${formatAmount(arrhes)}) restent '
+            "acquises à l'hôtel : elles ne sont pas remboursées.",
+            style: const TextStyle(fontSize: 16),
           ),
-          child: const Text('Annuler la réservation'),
-        ),
+        ],
       ],
     ),
   );
-  final raison = motif.text;
-  motif.dispose();
-  if (ok != true || !context.mounted) return false;
+  if (raison == null || !context.mounted) return false;
 
   try {
     await repo.cancel(
