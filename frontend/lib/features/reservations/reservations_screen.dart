@@ -22,6 +22,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
+import '../annulations/accord_responsable.dart';
 import 'assign_room_dialog.dart';
 import 'stay_actions.dart';
 
@@ -182,7 +183,7 @@ class ReservationsScreen extends ConsumerWidget {
           // exige, sinon l'arrivee bloquerait la file.
           if (acces.peut('reservation.create') && acces.peut('folio.write'))
             PillButton(
-              label: 'Arrivée directe',
+              label: 'Nouvelle arrivée',
               icon: PhosphorIconsLight.doorOpen,
               tone: PillTone.quiet,
               onPressed: () => context.go('/reservations/arrivee-directe'),
@@ -517,13 +518,14 @@ class _LigneEtroite extends ConsumerWidget {
               _Chambre(reservation: r, aDroite: true),
             ],
           ),
-          if (_aUneAction(r) || r.canCancel) ...[
+          if (_aUneAction(r) || r.canCancel || _peutRevenir(r)) ...[
             const SizedBox(height: 12),
             Row(
               children: [
                 if (_aUneAction(r))
                   Expanded(child: _Action(reservation: r, expand: true)),
-                if (_aUneAction(r) && r.canCancel) const SizedBox(width: 10),
+                if (_aUneAction(r) && (r.canCancel || _peutRevenir(r)))
+                  const SizedBox(width: 10),
                 _BoutonAnnuler(reservation: r),
               ],
             ),
@@ -718,7 +720,11 @@ class _BoutonAnnuler extends ConsumerWidget {
         .watch(sessionProvider)
         .acces
         .peut('reservation.manage');
-    if (!r.canCancel || !autorise) return const SizedBox.shrink();
+    if (!autorise) return const SizedBox.shrink();
+    // Une arrivee ou un depart saisis par erreur se defont, sur le code d'un
+    // responsable (demande du 16 octobre).
+    if (_peutRevenir(r)) return _BoutonRevenir(reservation: r);
+    if (!r.canCancel) return const SizedBox.shrink();
 
     final rouge = Theme.of(context).colorScheme.error;
     return OutlinedButton.icon(
@@ -738,6 +744,55 @@ class _BoutonAnnuler extends ConsumerWidget {
       ),
       icon: const Icon(Icons.event_busy_rounded, size: 18),
       label: const Text('Annuler'),
+    );
+  }
+}
+
+bool _peutRevenir(ReservationSummary r) =>
+    r.status == ReservationStatus.CHECKED_IN ||
+    r.status == ReservationStatus.CHECKED_OUT;
+
+/// Revenir sur l'arrivee ou le depart : en retrait, parce qu'il demande le
+/// code d'un responsable et qu'il ne sert qu'apres une erreur.
+class _BoutonRevenir extends ConsumerWidget {
+  const _BoutonRevenir({required this.reservation});
+
+  final ReservationSummary reservation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = reservation;
+    final arrivee = r.status == ReservationStatus.CHECKED_IN;
+    return Tooltip(
+      message: arrivee ? "Annuler l'arrivée" : 'Annuler le départ',
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AtriumColors.textSecondary,
+          side: BorderSide(color: AtriumColors.border, width: 1.2),
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: () => arrivee
+            ? annulerArrivee(
+                context,
+                ref,
+                lineId: r.lineId,
+                guestName: r.guestName,
+                roomNumber: r.roomNumber,
+              )
+            : annulerDepart(
+                context,
+                ref,
+                lineId: r.lineId,
+                guestName: r.guestName,
+                roomNumber: r.roomNumber,
+              ),
+        icon: const Icon(PhosphorIconsLight.arrowCounterClockwise, size: 18),
+        label: const Text('Revenir'),
+      ),
     );
   }
 }

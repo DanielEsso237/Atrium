@@ -719,12 +719,16 @@ class RemotePayment {
     this.cashSessionId,
     this.reference,
     this.notes,
+    this.reversesPaymentId,
   });
 
   final String id;
   final String method;
   final int amount;
   final bool isRefund;
+
+  /// Un remboursement qui annule un encaissement saisi par erreur.
+  final String? reversesPaymentId;
 
   /// « Arrhes RES-... » pour des arrhes : la tablette les reconnait a cela
   /// au check-in.
@@ -754,6 +758,7 @@ class RemotePayment {
       cashSessionId: _texte(raw['cash_session_id']),
       notes: _texte(raw['notes']),
       reference: _texte(raw['reference']),
+      reversesPaymentId: _texte(raw['reverses_payment_id']),
     );
   }
 }

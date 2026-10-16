@@ -702,6 +702,26 @@ n'avait pas vu (une vente faite sur un autre poste) prend un id du serveur ;
 un id de la tablette sans écart côté serveur reste inutilisé. La perte entre
 dans les pertes de `/accounting/daily-costs`, donc dans le bénéfice.
 
+## Revenir en arrière : arrivée, départ, encaissement
+
+Décision du 16 octobre : une erreur de saisie se défait sur le **code d'un
+responsable** (`operations.undo` : administrateur, direction), saisi sur la
+tablette même quand c'est lui qui est connecté. Chaque annulation porte
+`approved_by` ; le serveur revérifie ce droit et trace le geste dans
+`audit_logs` (`approved_by`, `reason`).
+
+| Route | Droit | Corps | Effet |
+|---|---|---|---|
+| `POST /auth/authorize` | agent connecté | `{employee_code, secret, permission}` | vérifie le code d'un responsable **sans ouvrir de session** ; `{user_id, first_name, last_name}`. Code faux : **403** (pas 401, qui déconnecterait l'agent), verrouillage à cinq échecs comme la connexion |
+| `POST /reservations/{id}/rooms/{line}/undo-check-in` | `reservation.manage` | `{approved_by, reason}` | la ligne redevient `CONFIRMED` (`CANCELLED` pour une arrivée directe), la chambre libre, l'ardoise **retirée** (`deleted_at`, lignes annulées, arrhes rendues au dossier, nuits dé-portées). 409 tant que l'ardoise porte un encaissement non annulé ou une consommation hors chambre |
+| `POST /reservations/{id}/rooms/{line}/undo-check-out` | `reservation.manage` | `{approved_by, reason}` | la ligne redevient `CHECKED_IN`, la chambre occupée, l'ardoise rouverte. 409 si la chambre est déjà réoccupée |
+| `POST /payments/{id}/reverse` | `folio.write` ou `cash.session` | `{id, approved_by, reason}` | un **remboursement** du même montant et du même moyen (`is_refund`, `reverses_payment_id`), dans le tiroir ouvert de l'agent pour le point de vente de l'encaissement ; l'ardoise se rouvre si elle était close. Une seule fois par encaissement (409) ; les arrhes encore sur le dossier ne s'annulent pas ici |
+
+Rejouables : un renvoi trouve le travail fait et rend l'état actuel (200).
+Côté tablette, ces gestes partent par la file (`action` : `UNDO_CHECK_IN`,
+`UNDO_CHECK_OUT` sur `reservation_rooms`, `REVERSE` sur `payments`), avec les
+mêmes refus faits avant d'enfiler.
+
 ## La pagination
 
 **Il n'y en a pas.** Aucun endpoint n'expose `limit`, `offset` ou `page` — les

@@ -454,6 +454,55 @@ serveur et ce qui est déjà compté. Un inventaire qui a un envoi en attente
 ici est épargné en entier, lignes comprises : un comptage part dans la file
 sous l'id de l'inventaire.
 
+## Mouvements, Entretien et retours en arrière (16 octobre)
+
+**Le menu.** « Réservations » devient **Mouvements** (`/mouvements`) : un clic
+ouvre son tableau de bord (arrivées et départs du jour, en séjour, à venir,
+derniers mouvements), la flèche déplie ses vues — **Nouvelle arrivée**
+(l'ancienne « Arrivée directe », en tête), Réservations (filtre « Toutes »),
+Faire une réservation, Arrivées, Départs, **Historique**
+(`/mouvements/historique`). Même principe pour **Entretien** (`/entretien`,
+`housekeeping.read|maintenance.read`) : deux tuiles, Ménage et Maintenance,
+chacune avec ses chiffres et son bouton. Une sous-entrée porte `parent` dans
+`app_shell.dart` ; elle remonte au premier niveau si l'agent ne voit pas son
+parent, et un métier à écran unique (`MENAGE01`) n'a pas de tableau parent.
+
+**L'historique** : la chronologie de tout ce qui entre et sort (arrivées,
+départs, réservations prises ou annulées, encaissements et leurs annulations),
+rangée par journée hôtelière ; et chaque client déjà venu, ses séjours, nuits,
+consommations ligne par ligne et paiements (`mouvements_queries.dart`).
+`?client=` ouvre d'emblée un parcours. Une réservation prise se reconnaît à
+l'absence de ligne `is_walk_in`, **pas** à `source` : la tablette pose
+`WALK_IN` sur tous les dossiers qu'elle crée.
+
+**Après une création**, réservation ou nouvelle arrivée, la liste s'ouvre sur
+« Toutes » : sur le filtre du matin, la réservation de la semaine prochaine
+était invisible.
+
+**Revenir en arrière** : annuler une arrivée, un départ ou un encaissement
+exige le **code d'un responsable** (`operations.undo`, migration 0028 :
+administrateur et direction), **même s'il est déjà connecté** — l'agent va le
+chercher. `POST /auth/authorize` vérifie le code sans ouvrir de session
+(403, jamais 401, pour un code faux) ; hors ligne, la tablette vérifie les
+empreintes `DEMO:` et ses droits locaux (`AutorisationRepository`). Le geste
+porte `approved_by` et part par la file ; le serveur revérifie le droit et
+trace dans `audit_logs`. Rien ne s'efface :
+
+- arrivée annulée : ligne `CONFIRMED` (annulée pour une arrivée directe),
+  chambre libre, ardoise **retirée** (`deleted_at`), lignes annulées, arrhes
+  rendues au dossier. Refusée tant qu'un encaissement n'est pas annulé ou
+  qu'une consommation est portée ;
+- départ annulé : le client reprend sa chambre (refusé si elle est
+  réoccupée), l'ardoise se rouvre ;
+- encaissement annulé : un **remboursement** du même montant
+  (`payments.reverses_payment_id`, schéma local 14), dans le tiroir ouvert de
+  celui qui annule. Les totaux d'ardoise retranchent désormais les
+  remboursements, des deux côtés.
+
+Les boutons : « Revenir » sur la liste des réservations, « Annuler
+l'arrivée » sur la fiche chambre, la flèche ↺ dans l'historique et les
+derniers mouvements (`features/annulations/accord_responsable.dart`).
+
 ## Ce qui manque
 
 - **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
@@ -477,6 +526,11 @@ sous l'id de l'inventaire.
 - Attribuer une chambre sans enregistrer d'arrivée n'a pas d'endpoint
   (`ReservationRoomUpdate` n'a pas de `room_id`) ; l'attribution repart avec le
   check-in, ce qui suffit aujourd'hui.
+- **Une arrivée annulée sur un poste** retire l'ardoise sur le serveur, mais
+  un second poste qui l'avait déjà descendue la garde ouverte : `GET /folios`
+  ne rend pas les ardoises retirées, la descente ne voit donc pas le retrait.
+  Même cause que `SyncOp.DELETE` ci-dessous. La tâche de ménage ouverte par
+  un départ annulé reste aussi dans la liste du ménage.
 - `SyncOp.DELETE` n'est ni produit ni traité, et `SyncState.conflict` n'est
   utilisé nulle part — pas d'arbitrage de conflit.
 - Aucun endpoint ne filtre sur une date de modification : chaque descente

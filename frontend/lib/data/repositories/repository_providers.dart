@@ -16,6 +16,7 @@ import '../remote/file_uploader.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'agent_repository.dart';
+import 'autorisation_repository.dart';
 import 'expense_repository.dart';
 import 'cash_repository.dart';
 import 'descente.dart';
@@ -77,6 +78,14 @@ final guestRepositoryProvider = Provider<GuestRepository>(
 
 final idPhotoRepositoryProvider = Provider<IdPhotoRepository>(
   (ref) => IdPhotoRepository(ref.watch(databaseProvider), platformPhotoFiles()),
+);
+
+/// Le code d'un responsable, pour les annulations.
+final autorisationRepositoryProvider = Provider<AutorisationRepository>(
+  (ref) => AutorisationRepository(
+    ref.watch(databaseProvider),
+    ref.watch(authApiProvider),
+  ),
 );
 
 final folioRepositoryProvider = Provider<FolioRepository>(

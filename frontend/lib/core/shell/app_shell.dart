@@ -78,15 +78,36 @@ class Destination {
     this.indicateur,
     this.sauf,
     this.aussi,
+    this.parent,
   });
 
   /// Une seconde permission exigee, pour un geste qui en declenche un autre :
   /// l'arrivee directe ouvre l'ardoise (`folio.write`) en plus du sejour.
   final String? aussi;
 
-  /// Une sous-entree des reservations (Arrivees, Departs, Faire une
-  /// reservation) : rangee sous son entree, et depliee avec elle.
-  bool get sousReservations => raccourci;
+  /// La route de l'entree qui la range (`/mouvements`, `/entretien`) : la
+  /// sous-entree se deplie sous elle, et son tableau de bord s'ouvre d'un
+  /// clic sur elle (demande du 16 octobre).
+  final String? parent;
+
+  /// Une sous-entree : rangee sous son parent, et depliee avec lui.
+  bool get sousEntree => parent != null;
+
+  /// La meme entree, remontee au premier niveau : son parent est absent du
+  /// menu de cet agent.
+  Destination sansParent() => Destination(
+    label,
+    icon,
+    iconActive,
+    route,
+    permission,
+    groupe,
+    filtre: filtre,
+    raccourci: raccourci,
+    indicateur: indicateur,
+    sauf: sauf,
+    aussi: aussi,
+  );
 
   /// Masquee a qui a cette permission : il a deja mieux ailleurs. « Ma
   /// caisse » n'a rien a apprendre a la reception, qui voit la caisse du jour.
@@ -95,8 +116,7 @@ class Destination {
   /// Le nom sous l'icone du rail, ou la place manque.
   String get court => switch (label) {
     'Caisse du jour' => 'Caisse',
-    'Réservations' => 'Résas',
-    'Maintenance' => 'Entretien',
+    'Mouvements' => 'Mouvts',
     'Administration' => 'Admin',
     _ => label,
   };
@@ -112,10 +132,11 @@ class Destination {
   final String? permission;
   final Groupe groupe;
 
-  /// Pour « Arrivees » et « Departs » : le filtre pose sur les reservations.
+  /// Pour « Réservations », « Arrivées » et « Départs » : le filtre pose sur
+  /// la liste des reservations.
   final ReservationFilter? filtre;
 
-  /// Une vue du module Reservations, rangee sous son entree principale.
+  /// Une ligne de liste deroulante (un point de vente sous son onglet).
   final bool raccourci;
 
   /// Un chiffre du jour en bout de ligne.
@@ -139,6 +160,32 @@ final destinations = <Destination>[
     null,
     Groupe.pilotage,
   ),
+  // Tout ce qui entre et sort de l'hotel (demande du 16 octobre) : un clic
+  // ouvre le tableau de bord des mouvements, la fleche deplie ses vues.
+  Destination(
+    'Mouvements',
+    PhosphorIconsLight.arrowsLeftRight,
+    PhosphorIconsFill.arrowsLeftRight,
+    '/mouvements',
+    'reservation.read',
+    Groupe.sejours,
+    indicateur: (r) {
+      final reste = r.arriveesRestantes + r.departsRestants;
+      return reste == 0 ? null : '$reste';
+    },
+  ),
+  // Le voyageur sans reservation, en tete : c'est le geste qui ne peut pas
+  // attendre, le client est devant le comptoir.
+  const Destination(
+    'Nouvelle arrivée',
+    PhosphorIconsLight.doorOpen,
+    PhosphorIconsFill.signIn,
+    '/reservations/arrivee-directe',
+    'reservation.create',
+    Groupe.sejours,
+    aussi: 'folio.write',
+    parent: '/mouvements',
+  ),
   const Destination(
     'Réservations',
     PhosphorIconsLight.calendarDots,
@@ -146,6 +193,18 @@ final destinations = <Destination>[
     '/reservations',
     'reservation.read',
     Groupe.sejours,
+    filtre: ReservationFilter.all,
+    parent: '/mouvements',
+  ),
+  // Demande du 15 octobre : le formulaire a un geste, sous Reservations.
+  const Destination(
+    'Faire une réservation',
+    PhosphorIconsLight.calendarPlus,
+    PhosphorIconsFill.calendarDots,
+    '/reservations/nouvelle',
+    'reservation.create',
+    Groupe.sejours,
+    parent: '/mouvements',
   ),
   // Ce qui reste a faire, pas le total : le chiffre descend a mesure que la
   // reception avance, et disparait quand la journee est bouclee.
@@ -157,7 +216,7 @@ final destinations = <Destination>[
     'reservation.read',
     Groupe.sejours,
     filtre: ReservationFilter.arrivalsToday,
-    raccourci: true,
+    parent: '/mouvements',
     indicateur: (r) =>
         r.arriveesRestantes == 0 ? null : '${r.arriveesRestantes}',
   ),
@@ -169,29 +228,19 @@ final destinations = <Destination>[
     'reservation.read',
     Groupe.sejours,
     filtre: ReservationFilter.departuresToday,
-    raccourci: true,
+    parent: '/mouvements',
     indicateur: (r) => r.departsRestants == 0 ? null : '${r.departsRestants}',
   ),
-  // Demande du 15 octobre : le formulaire a un geste, sous Reservations.
+  // Tous les mouvements dans l'ordre, et le parcours de chaque client deja
+  // venu : sejours, consommations, paiements.
   const Destination(
-    'Faire une réservation',
-    PhosphorIconsLight.calendarPlus,
-    PhosphorIconsFill.calendarDots,
-    '/reservations/nouvelle',
-    'reservation.create',
+    'Historique',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/mouvements/historique',
+    'reservation.read',
     Groupe.sejours,
-    raccourci: true,
-  ),
-  // Un voyageur sans reservation : une entree a part, pas une vue des
-  // reservations (demande du 15 octobre).
-  const Destination(
-    'Arrivée directe',
-    PhosphorIconsLight.doorOpen,
-    PhosphorIconsFill.signIn,
-    '/reservations/arrivee-directe',
-    'reservation.create',
-    Groupe.sejours,
-    aussi: 'folio.write',
+    parent: '/mouvements',
   ),
   Destination(
     'Chambres',
@@ -212,6 +261,18 @@ final destinations = <Destination>[
     'guests.read',
     Groupe.sejours,
   ),
+  // Le menage et la maintenance sous un meme toit (demande du 16 octobre) :
+  // un clic ouvre leurs deux tuiles, la fleche deplie leurs ecrans.
+  Destination(
+    'Entretien',
+    PhosphorIconsLight.toolbox,
+    PhosphorIconsFill.toolbox,
+    '/entretien',
+    'housekeeping.read|maintenance.read',
+    Groupe.services,
+    indicateur: (r) =>
+        r.chambresANettoyer == 0 ? null : '${r.chambresANettoyer}',
+  ),
   Destination(
     'Ménage',
     PhosphorIconsLight.broom,
@@ -219,6 +280,7 @@ final destinations = <Destination>[
     '/menage',
     'housekeeping.read',
     Groupe.services,
+    parent: '/entretien',
     indicateur: (r) =>
         r.chambresANettoyer == 0 ? null : '${r.chambresANettoyer}',
   ),
@@ -229,6 +291,7 @@ final destinations = <Destination>[
     '/maintenance',
     'maintenance.read',
     Groupe.services,
+    parent: '/entretien',
   ),
   const Destination(
     'Points de vente',
@@ -355,11 +418,14 @@ final destinations = <Destination>[
   ),
 ];
 
+/// Les routes des tableaux de bord qui rangent des sous-entrees.
+const _parents = {'/mouvements', '/entretien'};
+
 /// Les entrees permises a cet agent, dans l'ordre du menu.
 List<Destination> destinationsPour(SessionState session) {
   final accueil = session.acces.homeRoute;
   final ecranUnique = accueil != null && accueil != '/';
-  return [
+  final permises = [
     for (final d in destinations)
       if ((d.permission == null || session.acces.peutUnDe(d.permission!)) &&
           (d.aussi == null || session.acces.peut(d.aussi!)) &&
@@ -370,10 +436,30 @@ List<Destination> destinationsPour(SessionState session) {
               genreDeLaZone(d.route!) == null ||
               session.acces.voitGenre(genreDeLaZone(d.route!)!)) &&
           // Un metier a ecran unique (la femme de chambre) ne passe jamais
-          // par l'accueil : lui montrer « Aujourd'hui » serait un detour.
-          !(ecranUnique && (d.route == '/' || d.route == '/statistiques')))
+          // par l'accueil : lui montrer « Aujourd'hui » serait un detour. Ni
+          // par un tableau de bord qui range son seul ecran.
+          !(ecranUnique &&
+              (d.route == '/' ||
+                  d.route == '/statistiques' ||
+                  _parents.contains(d.route))))
         d,
   ];
+  // Une sous-entree dont le parent manque remonte au premier niveau : sans
+  // cela, elle resterait pliee sous une entree que l'agent ne voit pas.
+  final presents = {for (final d in permises) d.route};
+  return [
+    for (final d in permises)
+      if (d.parent != null && !presents.contains(d.parent)) d.sansParent() else d,
+  ];
+}
+
+/// Le parent d'une entree : sa route si elle en range, celle de son parent
+/// si elle est rangee, `null` sinon.
+String? _parentDe(List<Destination> liste, int i) {
+  if (i < 0) return null;
+  final d = liste[i];
+  if (d.parent != null) return d.parent;
+  return liste.any((x) => x.parent == d.route) ? d.route : null;
 }
 
 int _indexActif(
@@ -386,11 +472,17 @@ int _indexActif(
       (d) => d.route == chemin && d.filtre == filtre,
     );
     if (vue >= 0) return vue;
+    // Un filtre choisi dans la page (« En cours », « Attendues ») : c'est
+    // « Réservations » qui reste allumee.
+    final toutes = liste.indexWhere(
+      (d) => d.route == chemin && d.filtre == ReservationFilter.all,
+    );
+    if (toutes >= 0) return toutes;
   }
-  // Une sous-entree qui a sa propre page (« Faire une réservation ») :
-  // c'est elle qui s'allume, pas Reservations.
+  // Une sous-entree qui a sa propre page (« Faire une réservation »,
+  // « Ménage ») : c'est elle qui s'allume, pas son parent.
   final page = liste.indexWhere(
-    (d) => d.sousReservations && d.filtre == null && d.route == chemin,
+    (d) => d.sousEntree && d.filtre == null && d.route == chemin,
   );
   if (page >= 0) return page;
   var meilleur = -1;
@@ -398,7 +490,7 @@ int _indexActif(
   for (var i = 0; i < liste.length; i++) {
     final d = liste[i];
     final r = d.route;
-    if (r == null || d.raccourci) continue;
+    if (r == null || d.sousEntree) continue;
     final correspond = r == '/'
         ? chemin == '/'
         : (chemin == r || chemin.startsWith('$r/'));
@@ -590,7 +682,8 @@ class _Barre extends StatefulWidget {
 }
 
 class _BarreState extends State<_Barre> {
-  late bool _reservationsOuvertes;
+  /// Les parents (Mouvements, Entretien) deplies.
+  final _ouverts = <String>{};
 
   /// Les entrees a liste de points de vente qui sont depliees.
   final _deplies = <String>{};
@@ -607,28 +700,29 @@ class _BarreState extends State<_Barre> {
     }
   }
 
-  bool get _surReservations =>
-      widget.actif >= 0 &&
-      (widget.liste[widget.actif].route == '/reservations' ||
-          widget.liste[widget.actif].sousReservations);
+  /// Le parent de l'entree courante : on y arrive deplie, pour voir ou l'on
+  /// est et ou aller ensuite.
+  String? get _parentActif => _parentDe(widget.liste, widget.actif);
 
   @override
   void initState() {
     super.initState();
-    _reservationsOuvertes = _surReservations;
+    final parent = _parentActif;
+    if (parent != null) _ouverts.add(parent);
     _deplierLaRouteActive();
   }
 
   @override
   void didUpdateWidget(covariant _Barre oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.actif != widget.actif && _surReservations) {
-      _reservationsOuvertes = true;
+    if (oldWidget.actif != widget.actif) {
+      final parent = _parentActif;
+      if (parent != null) _ouverts.add(parent);
+      _deplierLaRouteActive();
     }
-    if (oldWidget.actif != widget.actif) _deplierLaRouteActive();
   }
 
-  /// La fleche qui deplie une entree : la meme pour les reservations et les
+  /// La fleche qui deplie une entree : la meme pour les parents et les
   /// points de vente.
   Widget _fleche({
     required bool ouvert,
@@ -670,8 +764,8 @@ class _BarreState extends State<_Barre> {
 
     for (var i = 0; i < liste.length; i++) {
       final d = liste[i];
-      final sousEntree = d.sousReservations;
-      if (sousEntree && !_reservationsOuvertes) continue;
+      final sousEntree = d.sousEntree;
+      if (sousEntree && !_ouverts.contains(d.parent)) continue;
       if (d.groupe == Groupe.reglages) {
         reglages.add(i);
         continue;
@@ -688,18 +782,20 @@ class _BarreState extends State<_Barre> {
           y += _Mesures.titre / 2;
         }
       }
-      final reservations = d.route == '/reservations' && d.filtre == null;
+      final parent = !sousEntree && liste.any((x) => x.parent == d.route);
+      final parentOuvert = parent && _ouverts.contains(d.route);
       // Une liste d'un seul point de vente ne deplie rien : l'entree y mene.
       final points = widget.sousListes[d.route] ?? const <OutletRow>[];
       final depliable = points.length > 1;
       final deplie = depliable && _deplies.contains(d.route);
-      final hauteur = reservations || sousEntree || depliable
+      final hauteur = parent || sousEntree || depliable
           ? 48.0
           : _Mesures.ligne;
       // Liste depliee, c'est la ligne du point de vente ouvert qui s'allume.
+      // Parent replie, c'est lui qui s'allume pour la sous-entree courante.
       final selectionne =
           (i == actif && !(deplie && widget.pointActif != null)) ||
-          (reservations && _surReservations && !_reservationsOuvertes);
+          (parent && !parentOuvert && _parentActif == d.route);
       if (selectionne) {
         hautActif = y;
         hauteurActif = hauteur;
@@ -711,7 +807,7 @@ class _BarreState extends State<_Barre> {
         hauteur: hauteur,
         indicateur: resume == null ? null : d.indicateur?.call(resume),
         onTap: () {
-          if (reservations) setState(() => _reservationsOuvertes = true);
+          if (parent) setState(() => _ouverts.add(d.route!));
           if (depliable) setState(() => _deplies.add(d.route!));
           widget.onSelect(i);
         },
@@ -722,16 +818,18 @@ class _BarreState extends State<_Barre> {
             left: sousEntree ? 16 : 0,
             bottom: _Mesures.pas - _Mesures.ligne,
           ),
-          child: reservations
+          child: parent
               ? Row(
                   children: [
                     Expanded(child: ligne),
                     _fleche(
-                      ouvert: _reservationsOuvertes,
+                      ouvert: parentOuvert,
                       surPastille: selectionne,
-                      quoi: 'les réservations',
+                      quoi: d.label.toLowerCase(),
                       basculer: () => setState(
-                        () => _reservationsOuvertes = !_reservationsOuvertes,
+                        () => parentOuvert
+                            ? _ouverts.remove(d.route)
+                            : _ouverts.add(d.route!),
                       ),
                     ),
                   ],
@@ -1123,7 +1221,7 @@ class _Rail extends StatelessWidget {
     Groupe? groupe;
     for (var i = 0; i < liste.length; i++) {
       final d = liste[i];
-      if (d.route == null || d.raccourci) continue;
+      if (d.route == null || d.raccourci || d.sousEntree) continue;
       // Un trait court entre deux familles : le rail n'a pas la place des
       // titres, mais garde le meme rangement que la barre.
       if (groupe != null && d.groupe != groupe) {
@@ -1142,13 +1240,9 @@ class _Rail extends StatelessWidget {
       entrees.add(
         _EntreeRail(
           destination: d,
-          actif:
-              i == actif ||
-              (d.route == '/reservations' &&
-                  actif >= 0 &&
-                  liste[actif].sousReservations),
-          onTap: () => d.route == '/reservations'
-              ? _choisirVueReservations(context, liste, actif, onSelect)
+          actif: i == actif || (actif >= 0 && liste[actif].parent == d.route),
+          onTap: () => liste.any((x) => x.parent == d.route)
+              ? _choisirVue(context, liste, actif, onSelect, i)
               : onSelect(i),
         ),
       );
@@ -1238,14 +1332,17 @@ class _EntreeRail extends StatelessWidget {
   }
 }
 
-/// Dans le rail et sur telephone, les vues restent regroupees dans un menu
-/// lisible, avec les memes droits et filtres que le panneau etendu.
-void _choisirVueReservations(
+/// Dans le rail et sur telephone, un parent (Mouvements, Entretien) ouvre
+/// un menu : son tableau de bord, puis ses vues, avec les memes droits et
+/// filtres que le panneau etendu.
+void _choisirVue(
   BuildContext context,
   List<Destination> liste,
   int actif,
   ValueChanged<int> onSelect,
+  int parent,
 ) {
+  final route = liste[parent].route;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -1265,21 +1362,17 @@ void _choisirVueReservations(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Semantics(
                 header: true,
-                child: Text('Réservations', style: atriumDisplay(28)),
+                child: Text(liste[parent].label, style: atriumDisplay(28)),
               ),
             ),
             for (var i = 0; i < liste.length; i++)
-              if (liste[i].route == '/reservations' ||
-                  liste[i].sousReservations)
+              if (i == parent || liste[i].parent == route)
                 ListTile(
                   leading: Icon(
                     i == actif ? liste[i].iconActive : liste[i].icon,
                   ),
                   title: Text(
-                    liste[i].route == '/reservations' &&
-                            liste[i].filtre == null
-                        ? 'Toutes les réservations'
-                        : liste[i].label,
+                    i == parent ? 'Tableau de bord' : liste[i].label,
                   ),
                   selected: i == actif,
                   selectedTileColor: AtriumPalette.current.accentSoft,
@@ -1320,16 +1413,17 @@ class _CadreTelephone extends StatelessWidget {
   Widget build(BuildContext context) {
     final navigables = [
       for (var i = 0; i < liste.length; i++)
-        if (liste[i].route != null && !liste[i].raccourci) i,
+        if (liste[i].route != null &&
+            !liste[i].raccourci &&
+            !liste[i].sousEntree)
+          i,
     ];
     if (navigables.length <= 1) return child;
 
     final onglets = navigables.take(_visibles).toList();
     final reste = navigables.skip(_visibles).toList();
-    final principal = actif >= 0 && liste[actif].sousReservations
-        ? liste.indexWhere(
-            (d) => d.route == '/reservations' && d.filtre == null,
-          )
+    final principal = actif >= 0 && liste[actif].sousEntree
+        ? liste.indexWhere((d) => d.route == liste[actif].parent)
         : actif;
     final actifDansPlus = reste.contains(principal);
 
@@ -1355,13 +1449,8 @@ class _CadreTelephone extends StatelessWidget {
                           ? liste[i].iconActive
                           : liste[i].icon,
                       actif: i == principal,
-                      onTap: () => liste[i].route == '/reservations'
-                          ? _choisirVueReservations(
-                              context,
-                              liste,
-                              actif,
-                              onSelect,
-                            )
+                      onTap: () => liste.any((d) => d.parent == liste[i].route)
+                          ? _choisirVue(context, liste, actif, onSelect, i)
                           : onSelect(i),
                     ),
                   ),

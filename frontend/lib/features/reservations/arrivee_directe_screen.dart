@@ -24,6 +24,8 @@ import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
 import '../guests/guest_picker.dart';
+import 'reservations_screen.dart'
+    show ReservationFilter, reservationFilterProvider;
 
 final _chambresLibresProvider = StreamProvider<List<ChambreLibre>>(
   (ref) => ref.watch(reservationRepositoryProvider).watchChambresLibres(),
@@ -105,6 +107,9 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
       '$nom est arrivé, chambre ${chambre.numero}, $duree pour '
       '${formatAmount(prix)}.',
     );
+    // Sur « Toutes », comme apres une reservation : le sejour qu'on vient
+    // d'ouvrir doit etre la, quel que soit le filtre laisse le matin.
+    ref.read(reservationFilterProvider.notifier).select(ReservationFilter.all);
     context.go('/reservations');
   }
 
@@ -123,7 +128,7 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
         !_busy;
 
     return ModuleScaffold(
-      title: 'Arrivée directe',
+      title: 'Nouvelle arrivée',
       subtitle: 'Un voyageur sans réservation prend une chambre',
       action: PillButton(
         label: 'Enregistrer l’arrivée',

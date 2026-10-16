@@ -559,6 +559,15 @@ class OutboxSender {
         );
 
       case 'payments':
+        // L'annulation d'un encaissement, sur le code d'un responsable : un
+        // remboursement que le serveur reconnait a son id en cas de renvoi.
+        if (p['action'] == 'REVERSE') {
+          return _Envoi('/payments/${p['reverses_payment_id']}/reverse', {
+            'id': p['id'],
+            'approved_by': p['approved_by'],
+            'reason': p['reason'],
+          });
+        }
         final folioId = p['folio_id'];
         if (folioId == null) return null;
         return _Envoi(
@@ -982,6 +991,16 @@ class OutboxSender {
     // Le changement de chambre laisse le statut a CHECKED_IN : lu avant le
     // statut, sinon il repartirait comme un second check-in, que le serveur
     // refuse et qui bloquerait la file.
+    // Les annulations (16 octobre) : lues avant le statut, comme le
+    // changement de chambre -- elles n'en portent pas.
+    if (p['action'] == 'UNDO_CHECK_IN' || p['action'] == 'UNDO_CHECK_OUT') {
+      return _Envoi(
+        p['action'] == 'UNDO_CHECK_IN'
+            ? '$chemin/undo-check-in'
+            : '$chemin/undo-check-out',
+        {'approved_by': p['approved_by'], 'reason': p['reason']},
+      );
+    }
     if (p['action'] == 'CHANGE_ROOM') {
       return _Envoi(
         '$chemin/change-room',

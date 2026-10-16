@@ -218,7 +218,7 @@ class _EnTete extends StatelessWidget {
             if (peutArriveeDirecte) ...[
               const SizedBox(width: 10),
               PillButton(
-                label: 'Arrivée directe',
+                label: 'Nouvelle arrivée',
                 icon: PhosphorIconsLight.doorOpen,
                 tone: PillTone.quiet,
                 onPressed: () => context.go('/reservations/arrivee-directe'),

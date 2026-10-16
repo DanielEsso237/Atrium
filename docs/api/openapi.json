@@ -118,6 +118,54 @@
         "title": "AttachmentOut",
         "type": "object"
       },
+      "AuthorizeIn": {
+        "description": "Le code d'un responsable, saisi sur la tablette d'un collegue.\n\nVerifie sans ouvrir de session : le responsable autorise un geste, il ne\nse connecte pas a la place de l'agent.",
+        "properties": {
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_code",
+          "secret",
+          "permission"
+        ],
+        "title": "AuthorizeIn",
+        "type": "object"
+      },
+      "AuthorizeOut": {
+        "properties": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "first_name",
+          "last_name"
+        ],
+        "title": "AuthorizeOut",
+        "type": "object"
+      },
       "AvailabilityOut": {
         "properties": {
           "arrival_date": {
@@ -1058,6 +1106,41 @@
         "title": "CheckInOut",
         "type": "object"
       },
+      "DailyCostOut": {
+        "description": "Ce qu'une journee hoteliere a coute en stock, en francs entiers.\n\n- `cost_of_sales` : ce que les lignes vendues ce jour-la ont fait sortir ;\n- `consumption` : ce qui est sorti sans etre vendu (cuisine, chambres,\n  spa) ;\n- `losses` : la casse et les pertes ;\n- `purchases` : ce que les livraisons ont coute. A titre indicatif : un\n  achat n'est un cout qu'une fois vendu ou utilise, ce qui reste en\n  stock garde sa valeur.",
+        "properties": {
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "consumption": {
+            "title": "Consumption",
+            "type": "integer"
+          },
+          "cost_of_sales": {
+            "title": "Cost Of Sales",
+            "type": "integer"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "purchases": {
+            "title": "Purchases",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "business_date",
+          "cost_of_sales",
+          "consumption",
+          "losses",
+          "purchases"
+        ],
+        "title": "DailyCostOut",
+        "type": "object"
+      },
       "DashboardSummary": {
         "properties": {
           "active_reservations": {
@@ -1328,6 +1411,347 @@
           "allow_reprint"
         ],
         "title": "DocumentTypeOut",
+        "type": "object"
+      },
+      "ExpenseCategory": {
+        "description": "Ce que l'hotel paie sans passer par le stock.\n\nLe stock porte deja son cout : ce qui est vendu, ce qui est utilise en\ncuisine ou dans les chambres. Tout le reste se saisit dans une de ces\nrubriques, pour que le benefice soit le vrai.",
+        "enum": [
+          "SALARIES",
+          "ELECTRICITY",
+          "WATER",
+          "RENT",
+          "FUEL",
+          "REPAIRS",
+          "TELECOM",
+          "TAXES",
+          "MARKETING",
+          "BANK_FEES",
+          "OTHER"
+        ],
+        "title": "ExpenseCategory",
+        "type": "string"
+      },
+      "ExpenseIn": {
+        "description": "Une depense saisie. L'id vient de la tablette : un renvoi par la file\nrend la depense deja enregistree au lieu d'en creer une seconde.",
+        "properties": {
+          "amount": {
+            "description": "FCFA",
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "label": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier"
+          }
+        },
+        "required": [
+          "business_date",
+          "category",
+          "label",
+          "amount"
+        ],
+        "title": "ExpenseIn",
+        "type": "object"
+      },
+      "ExpenseOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_void": {
+            "title": "Is Void",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "recorded_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "void_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Void Reason"
+          },
+          "voided_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided By"
+          }
+        },
+        "required": [
+          "id",
+          "business_date",
+          "category",
+          "label",
+          "amount",
+          "method",
+          "supplier",
+          "reference",
+          "notes",
+          "recorded_by",
+          "is_void",
+          "void_reason",
+          "voided_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExpenseOut",
+        "type": "object"
+      },
+      "ExpenseUpdate": {
+        "description": "La depense corrigee, en entier : la tablette renvoie tout, et un\nrenvoi du meme corps ne change rien.",
+        "properties": {
+          "amount": {
+            "description": "FCFA",
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory"
+          },
+          "label": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier"
+          }
+        },
+        "required": [
+          "business_date",
+          "category",
+          "label",
+          "amount"
+        ],
+        "title": "ExpenseUpdate",
+        "type": "object"
+      },
+      "ExpenseVoidIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ExpenseVoidIn",
         "type": "object"
       },
       "FailIn": {
@@ -2827,6 +3251,273 @@
         ],
         "title": "InterventionOut",
         "type": "object"
+      },
+      "InventoryCountIn": {
+        "description": "Ce qui a ete compte ; `null` efface le comptage.",
+        "properties": {
+          "counted_qty": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counted Qty"
+          }
+        },
+        "title": "InventoryCountIn",
+        "type": "object"
+      },
+      "InventoryIn": {
+        "description": "Ouvrir l'inventaire d'un magasin, avec les articles a compter.\n\nLa quantite theorique n'y est pas : le serveur fige la sienne a\nreception. La tablette peut ignorer une vente faite sur un autre poste.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryLineIn"
+            },
+            "minItems": 1,
+            "title": "Lines",
+            "type": "array"
+          },
+          "stock_location_id": {
+            "format": "uuid",
+            "title": "Stock Location Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stock_location_id",
+          "label",
+          "lines"
+        ],
+        "title": "InventoryIn",
+        "type": "object"
+      },
+      "InventoryLineIn": {
+        "description": "Une ligne a compter : la tablette en donne l'id, le serveur la quantite.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "product_id"
+        ],
+        "title": "InventoryLineIn",
+        "type": "object"
+      },
+      "InventoryLineOut": {
+        "properties": {
+          "counted_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counted Qty"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "theoretical_qty": {
+            "title": "Theoretical Qty",
+            "type": "integer"
+          },
+          "variance": {
+            "title": "Variance",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "theoretical_qty",
+          "counted_qty",
+          "variance"
+        ],
+        "title": "InventoryLineOut",
+        "type": "object"
+      },
+      "InventoryOut": {
+        "properties": {
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed By"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inventory_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Date"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InventoryStatus"
+          },
+          "stock_location_id": {
+            "format": "uuid",
+            "title": "Stock Location Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stock_location_id",
+          "label",
+          "status",
+          "inventory_date",
+          "started_at",
+          "closed_at",
+          "closed_by",
+          "created_by",
+          "deleted_at",
+          "updated_at",
+          "lines"
+        ],
+        "title": "InventoryOut",
+        "type": "object"
+      },
+      "InventoryRebalanceIn": {
+        "description": "Les identifiants des mouvements, choisis par la tablette.\n\nUn par produit dont l'ecart n'est pas nul : la tablette a deja ecrit ces\nmouvements chez elle, avec ces ids. Le serveur les reprend pour qu'un\nposte ne voie jamais deux fois la meme perte.",
+        "properties": {
+          "movement_ids": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Movement Ids",
+            "type": "object"
+          }
+        },
+        "title": "InventoryRebalanceIn",
+        "type": "object"
+      },
+      "InventoryStatus": {
+        "enum": [
+          "DRAFT",
+          "COUNTING",
+          "CLOSED"
+        ],
+        "title": "InventoryStatus",
+        "type": "string"
       },
       "InvoiceLineOut": {
         "properties": {
@@ -4971,6 +5662,18 @@
               }
             ],
             "title": "Reservation Id"
+          },
+          "reverses_payment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses Payment Id"
           }
         },
         "required": [
@@ -4984,6 +5687,34 @@
           "reservation_id"
         ],
         "title": "PaymentOut",
+        "type": "object"
+      },
+      "PaymentReverseIn": {
+        "properties": {
+          "approved_by": {
+            "format": "uuid",
+            "title": "Approved By",
+            "type": "string"
+          },
+          "id": {
+            "description": "Id du remboursement, genere par la tablette (rejeu)",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_by",
+          "reason",
+          "id"
+        ],
+        "title": "PaymentReverseIn",
         "type": "object"
       },
       "PendingDepositsOut": {
@@ -8174,6 +8905,28 @@
         "title": "TokenOut",
         "type": "object"
       },
+      "UndoIn": {
+        "description": "Qui autorise l'annulation, et pourquoi.\n\n`approved_by` est le responsable dont le code a ete saisi sur la tablette\n(permission `operations.undo`) : le serveur verifie qu'il existe, est\nactif et a ce droit, comme pour un depassement de plafond.",
+        "properties": {
+          "approved_by": {
+            "format": "uuid",
+            "title": "Approved By",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_by",
+          "reason"
+        ],
+        "title": "UndoIn",
+        "type": "object"
+      },
       "UpgradeIn": {
         "description": "Surclassement : installer le client dans une chambre d'une autre\n\ncategorie que celle reservee. Sans lui, une chambre d'une autre categorie\nreste refusee : un surclassement se decide, il ne se glisse pas.",
         "properties": {
@@ -8926,6 +9679,80 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/accounting/daily-costs": {
+      "get": {
+        "description": "Ce que chaque journee a coute en stock, pour le benefice.\n\nLa tablette calcule ses rapports hors ligne, sur sa base ; les mouvements\nde stock, eux, ne descendent pas (seuls les transferts a valider le\nfont). Elle garde donc ces totaux, une ligne par journee.\n\nLe cout d'une vente est celui de sa journee de vente, au cout fige sur la\nsortie (la meme regle que `/margins`). Le reste -- achats, ce qui est\nutilise, pertes -- se date de la journee hoteliere de son mouvement.",
+        "operationId": "daily_costs_api_v1_accounting_daily_costs_get",
+        "parameters": [
+          {
+            "description": "Premiere journee hoteliere incluse",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "Premiere journee hoteliere incluse",
+              "format": "date",
+              "title": "Since",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Derniere journee incluse ; par defaut, la journee en cours",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Derniere journee incluse ; par defaut, la journee en cours",
+              "title": "Until"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyCostOut"
+                  },
+                  "title": "Response Daily Costs Api V1 Accounting Daily Costs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Daily Costs",
+        "tags": [
+          "comptabilite"
+        ]
+      }
+    },
     "/api/v1/accounting/margins": {
       "get": {
         "description": "La marge de chaque point de vente sur la periode, article par article.\n\nSans dates : les sept dernieres journees hotelieres, celle en cours\ncomprise. Une ligne annulee ne compte ni en recette ni en cout.",
@@ -9219,6 +10046,53 @@
         "summary": "Get Attachment File",
         "tags": [
           "pieces jointes"
+        ]
+      }
+    },
+    "/api/v1/auth/authorize": {
+      "post": {
+        "description": "Un responsable donne son code sur la tablette d'un agent.\n\nDemande du 16 octobre : revenir sur une arrivee, un depart ou un\nencaissement exige le code d'un superieur, **meme quand c'est lui qui est\nconnecte** -- l'agent doit aller le chercher, et le responsable le saisir.\nAucune session n'est ouverte : on verifie le secret et le droit, puis on\nrend qui a autorise. Le geste lui-meme repart par la file d'envoi, avec\ncet identifiant, et le serveur reverifie le droit a ce moment-la.\n\nReserve a un agent connecte, et soumis au meme verrouillage que la\nconnexion : sans cela, la route servirait a deviner des PIN.",
+        "operationId": "authorize_api_v1_auth_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Authorize",
+        "tags": [
+          "authentification"
         ]
       }
     },
@@ -9847,6 +10721,250 @@
         "summary": "Create Document Type",
         "tags": [
           "impression"
+        ]
+      }
+    },
+    "/api/v1/expenses": {
+      "get": {
+        "description": "Les annulees comprises : une tablette doit apprendre qu'une depense\nqu'elle connait a ete annulee ailleurs.",
+        "operationId": "list_expenses_api_v1_expenses_get",
+        "parameters": [
+          {
+            "description": "Premiere journee incluse",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Premiere journee incluse",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "Derniere journee incluse",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Derniere journee incluse",
+              "title": "Until"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseOut"
+                  },
+                  "title": "Response List Expenses Api V1 Expenses Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Expenses",
+        "tags": [
+          "depenses"
+        ]
+      },
+      "post": {
+        "operationId": "create_expense_api_v1_expenses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Depense deja enregistree (meme id)"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Expense",
+        "tags": [
+          "depenses"
+        ]
+      }
+    },
+    "/api/v1/expenses/{expense_id}": {
+      "patch": {
+        "operationId": "update_expense_api_v1_expenses__expense_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Expense",
+        "tags": [
+          "depenses"
+        ]
+      }
+    },
+    "/api/v1/expenses/{expense_id}/void": {
+      "post": {
+        "operationId": "void_expense_api_v1_expenses__expense_id__void_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseVoidIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Void Expense",
+        "tags": [
+          "depenses"
         ]
       }
     },
@@ -11081,6 +12199,361 @@
         "summary": "Start Task",
         "tags": [
           "housekeeping"
+        ]
+      }
+    },
+    "/api/v1/inventories": {
+      "get": {
+        "description": "La descente : les inventaires de l'hotel, avec leurs lignes.\n\nLes abandonnes viennent aussi : une tablette qui en connait un ouvert\ndoit apprendre qu'il ne l'est plus. Sans `since`, ceux encore ouverts.",
+        "operationId": "list_inventories_api_v1_inventories_get",
+        "parameters": [
+          {
+            "description": "Modifies depuis cet instant, abandonnes compris",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modifies depuis cet instant, abandonnes compris",
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stock_location_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stock Location Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InventoryOut"
+                  },
+                  "title": "Response List Inventories Api V1 Inventories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Inventories",
+        "tags": [
+          "inventaire"
+        ]
+      },
+      "post": {
+        "description": "Ouvre l'inventaire d'un magasin et fige la quantite theorique.",
+        "operationId": "open_inventory_api_v1_inventories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inventaire deja ouvert avec cet id : etat actuel"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Un autre inventaire est ouvert sur ce magasin"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Open Inventory",
+        "tags": [
+          "inventaire"
+        ]
+      }
+    },
+    "/api/v1/inventories/{inventory_id}": {
+      "get": {
+        "operationId": "get_inventory_api_v1_inventories__inventory_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inventory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Inventory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Inventory",
+        "tags": [
+          "inventaire"
+        ]
+      }
+    },
+    "/api/v1/inventories/{inventory_id}/cancel": {
+      "post": {
+        "description": "Abandonne un inventaire ouvert : rien ne bouge dans le stock.",
+        "operationId": "cancel_inventory_api_v1_inventories__inventory_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inventory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Inventory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Cancel Inventory",
+        "tags": [
+          "inventaire"
+        ]
+      }
+    },
+    "/api/v1/inventories/{inventory_id}/lines/{product_id}": {
+      "put": {
+        "description": "Ce qui a ete compte pour un article ; `null` efface le comptage.",
+        "operationId": "count_line_api_v1_inventories__inventory_id__lines__product_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inventory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Inventory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryCountIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Count Line",
+        "tags": [
+          "inventaire"
+        ]
+      }
+    },
+    "/api/v1/inventories/{inventory_id}/rebalance": {
+      "post": {
+        "description": "Aligne le stock du magasin sur ce qui a ete compte, puis clot.\n\nL'ecart se calcule sur la quantite theorique du serveur, figee a\nl'ouverture. Un ecart que la tablette n'avait pas vu (une vente faite\nailleurs) prend un id du serveur ; un id de la tablette sans ecart ici\nreste inutilise.",
+        "operationId": "rebalance_inventory_api_v1_inventories__inventory_id__rebalance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inventory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Inventory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryRebalanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Rebalance Inventory",
+        "tags": [
+          "inventaire"
         ]
       }
     },
@@ -12583,6 +14056,68 @@
         "summary": "List Payments",
         "tags": [
           "facturation"
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_id}/reverse": {
+      "post": {
+        "description": "Annule un encaissement : un remboursement du meme montant.\n\nL'argent sort du tiroir de celui qui annule, pour le point de vente de\nl'encaissement (la caisse centrale pour la reception) : sans tiroir\nouvert, pas d'annulation, comme pas d'encaissement. L'ardoise se rouvre\nsi le paiement l'avait soldee et close. Les arrhes ne s'annulent pas\nici : elles suivent le dossier.",
+        "operationId": "reverse_payment_api_v1_payments__payment_id__reverse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentReverseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Annulation deja enregistree (meme id)"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolioOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reverse Payment",
+        "tags": [
+          "annulations"
         ]
       }
     },
@@ -14143,6 +15678,144 @@
         "summary": "Check Out",
         "tags": [
           "reservations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/undo-check-in": {
+      "post": {
+        "description": "Annule une arrivee enregistree par erreur.\n\nRefuse tant que l'ardoise porte autre chose que le sejour : un\nencaissement (a annuler d'abord, il a fait entrer de l'argent dans un\ntiroir) ou une consommation (qui a fait sortir du stock). Les arrhes,\nelles, retournent sur le dossier : elles avaient ete versees avant\nl'arrivee et le restent.",
+        "operationId": "undo_check_in_api_v1_reservations__reservation_id__rooms__room_line_id__undo_check_in_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "room_line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Undo Check In",
+        "tags": [
+          "annulations"
+        ]
+      }
+    },
+    "/api/v1/reservations/{reservation_id}/rooms/{room_line_id}/undo-check-out": {
+      "post": {
+        "description": "Annule un depart enregistre par erreur : le client reprend sa chambre.\n\nRefuse si la chambre a deja ete redonnee a quelqu'un d'autre. L'ardoise\nse rouvre si le depart l'avait close ; la chambre garde son etat de\nmenage (le client y est reste, elle n'est pas plus propre pour autant).",
+        "operationId": "undo_check_out_api_v1_reservations__reservation_id__rooms__room_line_id__undo_check_out_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "room_line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Undo Check Out",
+        "tags": [
+          "annulations"
         ]
       }
     },
