@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
@@ -87,6 +88,107 @@ class EtapeFormulaire extends StatelessWidget {
           const SizedBox(height: 18),
           child,
         ],
+      ),
+    );
+  }
+}
+
+/// Une carte a choisir dans une etape : la categorie de la reservation et
+/// celle de la nouvelle arrivee (16 octobre) : un nom, un prix, une
+/// precision ; la carte retenue se teinte et se coche.
+class CarteChoix extends StatelessWidget {
+  const CarteChoix({
+    super.key,
+    required this.titre,
+    required this.montant,
+    required this.detail,
+    required this.choisie,
+    required this.onTap,
+  });
+
+  final String titre;
+  final int montant;
+  final String detail;
+  final bool choisie;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    final duree = AtriumMotion.of(context, const Duration(milliseconds: 380));
+    return Semantics(
+      button: true,
+      selected: choisie,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: duree,
+            curve: atriumSpring,
+            width: 176,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: choisie ? p.accent.withValues(alpha: 0.12) : p.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: choisie ? p.accent : p.border,
+                width: choisie ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        titre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: p.text,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      choisie
+                          ? PhosphorIconsFill.checkCircle
+                          : PhosphorIconsLight.circle,
+                      size: 20,
+                      color: choisie ? p.accent : p.placeholder,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  formatAmount(montant),
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.4,
+                    color: p.text,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    color: p.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

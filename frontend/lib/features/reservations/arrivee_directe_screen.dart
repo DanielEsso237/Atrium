@@ -30,6 +30,7 @@ import 'reservations_screen.dart'
     show ReservationFilter, reservationFilterProvider;
 import '../guests/id_photos.dart';
 import 'etape_formulaire.dart';
+import 'new_reservation_screen.dart' show roomTypesProvider;
 
 final _chambresLibresProvider = StreamProvider<List<ChambreLibre>>(
   (ref) => ref.watch(reservationRepositoryProvider).watchChambresLibres(),
@@ -44,6 +45,7 @@ class ArriveeDirecteScreen extends ConsumerStatefulWidget {
 }
 
 class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
+  String? _categorieId;
   String? _chambreId;
   String? _clientId;
   UniteSejour _unite = UniteSejour.NIGHTS;
@@ -72,6 +74,11 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
         ? '${chambre.tarif * _duree}'
         : '';
   }
+
+  /// Ce qui reste libre dans une categorie, sous son prix.
+  String _libres(int n) => n == 0
+      ? 'par nuit, aucune libre'
+      : 'par nuit, $n libre${n > 1 ? 's' : ''}';
 
   String get _dureeTexte => _unite == UniteSejour.HOURS
       ? '$_duree heure${_duree > 1 ? 's' : ''}'
@@ -124,6 +131,7 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
     final chambres =
         ref.watch(_chambresLibresProvider).value ?? const <ChambreLibre>[];
     final chambre = chambres.where((c) => c.id == _chambreId).firstOrNull;
+    final categories = ref.watch(roomTypesProvider);
     final photos = _clientId == null
         ? null
         : ref.watch(idPhotosProvider(_clientId!)).value;
@@ -245,32 +253,50 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
       ),
       EtapeFormulaire(
         numero: ++numero,
-        titre: 'La chambre',
-        fait: _chambreId != null,
-        child: chambres.isEmpty
-            ? Text(
-                'Aucune chambre libre en ce moment.',
-                style: TextStyle(color: p.textSecondary),
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in chambres)
-                    ChoiceChip(
-                      selected: c.id == _chambreId,
-                      onSelected: (_) => setState(() {
-                        _chambreId = c.id;
-                        _proposerPrix(chambres);
-                      }),
-                      label: Text(
-                        '${c.numero} · ${c.categorie}'
-                        '${c.propre ? '' : ' · à nettoyer'}',
-                      ),
-                    ),
-                ],
-              ),
+        titre: 'La catégorie',
+        fait: _categorieId != null,
+        child: categories.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('Lecture impossible : $e'),
+          data: (types) => Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final t in types)
+                CarteChoix(
+                  titre: t.label,
+                  montant: t.rate,
+                  detail: _libres(
+                    chambres.where((c) => c.categorieId == t.typeId).length,
+                  ),
+                  choisie: _categorieId == t.typeId,
+                  onTap: () => setState(() {
+                    _categorieId = t.typeId;
+                    _chambreId = null;
+                    _proposerPrix(chambres);
+                  }),
+                ),
+            ],
+          ),
+        ),
       ),
+      if (_categorieId != null)
+        EtapeFormulaire(
+          numero: ++numero,
+          titre: 'La chambre',
+          fait: _chambreId != null,
+          child: _ChambresLibres(
+            chambres: [
+              for (final c in chambres)
+                if (c.categorieId == _categorieId) c,
+            ],
+            choisie: _chambreId,
+            onSelect: (id) => setState(() {
+              _chambreId = id;
+              _proposerPrix(chambres);
+            }),
+          ),
+        ),
       EtapeFormulaire(
         numero: ++numero,
         titre: 'Le prix',
@@ -369,6 +395,73 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
 
 /// Le recapitulatif, comme celui de la reservation : ce qui sera
 /// enregistre, et le bouton pour le faire.
+/// Les chambres libres de la categorie choisie, en tuiles numerotees comme
+/// dans la nouvelle reservation ; celles qui restent a nettoyer le disent.
+class _ChambresLibres extends StatelessWidget {
+  const _ChambresLibres({
+    required this.chambres,
+    required this.choisie,
+    required this.onSelect,
+  });
+
+  final List<ChambreLibre> chambres;
+  final String? choisie;
+  final void Function(String) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    if (chambres.isEmpty) {
+      return Row(
+        children: [
+          Icon(PhosphorIconsLight.warningCircle, color: p.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Aucune chambre libre de cette catégorie en ce moment. '
+              'Choisissez une autre catégorie.',
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 14.5,
+                color: p.text,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final n = chambres.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$n chambre${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''} '
+          'en ce moment.',
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 14,
+            color: p.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final c in chambres)
+              RoomChoiceTile(
+                numero: c.numero,
+                choisie: choisie == c.id,
+                aNettoyer: !c.propre,
+                onTap: () => onSelect(c.id),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _Ticket extends ConsumerWidget {
   const _Ticket({
     required this.clientId,

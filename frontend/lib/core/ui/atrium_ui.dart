@@ -966,11 +966,16 @@ class RoomChoiceTile extends StatelessWidget {
     required this.numero,
     required this.choisie,
     required this.onTap,
+    this.aNettoyer = false,
   });
 
   final String numero;
   final bool choisie;
   final VoidCallback onTap;
+
+  /// Libre mais pas encore faite : un petit badge sous le numero. La tuile
+  /// garde sa taille, la grille reste reguliere (16 octobre).
+  final bool aNettoyer;
 
   @override
   Widget build(BuildContext context) {
@@ -978,7 +983,7 @@ class RoomChoiceTile extends StatelessWidget {
     return Semantics(
       button: true,
       selected: choisie,
-      label: 'Chambre $numero',
+      label: aNettoyer ? 'Chambre $numero, à nettoyer' : 'Chambre $numero',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -997,15 +1002,43 @@ class RoomChoiceTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(AtriumRadii.md),
               border: Border.all(color: choisie ? p.selected : p.border),
             ),
-            child: Text(
-              numero,
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: choisie ? p.onSelected : p.text,
-                fontFeatures: tabularFigures,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  numero,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: choisie ? p.onSelected : p.text,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+                if (aNettoyer) ...[
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AtriumRoomColors.cleaningTint,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'À nettoyer',
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                        color: AtriumRoomColors.cleaningInk,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

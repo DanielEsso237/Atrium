@@ -69,10 +69,12 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Nouvelle arrivée'), findsOneWidget);
-    // Les etapes de la reservation ; la piece n'apparait qu'avec le client.
+    // Les etapes de la reservation ; la piece n'apparait qu'avec le client,
+    // la chambre qu'avec la categorie.
     expect(find.text('Le client'), findsOneWidget);
     expect(find.text('La durée'), findsOneWidget);
-    expect(find.text('La chambre'), findsOneWidget);
+    expect(find.text('La catégorie'), findsOneWidget);
+    expect(find.text('La chambre'), findsNothing);
     expect(find.text('Le prix'), findsOneWidget);
     expect(find.text('En heures'), findsOneWidget);
     expect(find.text('Récapitulatif'), findsOneWidget);
