@@ -501,7 +501,10 @@ trace dans `audit_logs`. Rien ne s'efface :
 
 Les boutons : « Revenir » sur la liste des réservations, « Annuler
 l'arrivée » sur la fiche chambre, la flèche ↺ dans l'historique et les
-derniers mouvements (`features/annulations/accord_responsable.dart`).
+derniers mouvements (`features/annulations/accord_responsable.dart`), sur
+chaque encaissement de l'ardoise et de la caisse du jour, et le panneau
+**« Revenir en arrière »** de la fiche de chaque client : tout ce qui peut
+encore s'y défaire (`watchMouvements(guestId:)`).
 
 ## Ce qui manque
 
