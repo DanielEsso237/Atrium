@@ -30,6 +30,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
 import '../auth/session.dart';
+import 'mouvement_stock_screen.dart';
 import '../../core/ui/confirmation.dart';
 
 class _MagasinChoisi extends Notifier<String?> {
@@ -428,29 +429,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     StockPlace magasin, {
     String? produitId,
   }) async {
-    final saisie = await showDialog<_Saisie>(
-      context: context,
-      builder: (_) => _SaisieDialog(
-        titre: 'Entrée à ${magasin.label}',
-        entree: true,
-        produitId: produitId,
-      ),
+    // Plusieurs produits d'un coup, en plein ecran (15 octobre).
+    await ouvrirMouvementStock(
+      context,
+      entree: true,
+      magasin: magasin,
+      produitId: produitId,
     );
-    if (saisie == null || !context.mounted) return;
-    await _faire(context, () async {
-      await ref
-          .read(stockRepositoryProvider)
-          .receive(
-            placeId: magasin.id,
-            productId: saisie.produit.id,
-            quantity: saisie.quantite,
-            unitCost: saisie.prixAchat,
-            reason: saisie.motif,
-            by: ref.read(sessionProvider).agent?.id,
-          );
-      return '${saisie.quantite} ${saisie.produit.label} entrés à '
-          '${magasin.label}.';
-    });
   }
 
   Future<void> _sortie(
@@ -509,36 +494,14 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             'synchronisation.');
       return;
     }
-    final saisie = await showDialog<_Saisie>(
-      context: context,
-      builder: (_) => _SaisieDialog(
-        titre: ravitaillement
-            ? 'Ravitailler ${depart.label}'
-            : 'Transfert depuis ${depart.label}',
-        entree: false,
-        destinations: autres,
-        depart: depart,
-        ravitaillement: ravitaillement,
-        produitId: produitId,
-      ),
+    await ouvrirMouvementStock(
+      context,
+      entree: false,
+      magasin: depart,
+      autres: autres,
+      ravitaillement: ravitaillement,
+      produitId: produitId,
     );
-    if (saisie == null || !context.mounted) return;
-    final source = ravitaillement ? saisie.destination! : depart;
-    final cible = ravitaillement ? depart : saisie.destination!;
-    await _faire(context, () async {
-      await ref
-          .read(stockRepositoryProvider)
-          .requestTransfer(
-            fromPlaceId: source.id,
-            toPlaceId: cible.id,
-            productId: saisie.produit.id,
-            quantity: saisie.quantite,
-            reason: saisie.motif,
-            by: ref.read(sessionProvider).agent?.id,
-          );
-      return 'Transfert de ${source.label} vers ${cible.label} demandé : il attend '
-          'la validation du contrôleur ou du comptable.';
-    });
   }
 }
 
@@ -1232,8 +1195,13 @@ class _ChoixVue extends StatelessWidget {
                                 ),
                                 if (!compact) ...[
                                   const SizedBox(width: 6),
-                                  Text(
+                                  // Souple : une police plus large que
+                                  // prevu ne fait pas deborder la case.
+                                  Flexible(
+                                    child: Text(
                                     libelle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: atriumFontFamily,
                                       fontSize: 13.5,
@@ -1242,6 +1210,7 @@ class _ChoixVue extends StatelessWidget {
                                           ? p.onSelected
                                           : p.text,
                                     ),
+                                  ),
                                   ),
                                 ],
                               ],

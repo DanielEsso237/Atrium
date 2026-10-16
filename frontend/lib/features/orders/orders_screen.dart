@@ -957,7 +957,7 @@ class _FicheArdoise extends ConsumerWidget {
     return FicheSurface(
       panneau: panneau,
       plein: plein,
-      child: _miseEnPage(
+      child: miseEnPageFiche(
         plein: plein,
         entete: FicheEnTete(
           panneau: panneau,
@@ -1098,98 +1098,6 @@ class _FicheArdoise extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// La mise en page des fiches du point de vente.
-///
-/// En plein ecran (demande du 15 octobre, revue avec le professeur) : a
-/// gauche, l'en-tete -- reduit a sa largeur -- et la commande ; a droite, la
-/// liste des produits sur toute la hauteur, avec en bas le total et les
-/// boutons de validation, qui ne bougent pas. Sinon, la fiche seule, en
-/// colonne.
-Widget _miseEnPage({
-  required bool plein,
-  required Widget entete,
-  required Widget contenu,
-  required Widget? carte,
-  Widget? barre,
-}) {
-  if (!plein) {
-    return Column(
-      children: [
-        entete,
-        Expanded(child: contenu),
-        ?barre,
-      ],
-    );
-  }
-  // Rien a choisir (ardoise close) : la fiche au milieu, pas etiree sur
-  // toute la largeur.
-  if (carte == null) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: Column(
-          children: [
-            entete,
-            Expanded(child: contenu),
-            ?barre,
-          ],
-        ),
-      ),
-    );
-  }
-  return LayoutBuilder(
-    builder: (context, zone) {
-      // En portrait, ou trop etroit pour deux colonnes : tout s'empile --
-      // la commande en haut, la liste des produits dessous, les boutons en
-      // bas (15 octobre). Deux colonnes y debordaient.
-      if (zone.maxWidth < 900 || zone.maxHeight > zone.maxWidth) {
-        return Column(
-          children: [
-            entete,
-            Expanded(flex: 2, child: contenu),
-            Divider(height: 1, color: AtriumDashColors.cardBorder),
-            Expanded(flex: 3, child: carte),
-            ?barre,
-          ],
-        );
-      }
-      return _deuxColonnes(entete, contenu, carte, barre);
-    },
-  );
-}
-
-/// En paysage : la fiche a gauche, la liste des produits a droite.
-Widget _deuxColonnes(
-  Widget entete,
-  Widget contenu,
-  Widget carte,
-  Widget? barre,
-) {
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      SizedBox(
-        width: 460,
-        child: Column(
-          children: [
-            entete,
-            Expanded(child: contenu),
-          ],
-        ),
-      ),
-      VerticalDivider(width: 1, color: AtriumDashColors.cardBorder),
-      Expanded(
-        child: Column(
-          children: [
-            Expanded(child: carte),
-            ?barre,
-          ],
-        ),
-      ),
-    ],
-  );
 }
 
 /// Le motif d'une annulation : client parti sans payer, erreur de saisie.
@@ -1734,7 +1642,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: _miseEnPage(
+        child: miseEnPageFiche(
           plein: widget.plein,
           entete: FicheEnTete(
             panneau: widget.panneau,
