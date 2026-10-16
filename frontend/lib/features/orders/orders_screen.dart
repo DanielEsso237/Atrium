@@ -92,6 +92,15 @@ class OrdersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Un autre point de vente choisi dans la barre laterale, une fiche
+    // ouverte : elle se ferme, l'ecran montre le nouveau point de vente
+    // (16 octobre). La fiche vit dans le navigateur de l'ecran, que la
+    // meme adresse ne renouvelle pas.
+    ref.listen(pointDeVenteChoisiProvider, (avant, apres) {
+      if (avant != apres) {
+        Navigator.of(context).popUntil((r) => r is! PopupRoute);
+      }
+    });
     final points = ref.watch(
       outletsProvider(ref.watch(sessionProvider).agent?.id),
     );
