@@ -207,10 +207,8 @@ void main() {
   );
 
   /// La feuille qui s'ouvre sur un parent, dans le rail et sur telephone.
-  Finder dansLaFeuille(String label) => find.descendant(
-    of: find.byType(BottomSheet),
-    matching: find.text(label),
-  );
+  Finder dansLaFeuille(String label) =>
+      find.descendant(of: find.byType(BottomSheet), matching: find.text(label));
 
   testWidgets('Le sous-menu se déplie et se replie sans changer de page', (
     tester,
@@ -345,4 +343,36 @@ void main() {
     expect(dansLaFeuille('Départs').hitTestable(), findsOneWidget);
     await close(tester);
   });
+
+  // 16 octobre, sur la tablette : un sejour de dix nuits debordait de 12 px
+  // de la colonne des dates sur celle de la chambre.
+  for (final size in [const Size(1280, 800), const Size(1024, 768)]) {
+    testWidgets('Un long séjour tient dans sa colonne : $size', (tester) async {
+      final today = businessDayFor(DateTime.now());
+      rows.add(
+        ReservationSummary(
+          id: 'long',
+          lineId: 'long',
+          reference: 'R-LONG',
+          guestName: 'Client longue durée',
+          arrival: formatIsoDate(today),
+          departure: formatIsoDate(today.add(const Duration(days: 12))),
+          status: ReservationStatus.CONFIRMED,
+          nightlyRate: 125000,
+          roomTypeId: 'suite',
+          roomTypeLabel: 'Suite présidentielle',
+          roomNumber: '204',
+        ),
+      );
+      await open(tester, size: size);
+      container
+          .read(reservationFilterProvider.notifier)
+          .select(ReservationFilter.all);
+      router.go('/reservations');
+      await tester.pumpAndSettle();
+      expect(find.text('Client longue durée'), findsOneWidget);
+      expect(find.text('12 nuits'), findsOneWidget);
+      await close(tester);
+    });
+  }
 }

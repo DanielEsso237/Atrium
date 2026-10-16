@@ -565,27 +565,41 @@ class _Nuits extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final affichees = nuits.clamp(0, 10);
-    return Row(
-      children: [
-        for (var i = 0; i < affichees; i++)
-          Container(
-            width: 14,
-            height: 6,
-            margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              color: couleur.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(3),
+    return LayoutBuilder(
+      builder: (context, zone) {
+        // Autant de pastilles que la colonne en loge a cote du libelle : sur
+        // la tablette, dix pastilles debordaient de 12 px sur la chambre.
+        final place = ((zone.maxWidth - _largeurLibelle) / 17).floor();
+        final affichees = nuits.clamp(0, place.clamp(0, 10));
+        return Row(
+          children: [
+            for (var i = 0; i < affichees; i++)
+              Container(
+                width: 14,
+                height: 6,
+                margin: const EdgeInsets.only(right: 3),
+                decoration: BoxDecoration(
+                  color: couleur.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            if (affichees > 0) const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                '$nuits nuit${nuits > 1 ? 's' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _styleDiscret.copyWith(fontSize: 12.5),
+              ),
             ),
-          ),
-        const SizedBox(width: 5),
-        Text(
-          '$nuits nuit${nuits > 1 ? 's' : ''}',
-          style: _styleDiscret.copyWith(fontSize: 12.5),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
+
+  /// « 10 nuits » en chasse fixe, et l'espace qui le precede.
+  static const _largeurLibelle = 80.0;
 }
 
 class _Chambre extends StatelessWidget {
