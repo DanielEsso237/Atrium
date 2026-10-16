@@ -114,6 +114,7 @@ class ChambreLibre {
   const ChambreLibre({
     required this.id,
     required this.numero,
+    required this.categorieId,
     required this.categorie,
     required this.tarif,
     required this.propre,
@@ -121,6 +122,7 @@ class ChambreLibre {
 
   final String id;
   final String numero;
+  final String categorieId;
   final String categorie;
 
   /// Le tarif de la nuit de sa categorie : le prix propose en nuits.
@@ -655,7 +657,8 @@ class ReservationRepository with OutboxWriter {
         .customSelect(
           '''
       SELECT r.id, r.number, r.housekeeping_status AS menage,
-             t.label AS categorie, t.default_rate AS tarif
+             t.id AS categorie_id, t.label AS categorie,
+             t.default_rate AS tarif
         FROM rooms r
         JOIN room_types t ON t.id = r.room_type_id
        WHERE r.deleted_at IS NULL
@@ -677,6 +680,7 @@ class ReservationRepository with OutboxWriter {
               ChambreLibre(
                 id: r.read<String>('id'),
                 numero: r.read<String>('number'),
+                categorieId: r.read<String>('categorie_id'),
                 categorie: r.read<String>('categorie'),
                 tarif: r.read<int>('tarif'),
                 propre: const ['CLEAN', 'INSPECTED'].contains(

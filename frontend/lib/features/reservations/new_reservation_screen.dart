@@ -292,8 +292,11 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
             runSpacing: 10,
             children: [
               for (final t in types)
-                _CarteCategorie(
-                  type: t,
+                CarteChoix(
+                  titre: t.label,
+                  montant: t.rate,
+                  detail:
+                      'par nuit, ${t.roomCount} chambre${t.roomCount > 1 ? 's' : ''}',
                   choisie: _roomType?.typeId == t.typeId,
                   onTap: () => setState(() {
                     _roomType = t;
@@ -532,97 +535,6 @@ class _Dates extends StatelessWidget {
 
 /// Une categorie a choisir : une carte, pas une ligne de menu deroulant. On
 /// compare les prix sans ouvrir quoi que ce soit.
-class _CarteCategorie extends StatelessWidget {
-  const _CarteCategorie({
-    required this.type,
-    required this.choisie,
-    required this.onTap,
-  });
-
-  final RoomTypeSummary type;
-  final bool choisie;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final duree = AtriumMotion.of(context, const Duration(milliseconds: 380));
-    return Semantics(
-      button: true,
-      selected: choisie,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: duree,
-            curve: atriumSpring,
-            width: 176,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: choisie ? p.accent.withValues(alpha: 0.12) : p.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: choisie ? p.accent : p.border,
-                width: choisie ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        type.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: p.text,
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      choisie
-                          ? PhosphorIconsFill.checkCircle
-                          : PhosphorIconsLight.circle,
-                      size: 20,
-                      color: choisie ? p.accent : p.placeholder,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  formatAmount(type.rate),
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                    color: p.text,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-                Text(
-                  'par nuit, ${type.roomCount} chambre${type.roomCount > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 12.5,
-                    color: p.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Le recapitulatif, comme un ticket : ce qui sera enregistre, et le bouton
 /// pour le faire. Il se remplit a mesure qu'on avance.
 class _Ticket extends ConsumerWidget {
