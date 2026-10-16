@@ -408,6 +408,16 @@ final destinations = <Destination>[
     'folio.read',
     Groupe.finances,
   ),
+  // La liste du personnel et ce que chacun genere (15 octobre).
+  const Destination(
+    'Personnel',
+    PhosphorIconsLight.usersThree,
+    PhosphorIconsFill.users,
+    '/personnel',
+    // Hors ligne, l'administrateur de demonstration n'a que users.write.
+    'users.read|users.write',
+    Groupe.reglages,
+  ),
   const Destination(
     'Administration',
     PhosphorIconsLight.lockSimple,

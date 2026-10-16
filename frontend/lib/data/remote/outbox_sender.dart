@@ -846,6 +846,12 @@ class OutboxSender {
             _sansNuls({'note': p['note']}),
           );
         }
+        // L'economat ajuste la quantite d'une demande (15 octobre).
+        if (p['action'] == 'ADJUST') {
+          return _Envoi('/stock-movements/${p['id']}/adjust', {
+            'quantity': p['quantity'],
+          });
+        }
         // Entree, transfert demande : le serveur rejoue sans doublon par l'id.
         return _Envoi(
           '/stock-movements',

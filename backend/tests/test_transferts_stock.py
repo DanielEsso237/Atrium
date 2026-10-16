@@ -163,6 +163,54 @@ async def test_un_transfert_attend_sa_validation(
     assert await _quantite(session, m["biere"], m["bar"]) == 24
 
 
+async def test_l_economat_ajuste_le_controleur_valide(
+    client, session, hotel_a, login, auth_a, auth_barman, auth_controleur, magasins
+):
+    """Le bar demande 10 bieres, l'economat n'en a que 12 : il en accorde 8
+    (15 octobre). Il ajuste sans valider ; la validation du controleur
+    deplace 8."""
+    hotel, _ = hotel_a
+    await _agent(session, hotel, "ECONOME_A", ["stock.read", "stock.manage"])
+    auth_econome = {"Authorization": f"Bearer {await login(client, 'ECONOME_A')}"}
+    m = magasins
+    await _mouvement(client, auth_a, product_id=m["biere"], stock_location_id=m["economat"],
+                     type="IN", quantity=12)
+    r = await _mouvement(client, auth_barman, product_id=m["biere"],
+                         stock_location_id=m["economat"], type="TRANSFER", quantity=10,
+                         counterpart_location_id=m["bar"])
+    t = r.json()["id"]
+
+    ajuste = await client.post(f"/api/v1/stock-movements/{t}/adjust",
+                               json={"quantity": 8}, headers=auth_econome)
+    encore = await client.post(f"/api/v1/stock-movements/{t}/adjust",
+                               json={"quantity": 8}, headers=auth_econome)
+    assert ajuste.status_code == 200, ajuste.text
+    assert encore.status_code == 200
+    assert ajuste.json()["quantity"] == 8
+    assert ajuste.json()["status"] == "PENDING"
+    assert "demandé : 10, accordé : 8" in ajuste.json()["reason"].lower()
+    # Ajuster ne valide pas : rien n'a bouge.
+    assert await _quantite(session, m["biere"], m["bar"]) == 0
+    # L'economat ne valide pas.
+    refus = await client.post(f"/api/v1/stock-movements/{t}/approve", json={},
+                              headers=auth_econome)
+    assert refus.status_code == 403
+    # Le barman n'ajuste pas.
+    interdit = await client.post(f"/api/v1/stock-movements/{t}/adjust",
+                                 json={"quantity": 5}, headers=auth_barman)
+    assert interdit.status_code == 403
+
+    ok = await client.post(f"/api/v1/stock-movements/{t}/approve", json={},
+                           headers=auth_controleur)
+    assert ok.status_code == 200, ok.text
+    assert await _quantite(session, m["biere"], m["economat"]) == 4
+    assert await _quantite(session, m["biere"], m["bar"]) == 8
+    # Valide, il ne s'ajuste plus.
+    tard = await client.post(f"/api/v1/stock-movements/{t}/adjust",
+                             json={"quantity": 6}, headers=auth_econome)
+    assert tard.status_code == 409
+
+
 async def test_un_point_de_vente_se_ravitaille_chez_un_autre(
     client, session, auth_a, auth_controleur, magasins
 ):

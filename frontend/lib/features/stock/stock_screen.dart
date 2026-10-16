@@ -30,6 +30,7 @@ import '../../core/widgets/module_scaffold.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
 import '../auth/session.dart';
+import 'mouvement_stock_screen.dart';
 import '../../core/ui/confirmation.dart';
 
 class _MagasinChoisi extends Notifier<String?> {
@@ -248,6 +249,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   magasin: magasin,
                   toutes: toutes,
                   peutValider: peutValider,
+                  peutGerer: peutGerer,
                   voitValeur: voitValeur,
                   onRavitailler: (magasin.isCentral ? peutGerer : peutDemander)
                       ? ravitailler
@@ -265,12 +267,14 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     required StockPlace magasin,
     required List<StockLine> toutes,
     required bool peutValider,
+    required bool peutGerer,
     required bool voitValeur,
     required void Function(StockLine)? onRavitailler,
   }) {
     if (toutes.isEmpty) {
       return [
-        if (peutValider) const _AValider(),
+        if (peutValider || peutGerer)
+          _AValider(valide: peutValider, ajuste: peutGerer),
         EmptyState(
           icon: PhosphorIconsLight.archive,
           title: 'Rien en stock ici',
@@ -308,7 +312,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         onEtat: (e) => setState(() => _etat = e),
       ),
       const SizedBox(height: 20),
-      if (peutValider) const _AValider(),
+      if (peutValider || peutGerer)
+        _AValider(valide: peutValider, ajuste: peutGerer),
       LayoutBuilder(
         builder: (context, c) {
           final recherchePill = SearchPill(
@@ -424,29 +429,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     StockPlace magasin, {
     String? produitId,
   }) async {
-    final saisie = await showDialog<_Saisie>(
-      context: context,
-      builder: (_) => _SaisieDialog(
-        titre: 'Entrée à ${magasin.label}',
-        entree: true,
-        produitId: produitId,
-      ),
+    // Plusieurs produits d'un coup, en plein ecran (15 octobre).
+    await ouvrirMouvementStock(
+      context,
+      entree: true,
+      magasin: magasin,
+      produitId: produitId,
     );
-    if (saisie == null || !context.mounted) return;
-    await _faire(context, () async {
-      await ref
-          .read(stockRepositoryProvider)
-          .receive(
-            placeId: magasin.id,
-            productId: saisie.produit.id,
-            quantity: saisie.quantite,
-            unitCost: saisie.prixAchat,
-            reason: saisie.motif,
-            by: ref.read(sessionProvider).agent?.id,
-          );
-      return '${saisie.quantite} ${saisie.produit.label} entrés à '
-          '${magasin.label}.';
-    });
   }
 
   Future<void> _sortie(
@@ -505,36 +494,14 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             'synchronisation.');
       return;
     }
-    final saisie = await showDialog<_Saisie>(
-      context: context,
-      builder: (_) => _SaisieDialog(
-        titre: ravitaillement
-            ? 'Ravitailler ${depart.label}'
-            : 'Transfert depuis ${depart.label}',
-        entree: false,
-        destinations: autres,
-        depart: depart,
-        ravitaillement: ravitaillement,
-        produitId: produitId,
-      ),
+    await ouvrirMouvementStock(
+      context,
+      entree: false,
+      magasin: depart,
+      autres: autres,
+      ravitaillement: ravitaillement,
+      produitId: produitId,
     );
-    if (saisie == null || !context.mounted) return;
-    final source = ravitaillement ? saisie.destination! : depart;
-    final cible = ravitaillement ? depart : saisie.destination!;
-    await _faire(context, () async {
-      await ref
-          .read(stockRepositoryProvider)
-          .requestTransfer(
-            fromPlaceId: source.id,
-            toPlaceId: cible.id,
-            productId: saisie.produit.id,
-            quantity: saisie.quantite,
-            reason: saisie.motif,
-            by: ref.read(sessionProvider).agent?.id,
-          );
-      return 'Transfert de ${source.label} vers ${cible.label} demandé : il attend '
-          'la validation du contrôleur ou du comptable.';
-    });
   }
 }
 
@@ -1228,8 +1195,13 @@ class _ChoixVue extends StatelessWidget {
                                 ),
                                 if (!compact) ...[
                                   const SizedBox(width: 6),
-                                  Text(
+                                  // Souple : une police plus large que
+                                  // prevu ne fait pas deborder la case.
+                                  Flexible(
+                                    child: Text(
                                     libelle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: atriumFontFamily,
                                       fontSize: 13.5,
@@ -1238,6 +1210,7 @@ class _ChoixVue extends StatelessWidget {
                                           ? p.onSelected
                                           : p.text,
                                     ),
+                                  ),
                                   ),
                                 ],
                               ],
@@ -1663,8 +1636,14 @@ class _LigneProduit extends StatelessWidget {
 
 // --- Les transferts a valider -------------------------------------------------
 
+/// Les demandes de transfert en attente. Le controleur ou le comptable les
+/// valide ou les refuse ; l'economat en ajuste la quantite, sans valider
+/// (15 octobre).
 class _AValider extends ConsumerWidget {
-  const _AValider();
+  const _AValider({required this.valide, required this.ajuste});
+
+  final bool valide;
+  final bool ajuste;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1701,7 +1680,8 @@ class _AValider extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 6),
-            for (final t in transferts) _Transfert(transfert: t),
+            for (final t in transferts)
+              _Transfert(transfert: t, valide: valide, ajuste: ajuste),
           ],
         ),
       ),
@@ -1710,9 +1690,15 @@ class _AValider extends ConsumerWidget {
 }
 
 class _Transfert extends ConsumerWidget {
-  const _Transfert({required this.transfert});
+  const _Transfert({
+    required this.transfert,
+    required this.valide,
+    required this.ajuste,
+  });
 
   final PendingTransfer transfert;
+  final bool valide;
+  final bool ajuste;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1786,6 +1772,15 @@ class _Transfert extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (ajuste) ...[
+                OutlinedButton.icon(
+                  onPressed: () => _ajuster(context, ref),
+                  icon: const Icon(PhosphorIconsLight.pencilSimple, size: 18),
+                  label: const Text('Ajuster'),
+                ),
+                if (valide) const SizedBox(width: 10),
+              ],
+              if (valide) ...[
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: rouge,
@@ -1803,11 +1798,77 @@ class _Transfert extends ConsumerWidget {
                 compact: true,
                 onPressed: () => _decider(context, ref, approuve: true),
               ),
+              ],
             ],
           ),
         ],
       ),
     );
+  }
+
+  /// L'economat accorde moins (ou plus) que demande : le bar demande 10
+  /// bieres, il n'en reste que 12, il en donne 8.
+  Future<void> _ajuster(BuildContext context, WidgetRef ref) async {
+    final t = transfert;
+    final quantite = TextEditingController(text: '${t.quantity}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Ajuster la quantité'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${t.toLabel} demande ${t.quantity} ${t.unit} de '
+                '${t.productLabel} à ${t.fromLabel}.',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: quantite,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: 'Quantité accordée',
+                  suffixText: t.unit,
+                  helperText: '${t.fromLabel} en a ${t.availableAtSource}',
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Le contrôleur ou le comptable validera ensuite.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AtriumColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(false),
+            child: const Text('Retour'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(d).pop(true),
+            child: const Text('Ajuster'),
+          ),
+        ],
+      ),
+    );
+    final q = int.tryParse(quantite.text.trim()) ?? 0;
+    quantite.dispose();
+    if (ok != true || !context.mounted) return;
+    await _faire(context, () async {
+      await ref.read(stockRepositoryProvider).ajuster(t.id, quantite: q);
+      return 'Demande ajustée : ${t.toLabel} recevra $q ${t.unit} une fois '
+          'le transfert validé.';
+    });
   }
 
   Future<void> _decider(

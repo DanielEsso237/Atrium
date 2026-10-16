@@ -155,6 +155,12 @@ class StockDecisionIn(BaseModel):
     note: str | None = Field(default=None, max_length=255)
 
 
+class StockAdjustIn(BaseModel):
+    """La quantite que l'economat accorde a une demande de transfert."""
+
+    quantity: int = Field(gt=0)
+
+
 class StockLevelOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

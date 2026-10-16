@@ -403,6 +403,50 @@ class StockRepository with OutboxWriter {
   Future<void> approve(String movementId, {String? note, String? by}) =>
       _decider(movementId, approuve: true, note: note, by: by);
 
+  /// L'economat ajuste la quantite d'une demande de transfert (15 octobre) :
+  /// le bar demande 10 bieres, il en accorde 8. Il ajuste, il ne valide pas
+  /// -- la validation reste au controleur ou au comptable. La demande
+  /// d'origine reste lisible dans le motif, ecrit comme le serveur l'ecrit.
+  Future<void> ajuster(String movementId, {required int quantite}) async {
+    // Les refus du serveur, faits ici : un refus par la file la bloquerait.
+    if (quantite <= 0) {
+      throw StateError('La quantité accordée doit être positive.');
+    }
+    final m = await (db.select(
+      db.stockMovements,
+    )..where((x) => x.id.equals(movementId))).getSingle();
+    if (m.type != StockMovementType.TRANSFER) {
+      throw StateError('Seul un transfert s’ajuste.');
+    }
+    if (m.quantity == quantite) return;
+    if (m.status != StockMovementStatus.PENDING) {
+      throw StateError('Ce transfert n’est plus en attente.');
+    }
+    final ajuste = 'demandé : ${m.quantity}, accordé : $quantite';
+    final motif = m.reason == null || m.reason!.isEmpty
+        ? 'D${ajuste.substring(1)}'
+        : '${m.reason} ($ajuste)';
+    final now = DateTime.now().toUtc();
+    await db.transaction(() async {
+      await (db.update(
+        db.stockMovements,
+      )..where((x) => x.id.equals(movementId))).write(
+        StockMovementsCompanion(
+          quantity: Value(quantite),
+          reason: Value(motif.length > 255 ? motif.substring(0, 255) : motif),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+      await enqueue(
+        table: 'stock_movements',
+        id: movementId,
+        operation: SyncOp.UPDATE,
+        payload: {'id': movementId, 'action': 'ADJUST', 'quantity': quantite},
+      );
+    });
+  }
+
   /// Refuse un transfert : rien ne bouge, le motif reste.
   Future<void> reject(String movementId, {String? note, String? by}) =>
       _decider(movementId, approuve: false, note: note, by: by);
