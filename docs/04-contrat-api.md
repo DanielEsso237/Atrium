@@ -474,7 +474,9 @@ absent : inchangés, `[]` : plus aucun. Un id d'un autre hôtel : 422.
 Un agent **sans aucun rattachement voit tous les points de vente** : c'est
 l'état de tout compte neuf, et l'aveugler d'office ferait d'un oubli de
 configuration une panne au service. Rattaché, `GET /outlets` ne renvoie que
-les siens, et `POST /orders` sur un autre point de vente répond 403.
+les siens, et `POST /orders` sur un autre point de vente répond 403. De
+même, `GET /room-orders` ne lui rend que les commandes en chambre adressées
+à ses points de vente.
 
 ## Les photos de pièce d'identité
 
@@ -648,6 +650,74 @@ routes sont rejouables.
 **Le seuil de consommation compte toutes les ardoises ouvertes du client** —
 celle de sa chambre et celles des comptoirs. Sans cela, il passait sous son
 plafond en consommant au bar.
+
+## La commande en chambre
+
+Le client appelle la réception depuis sa chambre ; elle commande pour lui à
+un point de vente, qui prend la commande en charge et la monte. À la
+livraison, chaque ligne passe sur l'ardoise du séjour **au nom du point de
+vente** (`source_table = "outlets"`) : son chiffre, son stock, comme une
+consommation portée à la chambre au comptoir (F2.6, réunion du 18 octobre).
+C'est une ligne de `orders` de type `ROOM_SERVICE`. Toutes les routes sont
+rejouables.
+
+`SENT` (commandée) → `IN_PREP` (prise en charge) → `SERVED` (livrée) ;
+`CANCELLED` à tout moment avant la livraison.
+
+| Route | Droit | Corps | Effet |
+|---|---|---|---|
+| `POST /room-orders` | `room_order.create` (réception, administrateur) | `{id, outlet_id, folio_id, notes?, override_by?, items: [{id, menu_item_id, quantity, notes?}]}` | crée la commande `SENT` ; le serveur lui donne son `number` (`ORD-…`), le prix et le libellé de la carte |
+| `POST /room-orders/{id}/accept` | `order.manage`, sur un point de vente de l'agent | — | `IN_PREP`, `taken_by`, `taken_at` |
+| `POST /room-orders/{id}/deliver` | `order.manage`, sur un point de vente de l'agent | — | `SERVED`, `delivered_by`, `served_at` ; une ligne d'ardoise par ligne de commande, le stock sort. Livrer sans avoir pris en charge est permis |
+| `POST /room-orders/{id}/cancel` | `room_order.create`, ou `order.manage` sur un point de vente de l'agent | `{reason}` | `CANCELLED`, `cancelled_by`, `cancel_reason` ; rien sur l'ardoise |
+| `GET /room-orders?since=AAAA-MM-JJ` | `order.read` | — | la descente : les commandes **en cours** (`SENT`, `IN_PREP`) quel que soit leur âge, plus celles de la fenêtre (`business_date >= since`). Sans `since` : les en cours seulement. Un agent rattaché ne reçoit que celles de ses points de vente ; la réception, toutes |
+
+**La ligne d'ardoise prend l'id de la ligne de commande.** La tablette qui
+livre hors ligne écrit donc dans Drift la même ligne que le serveur, sans
+attendre sa réponse : `folio_items.id = order_items.id`, catégorie `FNB`,
+libellé, quantité, prix et taux de la ligne de commande, `business_date` de
+la **commande** (un plateau commandé à 23 h et monté à 0 h 30 reste sur sa
+journée), `override_by` de la commande.
+
+**Les prix de la carte sont TTC**, comme sur l'ardoise : `total` est la
+somme des lignes, `tax_total` la part de taxe qu'il contient
+(`montant × taux // 100`, le taux de l'article en pour cent).
+
+**Les refus, à recopier sur la tablette avant d'enfiler :**
+
+- à la commande (`POST /room-orders`) :
+  - point de vente inconnu ou désactivé : 404 ; qui ne porte pas sur la
+    chambre (`allows_room_charge = false`) : 409 ;
+  - **point de vente fermé** — aucun tiroir ouvert sur lui, quel que soit
+    l'agent qui le tient : 409 (« … est fermé (aucune caisse ouverte) ») ;
+  - ardoise qui n'est pas celle d'un séjour, ou plus ouverte : 409 ;
+  - article absent de la carte du point de vente (sa catégorie a un autre
+    `outlet_id` ; une catégorie sans point de vente est à tous), retiré
+    (`is_active = false`) ou d'un autre hôtel : 422 ; plus disponible
+    (`is_available = false`) : 409 ;
+  - id de ligne déjà utilisé : 409 ;
+  - **plafond du client** : la même règle que `POST /folios/{id}/items`,
+    avec pour montant **le total de la commande plus celui des commandes
+    encore en cours sur la même ardoise** — elles ne sont pas encore sur
+    l'ardoise mais le client les doit déjà. Au-delà : 409, sauf
+    `override_by` d'un responsable (`folio.override_limit`), recopié sur la
+    commande puis sur ses lignes d'ardoise. Le plafond ne se revérifie pas à
+    la livraison : c'est à la commande que quelqu'un peut encore dire non ;
+- à la livraison (`deliver`) : l'agent qui livre doit avoir **son tiroir
+  ouvert sur ce point de vente** (409 « Ouvrez la caisse du point de vente
+  avant de livrer ») ; commande annulée : 409 ; ardoise close : 409 ;
+- prise en charge d'une commande annulée : 409 ; annulation d'une commande
+  livrée : 409 (elle est sur l'ardoise, c'est là qu'elle se corrige) ;
+- autre point de vente que les siens : 403.
+
+**Le client ne part pas avec un plateau en route.** Tant qu'une commande en
+chambre est `SENT` ou `IN_PREP` sur son ardoise, trois gestes sont refusés
+(409 « N commande(s) en chambre pas encore livrée(s) ») : le départ
+(`check-out`), la clôture de l'ardoise (`POST /folios/{id}/close`) et
+l'annulation de l'arrivée (`undo-check-in`). Sans ce refus, la livraison
+trouvait l'ardoise close et bloquait la file du point de vente. La tablette
+de la réception connaît ces commandes : elle les a passées, et la descente
+les lui rend toutes.
 
 ## Prix, marges et valeur du stock
 

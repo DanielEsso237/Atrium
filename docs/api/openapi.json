@@ -7882,6 +7882,449 @@
         "title": "RoomIn",
         "type": "object"
       },
+      "RoomOrderCancelIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RoomOrderCancelIn",
+        "type": "object"
+      },
+      "RoomOrderIn": {
+        "properties": {
+          "folio_id": {
+            "description": "L'ardoise ouverte du sejour (GET /chargeable-stays)",
+            "format": "uuid",
+            "title": "Folio Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "UUID v7 genere par la tablette",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RoomOrderLineIn"
+            },
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "outlet_id": {
+            "description": "Le point de vente qui prepare et livre",
+            "format": "uuid",
+            "title": "Outlet Id",
+            "type": "string"
+          },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Responsable (folio.override_limit) qui autorise le depassement du plafond",
+            "title": "Override By"
+          }
+        },
+        "required": [
+          "id",
+          "outlet_id",
+          "folio_id",
+          "items"
+        ],
+        "title": "RoomOrderIn",
+        "type": "object"
+      },
+      "RoomOrderLineIn": {
+        "properties": {
+          "id": {
+            "description": "UUID v7 genere par la tablette",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "menu_item_id": {
+            "format": "uuid",
+            "title": "Menu Item Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "quantity": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "menu_item_id"
+        ],
+        "title": "RoomOrderLineIn",
+        "type": "object"
+      },
+      "RoomOrderLineOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label_snapshot": {
+            "title": "Label Snapshot",
+            "type": "string"
+          },
+          "menu_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Menu Item Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "prep_station_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prep Station Id"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "tax_rate": {
+            "title": "Tax Rate",
+            "type": "integer"
+          },
+          "unit_price": {
+            "title": "Unit Price",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "menu_item_id",
+          "prep_station_id",
+          "label_snapshot",
+          "quantity",
+          "unit_price",
+          "tax_rate",
+          "amount",
+          "status",
+          "notes"
+        ],
+        "title": "RoomOrderLineOut",
+        "type": "object"
+      },
+      "RoomOrderOut": {
+        "properties": {
+          "business_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Date"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "cancelled_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By"
+          },
+          "delivered_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered By"
+          },
+          "folio_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio Id"
+          },
+          "guest_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guest Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RoomOrderLineOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "ordered_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered By"
+          },
+          "outlet_id": {
+            "format": "uuid",
+            "title": "Outlet Id",
+            "type": "string"
+          },
+          "override_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override By"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "served_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "taken_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken At"
+          },
+          "taken_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken By"
+          },
+          "tax_total": {
+            "title": "Tax Total",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "outlet_id",
+          "status",
+          "room_id",
+          "folio_id",
+          "guest_id",
+          "business_date",
+          "notes",
+          "total",
+          "tax_total",
+          "ordered_by",
+          "opened_at",
+          "taken_by",
+          "taken_at",
+          "delivered_by",
+          "served_at",
+          "cancelled_by",
+          "cancelled_at",
+          "cancel_reason",
+          "override_by",
+          "updated_at",
+          "items"
+        ],
+        "title": "RoomOrderOut",
+        "type": "object"
+      },
       "RoomOut": {
         "description": "Une ligne du plan de l'hotel (cahier des charges, paragraphe 5.2).",
         "properties": {
@@ -8214,6 +8657,21 @@
         ],
         "title": "StayUnit",
         "type": "string"
+      },
+      "StockAdjustIn": {
+        "description": "La quantite que l'economat accorde a une demande de transfert.",
+        "properties": {
+          "quantity": {
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "quantity"
+        ],
+        "title": "StockAdjustIn",
+        "type": "object"
       },
       "StockDecisionIn": {
         "description": "Validation ou refus d'un transfert : le motif est facultatif.",
@@ -15908,6 +16366,273 @@
         ]
       }
     },
+    "/api/v1/room-orders": {
+      "get": {
+        "description": "La descente : les commandes en chambre adressees aux points de vente de l'agent.\n\nUn agent rattache voit celles de ses points de vente ; la reception, qui\nn'est rattachee a aucun, les voit toutes.",
+        "operationId": "list_room_orders_api_v1_room_orders_get",
+        "parameters": [
+          {
+            "description": "Premiere journee hoteliere incluse ; les commandes en cours sont rendues quel que soit leur age. Sans elle : les commandes en cours.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Premiere journee hoteliere incluse ; les commandes en cours sont rendues quel que soit leur age. Sans elle : les commandes en cours.",
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoomOrderOut"
+                  },
+                  "title": "Response List Room Orders Api V1 Room Orders Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Room Orders",
+        "tags": [
+          "commande en chambre"
+        ]
+      },
+      "post": {
+        "description": "La reception commande pour une chambre ; le point de vente la voit arriver.",
+        "operationId": "create_room_order_api_v1_room_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Commande deja enregistree (meme id) : celle-la"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOrderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Room Order",
+        "tags": [
+          "commande en chambre"
+        ]
+      }
+    },
+    "/api/v1/room-orders/{order_id}/accept": {
+      "post": {
+        "description": "Le point de vente prend la commande en charge : elle est en preparation.",
+        "operationId": "accept_room_order_api_v1_room_orders__order_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOrderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Accept Room Order",
+        "tags": [
+          "commande en chambre"
+        ]
+      }
+    },
+    "/api/v1/room-orders/{order_id}/cancel": {
+      "post": {
+        "description": "Le client se ravise, ou le point de vente ne peut pas servir : avec un motif.\n\nLa reception annule toute commande ; un point de vente, celles qui lui\nsont adressees. Une commande livree ne s'annule plus : elle est sur\nl'ardoise, et c'est la que la ligne se corrige.",
+        "operationId": "cancel_room_order_api_v1_room_orders__order_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomOrderCancelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOrderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Cancel Room Order",
+        "tags": [
+          "commande en chambre"
+        ]
+      }
+    },
+    "/api/v1/room-orders/{order_id}/deliver": {
+      "post": {
+        "description": "Le plateau est monte : chaque ligne passe sur l'ardoise du sejour.\n\nLa ligne d'ardoise prend l'id de la ligne de commande : la tablette qui\nlivre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte\nle point de vente (`source_table = 'outlets'`) : son chiffre, son stock.",
+        "operationId": "deliver_room_order_api_v1_room_orders__order_id__deliver_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOrderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Deliver Room Order",
+        "tags": [
+          "commande en chambre"
+        ]
+      }
+    },
     "/api/v1/room-types": {
       "get": {
         "operationId": "list_room_types_api_v1_room_types_get",
@@ -16851,6 +17576,65 @@
           }
         ],
         "summary": "Create Stock Movement",
+        "tags": [
+          "mouvements de stock"
+        ]
+      }
+    },
+    "/api/v1/stock-movements/{movement_id}/adjust": {
+      "post": {
+        "description": "L'economat ajuste la quantite d'une demande de transfert (15 octobre).\n\nLe bar demande 10 bieres, l'economat n'en a que 12 : il en accorde 8.\nIl ajuste, il ne valide pas -- la validation reste au controleur ou au\ncomptable, et deplace la quantite ajustee. La demande d'origine reste\nlisible dans le motif. Rejoue avec la meme quantite, rien ne change.",
+        "operationId": "adjust_stock_movement_api_v1_stock_movements__movement_id__adjust_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Movement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Adjust Stock Movement",
         "tags": [
           "mouvements de stock"
         ]

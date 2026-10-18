@@ -56,6 +56,7 @@ from app.schemas.billing import FolioOut
 from app.schemas.reservations import ReservationOut
 from app.services.business_day import current_business_date
 from app.services.folios import get_folio, recompute_totals
+from app.services.room_orders import ensure_none_pending
 
 router = APIRouter(tags=["annulations"])
 
@@ -219,6 +220,8 @@ async def undo_check_in(
                 "Des consommations sont portees sur l'ardoise : "
                 "l'arrivee ne peut plus etre annulee.",
             )
+        # Une commande en route serait livree sur une ardoise retiree.
+        await ensure_none_pending(session, folio.id, "d'annuler l'arrivee")
 
     now = dt.datetime.now(dt.timezone.utc)
     if folio is not None:

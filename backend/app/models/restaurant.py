@@ -215,6 +215,28 @@ class Order(SyncBase, HotelScoped):
     cancelled_at: Mapped[dt.datetime | None] = mapped_column(default=None)
     cancel_reason: Mapped[str | None] = mapped_column(String(255), default=None)
 
+    # La commande en chambre passe par deux metiers (F2.6) : la reception
+    # commande, le point de vente prend en charge et livre. Chaque geste garde
+    # son agent -- c'est a lui qu'on demande ou est passe le plateau.
+    ordered_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    taken_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    taken_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    delivered_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    cancelled_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    # Le responsable qui a laisse passer la commande au-dela du plafond du
+    # client ; il est recopie sur les lignes de l'ardoise a la livraison.
+    override_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
     subtotal: Mapped[int] = mapped_column(BigInteger, default=0)
     tax_total: Mapped[int] = mapped_column(BigInteger, default=0)
     discount_total: Mapped[int] = mapped_column(BigInteger, default=0)

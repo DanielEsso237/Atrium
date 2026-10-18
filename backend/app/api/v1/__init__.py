@@ -25,6 +25,7 @@ from app.api.v1.print_jobs import router as print_jobs_router
 from app.api.v1.printing import router as printing_router
 from app.api.v1.reservations import router as reservations_router
 from app.api.v1.restaurant import router as restaurant_router
+from app.api.v1.room_orders import router as room_orders_router
 from app.api.v1.room_types import router as room_types_router
 from app.api.v1.rooms import router as rooms_router
 from app.api.v1.settings import router as settings_router
@@ -55,6 +56,7 @@ router.include_router(print_jobs_router)
 router.include_router(printing_router)
 router.include_router(reservations_router)
 router.include_router(restaurant_router)
+router.include_router(room_orders_router)
 router.include_router(room_types_router)
 router.include_router(rooms_router)
 router.include_router(settings_router)

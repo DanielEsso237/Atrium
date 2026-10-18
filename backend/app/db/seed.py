@@ -138,6 +138,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004141"), "stock.inventory", "Faire l'inventaire d'un magasin", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004142"), "stock.rebalance", "Reequilibrer le stock apres inventaire", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004143"), "operations.undo", "Autoriser une annulation (arrivee, depart, encaissement)", "operations"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004144"), "room_order.create", "Commander pour une chambre (room service)", "order"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -174,6 +175,7 @@ EXPENSE_WRITE = PERMISSIONS[39][0]
 STOCK_INVENTORY = PERMISSIONS[40][0]
 STOCK_REBALANCE = PERMISSIONS[41][0]
 OPERATIONS_UNDO = PERMISSIONS[42][0]
+ROOM_ORDER_CREATE = PERMISSIONS[43][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -220,6 +222,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, ORDER_READ),
     (RECEPTION_ROLE, ORDER_CREATE),
     (RECEPTION_ROLE, FOLIO_CHARGE),
+    # Le client appelle de sa chambre : la reception commande pour lui au
+    # point de vente, qui livre et porte sur l'ardoise du sejour (F2.6).
+    (RECEPTION_ROLE, ROOM_ORDER_CREATE),
     (RECEPTION_ROLE, HOUSEKEEPING_READ),
     (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
     (RECEPTION_ROLE, PRINT_REPRINT),
