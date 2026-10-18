@@ -256,4 +256,60 @@ void main() {
       isEmpty,
     );
   });
+
+  // Reunion du 18 octobre : le motif de l'ecart, a cote de l'ecart.
+  group('le motif de l ecart', () {
+    test('il se note sur une ligne comptee, se corrige, s efface', () async {
+      final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
+      await expectLater(
+        inventaires.noterMotif(
+          inventaireId: id,
+          productId: biere,
+          motif: 'Casse',
+        ),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', contains('Comptez')),
+        ),
+      );
+
+      await inventaires.compter(inventaireId: id, productId: biere, quantite: 20);
+      await inventaires.noterMotif(
+        inventaireId: id,
+        productId: biere,
+        motif: '  Deux bouteilles cassées  ',
+      );
+      Future<String?> motif() async => (await inventaires.watchOuvert(bar).first)!
+          .lignes
+          .firstWhere((l) => l.productId == biere)
+          .motif;
+      expect(await motif(), 'Deux bouteilles cassées');
+
+      await inventaires.noterMotif(inventaireId: id, productId: biere, motif: '');
+      expect(await motif(), isNull);
+    });
+
+    test('il part avec le comptage, par la meme route ; un nouveau comptage '
+        'le garde', () async {
+      final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
+      await inventaires.compter(inventaireId: id, productId: biere, quantite: 20);
+      await inventaires.noterMotif(
+        inventaireId: id,
+        productId: biere,
+        motif: 'Casse',
+      );
+      await inventaires.compter(inventaireId: id, productId: biere, quantite: 19);
+
+      final api = _FauxApi();
+      await OutboxSender(db: db, api: api).drain();
+      final comptages = [
+        for (final e in api.envois)
+          if (e.$2 == '/inventories/$id/lines/$biere') e.$3,
+      ];
+      expect(comptages, [
+        {'counted_qty': 20},
+        {'counted_qty': 20, 'comment': 'Casse'},
+        {'counted_qty': 19, 'comment': 'Casse'},
+      ]);
+    });
+  });
 }

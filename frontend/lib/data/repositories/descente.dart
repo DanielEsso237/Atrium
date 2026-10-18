@@ -1358,6 +1358,9 @@ class Descente {
                   theoreticalQty: Value(l.theoreticalQty),
                   countedQty: Value(l.countedQty),
                   variance: Value(l.variance),
+                  // Un serveur qui ne connait pas encore le motif ne
+                  // l'efface pas.
+                  comment: Value.absentIfNull(l.comment),
                   syncState: const Value(SyncState.synced),
                 ),
               );

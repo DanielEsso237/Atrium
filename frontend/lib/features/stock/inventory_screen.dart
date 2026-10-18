@@ -18,6 +18,7 @@ import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/confirmation.dart';
+import '../../core/ui/fenetre_motif.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/repositories/inventory_repository.dart';
@@ -428,61 +429,105 @@ class _LigneState extends ConsumerState<_Ligne> {
       fontFeatures: tabularFigures,
     );
 
+    final motif = l.motif;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: Text(
-              l.unite.isEmpty ? l.libelle : '${l.libelle} (${l.unite})',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: chiffres.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '${l.theorique}',
-              textAlign: TextAlign.end,
-              style: chiffres,
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: TextField(
-                controller: _compte,
-                focusNode: _focus,
-                enabled: widget.editable,
-                textAlign: TextAlign.center,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.next,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onSubmitted: (_) => _enregistrer(),
-                style: chiffres.copyWith(fontWeight: FontWeight.w700),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: '—',
+          Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  l.unite.isEmpty ? l.libelle : '${l.libelle} (${l.unite})',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: chiffres.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-            ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '${l.theorique}',
+                  textAlign: TextAlign.end,
+                  style: chiffres,
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: TextField(
+                    controller: _compte,
+                    focusNode: _focus,
+                    enabled: widget.editable,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onSubmitted: (_) => _enregistrer(),
+                    style: chiffres.copyWith(fontWeight: FontWeight.w700),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: '—',
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  ecart == null ? '' : (ecart > 0 ? '+$ecart' : '$ecart'),
+                  textAlign: TextAlign.end,
+                  style: chiffres.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: couleurEcart,
+                  ),
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              ecart == null ? '' : (ecart > 0 ? '+$ecart' : '$ecart'),
-              textAlign: TextAlign.end,
-              style: chiffres.copyWith(
-                fontWeight: FontWeight.w800,
-                color: couleurEcart,
+          // Le motif de l'ecart (reunion du 18 octobre) : casse, vol, erreur
+          // de saisie. Seulement la ou il y a un ecart.
+          if (ecart != null && ecart != 0)
+            TextButton.icon(
+              onPressed: widget.editable ? _noterMotif : null,
+              icon: const Icon(PhosphorIconsLight.pencilSimple, size: 18),
+              label: Text(
+                motif == null ? 'Noter le motif de l’écart' : 'Motif : $motif',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  Future<void> _noterMotif() async {
+    final l = widget.ligne;
+    final motif = await demanderMotif(
+      context,
+      titre: 'Motif de l’écart : ${l.libelle}',
+      libelleRenoncer: 'Fermer',
+      libelleConfirmer: 'Enregistrer',
+      libelleMotif: 'Motif',
+      indice: 'Casse, vol, erreur de saisie, produit périmé…',
+      autofocus: true,
+      valeurInitiale: l.motif,
+    );
+    if (motif == null || !mounted) return;
+    try {
+      await ref
+          .read(inventoryRepositoryProvider)
+          .noterMotif(
+            inventaireId: widget.inventaireId,
+            productId: l.productId,
+            motif: motif,
+          );
+    } on StateError catch (e) {
+      if (mounted) montrerRefus(context, e.message);
+    }
   }
 }
