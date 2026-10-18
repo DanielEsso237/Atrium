@@ -1,8 +1,8 @@
 /// Prendre une consommation dans un point de vente (F3.1).
 ///
-/// Un onglet par point de vente, **engendres depuis la base** : ajouter la
-/// boite de nuit doit etre un geste d'administration, pas une livraison de
-/// l'application.
+/// Les points de vente dans un menu deroulant, **engendres depuis la base** :
+/// ajouter la boite de nuit doit etre un geste d'administration, pas une
+/// livraison de l'application.
 ///
 /// L'ecran est fait pour un comptoir de bar : le client annonce son numero de
 /// chambre, l'agent le trouve, saisit ce qui a ete consomme, valide. Trois
@@ -23,6 +23,8 @@ import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
+import '../../core/widgets/choix_en_menu.dart';
+import '../../core/widgets/choix_vue.dart';
 import '../../core/widgets/fiche_laterale.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database.dart';
@@ -43,8 +45,8 @@ import '../hotel/logo_images.dart' show logoTicketProvider;
 import 'historique_du_jour.dart';
 import 'tableau_carte.dart';
 
-/// Le point de vente choisi : par les onglets de l'ecran, ou depuis la
-/// liste deroulante de la barre laterale.
+/// Le point de vente choisi : par le menu de l'ecran, ou depuis la liste
+/// deroulante de la barre laterale.
 class PointDeVenteChoisi extends Notifier<String?> {
   @override
   String? build() => null;
@@ -139,6 +141,13 @@ class OrdersScreen extends ConsumerWidget {
 
         // Le comptoir encaisse le client de passage : il tient sa caisse.
         final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
+        // Un menu deroulant plutot qu'un onglet par point de vente (18
+        // octobre) : le bar, le spa, la piscine et la boite de nuit n'y
+        // tiennent plus sur une ligne. Seul, il n'y a rien a choisir.
+        final menu = liste.length > 1
+            ? _Points(liste: liste, actif: outlet.id, kind: kind)
+            : null;
+        final chambre = outlet.allowsRoomCharge;
 
         return ModuleScaffold(
           // Le point de vente ouvert, pas seulement le genre de l'onglet :
@@ -155,22 +164,25 @@ class OrdersScreen extends ConsumerWidget {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Un onglet par point de vente, engendre depuis la base.
-              Padding(
-                padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
-                child: etroit || !outlet.allowsRoomCharge
-                    ? _Points(liste: liste, actif: outlet.id)
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: _Points(liste: liste, actif: outlet.id),
-                          ),
-                          const SizedBox(width: 16),
-                          SizedBox(width: 260, child: _ChampChambre()),
-                        ],
+              if (menu != null || (chambre && !etroit))
+                Padding(
+                  padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: menu,
+                        ),
                       ),
-              ),
-              if (etroit && outlet.allowsRoomCharge)
+                      if (chambre && !etroit) ...[
+                        const SizedBox(width: 16),
+                        SizedBox(width: 260, child: _ChampChambre()),
+                      ],
+                    ],
+                  ),
+                ),
+              if (etroit && chambre)
                 Padding(
                   padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
                   child: _ChampChambre(),
@@ -187,18 +199,33 @@ class OrdersScreen extends ConsumerWidget {
 }
 
 class _Points extends ConsumerWidget {
-  const _Points({required this.liste, required this.actif});
+  const _Points({required this.liste, required this.actif, required this.kind});
 
   final List<OutletRow> liste;
   final String actif;
+  final OutletKind kind;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => FilterPills<String>(
-    selected: actif,
-    onChanged: (id) =>
-        ref.read(pointDeVenteChoisiProvider.notifier).choisir(id),
-    options: [for (final o in liste) FilterOption(o.id, o.label)],
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = kind == OutletKind.SERVICE;
+    return ChoixEnMenu<String>(
+      choisi: actif,
+      onChoisi: (id) =>
+          ref.read(pointDeVenteChoisiProvider.notifier).choisir(id),
+      compte: '${liste.length} ${service ? 'services' : 'points de vente'}',
+      options: [
+        for (final o in liste)
+          OptionMenu(
+            o.id,
+            o.label,
+            icone: service
+                ? PhosphorIconsLight.bell
+                : PhosphorIconsLight.storefront,
+            genre: service ? 'Service' : 'Point de vente',
+          ),
+      ],
+    );
+  }
 }
 
 class _ChampChambre extends ConsumerWidget {
@@ -243,6 +270,7 @@ class _Onglet extends ConsumerWidget {
     final ardoises =
         ref.watch(ardoisesProvider(outlet.id)).value ?? const <Ardoise>[];
     final filtre = ref.watch(_filtreProvider);
+    final vue = ref.watch(_vuePointsProvider);
     final recherche = ref.watch(_rechercheProvider).trim().toLowerCase();
     // Ouvrir une ardoise, c'est servir : il faut une caisse a tenir.
     final caisse = ref.watch(sessionProvider).acces.peut('cash.session');
@@ -312,55 +340,264 @@ class _Onglet extends ConsumerWidget {
           ),
         ),
         // Les tuiles, puis la journee du point de vente en dessous : un seul
-        // defilement (demande du 15 octobre).
+        // defilement (demande du 15 octobre). La bascule grille / liste
+        // flotte en bas a droite (18 octobre), a portee de pouce.
         Expanded(
-          child: CustomScrollView(
-            slivers: [
-              if (tuiles.isEmpty)
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 240,
-                    child: EmptyState(
-                      icon: recherche.isEmpty
-                          ? PhosphorIconsLight.receipt
-                          : PhosphorIconsLight.magnifyingGlass,
-                      title: recherche.isEmpty
-                          ? 'Aucune ardoise'
-                          : 'Rien ne correspond',
-                      message: recherche.isEmpty
-                          ? 'Les ardoises de ${outlet.label} apparaissent ici.'
-                          : '« $recherche » ne correspond à aucune ardoise ni '
-                                'aucun séjour.',
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(marge, 4, marge, 16),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 250,
-                          mainAxisExtent: 150,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
+          child: Stack(
+            children: [
+              CustomScrollView(
+                slivers: [
+                  if (tuiles.isEmpty)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 240,
+                        child: EmptyState(
+                          icon: recherche.isEmpty
+                              ? PhosphorIconsLight.receipt
+                              : PhosphorIconsLight.magnifyingGlass,
+                          title: recherche.isEmpty
+                              ? 'Aucune ardoise'
+                              : 'Rien ne correspond',
+                          message: recherche.isEmpty
+                              ? 'Les ardoises de ${outlet.label} apparaissent ici.'
+                              : '« $recherche » ne correspond à aucune ardoise ni '
+                                    'aucun séjour.',
                         ),
-                    delegate: SliverChildBuilderDelegate(
-                      (_, i) => FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
-                      childCount: tuiles.length,
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      // Une autre cle a chaque vue : les tuiles reapparaissent
+                      // en fondu, la reponse au geste.
+                      key: ValueKey(vue),
+                      padding: EdgeInsets.fromLTRB(marge, 4, marge, 16),
+                      sliver: vue == _VuePoints.liste
+                          ? SliverList.separated(
+                              itemCount: tuiles.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (_, i) =>
+                                  FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
+                            )
+                          : SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 250,
+                                    mainAxisExtent: 150,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                  ),
+                              delegate: SliverChildBuilderDelegate(
+                                (_, i) =>
+                                    FadeUp(index: i.clamp(0, 8), child: tuiles[i]),
+                                childCount: tuiles.length,
+                              ),
+                            ),
+                    ),
+                  SliverPadding(
+                    // De l'air sous la journee : la bascule ne la cache pas.
+                    padding: EdgeInsets.fromLTRB(marge, 0, marge, 88),
+                    sliver: SliverToBoxAdapter(
+                      child: HistoriqueDuJour(outlet: outlet),
                     ),
                   ),
-                ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(marge, 0, marge, 32),
-                sliver: SliverToBoxAdapter(
-                  child: HistoriqueDuJour(outlet: outlet),
+                ],
+              ),
+              Positioned(
+                right: marge,
+                bottom: 20,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AtriumRadii.md - 2),
+                    boxShadow: AtriumPalette.current.isDark
+                        ? null
+                        : AtriumShadows.card,
+                  ),
+                  child: ChoixVue<_VuePoints>(
+                    vue: vue,
+                    compact: MediaQuery.sizeOf(context).width < 600,
+                    onChoisi: ref.read(_vuePointsProvider.notifier).choisir,
+                    segments: const [
+                      SegmentVue(
+                        _VuePoints.grille,
+                        'Grille',
+                        PhosphorIconsLight.squaresFour,
+                        aide: 'Afficher en grille',
+                      ),
+                      SegmentVue(
+                        _VuePoints.liste,
+                        'Liste',
+                        PhosphorIconsLight.list,
+                        aide: 'Afficher en liste',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Les tuiles de l'ecran : en grille, ou une ligne chacune. Retenu tant
+/// que l'application tourne, comme la vue du Stock.
+enum _VuePoints { grille, liste }
+
+class _VuePointsNotifier extends Notifier<_VuePoints> {
+  @override
+  _VuePoints build() => _VuePoints.grille;
+
+  void choisir(_VuePoints v) => state = v;
+}
+
+final _vuePointsProvider = NotifierProvider<_VuePointsNotifier, _VuePoints>(
+  _VuePointsNotifier.new,
+);
+
+/// Une tuile de l'ecran, dans l'une ou l'autre vue. En grille, le repere en
+/// haut et le nom en bas ; en liste, tout sur une ligne. Le geste est le
+/// meme.
+class _Tuile extends ConsumerWidget {
+  const _Tuile({
+    required this.titre,
+    required this.detail,
+    required this.fin,
+    required this.onTap,
+    this.numero,
+    this.icone,
+    this.tailleIcone = 28,
+    this.alerte = false,
+  });
+
+  /// Le numero de chambre en grand : c'est ce que le client annonce. Sinon,
+  /// une [icone].
+  final String? numero;
+  final IconData? icone;
+  final double tailleIcone;
+  final String titre;
+  final String detail;
+
+  /// En bout de tuile : le bouton qui ajoute, ou l'etat de l'ardoise.
+  final Widget fin;
+
+  /// Le detail en rouge : un depart depasse.
+  final bool alerte;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = AtriumPalette.current;
+    final enLigne = ref.watch(_vuePointsProvider) == _VuePoints.liste;
+    Widget repere(double taille) => numero != null
+        ? Text(
+            numero!,
+            maxLines: 1,
+            style: TextStyle(
+              fontFamily: atriumFontFamily,
+              fontSize: taille,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -taille * 0.0375,
+              height: 1,
+              color: p.text,
+              fontFeatures: tabularFigures,
+            ),
+          )
+        : Icon(icone, size: taille, color: p.text);
+    final nom = Text(
+      titre,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: atriumFontFamily,
+        fontSize: enLigne ? 15 : 14.5,
+        fontWeight: FontWeight.w700,
+        color: p.text,
+      ),
+    );
+    final sousNom = Text(
+      detail,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: atriumFontFamily,
+        fontSize: 12.5,
+        color: alerte ? p.error : p.textSecondary,
+        fontWeight: alerte ? FontWeight.w600 : null,
+        fontFeatures: tabularFigures,
+      ),
+    );
+
+    if (enLigne) {
+      return Bezel(
+        radius: 18,
+        padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Row(
+            children: [
+              // Une colonne fixe : les numeros de chambre s'alignent.
+              SizedBox(
+                width: 64,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: repere(24),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [nom, const SizedBox(height: 2), sousNom],
+                ),
+              ),
+              const SizedBox(width: 12),
+              fin,
+            ],
+          ),
+        ),
+      );
+    }
+    return Bezel(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              repere(numero != null ? 32 : tailleIcone),
+              const Spacer(),
+              fin,
+            ],
+          ),
+          const Spacer(),
+          nom,
+          const SizedBox(height: 2),
+          sousNom,
+        ],
+      ),
+    );
+  }
+}
+
+/// Le rond qui ouvre une commande, en bout de tuile.
+class _BoutonAjouter extends StatelessWidget {
+  const _BoutonAjouter();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(color: p.accent, shape: BoxShape.circle),
+      child: Icon(PhosphorIconsLight.plus, size: 18, color: p.onAccent),
     );
   }
 }
@@ -386,74 +623,16 @@ class _Chambre extends ConsumerWidget {
   final ChargeableRoom chambre;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = AtriumPalette.current;
-    return Bezel(
-      radius: 24,
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      onTap: () => _saisir(context, ref),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                chambre.roomNumber,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -1.2,
-                  height: 1,
-                  color: p.text,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: p.accent,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  PhosphorIconsLight.plus,
-                  size: 18,
-                  color: p.onAccent,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            chambre.guestName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: p.text,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            chambre.departDepasse
-                ? 'Départ dépassé · ${formatAmount(chambre.balance)}'
-                : 'Ardoise ${formatAmount(chambre.balance)}',
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12.5,
-              color: chambre.departDepasse ? p.error : p.textSecondary,
-              fontWeight: chambre.departDepasse ? FontWeight.w600 : null,
-              fontFeatures: tabularFigures,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) => _Tuile(
+    numero: chambre.roomNumber,
+    titre: chambre.guestName,
+    detail: chambre.departDepasse
+        ? 'Départ dépassé, ardoise ${formatAmount(chambre.balance)}'
+        : 'Ardoise ${formatAmount(chambre.balance)}',
+    alerte: chambre.departDepasse,
+    fin: const _BoutonAjouter(),
+    onTap: () => _saisir(context, ref),
+  );
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
     final commande = await afficherFichePleinEcran<_Commande>(
@@ -561,59 +740,14 @@ class _Passage extends ConsumerWidget {
   final OutletRow outlet;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = AtriumPalette.current;
-    return Bezel(
-      radius: 24,
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      onTap: () => _vendre(context, ref),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(PhosphorIconsLight.storefront, size: 32, color: p.text),
-              const Spacer(),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: p.accent,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  PhosphorIconsLight.plus,
-                  size: 18,
-                  color: p.onAccent,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            'Nouveau client',
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: p.text,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'De passage, sans chambre',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12.5,
-              color: p.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) => _Tuile(
+    icone: PhosphorIconsLight.storefront,
+    tailleIcone: 32,
+    titre: 'Nouveau client',
+    detail: 'De passage, sans chambre',
+    fin: const _BoutonAjouter(),
+    onTap: () => _vendre(context, ref),
+  );
 
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
     final commande = await afficherFichePleinEcran<_Commande>(
@@ -670,57 +804,19 @@ class _TuileArdoise extends ConsumerWidget {
       EtatArdoise.enChambre => ('Sur la chambre', p.textSecondary),
       EtatArdoise.annulee => ('Annulée', p.error),
     };
-    return Bezel(
-      radius: 24,
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+    return _Tuile(
+      icone: a.client == null
+          ? PhosphorIconsLight.receipt
+          : PhosphorIconsLight.bed,
+      titre: a.titre,
+      detail: [
+        ?a.numeroSousLeNom,
+        '${a.lignes} consommation${a.lignes > 1 ? 's' : ''}',
+        formatAmount(a.ouverte ? a.reste : a.total),
+      ].join(', '),
+      // L'etat en toutes lettres : la couleur n'est qu'un renfort.
+      fin: Tag(etat, color: couleur),
       onTap: () => _ouvrir(context, ref),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                a.client == null
-                    ? PhosphorIconsLight.receipt
-                    : PhosphorIconsLight.bed,
-                size: 28,
-                color: p.text,
-              ),
-              const Spacer(),
-              // L'etat en toutes lettres : la couleur n'est qu'un renfort.
-              Tag(etat, color: couleur),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            a.titre,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: p.text,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            [
-              ?a.numeroSousLeNom,
-              '${a.lignes} consommation${a.lignes > 1 ? 's' : ''}',
-              formatAmount(a.ouverte ? a.reste : a.total),
-            ].join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12.5,
-              color: p.textSecondary,
-              fontFeatures: tabularFigures,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

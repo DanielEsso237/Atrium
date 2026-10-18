@@ -30,6 +30,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'hotel_repository.dart';
 import 'housekeeping_repository.dart';
+import 'inventory_repository.dart';
 import 'maintenance_repository.dart';
 import 'order_repository.dart';
 import 'outlet_repository.dart';
@@ -167,18 +168,142 @@ const _ventesAuComptoir = [
 /// L'hotel (coordonnees et logo) se regle aussi sur une tablette qui a deja
 /// les sejours, et seulement pour un agent qui a `hotel.write` : le
 /// serveur refuserait la modification a tout autre, et la file d'envoi
-/// se bloquerait derriere.
+/// se bloquerait derriere. Les inventaires, de meme, demandent
+/// `stock.inventory`.
 Future<String> chargerDonneesDeTest(
   AtriumDatabase db, {
   required String agentId,
   bool Function(String permission)? peut,
   Uint8List? logo,
 }) async {
-  final sejours = await _clientsEtSejours(db, agentId: agentId, peut: peut);
-  final complement = await _complement(db, agentId: agentId);
-  if (!(peut?.call('hotel.write') ?? false)) return '$sejours $complement';
-  final hotel = await _hotelDeTest(db, agentId: agentId, logo: logo);
-  return '$sejours $complement $hotel';
+  final bilan = [
+    await _clientsEtSejours(db, agentId: agentId, peut: peut),
+    await _complement(db, agentId: agentId),
+    if (peut?.call('stock.inventory') ?? false)
+      await _inventairesEnCours(db, agentId: agentId),
+    if (peut?.call('hotel.write') ?? false)
+      await _hotelDeTest(db, agentId: agentId, logo: logo),
+  ];
+  return bilan.join(' ');
+}
+
+/// Les trois moments d'un inventaire, comme le jeu du serveur
+/// (`backend/app/db/inventaires_essai.py`) : chaque vue de l'ecran
+/// Inventaire a quelque chose a montrer.
+enum _Comptage {
+  deuxTiers('compté aux deux tiers'),
+  entier('compté en entier'),
+  rien('à compter');
+
+  const _Comptage(this.bilan);
+  final String bilan;
+
+  bool compte(int ligne) => switch (this) {
+    _Comptage.deuxTiers => ligne % 3 != 2,
+    _Comptage.entier => true,
+    _Comptage.rien => false,
+  };
+}
+
+/// Des inventaires en cours : un magasin compte aux deux tiers, avec des
+/// manques et un surplus ; un autre compte en entier, pret a reequilibrer ;
+/// un troisieme ouvert, rien de compte. Le central passe en premier.
+///
+/// Par le depot, donc par la file : le serveur ouvre les memes et fige sa
+/// propre quantite theorique. Le stock ne bouge pas -- seul un
+/// reequilibrage le ferait, et il reste a faire depuis l'ecran.
+///
+/// Un magasin qui a deja un inventaire ouvert est laisse tel quel : le
+/// serveur en refuserait un second, et la file se bloquerait derriere. Il
+/// faut donc que la tablette ait fait sa descente, qui lui apprend ceux
+/// ouverts ailleurs. Trois inventaires deja ouverts : rien de plus.
+Future<String> _inventairesEnCours(
+  AtriumDatabase db, {
+  required String agentId,
+}) async {
+  final ouverts = (await db
+          .customSelect(
+            'SELECT COUNT(*) AS n FROM inventories '
+            "WHERE deleted_at IS NULL AND status <> 'CLOSED'",
+          )
+          .getSingle())
+      .read<int>('n');
+  final libres = await db
+      .customSelect(
+        '''
+        SELECT l.id AS id, l.label AS label FROM stock_locations l
+         WHERE l.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM stock_levels s
+                         JOIN products p ON p.id = s.product_id
+                        WHERE s.stock_location_id = l.id
+                          AND p.deleted_at IS NULL)
+           AND NOT EXISTS (SELECT 1 FROM inventories i
+                            WHERE i.stock_location_id = l.id
+                              AND i.deleted_at IS NULL
+                              AND i.status <> 'CLOSED')
+         ORDER BY l.is_central DESC, l.sort_order, l.label
+        ''',
+      )
+      .get();
+  if (ouverts >= _Comptage.values.length || (libres.isEmpty && ouverts > 0)) {
+    return 'Les inventaires de test sont déjà en cours.';
+  }
+  if (libres.isEmpty) return "Inventaires : aucun magasin n'a d'article en stock.";
+
+  final depot = InventoryRepository(db);
+  final faits = <String>[];
+  final aOuvrir = _Comptage.values.length - ouverts;
+  for (var k = 0; k < aOuvrir && k < libres.length; k++) {
+    final comptage = _Comptage.values[k];
+    final magasin = libres[k];
+    try {
+      final id = await depot.ouvrir(
+        magasinId: magasin.read<String>('id'),
+        by: agentId,
+      );
+      // Dans l'ordre de l'ecran : les manques et le surplus se repartissent
+      // sur tout le tableau, pas sur ses premieres lignes.
+      final lignes = await db
+          .customSelect(
+            '''
+            SELECT l.product_id AS produit, l.theoretical_qty AS theorique
+              FROM inventory_lines l
+              JOIN products p ON p.id = l.product_id
+             WHERE l.inventory_id = ?1
+             ORDER BY p.label
+            ''',
+            variables: [Variable.withString(id)],
+          )
+          .get();
+      for (final (i, l) in lignes.indexed) {
+        if (!comptage.compte(i)) continue;
+        await depot.compter(
+          inventaireId: id,
+          productId: l.read<String>('produit'),
+          quantite: _trouve(i, l.read<int>('theorique')),
+        );
+      }
+      faits.add('${magasin.read<String>('label')} ${comptage.bilan}');
+    } on StateError catch (e) {
+      debugPrint('[Donnees de test] inventaire ecarte : ${e.message}');
+    }
+  }
+  return faits.isEmpty
+      ? "Inventaires : aucun n'a pu s'ouvrir."
+      : 'Inventaires ouverts : ${faits.join(', ')}.';
+}
+
+/// Ce que le terrain trouve a la ligne `i` : le plus souvent ce que dit la
+/// machine, une ligne sur cinq en manque, une sur sept en trop. Un stock
+/// passe sous zero se compte a zero.
+int _trouve(int i, int theorique) {
+  final machine = theorique < 0 ? 0 : theorique;
+  if (i % 5 == 1) {
+    final manque = machine ~/ 8 < 1 ? 1 : machine ~/ 8;
+    return machine > manque ? machine - manque : 0;
+  }
+  if (i % 7 == 4) return machine + 2;
+  return machine;
 }
 
 /// Des coordonnees et le logo d'Edge Hotel, pour voir l'en-tete des
