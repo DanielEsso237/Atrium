@@ -264,6 +264,116 @@ void main() {
     expect(apres.map((l) => l.id), isNot(contains(c.id)));
   });
 
+  // Reunion du 18 octobre : la liste proposait des chambres deja reservees,
+  // que l'enregistrement refusait ensuite. Elle suit maintenant la duree.
+  group('les chambres deja reservees', () {
+    late DateTime aujourdhui;
+    DateTime dans(int jours) =>
+        DateTime(aujourdhui.year, aujourdhui.month, aujourdhui.day + jours);
+
+    setUp(() => aujourdhui = businessDayFor(DateTime.now()));
+
+    Future<void> reserver(RoomRow c, int du, int au, {bool attribuee = true}) =>
+        reservations.create(
+          guestId: clientId,
+          roomTypeId: c.roomTypeId,
+          arrival: dans(du),
+          departure: dans(au),
+          nightlyRate: 20000,
+          roomId: attribuee ? c.id : null,
+        );
+
+    Future<List<String>> libres(UniteSejour unite, int duree) async =>
+        (await reservations
+                .watchChambresLibres(unite: unite, duree: duree)
+                .first)
+            .map((c) => c.id)
+            .toList();
+
+    test('promise dans deux jours : libre pour une nuit, pas pour trois',
+        () async {
+      final c = await chambre('101');
+      await reserver(c, 2, 4);
+
+      expect(await libres(UniteSejour.NIGHTS, 1), contains(c.id));
+      expect(await libres(UniteSejour.NIGHTS, 2), contains(c.id));
+      expect(await libres(UniteSejour.NIGHTS, 3), isNot(contains(c.id)));
+      // Et l'enregistrement dit la meme chose que la liste.
+      await reservations.verifierArriveeDirecte(
+        roomId: c.id,
+        unite: UniteSejour.NIGHTS,
+        duree: 2,
+        prix: 40000,
+      );
+      await expectLater(
+        reservations.verifierArriveeDirecte(
+          roomId: c.id,
+          unite: UniteSejour.NIGHTS,
+          duree: 3,
+          prix: 60000,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('promise ce soir : ni en nuits, ni pour quelques heures', () async {
+      final c = await chambre('101');
+      await reserver(c, 0, 1);
+
+      expect(await libres(UniteSejour.NIGHTS, 1), isNot(contains(c.id)));
+      expect(await libres(UniteSejour.HOURS, 3), isNot(contains(c.id)));
+      await expectLater(
+        reservations.verifierArriveeDirecte(
+          roomId: c.id,
+          unite: UniteSejour.HOURS,
+          duree: 3,
+          prix: 15000,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('ce soir'),
+          ),
+        ),
+      );
+    });
+
+    test('une reservation annulee rend la chambre', () async {
+      final c = await chambre('101');
+      await reserver(c, 0, 2);
+      await (db.update(db.reservationRooms)
+            ..where((l) => l.roomId.equals(c.id)))
+          .write(
+            const ReservationRoomsCompanion(
+              status: Value(ReservationStatus.CANCELLED),
+            ),
+          );
+      expect(await libres(UniteSejour.NIGHTS, 2), contains(c.id));
+    });
+
+    test('une categorie remplie par des reservations sans chambre ne '
+        'propose rien', () async {
+      final c = await chambre('101');
+      final memes = [
+        for (final r in await (db.select(
+          db.rooms,
+        )..where((r) => r.roomTypeId.equals(c.roomTypeId))).get())
+          if (r.isActive && !r.isOutOfOrder && r.deletedAt == null) r,
+      ];
+      for (var i = 0; i < memes.length; i++) {
+        await reserver(c, 1, 2, attribuee: false);
+      }
+
+      final ce = await libres(UniteSejour.NIGHTS, 1);
+      final deux = await libres(UniteSejour.NIGHTS, 2);
+      expect(ce, contains(c.id));
+      for (final r in memes) {
+        expect(deux, isNot(contains(r.id)));
+      }
+    });
+  });
+
   test('un sejour en heures compte dans les departs du jour, pas demain',
       () async {
     final avant = await db.watchDashboard().first;
