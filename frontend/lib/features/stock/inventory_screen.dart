@@ -68,6 +68,18 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
     final ecarts = inv.ecarts;
+    // Dit avant la confirmation : chaque ecart doit avoir son motif.
+    final sansMotif = [
+      for (final l in ecarts)
+        if (l.motif == null) l.productId,
+    ];
+    if (sansMotif.isNotEmpty) {
+      final message = await ref
+          .read(inventoryRepositoryProvider)
+          .motifsManquants(sansMotif);
+      if (mounted) montrerRefus(context, message);
+      return;
+    }
     final manques = ecarts.where((l) => l.ecart! < 0).length;
     final surplus = ecarts.length - manques;
     final nonComptes = inv.lignes.length - inv.comptees;

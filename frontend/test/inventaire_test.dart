@@ -94,6 +94,14 @@ void main() {
           .firstWhere((l) => l.productId == produit)
           .quantity;
 
+  /// Le motif d'un ecart : obligatoire pour reequilibrer (18 octobre).
+  Future<void> motif(String inventaire, String produit) =>
+      inventaires.noterMotif(
+        inventaireId: inventaire,
+        productId: produit,
+        motif: 'Casse',
+      );
+
   test('l ecran se construit', () {
     expect(const InventoryScreen(), isA<InventoryScreen>());
   });
@@ -144,6 +152,8 @@ void main() {
     final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
     await inventaires.compter(inventaireId: id, productId: biere, quantite: 20);
     await inventaires.compter(inventaireId: id, productId: jus, quantite: 12);
+    await motif(id, biere);
+    await motif(id, jus);
 
     final n = await inventaires.reequilibrer(inventaireId: id, by: _agent);
 
@@ -212,6 +222,7 @@ void main() {
       productId: biere,
       quantite: 20,
     );
+    await motif(second, biere);
     await inventaires.reequilibrer(inventaireId: second, by: _agent);
     await laisserPasser();
     expect(vus.last, isNull);
@@ -223,6 +234,7 @@ void main() {
       () async {
     final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
     await inventaires.compter(inventaireId: id, productId: biere, quantite: 20);
+    await motif(id, biere);
     await inventaires.reequilibrer(inventaireId: id, by: _agent);
     final mouvement = (await (db.select(
       db.stockMovements,
@@ -237,12 +249,14 @@ void main() {
     expect(inv.map((e) => '${e.$1} ${e.$2}'), [
       'POST /inventories',
       'PUT /inventories/$id/lines/$biere',
+      'PUT /inventories/$id/lines/$biere',
       'POST /inventories/$id/rebalance',
     ]);
     final ouverture = inv.first.$3 as Map;
     expect(ouverture['stock_location_id'], bar);
     expect((ouverture['lines'] as List), hasLength(3));
     expect(inv.elementAt(1).$3, {'counted_qty': 20});
+    expect(inv.elementAt(2).$3, {'counted_qty': 20, 'comment': 'Casse'});
     expect(inv.last.$3, {
       'movement_ids': {biere: mouvement.id},
     });
@@ -310,6 +324,32 @@ void main() {
         {'counted_qty': 20, 'comment': 'Casse'},
         {'counted_qty': 19, 'comment': 'Casse'},
       ]);
+    });
+
+    test('pas de reequilibrage tant qu un ecart n a pas son motif', () async {
+      final id = await inventaires.ouvrir(magasinId: bar, by: _agent);
+      await inventaires.compter(inventaireId: id, productId: biere, quantite: 20);
+      await inventaires.compter(inventaireId: id, productId: jus, quantite: 12);
+      // Compte sans ecart : il n'a pas besoin de motif.
+      await inventaires.compter(inventaireId: id, productId: eau, quantite: 6);
+      await motif(id, biere);
+
+      await expectLater(
+        inventaires.reequilibrer(inventaireId: id, by: _agent),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('Un écart'), contains('Jus')),
+          ),
+        ),
+      );
+      // Rien n'a bouge.
+      expect(await qte(biere), 24);
+      expect(await inventaires.watchOuvert(bar).first, isNotNull);
+
+      await motif(id, jus);
+      expect(await inventaires.reequilibrer(inventaireId: id, by: _agent), 2);
     });
   });
 }

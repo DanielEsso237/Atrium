@@ -296,6 +296,21 @@ class InventoryRepository with OutboxWriter {
     });
   }
 
+  /// Le refus du reequilibrage tant que des ecarts n'ont pas leur motif,
+  /// avec les articles a reprendre.
+  Future<String> motifsManquants(List<String> productIds) async {
+    final produits = await (db.select(
+      db.products,
+    )..where((p) => p.id.isIn(productIds))).get();
+    final noms = [for (final p in produits) p.label]..sort();
+    final n = productIds.length;
+    return n == 1
+        ? 'Un écart n’a pas de motif (${noms.join(', ')}) : notez-le avant '
+              'de rééquilibrer.'
+        : '$n écarts n’ont pas de motif (${noms.join(', ')}) : notez-les '
+              'avant de rééquilibrer.';
+  }
+
   /// Note le motif de l'ecart d'une ligne comptee (reunion du 18 octobre) :
   /// vide, il s'efface. Il part avec le comptage, par la meme route.
   Future<void> noterMotif({
@@ -366,6 +381,17 @@ class InventoryRepository with OutboxWriter {
             .get();
     if (lignes.isEmpty) {
       throw StateError('Comptez au moins un article avant de rééquilibrer.');
+    }
+    // Chaque ecart dit son motif avant que le stock ne bouge (decision du
+    // client, 18 octobre) : une perte sans explication ne se valide pas.
+    final sansMotif = [
+      for (final l in lignes)
+        if (l.countedQty != l.theoreticalQty &&
+            (l.comment == null || l.comment!.trim().isEmpty))
+          l.productId,
+    ];
+    if (sansMotif.isNotEmpty) {
+      throw StateError(await motifsManquants(sansMotif));
     }
     final now = DateTime.now().toUtc();
     final mouvements = <String, String>{};
