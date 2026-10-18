@@ -23,6 +23,7 @@ import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/outlets/outlet_cash_screen.dart';
 import '../features/outlets/outlet_invoices_screen.dart';
+import '../features/outlets/historique_ventes_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/personnel/personnel_screen.dart';
 import '../features/reports/reports_screen.dart';
@@ -262,6 +263,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/ventes',
             builder: (_, _) => const OutletDashboardScreen(),
+            routes: [
+              // L'historique des ventes (18 octobre) : le droit des ventes.
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueVentesScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/ma-caisse',

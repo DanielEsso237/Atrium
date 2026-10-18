@@ -328,6 +328,16 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/ventes',
   ),
+  // Tout ce qui s'est vendu, et ce qu'est devenu l'argent (18 octobre).
+  const Destination(
+    'Historique des ventes',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/ventes/historique',
+    'order.read',
+    Groupe.services,
+    parent: '/ventes',
+  ),
   // L'economat et le stock de chaque point de vente. L'icone pleine est la
   // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
   const Destination(

@@ -7,10 +7,18 @@
 ///
 /// L'argent encaisse et l'attendu des tiroirs s'affichent, tiroir ouvert ou
 /// non (decision du 15 octobre, qui remplace le comptage a l'aveugle du 11).
+///
+/// Refait le 18 octobre avec les pieces communes des tableaux de bord : la
+/// recette en grand, avec sa courbe des quatorze derniers jours et son ecart
+/// a la periode d'avant ; puis la recette jour par jour, la facon dont les
+/// clients paient, les heures de pointe, les meilleures ventes, les
+/// dernieres ventes, les tiroirs et le stock. L'historique complet est a un
+/// clic (`/ventes/historique`).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/business_day.dart';
 import '../../core/formats.dart';
@@ -18,12 +26,19 @@ import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/choix_en_menu.dart';
+import '../../core/widgets/historique.dart';
 import '../../core/widgets/module_scaffold.dart';
+import '../../core/widgets/tableau_de_bord.dart';
+import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
+import '../../data/local/queries/historique_pdv_queries.dart'
+    show EtatVentePdv;
 import '../../data/local/queries/outlet_dashboard_queries.dart';
+import '../../data/local/queries/ventes_historique_queries.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import '../reports/report_charts.dart';
 
 /// Ce que l'agent a choisi de regarder.
 class _Choix {
@@ -61,6 +76,41 @@ final _choixProvider = NotifierProvider<_ChoixNotifier, _Choix>(
 );
 
 const _titre = 'Ventes';
+
+/// La recette de chaque jour : des points de vente (leurs ids joints par une
+/// virgule, une cle comparable), du premier au dernier jour.
+final _recetteParJourProvider =
+    StreamProvider.family<List<int>, (String, DateTime, DateTime)>(
+      (ref, cle) => ref
+          .watch(databaseProvider)
+          .watchRecetteParJour(
+            pointsDeVente: cle.$1.isEmpty ? const [] : cle.$1.split(','),
+            du: cle.$2,
+            au: cle.$3,
+          ),
+    );
+
+/// Les dernieres ventes du tableau de bord.
+final _dernieresVentesProvider =
+    StreamProvider.family<List<VenteHistorique>, String>(
+      (ref, ids) => ref
+          .watch(databaseProvider)
+          .watchHistoriqueVentes(
+            pointsDeVente: ids.isEmpty ? const [] : ids.split(','),
+            limite: 6,
+          ),
+    );
+
+/// La couleur et le mot de l'etat d'une vente : les memes sur le tableau de
+/// bord et dans l'historique.
+(String, Color) etatDeLaVente(EtatVentePdv e) {
+  final p = AtriumPalette.current;
+  return switch (e) {
+    EtatVentePdv.payee => ('Payée', p.success),
+    EtatVentePdv.aPayer => ('À payer', p.warning),
+    EtatVentePdv.enChambre => ('Sur la chambre', p.textSecondary),
+  };
+}
 
 class OutletDashboardScreen extends ConsumerWidget {
   const OutletDashboardScreen({super.key});
@@ -135,11 +185,19 @@ class _Tableau extends ConsumerWidget {
     final marge = etroit ? 18.0 : 32.0;
     final notifier = ref.read(_choixProvider.notifier);
 
+    final libelles = {for (final o in points) o.id: o.label};
+
     return ModuleScaffold(
       title: _titre,
       subtitle: perimetre.rattache
           ? points.map((o) => o.label).join(', ')
           : 'Tous les points de vente de l’hôtel',
+      action: PillButton(
+        label: 'Historique',
+        icon: PhosphorIconsLight.clockCounterClockwise,
+        tone: PillTone.quiet,
+        onPressed: () => context.go('/ventes/historique'),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -219,37 +277,66 @@ class _Tableau extends ConsumerWidget {
                     title: 'Lecture impossible',
                     message: '$e',
                   ),
-                  data: (t) => ListView(
-                    padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
-                    children: [
-                      _Chiffres(tableau: t),
-                      // Le comparatif : pour qui couvre tout l'hotel, quand
-                      // il regarde tous les points de vente a la fois.
-                      if (!perimetre.rattache &&
-                          choisi == null &&
-                          points.length > 1) ...[
-                        const SizedBox(height: 24),
-                        _Comparatif(
-                          filtres: filtres,
-                          libelles: {for (final o in points) o.id: o.label},
-                          onChoisir: notifier.pointDeVente,
+                  data: (t) => TableauAnime(
+                    cle: filtres,
+                    builder: (context, trace, barres) => ListView(
+                      padding: EdgeInsets.fromLTRB(marge, 4, marge, 32),
+                      children: [
+                        _Bandeau(tableau: t, progres: trace),
+                        const SizedBox(height: 16),
+                        DeuxColonnes(
+                          flexGauche: 3,
+                          flexDroite: 2,
+                          gauche: _RecetteParJour(
+                            filtres: filtres,
+                            progres: barres,
+                          ),
+                          droite: _Reglements(tableau: t, progres: barres),
+                        ),
+                        // Le comparatif : pour qui couvre tout l'hotel,
+                        // quand il regarde tous les points de vente a la
+                        // fois.
+                        if (!perimetre.rattache &&
+                            choisi == null &&
+                            points.length > 1) ...[
+                          const SizedBox(height: 16),
+                          _Comparatif(
+                            filtres: filtres,
+                            libelles: libelles,
+                            onChoisir: notifier.pointDeVente,
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        DeuxColonnes(
+                          gauche: _HeuresDePointe(tableau: t),
+                          droite: _MeilleuresVentes(
+                            tableau: t,
+                            progres: barres,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DeuxColonnes(
+                          gauche: _DernieresVentes(
+                            pointsDeVente: filtres.pointsDeVente,
+                            libelles: libelles,
+                          ),
+                          droite: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _Tiroirs(
+                                filtres: filtres,
+                                libelles: libelles,
+                                agentId: agentId,
+                              ),
+                              if (acces.peut('stock.read')) ...[
+                                const SizedBox(height: 16),
+                                _Stock(filtres: filtres),
+                              ],
+                            ],
+                          ),
                         ),
                       ],
-                      const SizedBox(height: 24),
-                      _HeuresDePointe(tableau: t),
-                      const SizedBox(height: 24),
-                      _MeilleuresVentes(tableau: t),
-                      const SizedBox(height: 24),
-                      _Tiroirs(
-                        filtres: filtres,
-                        libelles: {for (final o in points) o.id: o.label},
-                        agentId: agentId,
-                      ),
-                      if (acces.peut('stock.read')) ...[
-                        const SizedBox(height: 24),
-                        _Stock(filtres: filtres),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
           ),
@@ -259,12 +346,15 @@ class _Tableau extends ConsumerWidget {
   }
 }
 
-// --- Les chiffres ---------------------------------------------------------------
+// --- Le bandeau -------------------------------------------------------------------
 
-class _Chiffres extends StatelessWidget {
-  const _Chiffres({required this.tableau});
+/// La recette en grand, sa courbe des quatorze derniers jours, son ecart a
+/// la periode d'avant ; a cote, ce qui l'explique.
+class _Bandeau extends ConsumerWidget {
+  const _Bandeau({required this.tableau, required this.progres});
 
   final TableauDeBordPdv tableau;
+  final Animation<double> progres;
 
   String get _repere => switch (tableau.filtres.periode) {
     PeriodePdv.jour => 'hier',
@@ -273,167 +363,233 @@ class _Chiffres extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final f = tableau.filtres;
     final c = tableau.chiffres;
     final av = tableau.precedent;
-    final tuiles = [
-      _Tuile(
-        libelle: 'Recette',
-        valeur: formatAmount(c.recette),
-        variation: _variation(c.recette, av.recette),
-        repere: _repere,
-      ),
-      _Tuile(
-        libelle: 'Ventes',
-        valeur: '${c.ventes}',
-        variation: _variation(c.ventes, av.ventes),
-        repere: _repere,
-        aide: 'Un client servi dans la journée',
-      ),
-      _Tuile(
-        libelle: 'Ticket moyen',
-        valeur: formatAmount(c.ticketMoyen),
-        variation: _variation(c.ticketMoyen, av.ticketMoyen),
-        repere: _repere,
-      ),
-      _Tuile(
-        libelle: 'Articles',
-        valeur: '${c.articles}',
-        variation: _variation(c.articles, av.articles),
-        repere: _repere,
-      ),
-      _Tuile(
-        libelle: 'Payé sur place',
-        valeur: formatAmount(c.surPlace),
-        repere: _repere,
-      ),
-      _Tuile(
-        libelle: 'Ardoises à payer',
-        valeur: formatAmount(c.aPayer),
-        repere: _repere,
-        aide: 'Servi, le client paiera à la fin',
-      ),
-      _Tuile(
-        libelle: 'Porté aux chambres',
-        valeur: formatAmount(c.enChambre),
-        repere: _repere,
-        aide: 'Encaissé au départ du client',
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, zone) {
-        final colonnes = zone.maxWidth >= 900
-            ? 3
-            : zone.maxWidth >= 480
-            ? 2
-            : 1;
-        const ecart = 12.0;
-        final largeur = (zone.maxWidth - ecart * (colonnes - 1)) / colonnes;
-        return Wrap(
-          spacing: ecart,
-          runSpacing: ecart,
-          children: [
-            for (final t in tuiles) SizedBox(width: largeur, child: t),
-          ],
-        );
+    final courbe =
+        ref
+            .watch(
+              _recetteParJourProvider((
+                f.pointsDeVente.join(','),
+                f.reference.subtract(const Duration(days: 13)),
+                f.reference,
+              )),
+            )
+            .value;
+    return BandeauChiffres(
+      libelle: switch (f.periode) {
+        PeriodePdv.jour => 'Recette du jour',
+        PeriodePdv.semaine => 'Recette de la semaine',
+        PeriodePdv.mois => 'Recette du mois',
       },
+      valeur: formatAmount(c.recette),
+      variation: variationEnPourcent(c.recette, av.recette),
+      repere: _repere,
+      courbe: courbe,
+      descriptionCourbe: 'Recette des quatorze derniers jours',
+      progres: progres,
+      mesures: [
+        Mesure(
+          'Ventes',
+          '${c.ventes}',
+          aide: _ecart(c.ventes, av.ventes) ?? 'Un client servi dans la journée',
+        ),
+        Mesure(
+          'Ticket moyen',
+          formatAmount(c.ticketMoyen),
+          aide: _ecart(c.ticketMoyen, av.ticketMoyen),
+        ),
+        Mesure(
+          'Articles',
+          '${c.articles}',
+          aide: _ecart(c.articles, av.articles),
+        ),
+        Mesure(
+          'Payé sur place',
+          formatAmount(c.surPlace),
+          aide: 'Ardoises payées au comptoir',
+        ),
+        Mesure(
+          'Ardoises à payer',
+          formatAmount(c.aPayer),
+          aide: 'Servi, le client paiera à la fin',
+        ),
+        Mesure(
+          'Porté aux chambres',
+          formatAmount(c.enChambre),
+          aide: 'Encaissé au départ du client',
+        ),
+      ],
     );
   }
 
-  /// En pour cent, arrondi ; `null` sans repere (rien la periode d'avant).
-  static int? _variation(int maintenant, int avant) =>
-      avant == 0 ? null : ((maintenant - avant) * 100 / avant).round();
+  /// « +12 % par rapport à hier », le signe dit le sens.
+  String? _ecart(int maintenant, int avant) {
+    final v = variationEnPourcent(maintenant, avant);
+    return v == null ? null : '${v > 0 ? '+' : ''}$v % par rapport à $_repere';
+  }
 }
 
-class _Tuile extends StatelessWidget {
-  const _Tuile({
-    required this.libelle,
-    required this.valeur,
-    required this.repere,
-    this.variation,
-    this.aide,
-  });
+// --- La recette jour par jour -------------------------------------------------------
 
-  final String libelle;
+/// Une colonne par journee : la periode, et au moins la semaine ecoulee --
+/// un lundi, une colonne seule ne dirait rien.
+class _RecetteParJour extends ConsumerWidget {
+  const _RecetteParJour({required this.filtres, required this.progres});
 
-  /// `null` : rien a montrer.
-  final String? valeur;
-  final int? variation;
-  final String repere;
-  final String? aide;
+  final FiltresPdv filtres;
+  final Animation<double> progres;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final semaine = filtres.reference.subtract(const Duration(days: 6));
+    final du = filtres.du.isAfter(semaine) ? semaine : filtres.du;
+    final valeurs =
+        ref
+            .watch(
+              _recetteParJourProvider((
+                filtres.pointsDeVente.join(','),
+                du,
+                filtres.reference,
+              )),
+            )
+            .value ??
+        const <int>[];
+    DateTime jour(int i) => DateTime(du.year, du.month, du.day + i);
+    final total = valeurs.fold(0, (s, v) => s + v);
+    return CarteSection(
+      titre: 'Recette jour par jour',
+      icone: PhosphorIconsLight.chartBar,
+      description: total == 0
+          ? null
+          : 'Meilleure journée : ${_meilleure(valeurs, jour)}',
+      child: SizedBox(
+        height: 210,
+        child: total == 0
+            ? const SectionVide('Aucune vente sur ces journées.')
+            : ColonnesRapport(
+                progres: progres,
+                series: [
+                  SerieCourbe('Recette', valeurs, AtriumChartColors.current),
+                ],
+                lire: (i) =>
+                    '${formatWeekdayShort(jour(i))} ${formatDayMonth(jour(i))} : '
+                    '${formatAmount(valeurs[i])}',
+                description: 'Recette jour par jour',
+                etiquetteDebut: formatDayMonth(du),
+                etiquetteFin: formatDayMonth(filtres.reference),
+              ),
+      ),
+    );
+  }
+
+  static String _meilleure(List<int> v, DateTime Function(int) jour) {
+    var i = 0;
+    for (var k = 1; k < v.length; k++) {
+      if (v[k] > v[i]) i = k;
+    }
+    return '${formatWeekdayShort(jour(i))} ${formatDayMonth(jour(i))}, '
+        '${formatAmount(v[i])}';
+  }
+}
+
+// --- Les reglements -----------------------------------------------------------------
+
+/// Comment les clients paient : sur place, a la fin (ardoise ouverte), ou
+/// au depart (porte sur la chambre). Trois parts d'un meme tout.
+class _Reglements extends StatelessWidget {
+  const _Reglements({required this.tableau, required this.progres});
+
+  final TableauDeBordPdv tableau;
+  final Animation<double> progres;
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final v = variation;
-    return Bezel(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            libelle,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: p.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (valeur == null)
-            Semantics(
-              label: '$libelle masqué jusqu’au versement',
-              child: Row(
-                children: [
-                  Icon(PhosphorIconsLight.lockSimple, size: 22, color: p.textSecondary),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      'Après le versement',
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 15,
-                        color: p.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Text(
-              valeur!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: atriumDisplay(28, color: p.text).copyWith(
-                fontFeatures: tabularFigures,
-              ),
-            ),
-          const SizedBox(height: 6),
-          Text(
-            v == null
-                ? (aide ?? '')
-                : '${v > 0 ? '+' : ''}$v % par rapport à $repere',
-            maxLines: 2,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12.5,
-              // Le sens se lit dans le signe, pas dans la couleur seule.
-              color: v == null
-                  ? p.textSecondary
-                  : v >= 0
-                  ? p.success
-                  : p.error,
-              fontFeatures: tabularFigures,
-            ),
+    final c = tableau.chiffres;
+    return CarteSection(
+      titre: 'Comment les clients paient',
+      icone: PhosphorIconsLight.chartDonut,
+      child: AnneauRapport(
+        progres: progres,
+        libelleTotal: 'vendu',
+        description: 'Recette par façon de payer',
+        vide: 'Aucune vente sur la période.',
+        parts: [
+          PartAnneau('Payé sur place', c.surPlace, AtriumChartColors.parts[0]),
+          PartAnneau('Ardoises à payer', c.aPayer, AtriumChartColors.parts[1]),
+          PartAnneau(
+            'Porté aux chambres',
+            c.enChambre,
+            AtriumChartColors.parts[2],
           ),
         ],
       ),
     );
   }
+}
+
+// --- Les dernieres ventes -----------------------------------------------------------
+
+/// Ce qui vient d'etre servi, a qui, et ou en est l'argent ; l'historique
+/// complet a un clic.
+class _DernieresVentes extends ConsumerWidget {
+  const _DernieresVentes({
+    required this.pointsDeVente,
+    required this.libelles,
+  });
+
+  final List<String> pointsDeVente;
+  final Map<String, String> libelles;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ventes =
+        ref.watch(_dernieresVentesProvider(pointsDeVente.join(','))).value ??
+        const <VenteHistorique>[];
+    return CarteSection(
+      titre: 'Dernières ventes',
+      icone: PhosphorIconsLight.receipt,
+      action: LienSection(
+        libelle: 'Tout l’historique',
+        icone: PhosphorIconsLight.clockCounterClockwise,
+        onPressed: () => context.go('/ventes/historique'),
+      ),
+      child: ventes.isEmpty
+          ? const SectionVide('Aucune vente pour l’instant.')
+          : Column(
+              children: [
+                for (final v in ventes)
+                  LigneHistorique(
+                    entree: entreeDeVente(v, libelles[v.pointDeVente]),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Une vente mise en mots pour la chronologie.
+EntreeHistorique entreeDeVente(VenteHistorique v, String? pointDeVente) {
+  final p = AtriumPalette.current;
+  final (etat, couleur) = etatDeLaVente(v.etat);
+  return EntreeHistorique(
+    id: '${v.ardoiseId}|${formatIsoDate(v.jour)}',
+    moment: v.moment ?? DateTime(v.jour.year, v.jour.month, v.jour.day, 12),
+    icone: v.etat == EtatVentePdv.enChambre
+        ? PhosphorIconsLight.bed
+        : PhosphorIconsLight.receipt,
+    couleur: p.accent,
+    titre: v.titre,
+    detail: [
+      v.articles,
+      ?pointDeVente,
+      if (v.agent != null) 'servi par ${v.agent}',
+    ].join(', '),
+    montant: formatAmount(v.montant),
+    etat: etat,
+    couleurEtat: couleur,
+  );
 }
 
 // --- Le comparatif ----------------------------------------------------------------
@@ -466,12 +622,13 @@ class _Comparatif extends ConsumerWidget {
     );
     final doux = style.copyWith(fontSize: 12.5, color: p.textSecondary);
 
-    return Bezel(
+    return CarteSection(
+      titre: 'Comparatif des points de vente',
+      icone: PhosphorIconsLight.storefront,
+      description: 'Touchez un point de vente pour ne regarder que lui.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Eyebrow('Comparatif des points de vente'),
-          const SizedBox(height: 4),
           for (final l in lignes)
             HoverRow(
               onTap: () => onChoisir(l.pointDeVente),
@@ -561,18 +718,10 @@ class _HeuresDePointe extends StatelessWidget {
 
     final actives = tableau.parHeure.where((h) => mesure(h) > 0).toList();
     if (actives.isEmpty) {
-      return Bezel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Eyebrow('Heures de pointe'),
-            const SizedBox(height: 8),
-            Text(
-              'Aucune vente sur la période.',
-              style: TextStyle(fontFamily: atriumFontFamily, color: p.textSecondary),
-            ),
-          ],
-        ),
+      return const CarteSection(
+        titre: 'Heures de pointe',
+        icone: PhosphorIconsLight.clock,
+        child: SectionVide('Aucune vente sur la période.'),
       );
     }
     // De la premiere a la derniere heure de vente : la nuit vide ne
@@ -583,24 +732,13 @@ class _HeuresDePointe extends StatelessWidget {
     final max = heures.map(mesure).reduce((a, b) => a > b ? a : b);
     final pointe = heures.firstWhere((h) => mesure(h) == max);
 
-    return Bezel(
+    return CarteSection(
+      titre: 'Heures de pointe',
+      icone: PhosphorIconsLight.clock,
+      description: 'Pointe à ${pointe.heure} h : ${dire(max)}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Eyebrow(
-            'Heures de pointe',
-            trailing: Text(
-              'Pointe à ${pointe.heure} h : ${dire(max)}',
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.text,
-                fontFeatures: tabularFigures,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           SizedBox(
             height: 140,
             child: Row(
@@ -690,12 +828,12 @@ class _Tiroirs extends ConsumerWidget {
       fontFeatures: tabularFigures,
     );
 
-    return Bezel(
+    return CarteSection(
+      titre: 'Tiroirs et versements',
+      icone: PhosphorIconsLight.cashRegister,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Eyebrow('Tiroirs et versements'),
-          const SizedBox(height: 8),
           if (tiroirs.isEmpty)
             Text('Aucun tiroir ouvert ni versement sur la période.', style: doux),
           for (final t in tiroirs)
@@ -805,12 +943,12 @@ class _Stock extends ConsumerWidget {
     );
     final doux = style.copyWith(fontSize: 13, color: p.textSecondary);
 
-    return Bezel(
+    return CarteSection(
+      titre: 'Stock',
+      icone: PhosphorIconsLight.archive,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Eyebrow('Stock'),
-          const SizedBox(height: 8),
           if (stock.bas.isEmpty)
             Text('Rien sous le seuil.', style: doux)
           else
@@ -868,64 +1006,30 @@ class _Stock extends ConsumerWidget {
 
 // --- Les meilleures ventes ---------------------------------------------------------
 
+/// Les articles qui rapportent le plus, en barres : le libelle et le
+/// montant en toutes lettres, la quantite a cote.
 class _MeilleuresVentes extends StatelessWidget {
-  const _MeilleuresVentes({required this.tableau});
+  const _MeilleuresVentes({required this.tableau, required this.progres});
 
   final TableauDeBordPdv tableau;
+  final Animation<double> progres;
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final lignes = tableau.meilleuresVentes;
-    final style = TextStyle(
-      fontFamily: atriumFontFamily,
-      fontSize: 14.5,
-      color: p.text,
-      fontFeatures: tabularFigures,
-    );
-    return Bezel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Eyebrow('Meilleures ventes'),
-          const SizedBox(height: 8),
-          if (lignes.isEmpty)
-            Text(
-              'Aucune vente sur la période.',
-              style: style.copyWith(color: p.textSecondary),
-            ),
-          for (final (i, l) in lignes.indexed)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 28,
-                    child: Text(
-                      '${i + 1}',
-                      style: style.copyWith(color: p.textSecondary),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      l.libelle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: style,
-                    ),
-                  ),
-                  Text('× ${l.quantite}', style: style),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 110,
-                    child: Text(
-                      formatAmount(l.montant),
-                      textAlign: TextAlign.right,
-                      style: style.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
+    return CarteSection(
+      titre: 'Meilleures ventes',
+      icone: PhosphorIconsLight.sparkle,
+      child: BarresParts(
+        couleur: AtriumChartColors.current,
+        progres: progres,
+        vide: 'Aucune vente sur la période.',
+        parts: [
+          for (final l in tableau.meilleuresVentes.take(6))
+            BarrePart(
+              l.libelle,
+              l.montant,
+              formatAmount(l.montant),
+              detail: '× ${l.quantite}',
             ),
         ],
       ),

@@ -136,11 +136,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  // Les flux de Drift laissent des minuteries : fermer la base, puis
-  // demonter l'ecran, comme les autres tests d'ecran.
+  // Demonter l'ecran d'abord, laisser partir les minuteries des flux de
+  // Drift, puis fermer la base : fermee sous un ecran qui ecoute encore une
+  // dizaine de flux (le tableau de bord du 18 octobre), elle attendait une
+  // lecture restee en suspens dans le temps simule.
   Future<void> fermer(WidgetTester tester) async {
-    await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.runAsync(db.close);
   }
 
   test("l'ecran Ventes demande le droit des commandes", () {
