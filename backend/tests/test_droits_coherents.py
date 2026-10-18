@@ -84,6 +84,18 @@ IMPLICATIONS = [
     # L'ecran des depenses les liste avant de proposer d'en saisir : qui les
     # saisit doit pouvoir les lire.
     ("expense.write", "accounting.read"),
+    # La commande en chambre (F2.6). La reception choisit le sejour parmi les
+    # ardoises ouvertes (`GET /chargeable-stays`, sous folio.charge) et
+    # l'article sur la carte du point de vente ; elle suit ensuite sa
+    # commande par la descente (`GET /room-orders`, sous order.read).
+    ("room_order.create", "folio.charge"),
+    ("room_order.create", "restaurant.read"),
+    ("room_order.create", "order.read"),
+    # Le point de vente qui livre porte les lignes sur l'ardoise du sejour,
+    # dans son tiroir ouvert, et voit arriver les commandes par la descente.
+    ("order.manage", "folio.charge"),
+    ("order.manage", "cash.session"),
+    ("order.manage", "order.read"),
     # L'ecran Inventaire montre le stock du magasin a compter.
     ("stock.inventory", "stock.read"),
     ("stock.rebalance", "stock.read"),

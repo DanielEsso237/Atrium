@@ -58,6 +58,7 @@ from app.api.v1.cash_sessions import open_session_id
 from app.services.deposit import deposit_from_rule, deposit_rule
 from app.services.folios import recompute_totals
 from app.services.numbering import Scope, next_number
+from app.services.room_orders import ensure_none_pending
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -1059,6 +1060,12 @@ async def check_out(
             status.HTTP_409_CONFLICT,
             f"Impossible d'enregistrer le depart (statut actuel : {line.status}).",
         )
+    # Un plateau en route vers la chambre : sa livraison trouverait l'ardoise
+    # close, et la file du point de vente se bloquerait derriere.
+    for folio_id in await session.scalars(
+        select(Folio.id).where(Folio.reservation_room_id == line.id, Folio.deleted_at.is_(None))
+    ):
+        await ensure_none_pending(session, folio_id, "le depart")
 
     line.status = ReservationStatus.CHECKED_OUT
     line.checked_out_at = dt.datetime.now(dt.timezone.utc)

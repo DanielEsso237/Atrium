@@ -45,6 +45,7 @@ from app.services.business_day import current_business_date
 from app.services import folios as folio_service
 from app.services.folios import recompute_totals
 from app.services.numbering import Scope, next_number
+from app.services.room_orders import ensure_none_pending
 from app.services.stock_levels import deduct_for_sale
 from app.services.printing import enqueue_print_job
 
@@ -655,6 +656,8 @@ async def close_folio(
             status.HTTP_409_CONFLICT,
             f"Le solde n'est pas nul (balance={folio.balance}) : impossible de clore.",
         )
+    # Une commande en chambre en route serait livree sur une ardoise close.
+    await ensure_none_pending(session, folio.id, "de clore l'ardoise")
     folio.status = FolioStatus.CLOSED
     folio.closed_at = dt.datetime.now(dt.timezone.utc)
     await session.commit()
