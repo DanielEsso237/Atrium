@@ -479,27 +479,40 @@ class CarteSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(icone, size: 20, color: p.accent),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    titre,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                      color: p.text,
+          LayoutBuilder(
+            builder: (context, zone) {
+              final entete = [
+                Icon(icone, size: 20, color: p.accent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      titre,
+                      style: TextStyle(
+                        fontFamily: atriumFontFamily,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: p.text,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              ?action,
-            ],
+              ];
+              // Etroit (telephone) : le lien passe sous le titre au lieu de
+              // le pousser hors du bloc.
+              if (action != null && zone.maxWidth < 420) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: entete),
+                    action!,
+                  ],
+                );
+              }
+              return Row(children: [...entete, ?action]);
+            },
           ),
           if (description != null)
             Padding(
