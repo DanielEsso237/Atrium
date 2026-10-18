@@ -34,6 +34,7 @@ import 'outlet_repository.dart';
 import 'outlet_tab_repository.dart';
 import 'reservation_repository.dart';
 import 'role_repository.dart';
+import 'room_order_repository.dart';
 import 'settings_repository.dart';
 import 'stock_repository.dart';
 import 'sync_repository.dart';
@@ -190,6 +191,34 @@ final stockPdvProvider = StreamProvider.family<StockPdv, FiltresPdv>(
 final outletTabRepositoryProvider = Provider<OutletTabRepository>(
   (ref) => OutletTabRepository(ref.watch(databaseProvider)),
 );
+
+/// La commande en chambre (F2.6) : la reception commande, le point de vente
+/// prend en charge et livre.
+final roomOrderRepositoryProvider = Provider<RoomOrderRepository>(
+  (ref) => RoomOrderRepository(ref.watch(databaseProvider)),
+);
+
+/// Les points de vente a qui la reception peut commander pour une chambre.
+final pointsDeVentePourChambreProvider =
+    StreamProvider<List<(OutletRow, bool)>>(
+      (ref) => ref
+          .watch(roomOrderRepositoryProvider)
+          .watchPointsDeVentePourChambre(),
+    );
+
+/// Les commandes en chambre d'une ardoise de sejour, en direct.
+final commandesArdoiseProvider =
+    StreamProvider.family<List<CommandeChambre>, String>(
+      (ref, folioId) =>
+          ref.watch(roomOrderRepositoryProvider).watchPourArdoise(folioId),
+    );
+
+/// Les commandes qu'un point de vente doit preparer et monter, en direct.
+final commandesEnRouteProvider =
+    StreamProvider.family<List<CommandeChambre>, String>(
+      (ref, outletId) =>
+          ref.watch(roomOrderRepositoryProvider).watchEnRoutePour(outletId),
+    );
 
 /// Les ardoises du comptoir d'un point de vente, en direct.
 final ardoisesProvider = StreamProvider.family<List<Ardoise>, String>(

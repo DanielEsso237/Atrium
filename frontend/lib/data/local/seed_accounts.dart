@@ -287,6 +287,14 @@ const _permissions = <_PermissionDemo>[
     'Autoriser une annulation (arrivee, depart, encaissement)',
     'operations',
   ),
+  // Commander pour une chambre (F2.6, 18 octobre) : la reception commande
+  // au point de vente, qui livre. Meme identifiant que le serveur.
+  (
+    '01920000-0000-7000-8000-000000004144',
+    'room_order.create',
+    'Commander pour une chambre (room service)',
+    'order',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -323,6 +331,10 @@ const _droits = <(String role, String permission)>[
   // Autoriser une annulation : l'administrateur, comme cote serveur (la
   // direction aussi, mais elle n'a pas de compte de demonstration).
   (_roleAdmin, '01920000-0000-7000-8000-000000004143'),
+  // Commander pour une chambre : administration et reception, comme cote
+  // serveur (migration 0029).
+  (_roleAdmin, '01920000-0000-7000-8000-000000004144'),
+  (_roleReception, '01920000-0000-7000-8000-000000004144'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les

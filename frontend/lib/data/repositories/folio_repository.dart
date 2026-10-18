@@ -16,6 +16,7 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import 'cash_repository.dart';
 import 'outbox.dart';
+import 'room_order_repository.dart';
 import 'stock_repository.dart';
 
 /// Une ardoise, telle qu'affichee dans la liste des factures.
@@ -697,6 +698,12 @@ class FolioRepository with OutboxWriter {
         'encaisser avant de clore.',
       );
     }
+    // Une commande en chambre en route serait livree sur une ardoise close.
+    await RoomOrderRepository.verifierAucuneEnRoute(
+      db,
+      folioId,
+      'de clore l’ardoise',
+    );
 
     final now = DateTime.now().toUtc();
 

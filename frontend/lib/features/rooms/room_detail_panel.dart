@@ -23,14 +23,21 @@ import '../../data/local/enums.dart';
 import '../../data/local/queries/room_detail_queries.dart';
 import '../../data/local/queries/rooms_queries.dart';
 import '../../core/ui/confirmation.dart';
+import '../../core/ui/fenetre_motif.dart';
 import '../../data/repositories/repository_providers.dart'
-    show housekeepingRepositoryProvider, stayRulesProvider;
+    show
+        commandesArdoiseProvider,
+        housekeepingRepositoryProvider,
+        roomOrderRepositoryProvider,
+        stayRulesProvider;
+import '../../data/repositories/room_order_repository.dart'
+    show CommandeChambre;
 import '../annulations/accord_responsable.dart';
-import '../billing/add_charge_dialog.dart';
 import '../auth/session.dart';
 import '../billing/charge_labels.dart';
 import '../maintenance/maintenance_screen.dart' show showReportIssueDialog;
 import '../reservations/stay_actions.dart';
+import 'commande_chambre_dialog.dart';
 import 'room_board_screen.dart';
 
 final ficheChambreProvider = StreamProvider.family<RoomDetail, String>((
@@ -92,7 +99,10 @@ class _Fiche extends ConsumerWidget {
                       afficherDepart: true,
                     ),
                     const SizedBox(height: 16),
-                    _Consommations(lignes: f.consommations),
+                    _Commandes(
+                      folioId: f.sejour!.folioId,
+                      lignes: f.consommations,
+                    ),
                   ] else if (f.expected != null)
                     _Sejour(sejour: f.expected!, titre: 'Arrivée attendue')
                   else
@@ -575,73 +585,209 @@ IconData _iconeCategorie(ChargeCategory c) => switch (c) {
   ChargeCategory.MISC => Icons.more_horiz_rounded,
 };
 
-class _Consommations extends StatelessWidget {
-  const _Consommations({required this.lignes});
+/// Les commandes de la chambre (reunion du 18 octobre : « Consommations »
+/// devient « Commandes ») : celles en route vers la chambre, puis ce qui est
+/// deja porte sur l'ardoise.
+class _Commandes extends ConsumerWidget {
+  const _Commandes({required this.folioId, required this.lignes});
+
+  final String? folioId;
+  final List<Charge> lignes;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enRoute = folioId == null
+        ? const <CommandeChambre>[]
+        : [
+            for (final c
+                in ref.watch(commandesArdoiseProvider(folioId!)).value ??
+                    const <CommandeChambre>[])
+              if (c.enRoute) c,
+          ];
+    final rien = enRoute.isEmpty && lignes.isEmpty;
+    return FicheCarte(
+      titre: 'Commandes',
+      child: rien
+          ? Text(
+              'Aucune commande pour cette chambre.',
+              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final c in enRoute) ...[
+                  _CommandeEnRoute(commande: c),
+                  Divider(height: 18, color: AtriumDashColors.grid),
+                ],
+                if (lignes.isNotEmpty) _SurArdoise(lignes: lignes),
+              ],
+            ),
+    );
+  }
+}
+
+/// « 21 h 40 », l'heure telle qu'on la dit au telephone.
+String _heureMinute(DateTime t) =>
+    '${t.hour} h ${t.minute.toString().padLeft(2, '0')}';
+
+/// Une commande pas encore livree : son point de vente, son etat, ce
+/// qu'elle contient. La reception peut l'annuler (le client se ravise).
+class _CommandeEnRoute extends ConsumerWidget {
+  const _CommandeEnRoute({required this.commande});
+
+  final CommandeChambre commande;
+
+  Future<void> _annuler(BuildContext context, WidgetRef ref) async {
+    final motif = await demanderMotif(
+      context,
+      titre: 'Annuler la commande',
+      libelleRenoncer: 'Garder la commande',
+      libelleConfirmer: 'Annuler la commande',
+      libelleMotif: 'Motif',
+      indice: 'Le client s’est ravisé…',
+      autofocus: true,
+      largeur: 420,
+    );
+    if (motif == null || !context.mounted) return;
+    final agent = ref.read(sessionProvider).agent?.id;
+    if (agent == null) return;
+    try {
+      await ref
+          .read(roomOrderRepositoryProvider)
+          .annuler(orderId: commande.id, motif: motif, by: agent);
+      if (context.mounted) montrerSucces(context, 'Commande annulée.');
+    } on StateError catch (e) {
+      if (context.mounted) montrerRefus(context, e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final etat = commande.statut == OrderStatus.IN_PREP
+        ? 'En préparation'
+        : 'Commandée';
+    final heure = commande.commandeeA == null
+        ? ''
+        : ' à ${_heureMinute(commande.commandeeA!.toLocal())}';
+    final contenu = [
+      for (final l in commande.lignes) '${l.quantite} × ${l.libelle}',
+    ].join(', ');
+    return Row(
+      children: [
+        _Tuile(
+          icone: Icons.room_service_outlined,
+          fond: AtriumDashColors.tileLavender,
+          encre: AtriumDashColors.tileLavenderInk,
+          taille: 38,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${commande.pointDeVente} · $etat$heure',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: AtriumDashColors.title,
+                ),
+              ),
+              Text(
+                contenu,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AtriumColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          formatAmount(commande.total),
+          style: TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            color: AtriumDashColors.title,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+        if (ref.watch(sessionProvider).acces.peut('room_order.create'))
+          IconButton(
+            tooltip: 'Annuler la commande',
+            onPressed: () => _annuler(context, ref),
+            icon: const Icon(Icons.close_rounded),
+          ),
+      ],
+    );
+  }
+}
+
+/// Ce qui est deja porte sur l'ardoise, commandes livrees comprises.
+class _SurArdoise extends StatelessWidget {
+  const _SurArdoise({required this.lignes});
 
   final List<Charge> lignes;
 
   @override
   Widget build(BuildContext context) {
-    return FicheCarte(
-      titre: 'Consommations',
-      child: lignes.isEmpty
-          ? Text(
-              'Aucune consommation portée à l’ardoise.',
-              style: TextStyle(fontSize: 15, color: AtriumColors.textSecondary),
-            )
-          : Column(
-              children: [
-                for (var i = 0; i < lignes.length; i++) ...[
-                  if (i > 0) Divider(height: 18, color: AtriumDashColors.grid),
-                  Row(
-                    children: [
-                      _Tuile(
-                        icone: _iconeCategorie(lignes[i].categorie),
-                        fond: AtriumDashColors.tileLavender,
-                        encre: AtriumDashColors.tileLavenderInk,
-                        taille: 38,
+    return Column(
+      children: [
+        for (var i = 0; i < lignes.length; i++) ...[
+          if (i > 0) Divider(height: 18, color: AtriumDashColors.grid),
+          Row(
+            children: [
+              _Tuile(
+                icone: _iconeCategorie(lignes[i].categorie),
+                fond: AtriumDashColors.tileLavender,
+                encre: AtriumDashColors.tileLavenderInk,
+                taille: 38,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lignes[i].libelle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: AtriumDashColors.title,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lignes[i].libelle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
-                                color: AtriumDashColors.title,
-                              ),
-                            ),
-                            Text(
-                              '${chargeCategoryLabel(lignes[i].categorie)}, '
-                              '${_jour(lignes[i].journee)}',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: AtriumColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    Text(
+                      '${chargeCategoryLabel(lignes[i].categorie)}, '
+                      '${_jour(lignes[i].journee)}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AtriumColors.textSecondary,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        formatAmount(lignes[i].montant),
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
-                          color: AtriumDashColors.title,
-                          fontFeatures: tabularFigures,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                formatAmount(lignes[i].montant),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: AtriumDashColors.title,
+                  fontFeatures: tabularFigures,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -924,15 +1070,20 @@ class _Actions extends ConsumerWidget {
               guestName: sejour.guestName,
             ),
           ),
-        if (ardoise != null)
+        // Le client appelle de sa chambre : la reception commande au point
+        // de vente, qui livre (reunion du 18 octobre). Une consommation libre
+        // se porte toujours depuis l'ecran des ardoises.
+        if (ardoise != null &&
+            ref.watch(sessionProvider).acces.peut('room_order.create'))
           _BoutonAction(
-            libelle: 'Consommation',
-            icone: Icons.add_shopping_cart_rounded,
+            libelle: 'Commander',
+            icone: Icons.room_service_outlined,
             plein: true,
-            onPressed: () => showAddChargeDialog(
+            onPressed: () => showCommandeChambreDialog(
               context,
               folioId: ardoise,
               guestName: sejour.guestName,
+              roomNumber: chambre.number,
             ),
           ),
         // Une arrivee enregistree par erreur, sur le code d'un responsable

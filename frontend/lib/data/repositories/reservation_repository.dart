@@ -14,6 +14,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'housekeeping_repository.dart';
 import 'outbox.dart';
+import 'room_order_repository.dart';
 import 'settings_repository.dart';
 
 /// Une reservation telle qu'affichee dans la liste de la reception.
@@ -1230,6 +1231,15 @@ class ReservationRepository with OutboxWriter {
     final line = await (db.select(
       db.reservationRooms,
     )..where((rr) => rr.id.equals(lineId))).getSingle();
+    // Un plateau en route vers la chambre : le serveur refuse le depart (sa
+    // livraison trouverait l'ardoise close), la tablette avant lui.
+    for (final f
+        in await (db.select(db.folios)..where(
+              (f) => f.reservationRoomId.equals(lineId) & f.deletedAt.isNull(),
+            ))
+            .get()) {
+      await RoomOrderRepository.verifierAucuneEnRoute(db, f.id, 'le départ');
+    }
 
     await db.transaction(() async {
       await (db.update(
@@ -1333,6 +1343,12 @@ class ReservationRepository with OutboxWriter {
             .getSingleOrNull();
 
     if (ardoise != null) {
+      // Une commande en route serait livree sur une ardoise retiree.
+      await RoomOrderRepository.verifierAucuneEnRoute(
+        db,
+        ardoise.id,
+        'd’annuler l’arrivée',
+      );
       final encaisse = await db
           .customSelect(
             '''
