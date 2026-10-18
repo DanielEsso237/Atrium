@@ -296,6 +296,16 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/entretien',
   ),
+  // Le menage et les pannes, dans l'ordre (18 octobre).
+  const Destination(
+    'Historique de l’entretien',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/entretien/historique',
+    'housekeeping.read|maintenance.read',
+    Groupe.services,
+    parent: '/entretien',
+  ),
   // Le tableau de bord des points de vente et des services : tout l'hotel
   // pour la direction et la reception, le sien pour l'agent d'un comptoir.
   // Comme Réception et Entretien (16 octobre) : un clic ouvre ce tableau de
@@ -482,7 +492,10 @@ List<Destination> destinationsPour(SessionState session) {
           !(ecranUnique &&
               (d.route == '/' ||
                   d.route == '/statistiques' ||
-                  _parents.contains(d.route))))
+                  _parents.contains(d.route))) &&
+          // L'historique de l'entretien range le travail de toute l'equipe :
+          // la femme de chambre garde son seul ecran (18 octobre).
+          !(ecranUnique && d.route == '/entretien/historique'))
         d,
   ];
   // Une sous-entree dont le parent manque remonte au premier niveau : sans

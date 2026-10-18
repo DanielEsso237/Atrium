@@ -192,8 +192,14 @@ void main() {
           expect(find.textContaining('Séjour'), findsWidgets);
         }
 
-        await tester.runAsync(db.close);
+        // Demonter d'abord : le tableau de bord de l'entretien (18 octobre)
+        // ecoute plusieurs flux, et la base fermee dessous attendait une
+        // lecture restee en suspens.
         await tester.pumpWidget(const SizedBox());
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.runAsync(db.close);
       });
     }
   }
