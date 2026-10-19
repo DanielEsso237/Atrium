@@ -42,6 +42,7 @@ import '../../core/ui/confirmation.dart';
 import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
 import '../billing/payment_dialog.dart' show iconePaiement;
 import '../hotel/logo_images.dart' show logoTicketProvider;
+import 'commandes_chambre_pdv.dart';
 import 'historique_du_jour.dart';
 import 'tableau_carte.dart';
 
@@ -319,6 +320,8 @@ class _Onglet extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Ce que la reception a commande pour une chambre, a monter (F2.7).
+        CommandesEnChambre(outlet: outlet, marge: marge),
         Padding(
           padding: EdgeInsets.fromLTRB(marge, 0, marge, 12),
           child: FilterPills<_Filtre>(
