@@ -762,7 +762,7 @@ Un seul inventaire ouvert par magasin. Chaque route se rejoue sans effet.
 | Route | Droit | Corps | Effet |
 |---|---|---|---|
 | `POST /inventories` | `stock.inventory` | `{id, stock_location_id, label, lines: [{id, product_id}]}` | ouvre ; le serveur **fige sa** quantité théorique (`theoretical_qty`) ; 409 si un autre est ouvert sur ce magasin |
-| `PUT /inventories/{id}/lines/{product_id}` | `stock.inventory` | `{counted_qty}` (≥ 0, ou `null` pour effacer) | enregistre le comptage ; 409 si l'inventaire n'est plus ouvert (sauf renvoi identique) |
+| `PUT /inventories/{id}/lines/{product_id}` | `stock.inventory` | `{counted_qty?, comment?}` | enregistre le comptage et/ou le motif de l'écart (`comment`, 255 caractères au plus, 422 au-delà). **Seuls les champs envoyés changent** : absent, inchangé ; `null`, effacé (un motif de blancs vaut `null`). 409 si l'inventaire n'est plus ouvert (sauf renvoi identique). `InventoryLineOut` rend `comment` |
 | `POST /inventories/{id}/rebalance` | `stock.rebalance` | `{movement_ids: {product_id: uuid}}` | un mouvement par ligne comptée avec écart : manque = `LOSS` (quantité positive, coût du jour figé), surplus = `ADJUSTMENT` ; `source_table = 'inventories'` ; puis `CLOSED` |
 | `POST /inventories/{id}/cancel` | `stock.inventory` | — | abandon : `deleted_at`, le stock ne bouge pas |
 | `GET /inventories?since=` | `stock.read` | — | la descente, abandonnés compris ; sans `since`, ceux encore ouverts |

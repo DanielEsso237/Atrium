@@ -207,20 +207,28 @@ async def count_line(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("stock.inventory")),
 ) -> Inventory:
-    """Ce qui a ete compte pour un article ; `null` efface le comptage."""
+    """Ce qui a ete compte pour un article, et le motif de l'ecart.
+
+    Seuls les champs envoyes changent : `counted_qty` ou `comment` absent
+    reste tel quel, `null` l'efface.
+    """
     inv = await _inventaire(session, inventory_id, user)
     ligne = next((l for l in inv.lines if l.product_id == product_id), None)
     if ligne is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Article absent de cet inventaire.")
-    if ligne.counted_qty == payload.counted_qty:
+    champs = payload.model_dump(exclude_unset=True)
+    if all(getattr(ligne, nom) == valeur for nom, valeur in champs.items()):
         # Renvoi d'un comptage deja passe, meme sur un inventaire clos depuis.
         return inv
     if inv.deleted_at is not None or inv.status == InventoryStatus.CLOSED:
         raise HTTPException(status.HTTP_409_CONFLICT, "Cet inventaire n'est plus ouvert.")
-    ligne.counted_qty = payload.counted_qty
-    ligne.variance = (
-        0 if payload.counted_qty is None else payload.counted_qty - ligne.theoretical_qty
-    )
+    if "counted_qty" in champs:
+        ligne.counted_qty = champs["counted_qty"]
+        ligne.variance = (
+            0 if ligne.counted_qty is None else ligne.counted_qty - ligne.theoretical_qty
+        )
+    if "comment" in champs:
+        ligne.comment = champs["comment"]
     ligne.updated_by = user.id
     inv.updated_by = user.id
     # La descente lit `updated_at` de l'inventaire : un comptage le touche.

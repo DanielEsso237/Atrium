@@ -3253,8 +3253,21 @@
         "type": "object"
       },
       "InventoryCountIn": {
-        "description": "Ce qui a ete compte ; `null` efface le comptage.",
+        "description": "Ce qui a ete compte, et pourquoi l'ecart.\n\nSeuls les champs envoyes changent (meme regle que `PATCH /guests`) :\nabsent, un champ reste tel quel ; `null`, il s'efface. Le motif ne\ns'efface donc pas quand la tablette renvoie un simple comptage.",
         "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le motif de l'ecart ; null l'efface",
+            "title": "Comment"
+          },
           "counted_qty": {
             "anyOf": [
               {
@@ -3331,6 +3344,17 @@
       },
       "InventoryLineOut": {
         "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
           "counted_qty": {
             "anyOf": [
               {
@@ -3366,7 +3390,8 @@
           "product_id",
           "theoretical_qty",
           "counted_qty",
-          "variance"
+          "variance",
+          "comment"
         ],
         "title": "InventoryLineOut",
         "type": "object"
@@ -12889,7 +12914,7 @@
     },
     "/api/v1/inventories/{inventory_id}/lines/{product_id}": {
       "put": {
-        "description": "Ce qui a ete compte pour un article ; `null` efface le comptage.",
+        "description": "Ce qui a ete compte pour un article, et le motif de l'ecart.\n\nSeuls les champs envoyes changent : `counted_qty` ou `comment` absent\nreste tel quel, `null` l'efface.",
         "operationId": "count_line_api_v1_inventories__inventory_id__lines__product_id__put",
         "parameters": [
           {

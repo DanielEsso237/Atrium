@@ -7,9 +7,9 @@
 ///
 /// **La quantite se tape, elle ne se clique pas.** Toucher un produit
 /// l'ajoute et met le curseur dans sa quantite, deja selectionnee, clavier
-/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Des
-/// boutons +6, +12, +24 suivent les colis ; − et + ajustent d'une unite.
-/// Toucher un produit deja choisi ramene a sa ligne, sans doublon.
+/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Les
+/// boutons − et + ajustent d'une unite. Toucher un produit deja choisi
+/// ramene a sa ligne, sans doublon.
 ///
 /// Chaque ligne part comme un mouvement a part : une entree, ou une demande
 /// de transfert qui attend sa validation, comme avant.
@@ -427,10 +427,7 @@ class _CarteLigne extends StatelessWidget {
                 onPressed: () => plus(1),
                 icon: const Icon(PhosphorIconsLight.plus, size: 18),
               ),
-              // Les colis : un carton de 6, 12 ou 24 d'un geste.
-              for (final n in const [6, 12, 24])
-                ActionChip(label: Text('+$n'), onPressed: () => plus(n)),
-            ],
+              ],
           ),
           if (entree) ...[
             const SizedBox(height: 12),
