@@ -437,6 +437,7 @@ class _ParJour extends StatelessWidget {
     final encaisse = [for (final j in jours) j.encaisse];
     final rien = ca.every((v) => v == 0) && encaisse.every((v) => v == 0);
     return CarteSection(
+      centrer: true,
       titre: 'Jour par jour',
       icone: PhosphorIconsLight.chartBar,
       description: 'Ce qui a été vendu, et ce qui est entré en caisse.',
@@ -516,6 +517,7 @@ class _ParMoyen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CarteSection(
+    centrer: true,
     titre: 'Par moyen de paiement',
     icone: PhosphorIconsLight.chartDonut,
     child: AnneauRapport(
@@ -575,6 +577,7 @@ class _Cascade extends StatelessWidget {
       PasCascade('Bénéfice', b.benefice, total: true),
     ];
     return CarteSection(
+      centrer: true,
       titre: 'Du chiffre d’affaires au bénéfice',
       icone: PhosphorIconsLight.chartLineUp,
       description: b.coutsArretesAu == null
@@ -611,6 +614,7 @@ class _Depenses extends StatelessWidget {
   Widget build(BuildContext context) {
     final b = r.benefice;
     return CarteSection(
+      centrer: true,
       titre: 'Dépenses par rubrique',
       icone: PhosphorIconsLight.wallet,
       action: LienSection(
