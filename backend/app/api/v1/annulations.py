@@ -273,7 +273,11 @@ async def undo_check_in(
     line.checked_in_by = None
 
     if line.room_id is not None:
-        room = await session.get(Room, line.room_id, with_for_update=True)
+        # `of=Room` : la chambre charge sa categorie et son etage par une
+        # jointure externe, que PostgreSQL refuse de verrouiller.
+        room = await session.scalar(
+            select(Room).where(Room.id == line.room_id).with_for_update(of=Room)
+        )
         occupee_ailleurs = await session.scalar(
             select(func.count()).where(
                 ReservationRoom.room_id == line.room_id,
@@ -324,7 +328,9 @@ async def undo_check_out(
     await check_approver(session, payload.approved_by, user)
 
     if line.room_id is not None:
-        room = await session.get(Room, line.room_id, with_for_update=True)
+        room = await session.scalar(
+            select(Room).where(Room.id == line.room_id).with_for_update(of=Room)
+        )
         if room is not None and room.occupancy_status == OccupancyStatus.OCCUPIED:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,

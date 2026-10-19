@@ -172,8 +172,11 @@ async def test_annuler_une_arrivee_rend_la_chambre_et_retire_l_ardoise(
     assert r.json()["status"] == "CONFIRMED"
     assert r.json()["rooms"][0]["status"] == "CONFIRMED"
     assert r.json()["rooms"][0]["checked_in_at"] is None
+    # L'id avant d'expirer : lire un attribut expire recharge l'objet en
+    # synchrone, ce que la session asynchrone refuse (MissingGreenlet).
+    chambre_id = r101.id
     session.expire_all()
-    chambre = await session.get(Room, r101.id)
+    chambre = await session.get(Room, chambre_id)
     assert chambre.occupancy_status == OccupancyStatus.VACANT
     ardoise = await session.get(Folio, uuid.UUID(folio_id))
     assert ardoise.deleted_at is not None
@@ -282,8 +285,11 @@ async def test_annuler_un_depart_remet_le_client_dans_sa_chambre(
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "CHECKED_IN"
     assert r.json()["rooms"][0]["checked_out_at"] is None
+    # L'id avant d'expirer : lire un attribut expire recharge l'objet en
+    # synchrone, ce que la session asynchrone refuse (MissingGreenlet).
+    chambre_id = r101.id
     session.expire_all()
-    chambre = await session.get(Room, r101.id)
+    chambre = await session.get(Room, chambre_id)
     assert chambre.occupancy_status == OccupancyStatus.OCCUPIED
     again = await client.post(f"{_ligne(body)}/undo-check-out", json=corps, headers=auth_a)
     assert again.status_code == 200, again.text
