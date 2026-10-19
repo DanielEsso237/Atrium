@@ -34,6 +34,7 @@ class LigneInventaire {
     required this.unite,
     required this.theorique,
     this.compte,
+    this.motif,
   });
 
   final String productId;
@@ -45,6 +46,10 @@ class LigneInventaire {
 
   /// Ce que le charge d'inventaire a trouve ; `null` : pas encore compte.
   final int? compte;
+
+  /// Pourquoi l'ecart : casse, vol, erreur de saisie (reunion du 18
+  /// octobre). Saisi a cote de l'ecart, pas a la place du comptage.
+  final String? motif;
 
   /// Compte moins theorique : negatif, il manque ; positif, il y a en trop.
   int? get ecart => compte == null ? null : compte! - theorique;
@@ -105,7 +110,7 @@ class InventoryRepository with OutboxWriter {
       )
       SELECT o.id AS inventaire, o.label AS libelle_inventaire,
              o.started_at AS ouvert_le,
-             l.product_id, l.theoretical_qty, l.counted_qty,
+             l.product_id, l.theoretical_qty, l.counted_qty, l.comment,
              p.label, p.unit
         FROM ouvert o
         LEFT JOIN inventory_lines l
@@ -135,6 +140,7 @@ class InventoryRepository with OutboxWriter {
                     unite: r.read<String>('unit'),
                     theorique: r.read<int>('theoretical_qty'),
                     compte: r.readNullable<int>('counted_qty'),
+                    motif: r.readNullable<String>('comment'),
                   ),
             ],
           );
@@ -282,6 +288,74 @@ class InventoryRepository with OutboxWriter {
           'action': 'COUNT',
           'product_id': productId,
           'counted_qty': quantite,
+          // Le motif deja note suit le comptage. Absent, le serveur garde
+          // celui qu'il a.
+          if (ligne.comment != null) 'comment': ligne.comment,
+        },
+      );
+    });
+  }
+
+  /// Le refus du reequilibrage tant que des ecarts n'ont pas leur motif,
+  /// avec les articles a reprendre.
+  Future<String> motifsManquants(List<String> productIds) async {
+    final produits = await (db.select(
+      db.products,
+    )..where((p) => p.id.isIn(productIds))).get();
+    final noms = [for (final p in produits) p.label]..sort();
+    final n = productIds.length;
+    return n == 1
+        ? 'Un écart n’a pas de motif (${noms.join(', ')}) : notez-le avant '
+              'de rééquilibrer.'
+        : '$n écarts n’ont pas de motif (${noms.join(', ')}) : notez-les '
+              'avant de rééquilibrer.';
+  }
+
+  /// Note le motif de l'ecart d'une ligne comptee (reunion du 18 octobre) :
+  /// vide, il s'efface. Il part avec le comptage, par la meme route.
+  Future<void> noterMotif({
+    required String inventaireId,
+    required String productId,
+    required String? motif,
+  }) async {
+    final texte = motif?.trim();
+    final valeur = texte == null || texte.isEmpty ? null : texte;
+    if (valeur != null && valeur.length > 255) {
+      throw StateError('Le motif tient en 255 caractères.');
+    }
+    final inv = await _ouvert(inventaireId);
+    final ligne =
+        await (db.select(db.inventoryLines)..where(
+              (l) =>
+                  l.inventoryId.equals(inv.id) & l.productId.equals(productId),
+            ))
+            .getSingleOrNull();
+    if (ligne == null) throw StateError('Article absent de cet inventaire.');
+    if (ligne.countedQty == null) {
+      throw StateError('Comptez l’article avant de noter le motif de l’écart.');
+    }
+    if (ligne.comment == valeur) return;
+    final now = DateTime.now().toUtc();
+    await db.transaction(() async {
+      await (db.update(
+        db.inventoryLines,
+      )..where((l) => l.id.equals(ligne.id))).write(
+        InventoryLinesCompanion(
+          comment: Value(valeur),
+          updatedAt: Value(now),
+          syncState: const Value(SyncState.pending),
+        ),
+      );
+      await enqueue(
+        table: 'inventories',
+        id: inv.id,
+        operation: SyncOp.UPDATE,
+        payload: {
+          'id': inv.id,
+          'action': 'COUNT',
+          'product_id': productId,
+          'counted_qty': ligne.countedQty,
+          'comment': valeur,
         },
       );
     });
@@ -307,6 +381,17 @@ class InventoryRepository with OutboxWriter {
             .get();
     if (lignes.isEmpty) {
       throw StateError('Comptez au moins un article avant de rééquilibrer.');
+    }
+    // Chaque ecart dit son motif avant que le stock ne bouge (decision du
+    // client, 18 octobre) : une perte sans explication ne se valide pas.
+    final sansMotif = [
+      for (final l in lignes)
+        if (l.countedQty != l.theoreticalQty &&
+            (l.comment == null || l.comment!.trim().isEmpty))
+          l.productId,
+    ];
+    if (sansMotif.isNotEmpty) {
+      throw StateError(await motifsManquants(sansMotif));
     }
     final now = DateTime.now().toUtc();
     final mouvements = <String, String>{};

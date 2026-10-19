@@ -7922,6 +7922,23 @@
         "title": "RoomOrderCancelIn",
         "type": "object"
       },
+      "RoomOrderDeliverIn": {
+        "properties": {
+          "payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le client paie maintenant : le total, dans le tiroir de celui qui livre"
+          }
+        },
+        "title": "RoomOrderDeliverIn",
+        "type": "object"
+      },
       "RoomOrderIn": {
         "properties": {
           "folio_id": {
@@ -16611,7 +16628,7 @@
     },
     "/api/v1/room-orders/{order_id}/deliver": {
       "post": {
-        "description": "Le plateau est monte : chaque ligne passe sur l'ardoise du sejour.\n\nLa ligne d'ardoise prend l'id de la ligne de commande : la tablette qui\nlivre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte\nle point de vente (`source_table = 'outlets'`) : son chiffre, son stock.",
+        "description": "Le plateau est monte : chaque ligne passe sur l'ardoise du sejour.\n\nLa ligne d'ardoise prend l'id de la ligne de commande : la tablette qui\nlivre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte\nle point de vente (`source_table = 'outlets'`) : son chiffre, son stock.\n\nAvec `payment`, le client paie a la livraison : le total de la commande,\ndans le tiroir de celui qui livre. Les lignes passent quand meme sur\nl'ardoise -- la facture du sejour les montre --, et le paiement les\nsolde : le client ne doit rien de plus.",
         "operationId": "deliver_room_order_api_v1_room_orders__order_id__deliver_post",
         "parameters": [
           {
@@ -16625,6 +16642,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RoomOrderDeliverIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

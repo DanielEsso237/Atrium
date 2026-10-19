@@ -66,7 +66,7 @@ class MouvementsScreen extends ConsumerWidget {
         acces.peut('reservation.create') && acces.peut('folio.write');
 
     return ModuleScaffold(
-      title: 'Mouvements',
+      title: 'Réception',
       subtitle:
           '${jour?.arriveesRestantes ?? 0} arrivée'
           '${(jour?.arriveesRestantes ?? 0) > 1 ? 's' : ''} et '

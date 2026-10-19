@@ -668,7 +668,7 @@ rejouables.
 |---|---|---|---|
 | `POST /room-orders` | `room_order.create` (réception, administrateur) | `{id, outlet_id, folio_id, notes?, override_by?, items: [{id, menu_item_id, quantity, notes?}]}` | crée la commande `SENT` ; le serveur lui donne son `number` (`ORD-…`), le prix et le libellé de la carte |
 | `POST /room-orders/{id}/accept` | `order.manage`, sur un point de vente de l'agent | — | `IN_PREP`, `taken_by`, `taken_at` |
-| `POST /room-orders/{id}/deliver` | `order.manage`, sur un point de vente de l'agent | — | `SERVED`, `delivered_by`, `served_at` ; une ligne d'ardoise par ligne de commande, le stock sort. Livrer sans avoir pris en charge est permis |
+| `POST /room-orders/{id}/deliver` | `order.manage`, sur un point de vente de l'agent | `{payment?: {id?, method, amount, reference?, notes?}}` (facultatif) | `SERVED`, `delivered_by`, `served_at` ; une ligne d'ardoise par ligne de commande, le stock sort. Livrer sans avoir pris en charge est permis. Avec `payment`, le client paie à la livraison (voir plus bas) |
 | `POST /room-orders/{id}/cancel` | `room_order.create`, ou `order.manage` sur un point de vente de l'agent | `{reason}` | `CANCELLED`, `cancelled_by`, `cancel_reason` ; rien sur l'ardoise |
 | `GET /room-orders?since=AAAA-MM-JJ` | `order.read` | — | la descente : les commandes **en cours** (`SENT`, `IN_PREP`) quel que soit leur âge, plus celles de la fenêtre (`business_date >= since`). Sans `since` : les en cours seulement. Un agent rattaché ne reçoit que celles de ses points de vente ; la réception, toutes |
 
@@ -678,6 +678,17 @@ attendre sa réponse : `folio_items.id = order_items.id`, catégorie `FNB`,
 libellé, quantité, prix et taux de la ligne de commande, `business_date` de
 la **commande** (un plateau commandé à 23 h et monté à 0 h 30 reste sur sa
 journée), `override_by` de la commande.
+
+**Payer à la livraison ou laisser sur l'ardoise** (décision du client, 18
+octobre). Le client choisit devant le plateau. Sans corps, ou sans
+`payment`, la commande reste due sur l'ardoise du séjour. Avec `payment`, il
+paie maintenant : les lignes passent quand même sur l'ardoise -- la facture
+du séjour les montre -- et un encaissement du **total de la commande** (ni
+plus ni moins : la monnaie rendue n'est pas une ligne d'ardoise) les solde,
+dans le **tiroir de celui qui livre** sur ce point de vente, sur l'ardoise du
+séjour. Le solde de l'ardoise ne bouge pas. Un montant différent : 409 ; un
+`payment.id` déjà utilisé : 409. Le renvoi d'une livraison déjà faite rend
+la commande sans rien écrire, paiement compris.
 
 **Les prix de la carte sont TTC**, comme sur l'ardoise : `total` est la
 somme des lignes, `tax_total` la part de taxe qu'il contient

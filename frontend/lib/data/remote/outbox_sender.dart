@@ -60,6 +60,7 @@ TableInfo<Table, dynamic>? _tablePour(AtriumDatabase db, String nom) {
     'roles' => db.roles,
     'stock_movements' => db.stockMovements,
     'inventories' => db.inventories,
+    'orders' => db.orders,
     'hotels' => db.hotels,
     _ => null,
   };
@@ -283,6 +284,16 @@ class OutboxSender {
         await CashRepository(
           db,
         ).adoptServerSession(localId: entree.entityId, serverId: serveur);
+      }
+      return;
+    }
+    if (entree.entityTable == 'orders') {
+      // Le numero `ORD-…` : la tablette posait un numero provisoire, la
+      // suite n'a qu'une autorite.
+      final numero = reponse['number'] as String?;
+      if (numero != null) {
+        await (db.update(db.orders)..where((o) => o.id.equals(entree.entityId)))
+            .write(OrdersCompanion(number: Value(numero)));
       }
       return;
     }
@@ -647,13 +658,50 @@ class OutboxSender {
           }),
           'COUNT' => _Envoi(
             '/inventories/$id/lines/${p['product_id']}',
-            {'counted_qty': p['counted_qty']},
+            {
+              'counted_qty': p['counted_qty'],
+              // Le motif de l'ecart ; une entree d'avant le 18 octobre n'en
+              // a pas.
+              if (p.containsKey('comment')) 'comment': p['comment'],
+            },
             methode: _Methode.put,
           ),
           'REBALANCE' => _Envoi('/inventories/$id/rebalance', {
             'movement_ids': p['movement_ids'],
           }),
           'CANCEL' => _Envoi('/inventories/$id/cancel', const {}),
+          _ => null,
+        };
+
+      // La commande en chambre (F2.6) : la reception commande, le point de
+      // vente prend en charge, livre ou annule. Chaque route est rejouable.
+      case 'orders':
+        final id = p['id'];
+        return switch (p['action']) {
+          'CREATE' => _Envoi(
+            '/room-orders',
+            _sansNuls({
+              'id': id,
+              'outlet_id': p['outlet_id'],
+              'folio_id': p['folio_id'],
+              'notes': p['notes'],
+              'override_by': p['override_by'],
+              'items': [
+                for (final l
+                    in (p['items'] as List).cast<Map<String, dynamic>>())
+                  _sansNuls(l),
+              ],
+            }),
+          ),
+          'ACCEPT' => _Envoi('/room-orders/$id/accept', const {}),
+          // Le client a paye devant le plateau : le paiement part avec la
+          // livraison, le serveur l'ecrit dans le tiroir de celui qui livre.
+          'DELIVER' => _Envoi('/room-orders/$id/deliver', {
+            if (p['payment'] != null) 'payment': p['payment'],
+          }),
+          'CANCEL' => _Envoi('/room-orders/$id/cancel', {
+            'reason': p['reason'],
+          }),
           _ => null,
         };
 

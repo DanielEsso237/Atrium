@@ -37,8 +37,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import permission_codes, require_any_permission, require_permission
 from app.api.v1.billing import _caisse_ouverte, _check_credit_limit
+from app.core.ids import uuid7
 from app.db.session import get_session
-from app.models import CashSession, FolioItem, MenuCategory, MenuItem, Order, OrderItem, User
+from app.models import (
+    CashSession,
+    FolioItem,
+    MenuCategory,
+    MenuItem,
+    Order,
+    OrderItem,
+    Payment,
+    User,
+)
 from app.models.enums import (
     CashSessionStatus,
     ChargeCategory,
@@ -48,7 +58,12 @@ from app.models.enums import (
 )
 from app.models.reservations import ReservationRoom
 from app.models.restaurant import Outlet
-from app.schemas.room_orders import RoomOrderCancelIn, RoomOrderIn, RoomOrderOut
+from app.schemas.room_orders import (
+    RoomOrderCancelIn,
+    RoomOrderDeliverIn,
+    RoomOrderIn,
+    RoomOrderOut,
+)
 from app.services import folios as folio_service
 from app.services.business_day import current_business_date
 from app.services.folios import recompute_totals
@@ -300,6 +315,7 @@ async def accept_room_order(
 @router.post("/{order_id}/deliver", response_model=RoomOrderOut)
 async def deliver_room_order(
     order_id: uuid.UUID,
+    payload: RoomOrderDeliverIn | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_permission("order.manage")),
 ) -> Order:
@@ -308,6 +324,11 @@ async def deliver_room_order(
     La ligne d'ardoise prend l'id de la ligne de commande : la tablette qui
     livre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte
     le point de vente (`source_table = 'outlets'`) : son chiffre, son stock.
+
+    Avec `payment`, le client paie a la livraison : le total de la commande,
+    dans le tiroir de celui qui livre. Les lignes passent quand meme sur
+    l'ardoise -- la facture du sejour les montre --, et le paiement les
+    solde : le client ne doit rien de plus.
     """
     order = await _commande(session, order_id, user)
     await ensure_outlet_allowed(session, user, order.outlet_id)
@@ -315,7 +336,20 @@ async def deliver_room_order(
         return await _rendre(session, order)  # rejeu : deja sur l'ardoise
     if order.status not in EN_COURS:
         raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande a ete annulee.")
-    await _caisse_ouverte(
+    paiement = payload.payment if payload is not None else None
+    a_payer = sum(item.amount for item in order.items if not item.is_void)
+    if paiement is not None and paiement.amount != a_payer:
+        # La monnaie rendue est de la manipulation d'especes, pas une ligne
+        # d'ardoise : le paiement couvre la commande, ni plus ni moins.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Le paiement ({paiement.amount}) doit couvrir la commande ({a_payer}).",
+        )
+    if paiement is not None and paiement.id is not None:
+        deja = await session.get(Payment, paiement.id)
+        if deja is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Identifiant de paiement deja utilise.")
+    caisse = await _caisse_ouverte(
         session,
         user,
         order.outlet_id,
@@ -354,6 +388,24 @@ async def deliver_room_order(
             )
         )
         item.status = OrderStatus.SERVED
+    if paiement is not None:
+        # La recette du bar tombe dans le tiroir du bar, sur l'ardoise du
+        # sejour : la facture montre la consommation et son paiement.
+        session.add(
+            Payment(
+                id=paiement.id or uuid7(),
+                hotel_id=user.hotel_id,
+                folio_id=folio.id,
+                cash_session_id=caisse,
+                method=paiement.method,
+                amount=paiement.amount,
+                reference=paiement.reference,
+                notes=paiement.notes,
+                received_by=user.id,
+                received_at=now,
+                business_date=await current_business_date(session, user.hotel_id),
+            )
+        )
     await session.flush()
     for item in order.items:
         if not item.is_void:

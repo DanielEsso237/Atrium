@@ -289,13 +289,13 @@ void main() {
   });
 
   test(
-      'la reception voit Mouvements et ses vues, Nouvelle arrivée en tête ; '
+      'la reception voit Réception et ses vues, Nouvelle arrivée en tête ; '
       "le menage n'en voit rien", () async {
     final reception = destinationsPour(
       SessionState(acces: await accessProfileFor(db, await idDe('RECEP01'))),
     );
     final parLibelle = {for (final d in reception) d.label: d};
-    expect(parLibelle['Mouvements']?.route, '/mouvements');
+    expect(parLibelle['Réception']?.route, '/mouvements');
     expect(parLibelle['Faire une réservation']?.route, '/reservations/nouvelle');
     expect(parLibelle['Faire une réservation']?.parent, '/mouvements');
     expect(
@@ -303,7 +303,7 @@ void main() {
       '/reservations/arrivee-directe',
     );
     expect(parLibelle['Historique']?.parent, '/mouvements');
-    // Demande du 16 octobre : Nouvelle arrivée d'abord, sous Mouvements.
+    // Demande du 16 octobre : Nouvelle arrivée d'abord, sous Réception.
     final vues = [
       for (final d in reception)
         if (d.parent == '/mouvements') d.label,
@@ -320,7 +320,7 @@ void main() {
     final libelles = menage.map((d) => d.label);
     expect(libelles, isNot(contains('Faire une réservation')));
     expect(libelles, isNot(contains('Nouvelle arrivée')));
-    expect(libelles, isNot(contains('Mouvements')));
+    expect(libelles, isNot(contains('Réception')));
     // Un metier a ecran unique : pas de tableau Entretien, son ecran Menage
     // remonte au premier niveau.
     expect(libelles, isNot(contains('Entretien')));

@@ -121,13 +121,15 @@ void main() {
     // L'ecran Stocks reste dessous : on vise la fiche, ouverte par-dessus.
     await tester.tap(find.text('Vin rouge').last);
     await attendre();
-    await tester.enterText(find.widgetWithText(TextField, 'Quantité'), '100');
-    // La biere : un carton de 12 en plus de la premiere, d'un geste.
+    await tester.enterText(
+        find.widgetWithText(InputDecorator, 'Quantité'), '100');
+    // La biere : 13, tapees elles aussi (plus de boutons de colis).
     await tester.tap(find.text('Biere 65 cl').last);
     await attendre();
-    await tester.tap(find.text('+12').last);
+    await tester.enterText(
+        find.widgetWithText(InputDecorator, 'Quantité').last, '13');
     await tester.pump();
-    expect(find.textContaining('2 produits · 113 unités'), findsOneWidget);
+    expect(find.textContaining('2 produits, 113 unités'), findsOneWidget);
 
     await tester.tap(find.text('Enregistrer l’entrée'));
     await attendre();

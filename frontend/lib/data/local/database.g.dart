@@ -39351,6 +39351,72 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _orderedByMeta = const VerificationMeta(
+    'orderedBy',
+  );
+  @override
+  late final GeneratedColumn<String> orderedBy = GeneratedColumn<String>(
+    'ordered_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _takenByMeta = const VerificationMeta(
+    'takenBy',
+  );
+  @override
+  late final GeneratedColumn<String> takenBy = GeneratedColumn<String>(
+    'taken_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _takenAtMeta = const VerificationMeta(
+    'takenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> takenAt = GeneratedColumn<DateTime>(
+    'taken_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveredByMeta = const VerificationMeta(
+    'deliveredBy',
+  );
+  @override
+  late final GeneratedColumn<String> deliveredBy = GeneratedColumn<String>(
+    'delivered_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cancelledByMeta = const VerificationMeta(
+    'cancelledBy',
+  );
+  @override
+  late final GeneratedColumn<String> cancelledBy = GeneratedColumn<String>(
+    'cancelled_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _overrideByMeta = const VerificationMeta(
+    'overrideBy',
+  );
+  @override
+  late final GeneratedColumn<String> overrideBy = GeneratedColumn<String>(
+    'override_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -39385,6 +39451,12 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderRow> {
     discountTotal,
     total,
     notes,
+    orderedBy,
+    takenBy,
+    takenAt,
+    deliveredBy,
+    cancelledBy,
+    overrideBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -39599,6 +39671,48 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderRow> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('ordered_by')) {
+      context.handle(
+        _orderedByMeta,
+        orderedBy.isAcceptableOrUnknown(data['ordered_by']!, _orderedByMeta),
+      );
+    }
+    if (data.containsKey('taken_by')) {
+      context.handle(
+        _takenByMeta,
+        takenBy.isAcceptableOrUnknown(data['taken_by']!, _takenByMeta),
+      );
+    }
+    if (data.containsKey('taken_at')) {
+      context.handle(
+        _takenAtMeta,
+        takenAt.isAcceptableOrUnknown(data['taken_at']!, _takenAtMeta),
+      );
+    }
+    if (data.containsKey('delivered_by')) {
+      context.handle(
+        _deliveredByMeta,
+        deliveredBy.isAcceptableOrUnknown(
+          data['delivered_by']!,
+          _deliveredByMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cancelled_by')) {
+      context.handle(
+        _cancelledByMeta,
+        cancelledBy.isAcceptableOrUnknown(
+          data['cancelled_by']!,
+          _cancelledByMeta,
+        ),
+      );
+    }
+    if (data.containsKey('override_by')) {
+      context.handle(
+        _overrideByMeta,
+        overrideBy.isAcceptableOrUnknown(data['override_by']!, _overrideByMeta),
+      );
+    }
     return context;
   }
 
@@ -39742,6 +39856,30 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderRow> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      orderedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ordered_by'],
+      ),
+      takenBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}taken_by'],
+      ),
+      takenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}taken_at'],
+      ),
+      deliveredBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivered_by'],
+      ),
+      cancelledBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cancelled_by'],
+      ),
+      overrideBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}override_by'],
+      ),
     );
   }
 
@@ -39800,6 +39938,20 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
   final int discountTotal;
   final int total;
   final String? notes;
+
+  /// La commande en chambre passe par deux metiers (F2.6, reunion du 18
+  /// octobre) : la reception commande, le point de vente prend en charge et
+  /// livre. Chaque geste garde son agent -- c'est a lui qu'on demande ou est
+  /// passe le plateau. Memes colonnes que le serveur (migration 0029).
+  final String? orderedBy;
+  final String? takenBy;
+  final DateTime? takenAt;
+  final String? deliveredBy;
+  final String? cancelledBy;
+
+  /// Le responsable qui a laisse passer la commande au-dela du plafond du
+  /// client ; recopie sur les lignes de l'ardoise a la livraison.
+  final String? overrideBy;
   const OrderRow({
     required this.id,
     required this.createdAt,
@@ -39833,6 +39985,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
     required this.discountTotal,
     required this.total,
     this.notes,
+    this.orderedBy,
+    this.takenBy,
+    this.takenAt,
+    this.deliveredBy,
+    this.cancelledBy,
+    this.overrideBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -39915,6 +40073,24 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || orderedBy != null) {
+      map['ordered_by'] = Variable<String>(orderedBy);
+    }
+    if (!nullToAbsent || takenBy != null) {
+      map['taken_by'] = Variable<String>(takenBy);
+    }
+    if (!nullToAbsent || takenAt != null) {
+      map['taken_at'] = Variable<DateTime>(takenAt);
+    }
+    if (!nullToAbsent || deliveredBy != null) {
+      map['delivered_by'] = Variable<String>(deliveredBy);
+    }
+    if (!nullToAbsent || cancelledBy != null) {
+      map['cancelled_by'] = Variable<String>(cancelledBy);
+    }
+    if (!nullToAbsent || overrideBy != null) {
+      map['override_by'] = Variable<String>(overrideBy);
+    }
     return map;
   }
 
@@ -39988,6 +40164,24 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      orderedBy: orderedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(orderedBy),
+      takenBy: takenBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(takenBy),
+      takenAt: takenAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(takenAt),
+      deliveredBy: deliveredBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredBy),
+      cancelledBy: cancelledBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cancelledBy),
+      overrideBy: overrideBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(overrideBy),
     );
   }
 
@@ -40037,6 +40231,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
       discountTotal: serializer.fromJson<int>(json['discountTotal']),
       total: serializer.fromJson<int>(json['total']),
       notes: serializer.fromJson<String?>(json['notes']),
+      orderedBy: serializer.fromJson<String?>(json['orderedBy']),
+      takenBy: serializer.fromJson<String?>(json['takenBy']),
+      takenAt: serializer.fromJson<DateTime?>(json['takenAt']),
+      deliveredBy: serializer.fromJson<String?>(json['deliveredBy']),
+      cancelledBy: serializer.fromJson<String?>(json['cancelledBy']),
+      overrideBy: serializer.fromJson<String?>(json['overrideBy']),
     );
   }
   @override
@@ -40081,6 +40281,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
       'discountTotal': serializer.toJson<int>(discountTotal),
       'total': serializer.toJson<int>(total),
       'notes': serializer.toJson<String?>(notes),
+      'orderedBy': serializer.toJson<String?>(orderedBy),
+      'takenBy': serializer.toJson<String?>(takenBy),
+      'takenAt': serializer.toJson<DateTime?>(takenAt),
+      'deliveredBy': serializer.toJson<String?>(deliveredBy),
+      'cancelledBy': serializer.toJson<String?>(cancelledBy),
+      'overrideBy': serializer.toJson<String?>(overrideBy),
     };
   }
 
@@ -40117,6 +40323,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
     int? discountTotal,
     int? total,
     Value<String?> notes = const Value.absent(),
+    Value<String?> orderedBy = const Value.absent(),
+    Value<String?> takenBy = const Value.absent(),
+    Value<DateTime?> takenAt = const Value.absent(),
+    Value<String?> deliveredBy = const Value.absent(),
+    Value<String?> cancelledBy = const Value.absent(),
+    Value<String?> overrideBy = const Value.absent(),
   }) => OrderRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -40154,6 +40366,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
     discountTotal: discountTotal ?? this.discountTotal,
     total: total ?? this.total,
     notes: notes.present ? notes.value : this.notes,
+    orderedBy: orderedBy.present ? orderedBy.value : this.orderedBy,
+    takenBy: takenBy.present ? takenBy.value : this.takenBy,
+    takenAt: takenAt.present ? takenAt.value : this.takenAt,
+    deliveredBy: deliveredBy.present ? deliveredBy.value : this.deliveredBy,
+    cancelledBy: cancelledBy.present ? cancelledBy.value : this.cancelledBy,
+    overrideBy: overrideBy.present ? overrideBy.value : this.overrideBy,
   );
   OrderRow copyWithCompanion(OrdersCompanion data) {
     return OrderRow(
@@ -40201,6 +40419,18 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
           : this.discountTotal,
       total: data.total.present ? data.total.value : this.total,
       notes: data.notes.present ? data.notes.value : this.notes,
+      orderedBy: data.orderedBy.present ? data.orderedBy.value : this.orderedBy,
+      takenBy: data.takenBy.present ? data.takenBy.value : this.takenBy,
+      takenAt: data.takenAt.present ? data.takenAt.value : this.takenAt,
+      deliveredBy: data.deliveredBy.present
+          ? data.deliveredBy.value
+          : this.deliveredBy,
+      cancelledBy: data.cancelledBy.present
+          ? data.cancelledBy.value
+          : this.cancelledBy,
+      overrideBy: data.overrideBy.present
+          ? data.overrideBy.value
+          : this.overrideBy,
     );
   }
 
@@ -40238,7 +40468,13 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
           ..write('taxTotal: $taxTotal, ')
           ..write('discountTotal: $discountTotal, ')
           ..write('total: $total, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('orderedBy: $orderedBy, ')
+          ..write('takenBy: $takenBy, ')
+          ..write('takenAt: $takenAt, ')
+          ..write('deliveredBy: $deliveredBy, ')
+          ..write('cancelledBy: $cancelledBy, ')
+          ..write('overrideBy: $overrideBy')
           ..write(')'))
         .toString();
   }
@@ -40277,6 +40513,12 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
     discountTotal,
     total,
     notes,
+    orderedBy,
+    takenBy,
+    takenAt,
+    deliveredBy,
+    cancelledBy,
+    overrideBy,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -40313,7 +40555,13 @@ class OrderRow extends DataClass implements Insertable<OrderRow> {
           other.taxTotal == this.taxTotal &&
           other.discountTotal == this.discountTotal &&
           other.total == this.total &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.orderedBy == this.orderedBy &&
+          other.takenBy == this.takenBy &&
+          other.takenAt == this.takenAt &&
+          other.deliveredBy == this.deliveredBy &&
+          other.cancelledBy == this.cancelledBy &&
+          other.overrideBy == this.overrideBy);
 }
 
 class OrdersCompanion extends UpdateCompanion<OrderRow> {
@@ -40349,6 +40597,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
   final Value<int> discountTotal;
   final Value<int> total;
   final Value<String?> notes;
+  final Value<String?> orderedBy;
+  final Value<String?> takenBy;
+  final Value<DateTime?> takenAt;
+  final Value<String?> deliveredBy;
+  final Value<String?> cancelledBy;
+  final Value<String?> overrideBy;
   final Value<int> rowid;
   const OrdersCompanion({
     this.id = const Value.absent(),
@@ -40383,6 +40637,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
     this.discountTotal = const Value.absent(),
     this.total = const Value.absent(),
     this.notes = const Value.absent(),
+    this.orderedBy = const Value.absent(),
+    this.takenBy = const Value.absent(),
+    this.takenAt = const Value.absent(),
+    this.deliveredBy = const Value.absent(),
+    this.cancelledBy = const Value.absent(),
+    this.overrideBy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrdersCompanion.insert({
@@ -40418,6 +40678,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
     this.discountTotal = const Value.absent(),
     this.total = const Value.absent(),
     this.notes = const Value.absent(),
+    this.orderedBy = const Value.absent(),
+    this.takenBy = const Value.absent(),
+    this.takenAt = const Value.absent(),
+    this.deliveredBy = const Value.absent(),
+    this.cancelledBy = const Value.absent(),
+    this.overrideBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -40458,6 +40724,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
     Expression<int>? discountTotal,
     Expression<int>? total,
     Expression<String>? notes,
+    Expression<String>? orderedBy,
+    Expression<String>? takenBy,
+    Expression<DateTime>? takenAt,
+    Expression<String>? deliveredBy,
+    Expression<String>? cancelledBy,
+    Expression<String>? overrideBy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -40493,6 +40765,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
       if (discountTotal != null) 'discount_total': discountTotal,
       if (total != null) 'total': total,
       if (notes != null) 'notes': notes,
+      if (orderedBy != null) 'ordered_by': orderedBy,
+      if (takenBy != null) 'taken_by': takenBy,
+      if (takenAt != null) 'taken_at': takenAt,
+      if (deliveredBy != null) 'delivered_by': deliveredBy,
+      if (cancelledBy != null) 'cancelled_by': cancelledBy,
+      if (overrideBy != null) 'override_by': overrideBy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -40530,6 +40808,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
     Value<int>? discountTotal,
     Value<int>? total,
     Value<String?>? notes,
+    Value<String?>? orderedBy,
+    Value<String?>? takenBy,
+    Value<DateTime?>? takenAt,
+    Value<String?>? deliveredBy,
+    Value<String?>? cancelledBy,
+    Value<String?>? overrideBy,
     Value<int>? rowid,
   }) {
     return OrdersCompanion(
@@ -40565,6 +40849,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
       discountTotal: discountTotal ?? this.discountTotal,
       total: total ?? this.total,
       notes: notes ?? this.notes,
+      orderedBy: orderedBy ?? this.orderedBy,
+      takenBy: takenBy ?? this.takenBy,
+      takenAt: takenAt ?? this.takenAt,
+      deliveredBy: deliveredBy ?? this.deliveredBy,
+      cancelledBy: cancelledBy ?? this.cancelledBy,
+      overrideBy: overrideBy ?? this.overrideBy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -40674,6 +40964,24 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (orderedBy.present) {
+      map['ordered_by'] = Variable<String>(orderedBy.value);
+    }
+    if (takenBy.present) {
+      map['taken_by'] = Variable<String>(takenBy.value);
+    }
+    if (takenAt.present) {
+      map['taken_at'] = Variable<DateTime>(takenAt.value);
+    }
+    if (deliveredBy.present) {
+      map['delivered_by'] = Variable<String>(deliveredBy.value);
+    }
+    if (cancelledBy.present) {
+      map['cancelled_by'] = Variable<String>(cancelledBy.value);
+    }
+    if (overrideBy.present) {
+      map['override_by'] = Variable<String>(overrideBy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -40715,6 +41023,12 @@ class OrdersCompanion extends UpdateCompanion<OrderRow> {
           ..write('discountTotal: $discountTotal, ')
           ..write('total: $total, ')
           ..write('notes: $notes, ')
+          ..write('orderedBy: $orderedBy, ')
+          ..write('takenBy: $takenBy, ')
+          ..write('takenAt: $takenAt, ')
+          ..write('deliveredBy: $deliveredBy, ')
+          ..write('cancelledBy: $cancelledBy, ')
+          ..write('overrideBy: $overrideBy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -90263,6 +90577,12 @@ typedef $$OrdersTableCreateCompanionBuilder =
       Value<int> discountTotal,
       Value<int> total,
       Value<String?> notes,
+      Value<String?> orderedBy,
+      Value<String?> takenBy,
+      Value<DateTime?> takenAt,
+      Value<String?> deliveredBy,
+      Value<String?> cancelledBy,
+      Value<String?> overrideBy,
       Value<int> rowid,
     });
 typedef $$OrdersTableUpdateCompanionBuilder =
@@ -90299,6 +90619,12 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<int> discountTotal,
       Value<int> total,
       Value<String?> notes,
+      Value<String?> orderedBy,
+      Value<String?> takenBy,
+      Value<DateTime?> takenAt,
+      Value<String?> deliveredBy,
+      Value<String?> cancelledBy,
+      Value<String?> overrideBy,
       Value<int> rowid,
     });
 
@@ -90497,6 +90823,36 @@ class $$OrdersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get orderedBy => $composableBuilder(
+    column: $table.orderedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get takenBy => $composableBuilder(
+    column: $table.takenBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get takenAt => $composableBuilder(
+    column: $table.takenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveredBy => $composableBuilder(
+    column: $table.deliveredBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cancelledBy => $composableBuilder(
+    column: $table.cancelledBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> orderItemsRefs(
     Expression<bool> Function($$OrderItemsTableFilterComposer f) f,
   ) {
@@ -90691,6 +91047,36 @@ class $$OrdersTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get orderedBy => $composableBuilder(
+    column: $table.orderedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get takenBy => $composableBuilder(
+    column: $table.takenBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get takenAt => $composableBuilder(
+    column: $table.takenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deliveredBy => $composableBuilder(
+    column: $table.deliveredBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cancelledBy => $composableBuilder(
+    column: $table.cancelledBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$OrdersTableAnnotationComposer
@@ -90810,6 +91196,30 @@ class $$OrdersTableAnnotationComposer
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
+  GeneratedColumn<String> get orderedBy =>
+      $composableBuilder(column: $table.orderedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get takenBy =>
+      $composableBuilder(column: $table.takenBy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get takenAt =>
+      $composableBuilder(column: $table.takenAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deliveredBy => $composableBuilder(
+    column: $table.deliveredBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cancelledBy => $composableBuilder(
+    column: $table.cancelledBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get overrideBy => $composableBuilder(
+    column: $table.overrideBy,
+    builder: (column) => column,
+  );
+
   Expression<T> orderItemsRefs<T extends Object>(
     Expression<T> Function($$OrderItemsTableAnnotationComposer a) f,
   ) {
@@ -90896,6 +91306,12 @@ class $$OrdersTableTableManager
                 Value<int> discountTotal = const Value.absent(),
                 Value<int> total = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> orderedBy = const Value.absent(),
+                Value<String?> takenBy = const Value.absent(),
+                Value<DateTime?> takenAt = const Value.absent(),
+                Value<String?> deliveredBy = const Value.absent(),
+                Value<String?> cancelledBy = const Value.absent(),
+                Value<String?> overrideBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrdersCompanion(
                 id: id,
@@ -90930,6 +91346,12 @@ class $$OrdersTableTableManager
                 discountTotal: discountTotal,
                 total: total,
                 notes: notes,
+                orderedBy: orderedBy,
+                takenBy: takenBy,
+                takenAt: takenAt,
+                deliveredBy: deliveredBy,
+                cancelledBy: cancelledBy,
+                overrideBy: overrideBy,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -90966,6 +91388,12 @@ class $$OrdersTableTableManager
                 Value<int> discountTotal = const Value.absent(),
                 Value<int> total = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> orderedBy = const Value.absent(),
+                Value<String?> takenBy = const Value.absent(),
+                Value<DateTime?> takenAt = const Value.absent(),
+                Value<String?> deliveredBy = const Value.absent(),
+                Value<String?> cancelledBy = const Value.absent(),
+                Value<String?> overrideBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OrdersCompanion.insert(
                 id: id,
@@ -91000,6 +91428,12 @@ class $$OrdersTableTableManager
                 discountTotal: discountTotal,
                 total: total,
                 notes: notes,
+                orderedBy: orderedBy,
+                takenBy: takenBy,
+                takenAt: takenAt,
+                deliveredBy: deliveredBy,
+                cancelledBy: cancelledBy,
+                overrideBy: overrideBy,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

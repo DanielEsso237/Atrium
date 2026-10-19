@@ -5,8 +5,8 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from app.models.enums import InventoryStatus
 
 
@@ -89,5 +89,3 @@ class InventoryOut(BaseModel):
     deleted_at: dt.datetime | None
     updated_at: dt.datetime
     lines: list[InventoryLineOut]
-
-    

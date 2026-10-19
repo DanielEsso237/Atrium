@@ -14,6 +14,7 @@ import 'folio_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'housekeeping_repository.dart';
 import 'outbox.dart';
+import 'room_order_repository.dart';
 import 'settings_repository.dart';
 
 /// Une reservation telle qu'affichee dans la liste de la reception.
@@ -649,10 +650,31 @@ class ReservationRepository with OutboxWriter {
     return reservationId;
   }
 
-  /// Les chambres ou installer un voyageur tout de suite : libres, en
-  /// service, par numero. L'etat du menage est dit, pas impose : la
+  /// Les nuits que couvre une arrivee directe faite maintenant : de la
+  /// journee hoteliere en cours a son depart. En heures, la nuit de ce soir :
+  /// le client part avant, mais une chambre promise a l'arrivee de ce soir
+  /// ne se donne pas pour quelques heures.
+  static (DateTime, DateTime) nuitsDuSejour(UniteSejour unite, int duree) {
+    final arrivee = businessDayFor(DateTime.now());
+    final nuits = unite == UniteSejour.NIGHTS ? duree : 1;
+    return (
+      arrivee,
+      DateTime(arrivee.year, arrivee.month, arrivee.day + nuits),
+    );
+  }
+
+  /// Les chambres ou installer un voyageur tout de suite, pour la duree
+  /// choisie : en service, pas occupees, et ni attribuees a une reservation
+  /// sur ces nuits, ni dans une categorie que les reservations sans chambre
+  /// remplissent deja. C'est ce que `verifierArriveeDirecte` laisse passer :
+  /// la liste ne propose plus une chambre que l'enregistrement refuse
+  /// (reunion du 18 octobre). L'etat du menage est dit, pas impose : la
   /// reception sait si la chambre peut se donner.
-  Stream<List<ChambreLibre>> watchChambresLibres() {
+  Stream<List<ChambreLibre>> watchChambresLibres({
+    UniteSejour unite = UniteSejour.NIGHTS,
+    int duree = 1,
+  }) {
+    final (arrivee, depart) = nuitsDuSejour(unite, duree);
     return db
         .customSelect(
           '''
@@ -669,26 +691,95 @@ class ReservationRepository with OutboxWriter {
                SELECT 1 FROM reservation_rooms rr
                 WHERE rr.room_id = r.id AND rr.status = 'CHECKED_IN'
                   AND rr.deleted_at IS NULL)
+         AND NOT EXISTS (
+               SELECT 1 FROM reservation_rooms rr
+                WHERE rr.room_id = r.id
+                  AND rr.deleted_at IS NULL
+                  AND rr.status IN ('PENDING','CONFIRMED')
+                  AND rr.arrival_date   < ?2
+                  AND rr.departure_date > ?1)
        ORDER BY r.number
       ''',
+          variables: [
+            Variable.withString(formatIsoDate(arrivee)),
+            Variable.withString(formatIsoDate(depart)),
+          ],
           readsFrom: {db.rooms, db.roomTypes, db.reservationRooms},
         )
         .watch()
-        .map(
-          (rows) => [
+        .asyncMap((rows) async {
+          // Une categorie pleine sur l'une des nuits ne propose rien : ses
+          // chambres libres sont promises a des reservations sans chambre.
+          final pleines = <String>{};
+          if (unite == UniteSejour.NIGHTS) {
+            for (final id in {
+              for (final r in rows) r.read<String>('categorie_id'),
+            }) {
+              if (await _nuitComplete(id, arrivee, duree) != null) {
+                pleines.add(id);
+              }
+            }
+          }
+          return [
             for (final r in rows)
-              ChambreLibre(
-                id: r.read<String>('id'),
-                numero: r.read<String>('number'),
-                categorieId: r.read<String>('categorie_id'),
-                categorie: r.read<String>('categorie'),
-                tarif: r.read<int>('tarif'),
-                propre: const ['CLEAN', 'INSPECTED'].contains(
-                  r.read<String>('menage'),
+              if (!pleines.contains(r.read<String>('categorie_id')))
+                ChambreLibre(
+                  id: r.read<String>('id'),
+                  numero: r.read<String>('number'),
+                  categorieId: r.read<String>('categorie_id'),
+                  categorie: r.read<String>('categorie'),
+                  tarif: r.read<int>('tarif'),
+                  propre: const ['CLEAN', 'INSPECTED'].contains(
+                    r.read<String>('menage'),
+                  ),
                 ),
-              ),
-          ],
-        );
+          ];
+        });
+  }
+
+  /// La premiere nuit ou la categorie n'a plus de chambre a donner, ou nul.
+  /// Une reservation sans chambre attribuee prend quand meme une place : la
+  /// meme regle que `_ensure_available` cote serveur.
+  Future<String?> _nuitComplete(
+    String roomTypeId,
+    DateTime arrivee,
+    int nuits,
+  ) async {
+    final total = await db
+        .customSelect(
+          '''
+      SELECT COUNT(*) AS n FROM rooms
+       WHERE room_type_id = ?1 AND deleted_at IS NULL
+         AND is_active = 1 AND is_out_of_order = 0
+      ''',
+          variables: [Variable.withString(roomTypeId)],
+          readsFrom: {db.rooms},
+        )
+        .getSingle();
+    final chambres = total.read<int>('n');
+    for (var i = 0; i < nuits; i++) {
+      final nuit = formatIsoDate(
+        DateTime(arrivee.year, arrivee.month, arrivee.day + i),
+      );
+      final prises = await db
+          .customSelect(
+            '''
+        SELECT COUNT(*) AS n FROM reservation_rooms
+         WHERE room_type_id = ?1 AND deleted_at IS NULL
+           AND status IN ('PENDING','CONFIRMED','CHECKED_IN')
+           AND COALESCE(stay_unit, 'NIGHTS') <> 'HOURS'
+           AND arrival_date <= ?2 AND departure_date > ?2
+        ''',
+            variables: [
+              Variable.withString(roomTypeId),
+              Variable.withString(nuit),
+            ],
+            readsFrom: {db.reservationRooms},
+          )
+          .getSingle();
+      if (prises.read<int>('n') >= chambres) return nuit;
+    }
+    return null;
   }
 
   /// Verifie qu'une arrivee directe passera, sans rien ecrire.
@@ -737,62 +828,34 @@ class ReservationRepository with OutboxWriter {
       throw StateError('La chambre ${chambre.number} est occupée.');
     }
 
-    // En nuits, la categorie doit avoir une chambre libre chaque nuit : une
-    // chambre libre mais promise a une reservation ce soir est refusee. En
+    // La chambre ne doit pas etre promise a une reservation sur les nuits du
+    // sejour. En heures, la nuit de ce soir compte aussi : le client part
+    // avant, mais la chambre attendue ce soir ne se donne pas entre-temps.
+    final (arrivee, depart) = nuitsDuSejour(unite, duree);
+    final libres = await availableRooms(
+      roomTypeId: chambre.roomTypeId,
+      arrival: arrivee,
+      departure: depart,
+    );
+    if (!libres.any((r) => r.id == roomId)) {
+      throw StateError(
+        unite == UniteSejour.NIGHTS
+            ? 'La chambre ${chambre.number} est promise à une réservation sur '
+                  'ces nuits : choisissez-en une autre.'
+            : 'La chambre ${chambre.number} est promise à une réservation ce '
+                  'soir : choisissez-en une autre.',
+      );
+    }
+    // En nuits, la categorie doit avoir une chambre libre chaque nuit. En
     // heures, le client sera parti avant le soir.
     if (unite == UniteSejour.NIGHTS) {
-      final arrivee = businessDayFor(DateTime.now());
-      final depart = DateTime(arrivee.year, arrivee.month, arrivee.day + duree);
-      final libres = await availableRooms(
-        roomTypeId: chambre.roomTypeId,
-        arrival: arrivee,
-        departure: depart,
-      );
-      if (!libres.any((r) => r.id == roomId)) {
+      final nuit = await _nuitComplete(chambre.roomTypeId, arrivee, duree);
+      if (nuit != null) {
         throw StateError(
-          'La chambre ${chambre.number} est promise à une réservation sur '
-          'ces nuits : choisissez-en une autre.',
+          'Plus de chambre libre dans cette catégorie la nuit du '
+          '${formatShortDate(parseIsoDate(nuit)!)} : elles sont toutes '
+          'réservées.',
         );
-      }
-      final total = await db
-          .customSelect(
-            '''
-        SELECT COUNT(*) AS n FROM rooms
-         WHERE room_type_id = ?1 AND deleted_at IS NULL
-           AND is_active = 1 AND is_out_of_order = 0
-        ''',
-            variables: [Variable.withString(chambre.roomTypeId)],
-            readsFrom: {db.rooms},
-          )
-          .getSingle();
-      final chambres = total.read<int>('n');
-      for (var i = 0; i < duree; i++) {
-        final nuit = formatIsoDate(
-          DateTime(arrivee.year, arrivee.month, arrivee.day + i),
-        );
-        final prises = await db
-            .customSelect(
-              '''
-          SELECT COUNT(*) AS n FROM reservation_rooms
-           WHERE room_type_id = ?1 AND deleted_at IS NULL
-             AND status IN ('PENDING','CONFIRMED','CHECKED_IN')
-             AND COALESCE(stay_unit, 'NIGHTS') <> 'HOURS'
-             AND arrival_date <= ?2 AND departure_date > ?2
-          ''',
-              variables: [
-                Variable.withString(chambre.roomTypeId),
-                Variable.withString(nuit),
-              ],
-              readsFrom: {db.reservationRooms},
-            )
-            .getSingle();
-        if (prises.read<int>('n') >= chambres) {
-          throw StateError(
-            'Plus de chambre libre dans cette catégorie la nuit du '
-            '${formatShortDate(parseIsoDate(nuit)!)} : elles sont toutes '
-            'réservées.',
-          );
-        }
       }
     }
 
@@ -1230,6 +1293,15 @@ class ReservationRepository with OutboxWriter {
     final line = await (db.select(
       db.reservationRooms,
     )..where((rr) => rr.id.equals(lineId))).getSingle();
+    // Un plateau en route vers la chambre : le serveur refuse le depart (sa
+    // livraison trouverait l'ardoise close), la tablette avant lui.
+    for (final f
+        in await (db.select(db.folios)..where(
+              (f) => f.reservationRoomId.equals(lineId) & f.deletedAt.isNull(),
+            ))
+            .get()) {
+      await RoomOrderRepository.verifierAucuneEnRoute(db, f.id, 'le départ');
+    }
 
     await db.transaction(() async {
       await (db.update(
@@ -1333,6 +1405,12 @@ class ReservationRepository with OutboxWriter {
             .getSingleOrNull();
 
     if (ardoise != null) {
+      // Une commande en route serait livree sur une ardoise retiree.
+      await RoomOrderRepository.verifierAucuneEnRoute(
+        db,
+        ardoise.id,
+        'd’annuler l’arrivée',
+      );
       final encaisse = await db
           .customSelect(
             '''

@@ -773,6 +773,7 @@ class RemoteInventoryLine {
     required this.theoreticalQty,
     required this.variance,
     this.countedQty,
+    this.comment,
   });
 
   final String id;
@@ -780,6 +781,9 @@ class RemoteInventoryLine {
   final int theoreticalQty;
   final int? countedQty;
   final int variance;
+
+  /// Le motif de l'ecart ; absent d'un serveur qui ne le connait pas.
+  final String? comment;
 
   static RemoteInventoryLine? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['product_id'] == null) {
@@ -791,12 +795,145 @@ class RemoteInventoryLine {
       theoreticalQty: _entier(raw['theoretical_qty']),
       countedQty: (raw['counted_qty'] as num?)?.toInt(),
       variance: _entier(raw['variance']),
+      comment: _texte(raw['comment']),
     );
   }
 }
 
 /// L'inventaire d'un magasin (`InventoryOut`), avec ses lignes. Abandonne,
 /// il porte `deleted_at`.
+/// Une commande en chambre telle que le serveur la rend (`RoomOrderOut`).
+class RemoteRoomOrder {
+  const RemoteRoomOrder({
+    required this.id,
+    required this.number,
+    required this.outletId,
+    required this.status,
+    required this.total,
+    required this.taxTotal,
+    required this.items,
+    this.roomId,
+    this.folioId,
+    this.guestId,
+    this.businessDate,
+    this.notes,
+    this.orderedBy,
+    this.openedAt,
+    this.takenBy,
+    this.takenAt,
+    this.deliveredBy,
+    this.servedAt,
+    this.cancelledBy,
+    this.cancelledAt,
+    this.cancelReason,
+    this.overrideBy,
+  });
+
+  final String id;
+  final String number;
+  final String outletId;
+  final String status;
+  final int total;
+  final int taxTotal;
+  final List<RemoteRoomOrderLine> items;
+  final String? roomId;
+  final String? folioId;
+  final String? guestId;
+
+  /// Date seule, `AAAA-MM-JJ` : la journee de la commande.
+  final String? businessDate;
+  final String? notes;
+  final String? orderedBy;
+  final DateTime? openedAt;
+  final String? takenBy;
+  final DateTime? takenAt;
+  final String? deliveredBy;
+  final DateTime? servedAt;
+  final String? cancelledBy;
+  final DateTime? cancelledAt;
+  final String? cancelReason;
+  final String? overrideBy;
+
+  static RemoteRoomOrder? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['outlet_id'] == null ||
+        raw['status'] == null) {
+      return null;
+    }
+    final lignes = raw['items'];
+    return RemoteRoomOrder(
+      id: '${raw['id']}',
+      number: '${raw['number'] ?? ''}',
+      outletId: '${raw['outlet_id']}',
+      status: '${raw['status']}',
+      total: _entier(raw['total']),
+      taxTotal: _entier(raw['tax_total']),
+      items: [
+        if (lignes is List)
+          for (final l in lignes) ?RemoteRoomOrderLine.fromJson(l),
+      ],
+      roomId: _texte(raw['room_id']),
+      folioId: _texte(raw['folio_id']),
+      guestId: _texte(raw['guest_id']),
+      businessDate: _texte(raw['business_date']),
+      notes: _texte(raw['notes']),
+      orderedBy: _texte(raw['ordered_by']),
+      openedAt: _instant(raw['opened_at']),
+      takenBy: _texte(raw['taken_by']),
+      takenAt: _instant(raw['taken_at']),
+      deliveredBy: _texte(raw['delivered_by']),
+      servedAt: _instant(raw['served_at']),
+      cancelledBy: _texte(raw['cancelled_by']),
+      cancelledAt: _instant(raw['cancelled_at']),
+      cancelReason: _texte(raw['cancel_reason']),
+      overrideBy: _texte(raw['override_by']),
+    );
+  }
+}
+
+class RemoteRoomOrderLine {
+  const RemoteRoomOrderLine({
+    required this.id,
+    required this.label,
+    required this.quantity,
+    required this.unitPrice,
+    required this.taxRate,
+    required this.amount,
+    required this.status,
+    this.menuItemId,
+    this.prepStationId,
+    this.notes,
+  });
+
+  final String id;
+  final String label;
+  final int quantity;
+  final int unitPrice;
+  final int taxRate;
+  final int amount;
+  final String status;
+  final String? menuItemId;
+  final String? prepStationId;
+  final String? notes;
+
+  static RemoteRoomOrderLine? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null) return null;
+    return RemoteRoomOrderLine(
+      id: '${raw['id']}',
+      label: '${raw['label_snapshot'] ?? ''}',
+      quantity: _entier(raw['quantity'], 1),
+      unitPrice: _entier(raw['unit_price']),
+      taxRate: _entier(raw['tax_rate']),
+      amount: _entier(raw['amount']),
+      status: '${raw['status'] ?? 'SENT'}',
+      menuItemId: _texte(raw['menu_item_id']),
+      prepStationId: _texte(raw['prep_station_id']),
+      notes: _texte(raw['notes']),
+    );
+  }
+}
+
 class RemoteInventory {
   const RemoteInventory({
     required this.id,
@@ -1372,8 +1509,26 @@ class CatalogApi {
         RemoteInventory.fromJson,
         query: {'since': since.toUtc().toIso8601String()},
       );
-      return {for (final i in [...ouverts, ...recents]) i.id: i}.values
-          .toList();
+      return {
+        for (final i in [...ouverts, ...recents]) i.id: i,
+      }.values.toList();
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
+      rethrow;
+    }
+  }
+
+  /// Les commandes en chambre (F2.6) : celles en route quel que soit leur
+  /// age, plus celles de la fenetre. Le serveur filtre sur les points de
+  /// vente de l'agent ; la reception les recoit toutes. `null` quand le
+  /// serveur ne connait pas encore la route : la tablette garde ce qu'elle a.
+  Future<List<RemoteRoomOrder>?> fetchRoomOrders(DateTime since) async {
+    try {
+      return await _lire(
+        '/room-orders',
+        RemoteRoomOrder.fromJson,
+        query: {'since': _jour(since)},
+      );
     } on ApiException catch (e) {
       if (e.failure == ApiFailure.notFound) return null;
       rethrow;

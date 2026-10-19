@@ -333,6 +333,64 @@ async def test_le_bar_prend_en_charge_puis_livre_sur_l_ardoise(
     assert ardoise["balance"] == 2 * 1_500 + 800
 
 
+async def test_le_client_paie_a_la_livraison(client, agents, carte, sejour, session, auth_a):
+    """Decision du client, 18 octobre : a la livraison, il paie maintenant ou
+    laisse sur l'ardoise. Paye, la commande est sur l'ardoise et soldee : le
+    total dans le tiroir du bar, rien de plus a devoir."""
+    from app.models import Payment
+
+    _, _, folio = sejour
+    caisse = await _ouvrir_caisse(client, agents["BARMAN"], carte["bar"])
+    corps = _corps(carte, folio, lignes=(("biere", 2), ("jus", 1)))
+    commande = (await _commander(client, agents, corps)).json()
+    avant = (await client.get(f"/api/v1/folios/{folio}", headers=auth_a)).json()
+    paiement = {"id": str(uuid7()), "method": "CASH", "amount": 2 * 1_500 + 800}
+
+    livree = await client.post(
+        f"/api/v1/room-orders/{commande['id']}/deliver",
+        json={"payment": paiement},
+        headers=agents["BARMAN"],
+    )
+    renvoi = await client.post(
+        f"/api/v1/room-orders/{commande['id']}/deliver",
+        json={"payment": paiement},
+        headers=agents["BARMAN"],
+    )
+
+    assert livree.status_code == 200, livree.text
+    assert livree.json()["status"] == "SERVED"
+    assert renvoi.status_code == 200
+    apres = (await client.get(f"/api/v1/folios/{folio}", headers=auth_a)).json()
+    assert apres["charges_total"] == avant["charges_total"] + 3_800
+    assert apres["payments_total"] == avant["payments_total"] + 3_800
+    assert apres["balance"] == avant["balance"]
+    # Un seul paiement, renvoi compris, dans le tiroir du bar de celui qui livre.
+    paiements = (
+        await session.scalars(select(Payment).where(Payment.id == uuid.UUID(paiement["id"])))
+    ).all()
+    assert len(paiements) == 1
+    assert str(paiements[0].cash_session_id) == caisse
+    assert str(paiements[0].folio_id) == folio
+
+
+async def test_le_paiement_a_la_livraison_couvre_la_commande(client, agents, carte, sejour):
+    _, _, folio = sejour
+    await _ouvrir_caisse(client, agents["BARMAN"], carte["bar"])
+    commande = (await _commander(client, agents, _corps(carte, folio))).json()
+
+    r = await client.post(
+        f"/api/v1/room-orders/{commande['id']}/deliver",
+        json={"payment": {"method": "CASH", "amount": 5_000}},
+        headers=agents["BARMAN"],
+    )
+
+    assert r.status_code == 409
+    assert "couvrir" in r.json()["detail"]
+    # Rien n'est livre : la commande attend toujours.
+    liste = (await client.get("/api/v1/room-orders", headers=agents["RECEP"])).json()
+    assert {c["id"]: c["status"] for c in liste}[commande["id"]] == "SENT"
+
+
 async def test_le_bar_ne_livre_pas_sans_sa_caisse(client, agents, carte, sejour):
     """Un collegue a ouvert le bar ; celui qui livre n'a pas son tiroir."""
     _, _, folio = sejour

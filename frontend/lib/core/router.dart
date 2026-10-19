@@ -15,7 +15,9 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
+import '../features/entretien/historique_entretien_screen.dart';
 import '../features/finances/finances_screen.dart';
+import '../features/finances/historique_finances_screen.dart';
 import '../features/expenses/expenses_screen.dart';
 import '../features/guests/guest_detail_screen.dart';
 import '../features/guests/guests_screen.dart';
@@ -23,8 +25,11 @@ import '../features/housekeeping/housekeeping_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/outlets/outlet_cash_screen.dart';
 import '../features/outlets/outlet_invoices_screen.dart';
+import '../features/outlets/historique_ventes_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/personnel/personnel_screen.dart';
+import '../features/reports/rapport_module_screen.dart';
+import '../features/reports/rapports_modules.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/reservations/arrivee_directe_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
@@ -34,6 +39,8 @@ import '../features/maintenance/maintenance_screen.dart';
 import '../features/mouvements/historique_screen.dart';
 import '../features/mouvements/mouvements_screen.dart';
 import '../features/stats/stats_screen.dart';
+import '../features/stock/historique_stock_screen.dart';
+import '../features/stock/stock_dashboard_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/stock/inventory_screen.dart';
 import '../data/local/enums.dart';
@@ -65,6 +72,12 @@ const _permissionParZone = <String, String>{
   '/clients': 'guests.read',
   '/factures': 'folio.read',
   '/caisse': 'folio.read',
+  // Avant '/rapports' : le rapport de chaque module (F3.3, 19 octobre)
+  // s'ouvre avec le droit de lire son module, pas celui des factures.
+  '/rapports/reception': 'reservation.read',
+  '/rapports/ventes': 'order.read',
+  '/rapports/stocks': 'stock.read',
+  '/rapports/entretien': 'housekeeping.read|maintenance.read',
   // Les rapports montrent les memes montants que les factures et la caisse.
   '/rapports': 'folio.read',
   // Les depenses se lisent avec les marges : le comptoir ne les voit pas.
@@ -76,6 +89,9 @@ const _permissionParZone = <String, String>{
   // Les deux tuiles de l'entretien : chacune ne s'affiche qu'a qui lit son
   // metier, l'ecran s'ouvre a qui lit l'un des deux.
   '/entretien': 'housekeeping.read|maintenance.read',
+  // Avant '/finances' : l'historique de l'argent de l'hotel (18 octobre)
+  // ne s'ouvre pas au comptoir, qui n'en lit que sa caisse.
+  '/finances/historique': 'folio.read|accounting.read',
   // Les tuiles des finances (16 octobre) : chacune ne s'affiche qu'a qui
   // ouvre son ecran ; la page s'ouvre a qui en ouvre un.
   '/finances': 'folio.read|accounting.read|cash.session',
@@ -221,7 +237,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
           GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
           GoRoute(path: '/caisse', builder: (_, _) => const CashScreen()),
-          GoRoute(path: '/rapports', builder: (_, _) => const ReportsScreen()),
+          GoRoute(
+            path: '/rapports',
+            builder: (_, _) => const ReportsScreen(),
+            routes: [
+              for (final m in ModuleRapport.values)
+                GoRoute(
+                  path: m.chemin,
+                  builder: (_, _) => RapportModuleScreen(module: m),
+                ),
+            ],
+          ),
           GoRoute(path: '/depenses', builder: (_, _) => const ExpensesScreen()),
           GoRoute(
             path: '/comptabilite',
@@ -238,8 +264,25 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/entretien',
             builder: (_, _) => const EntretienScreen(),
+            routes: [
+              // L'historique de l'entretien (18 octobre) : le droit de l'un
+              // des deux metiers, comme le tableau de bord.
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueEntretienScreen(),
+              ),
+            ],
           ),
-          GoRoute(path: '/finances', builder: (_, _) => const FinancesScreen()),
+          GoRoute(
+            path: '/finances',
+            builder: (_, _) => const FinancesScreen(),
+            routes: [
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueFinancesScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: '/mouvements',
             builder: (_, _) => const MouvementsScreen(),
@@ -254,7 +297,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
-          GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),
+          // Le tableau de bord des stocks (18 octobre) ; la liste produit par
+          // produit passe dessous, avec l'historique.
+          GoRoute(
+            path: '/stocks',
+            builder: (_, _) => const StockDashboardScreen(),
+            routes: [
+              GoRoute(path: 'etat', builder: (_, _) => const StockScreen()),
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueStockScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: '/inventaire',
             builder: (_, _) => const InventoryScreen(),
@@ -262,6 +317,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/ventes',
             builder: (_, _) => const OutletDashboardScreen(),
+            routes: [
+              // L'historique des ventes (18 octobre) : le droit des ventes.
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueVentesScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/ma-caisse',

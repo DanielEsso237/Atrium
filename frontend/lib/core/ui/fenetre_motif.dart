@@ -25,6 +25,7 @@ Future<String?> demanderMotif(
   bool danger = false,
   bool autofocus = false,
   double largeur = 440,
+  String? valeurInitiale,
 }) {
   return showDialog<String>(
     context: context,
@@ -39,6 +40,7 @@ Future<String?> demanderMotif(
       danger: danger,
       autofocus: autofocus,
       largeur: largeur,
+      valeurInitiale: valeurInitiale,
     ),
   );
 }
@@ -55,6 +57,7 @@ class _FenetreMotif extends StatefulWidget {
     required this.danger,
     required this.autofocus,
     required this.largeur,
+    this.valeurInitiale,
   });
 
   final String titre;
@@ -68,12 +71,15 @@ class _FenetreMotif extends StatefulWidget {
   final bool autofocus;
   final double largeur;
 
+  /// Le motif deja saisi, pour le corriger plutot que le retaper.
+  final String? valeurInitiale;
+
   @override
   State<_FenetreMotif> createState() => _FenetreMotifState();
 }
 
 class _FenetreMotifState extends State<_FenetreMotif> {
-  final _motif = TextEditingController();
+  late final _motif = TextEditingController(text: widget.valeurInitiale);
 
   @override
   void dispose() {
