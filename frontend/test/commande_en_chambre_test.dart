@@ -354,6 +354,45 @@ void main() {
     expect((await folio()).balance, avant + 3000);
   });
 
+  test('le client paie a la livraison : sur l\'ardoise et solde, le total '
+      'dans le tiroir de celui qui livre', () async {
+    await ouvrirLeBar();
+    final id = await deuxBieres();
+    final avant = await folio();
+    final tiroir = await CashRepository(
+      db,
+    ).openSessionId(utilisateurDemo, outletId: bar.id);
+
+    await commandes.livrer(
+      orderId: id,
+      by: utilisateurDemo,
+      payeMaintenant: PaymentMethod.MOBILE_MONEY,
+    );
+
+    final apres = await folio();
+    expect(apres.chargesTotal, avant.chargesTotal + 3000);
+    expect(apres.paymentsTotal, avant.paymentsTotal + 3000);
+    expect(apres.balance, avant.balance);
+    final paiement = await (db.select(
+      db.payments,
+    )..where((x) => x.folioId.equals(ardoise))).getSingle();
+    expect(paiement.amount, 3000);
+    expect(paiement.method, PaymentMethod.MOBILE_MONEY);
+    expect(paiement.cashSessionId, tiroir);
+    // Il remonte avec la livraison, pas a part.
+    final p = (await file()).last;
+    expect(p['action'], 'DELIVER');
+    expect(p['payment'], {
+      'id': paiement.id,
+      'method': 'MOBILE_MONEY',
+      'amount': 3000,
+    });
+    final apart = await (db.select(
+      db.outboxEntries,
+    )..where((o) => o.entityTable.equals('payments'))).get();
+    expect(apart, isEmpty);
+  });
+
   test(
     'livrer exige le tiroir de celui qui livre, sur ce point de vente',
     () async {
@@ -508,6 +547,8 @@ void main() {
       '/room-orders',
       '/room-orders/$annulee/cancel',
     ]);
+    // Livree sur l'ardoise : pas de paiement dans le corps.
+    expect(serveur.corps[2], <String, Object?>{});
     final creation = serveur.corps.first as Map;
     expect(creation.containsKey('override_by'), isFalse);
     expect(serveur.corps.last, {'reason': 'Erreur'});

@@ -694,7 +694,11 @@ class OutboxSender {
             }),
           ),
           'ACCEPT' => _Envoi('/room-orders/$id/accept', const {}),
-          'DELIVER' => _Envoi('/room-orders/$id/deliver', const {}),
+          // Le client a paye devant le plateau : le paiement part avec la
+          // livraison, le serveur l'ecrit dans le tiroir de celui qui livre.
+          'DELIVER' => _Envoi('/room-orders/$id/deliver', {
+            if (p['payment'] != null) 'payment': p['payment'],
+          }),
           'CANCEL' => _Envoi('/room-orders/$id/cancel', {
             'reason': p['reason'],
           }),
