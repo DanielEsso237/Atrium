@@ -8,9 +8,9 @@
 ///
 /// **La quantite se tape, elle ne se clique pas.** Toucher un produit
 /// l'ajoute et met le curseur dans sa quantite, deja selectionnee, clavier
-/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Des
-/// boutons +6, +12, +24 suivent les colis ; - et + ajustent d'une unite.
-/// Toucher un produit deja choisi ramene a sa ligne, sans doublon.
+/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Les
+/// boutons - et + ajustent d'une unite. Toucher un produit deja choisi
+/// ramene a sa ligne, sans doublon.
 ///
 /// Chaque ligne part comme un mouvement a part : une entree, ou une demande
 /// de transfert qui attend sa validation, comme avant.
@@ -402,7 +402,7 @@ class _AucuneLigne extends StatelessWidget {
 }
 
 /// Une ligne choisie, comme une ligne de commande au comptoir : le produit,
-/// son prix d'achat, sa quantite. Dessous, les colis et le stock du magasin.
+/// son prix d'achat, sa quantite. Dessous, le stock du magasin.
 class _LigneSaisie extends StatelessWidget {
   const _LigneSaisie({
     super.key,
@@ -433,10 +433,6 @@ class _LigneSaisie extends StatelessWidget {
     final l = ligne;
     // Seul un transfert retire du stock : une livraison ne manque de rien.
     final manque = !entree && l.q > disponible;
-    void plus(int n) {
-      l.ajouter(n);
-      onChange();
-    }
 
     final produit = InputDecorator(
       isEmpty: false,
@@ -506,13 +502,6 @@ class _LigneSaisie extends StatelessWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Les colis : un carton de 6, 12 ou 24 d'un geste.
-            for (final n in const [6, 12, 24])
-              ActionChip(
-                visualDensity: VisualDensity.compact,
-                label: Text('+$n'),
-                onPressed: () => plus(n),
-              ),
             if (depart != null)
               Padding(
                 padding: const EdgeInsets.only(left: 4),

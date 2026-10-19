@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import InventoryStatus
 
@@ -31,9 +31,23 @@ class InventoryIn(BaseModel):
 
 
 class InventoryCountIn(BaseModel):
-    """Ce qui a ete compte ; `null` efface le comptage."""
+    """Ce qui a ete compte, et pourquoi l'ecart.
+
+    Seuls les champs envoyes changent (meme regle que `PATCH /guests`) :
+    absent, un champ reste tel quel ; `null`, il s'efface. Le motif ne
+    s'efface donc pas quand la tablette renvoie un simple comptage.
+    """
 
     counted_qty: int | None = Field(default=None, ge=0)
+    comment: str | None = Field(
+        default=None, max_length=255, description="Le motif de l'ecart ; null l'efface"
+    )
+
+    @field_validator("comment")
+    @classmethod
+    def _sans_blancs(cls, v: str | None) -> str | None:
+        # Un motif fait d'espaces est un motif efface.
+        return (v or "").strip() or None
 
 
 class InventoryRebalanceIn(BaseModel):
@@ -55,6 +69,7 @@ class InventoryLineOut(BaseModel):
     theoretical_qty: int
     counted_qty: int | None
     variance: int
+    comment: str | None
 
 
 class InventoryOut(BaseModel):
