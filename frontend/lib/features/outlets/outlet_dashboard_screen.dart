@@ -315,25 +315,22 @@ class _Tableau extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        DeuxColonnes(
-                          gauche: _DernieresVentes(
-                            pointsDeVente: filtres.pointsDeVente,
-                            libelles: libelles,
-                          ),
-                          droite: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _Tiroirs(
-                                filtres: filtres,
-                                libelles: libelles,
-                                agentId: agentId,
-                              ),
-                              if (acces.peut('stock.read')) ...[
-                                const SizedBox(height: 16),
-                                _Stock(filtres: filtres),
-                              ],
-                            ],
-                          ),
+                        DeuxColonnes.empilees(
+                          gauches: [
+                            _DernieresVentes(
+                              pointsDeVente: filtres.pointsDeVente,
+                              libelles: libelles,
+                            ),
+                          ],
+                          droites: [
+                            _Tiroirs(
+                              filtres: filtres,
+                              libelles: libelles,
+                              agentId: agentId,
+                            ),
+                            if (acces.peut('stock.read'))
+                              _Stock(filtres: filtres),
+                          ],
                         ),
                       ],
                     ),
@@ -459,6 +456,7 @@ class _RecetteParJour extends ConsumerWidget {
     DateTime jour(int i) => DateTime(du.year, du.month, du.day + i);
     final total = valeurs.fold(0, (s, v) => s + v);
     return CarteSection(
+      centrer: true,
       titre: 'Recette jour par jour',
       icone: PhosphorIconsLight.chartBar,
       description: total == 0
@@ -508,6 +506,7 @@ class _Reglements extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = tableau.chiffres;
     return CarteSection(
+      centrer: true,
       titre: 'Comment les clients paient',
       icone: PhosphorIconsLight.chartDonut,
       child: AnneauRapport(
@@ -719,6 +718,7 @@ class _HeuresDePointe extends StatelessWidget {
     final actives = tableau.parHeure.where((h) => mesure(h) > 0).toList();
     if (actives.isEmpty) {
       return const CarteSection(
+        centrer: true,
         titre: 'Heures de pointe',
         icone: PhosphorIconsLight.clock,
         child: SectionVide('Aucune vente sur la période.'),
@@ -733,6 +733,7 @@ class _HeuresDePointe extends StatelessWidget {
     final pointe = heures.firstWhere((h) => mesure(h) == max);
 
     return CarteSection(
+      centrer: true,
       titre: 'Heures de pointe',
       icone: PhosphorIconsLight.clock,
       description: 'Pointe à ${pointe.heure} h : ${dire(max)}',
@@ -1017,6 +1018,7 @@ class _MeilleuresVentes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CarteSection(
+      centrer: true,
       titre: 'Meilleures ventes',
       icone: PhosphorIconsLight.sparkle,
       child: BarresParts(
