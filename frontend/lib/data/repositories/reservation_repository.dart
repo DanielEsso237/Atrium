@@ -1288,13 +1288,13 @@ class ReservationRepository with OutboxWriter {
   /// Sale et non propre : personne n'a encore fait le menage. C'est cette
   /// ligne qui alimente la tuile « a nettoyer » du tableau de bord et la
   /// liste du housekeeping.
-  Future<void> checkOut({required String lineId, String? by}) async {
-    final now = DateTime.now().toUtc();
-    final line = await (db.select(
-      db.reservationRooms,
-    )..where((rr) => rr.id.equals(lineId))).getSingle();
-    // Un plateau en route vers la chambre : le serveur refuse le depart (sa
-    // livraison trouverait l'ardoise close), la tablette avant lui.
+  /// Leve `StateError` si le depart ne peut pas avoir lieu.
+  ///
+  /// Un plateau en route vers la chambre : le serveur refuse le depart (sa
+  /// livraison trouverait l'ardoise close), la tablette avant lui. Public
+  /// pour que l'ecran le demande **avant** d'encaisser : refuse apres, le
+  /// depart laissait un client qui avait paye toujours dans sa chambre.
+  Future<void> verifierDepart(String lineId) async {
     for (final f
         in await (db.select(db.folios)..where(
               (f) => f.reservationRoomId.equals(lineId) & f.deletedAt.isNull(),
@@ -1302,6 +1302,14 @@ class ReservationRepository with OutboxWriter {
             .get()) {
       await RoomOrderRepository.verifierAucuneEnRoute(db, f.id, 'le départ');
     }
+  }
+
+  Future<void> checkOut({required String lineId, String? by}) async {
+    final now = DateTime.now().toUtc();
+    final line = await (db.select(
+      db.reservationRooms,
+    )..where((rr) => rr.id.equals(lineId))).getSingle();
+    await verifierDepart(lineId);
 
     await db.transaction(() async {
       await (db.update(
