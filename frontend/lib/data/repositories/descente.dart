@@ -902,7 +902,7 @@ class Descente {
   ) async {
     final protegesArdoises = {
       ...await _sync.lignesEnAttente(db.folios),
-      ...await _ardoisesDeLivraisonsEnAttente(),
+      ...await _ardoisesAvecEcrituresEnAttente(),
     };
     final protegesLignes = await _sync.lignesEnAttente(db.folioItems);
     final sejoursConnus = await _identifiants('reservation_rooms');
@@ -1209,7 +1209,7 @@ class Descente {
     if (ventes.isEmpty) return (0, 0);
     final protegesArdoises = {
       ...await _sync.lignesEnAttente(db.folios),
-      ...await _ardoisesDeLivraisonsEnAttente(),
+      ...await _ardoisesAvecEcrituresEnAttente(),
     };
     final protegesLignes = await _sync.lignesEnAttente(db.folioItems);
     final ardoisesConnues = await _identifiants('folios');
@@ -1394,13 +1394,17 @@ class Descente {
 
   // --- Les commandes en chambre ------------------------------------------------
 
-  /// Les ardoises sur lesquelles une livraison attend de remonter.
+  /// Les ardoises dont le solde attend une ecriture pas encore remontee.
   ///
-  /// La tablette qui livre ecrit les lignes sur l'ardoise sans les enfiler :
-  /// c'est le serveur qui les ecrira, a la reception de la livraison. D'ici
-  /// la, son ardoise ne les a pas, et la descente ecraserait le solde local
-  /// avec un solde sans elles. La livraison en attente protege l'ardoise.
-  Future<Set<String>> _ardoisesDeLivraisonsEnAttente() async {
+  /// L'ecriture en attente est protegee, l'ardoise qui la porte ne l'etait
+  /// pas : la descente y recopiait le solde du serveur, d'avant elle. Un
+  /// encaissement fait pendant une descente disparaissait ainsi du solde
+  /// (19 octobre) : l'ecran redemandait la somme, l'agent encaissait une
+  /// seconde fois, et le serveur, deja solde, refusait le doublon en
+  /// bloquant la file. Meme chose pour une charge, et pour une livraison :
+  /// la tablette qui livre ecrit les lignes sur l'ardoise sans les enfiler,
+  /// c'est le serveur qui les ecrira.
+  Future<Set<String>> _ardoisesAvecEcrituresEnAttente() async {
     final lignes = await db
         .customSelect(
           '''
@@ -1411,6 +1415,12 @@ class Descente {
          AND e.status IN ('PENDING','FAILED')
          AND json_extract(e.payload, '\$.action') = 'DELIVER'
          AND o.folio_id IS NOT NULL
+      UNION
+      SELECT json_extract(e.payload, '\$.folio_id') AS id
+        FROM outbox_entries e
+       WHERE e.entity_table IN ('payments','folio_items')
+         AND e.status IN ('PENDING','FAILED')
+         AND json_extract(e.payload, '\$.folio_id') IS NOT NULL
       ''',
           readsFrom: {db.outboxEntries, db.orders},
         )
