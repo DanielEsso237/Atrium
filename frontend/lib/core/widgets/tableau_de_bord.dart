@@ -14,6 +14,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../features/dashboard/dashboard_charts.dart' show Sparkline;
 import '../tokens.dart';
@@ -462,6 +463,7 @@ class CarteSection extends StatelessWidget {
     required this.child,
     this.description,
     this.action,
+    this.centrer = false,
   });
 
   final String titre;
@@ -470,69 +472,145 @@ class CarteSection extends StatelessWidget {
   final Widget? action;
   final Widget child;
 
+  /// Quand la rangee allonge la carte, son contenu se centre dans la
+  /// hauteur gagnee au lieu de laisser tout le vide en bas : pour un
+  /// graphique. Une liste garde le haut.
+  final bool centrer;
+
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     return Bezel(
       radius: 24,
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, zone) {
-              final entete = [
-                Icon(icone, size: 20, color: p.accent),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      titre,
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                        color: p.text,
+      child: _CorpsDeCarte(
+        centrer: centrer,
+        entete: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, zone) {
+                final entete = [
+                  Icon(icone, size: 20, color: p.accent),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        titre,
+                        style: TextStyle(
+                          fontFamily: atriumFontFamily,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: p.text,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ];
-              // Etroit (telephone) : le lien passe sous le titre au lieu de
-              // le pousser hors du bloc.
-              if (action != null && zone.maxWidth < 420) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: entete),
-                    action!,
-                  ],
-                );
-              }
-              return Row(children: [...entete, ?action]);
-            },
-          ),
-          if (description != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, right: 6),
-              child: Text(
-                description!,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 12.5,
-                  height: 1.4,
-                  color: p.textSecondary,
+                ];
+                // Etroit (telephone) : le lien passe sous le titre au lieu de
+                // le pousser hors du bloc.
+                if (action != null && zone.maxWidth < 420) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: entete),
+                      action!,
+                    ],
+                  );
+                }
+                return Row(children: [...entete, ?action]);
+              },
+            ),
+            if (description != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 6),
+                child: Text(
+                  description!,
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: p.textSecondary,
+                  ),
                 ),
               ),
-            ),
-          const SizedBox(height: 16),
-          child,
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
+        contenu: child,
       ),
     );
   }
+}
+
+/// L'en-tete d'une carte, puis son contenu : a sa hauteur naturelle, ou
+/// centre dans la hauteur que la rangee lui donne.
+class _CorpsDeCarte extends MultiChildRenderObjectWidget {
+  _CorpsDeCarte({
+    required Widget entete,
+    required Widget contenu,
+    required this.centrer,
+  }) : super(children: [entete, contenu]);
+
+  final bool centrer;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenduCorps(centrer: centrer);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenduCorps rendu) =>
+      rendu.centrer = centrer;
+}
+
+class _RenduCorps extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _ParentGrille>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _ParentGrille> {
+  _RenduCorps({required bool centrer}) : _centrer = centrer;
+
+  bool _centrer;
+  set centrer(bool v) {
+    if (v == _centrer) return;
+    _centrer = v;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _ParentGrille) child.parentData = _ParentGrille();
+  }
+
+  @override
+  void performLayout() {
+    final largeur = constraints.maxWidth;
+    final entete = firstChild!;
+    final contenu = childAfter(entete)!;
+    entete.layout(BoxConstraints.tightFor(width: largeur), parentUsesSize: true);
+    contenu.layout(BoxConstraints.tightFor(width: largeur), parentUsesSize: true);
+    final naturel = entete.size.height + contenu.size.height;
+    // Allongee par la rangee : la hauteur imposee ; sinon, la sienne.
+    final hauteur = naturel > constraints.minHeight
+        ? naturel
+        : constraints.minHeight;
+    final libre = hauteur - naturel;
+    (entete.parentData! as _ParentGrille).offset = Offset.zero;
+    (contenu.parentData! as _ParentGrille).offset = Offset(
+      0,
+      entete.size.height + (_centrer ? libre / 2 : 0),
+    );
+    size = constraints.constrain(Size(largeur, hauteur));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// Le lien en bout de titre d'un bloc : « Tout l'historique ».
@@ -556,41 +634,194 @@ class LienSection extends StatelessWidget {
   );
 }
 
-/// Deux blocs cote a cote quand la largeur le permet ; sinon l'un sous
+/// Deux colonnes de blocs quand la largeur le permet ; sinon tout l'un sous
 /// l'autre. [flexGauche] et [flexDroite] partagent la ligne.
+///
+/// Les deux colonnes finissent a la meme hauteur (19 octobre : « les cartes
+/// laissent de grands espaces libres ») : le dernier bloc de la plus courte
+/// s'allonge jusqu'au bas de la rangee. Plus de trou sous une carte, des
+/// bords alignes d'une rangee a l'autre.
 class DeuxColonnes extends StatelessWidget {
-  const DeuxColonnes({
+  DeuxColonnes({
     super.key,
-    required this.gauche,
-    required this.droite,
+    required Widget gauche,
+    required Widget droite,
+    this.flexGauche = 1,
+    this.flexDroite = 1,
+  }) : gauches = [gauche],
+       droites = [droite];
+
+  /// Plusieurs blocs l'un sous l'autre de chaque cote.
+  const DeuxColonnes.empilees({
+    super.key,
+    required this.gauches,
+    required this.droites,
     this.flexGauche = 1,
     this.flexDroite = 1,
   });
 
-  final Widget gauche;
-  final Widget droite;
+  final List<Widget> gauches;
+  final List<Widget> droites;
   final int flexGauche;
   final int flexDroite;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, zone) {
-      if (zone.maxWidth < 900) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [gauche, const SizedBox(height: 16), droite],
-        );
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: flexGauche, child: gauche),
-          const SizedBox(width: 16),
-          Expanded(flex: flexDroite, child: droite),
-        ],
-      );
-    },
+  Widget build(BuildContext context) => _GrilleAlignee(
+    nbGauche: gauches.length,
+    flexGauche: flexGauche,
+    flexDroite: flexDroite,
+    children: [...gauches, ...droites],
   );
+}
+
+class _GrilleAlignee extends MultiChildRenderObjectWidget {
+  const _GrilleAlignee({
+    required this.nbGauche,
+    required this.flexGauche,
+    required this.flexDroite,
+    required super.children,
+  });
+
+  final int nbGauche;
+  final int flexGauche;
+  final int flexDroite;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenduGrille(
+    nbGauche: nbGauche,
+    flexGauche: flexGauche,
+    flexDroite: flexDroite,
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, _RenduGrille rendu) {
+    rendu
+      ..nbGauche = nbGauche
+      ..flexGauche = flexGauche
+      ..flexDroite = flexDroite;
+  }
+}
+
+class _ParentGrille extends ContainerBoxParentData<RenderBox> {}
+
+/// Pose chaque bloc a sa hauteur naturelle, puis allonge le dernier de la
+/// colonne la plus courte. Deux passes, sans dimensions intrinseques : les
+/// graphiques mesurent leur largeur avec un LayoutBuilder, qui n'en donne
+/// pas.
+class _RenduGrille extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _ParentGrille>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _ParentGrille> {
+  _RenduGrille({
+    required int nbGauche,
+    required int flexGauche,
+    required int flexDroite,
+  }) : _nbGauche = nbGauche,
+       _flexGauche = flexGauche,
+       _flexDroite = flexDroite;
+
+  static const _ecart = 16.0;
+
+  /// En dessous, tout s'empile : deux colonnes y seraient trop etroites.
+  static const _seuil = 900.0;
+
+  int _nbGauche;
+  set nbGauche(int v) {
+    if (v == _nbGauche) return;
+    _nbGauche = v;
+    markNeedsLayout();
+  }
+
+  int _flexGauche;
+  set flexGauche(int v) {
+    if (v == _flexGauche) return;
+    _flexGauche = v;
+    markNeedsLayout();
+  }
+
+  int _flexDroite;
+  set flexDroite(int v) {
+    if (v == _flexDroite) return;
+    _flexDroite = v;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _ParentGrille) child.parentData = _ParentGrille();
+  }
+
+  List<RenderBox> get _enfants {
+    final liste = <RenderBox>[];
+    var c = firstChild;
+    while (c != null) {
+      liste.add(c);
+      c = childAfter(c);
+    }
+    return liste;
+  }
+
+  /// Pose les blocs d'une colonne a leur hauteur naturelle ; rend la hauteur
+  /// de la colonne.
+  static double _poser(List<RenderBox> colonne, double largeur) {
+    var h = 0.0;
+    for (final (i, e) in colonne.indexed) {
+      e.layout(BoxConstraints.tightFor(width: largeur), parentUsesSize: true);
+      h += e.size.height + (i > 0 ? _ecart : 0);
+    }
+    return h;
+  }
+
+  static void _placer(List<RenderBox> colonne, double x) {
+    var y = 0.0;
+    for (final e in colonne) {
+      (e.parentData! as _ParentGrille).offset = Offset(x, y);
+      y += e.size.height + _ecart;
+    }
+  }
+
+  @override
+  void performLayout() {
+    final largeur = constraints.maxWidth;
+    final enfants = _enfants;
+    if (largeur < _seuil) {
+      final h = _poser(enfants, largeur);
+      _placer(enfants, 0);
+      size = constraints.constrain(Size(largeur, h));
+      return;
+    }
+    final total = _flexGauche + _flexDroite;
+    final lg = ((largeur - _ecart) * _flexGauche / total).floorToDouble();
+    final ld = largeur - _ecart - lg;
+    final gauche = enfants.take(_nbGauche).toList();
+    final droite = enfants.skip(_nbGauche).toList();
+    final hg = _poser(gauche, lg);
+    final hd = _poser(droite, ld);
+    final h = hg > hd ? hg : hd;
+    // Le dernier bloc de la colonne la plus courte descend jusqu'en bas.
+    for (final (colonne, l, hc) in [(gauche, lg, hg), (droite, ld, hd)]) {
+      if (colonne.isEmpty || hc >= h) continue;
+      final dernier = colonne.last;
+      dernier.layout(
+        BoxConstraints.tightFor(
+          width: l,
+          height: dernier.size.height + h - hc,
+        ),
+        parentUsesSize: true,
+      );
+    }
+    _placer(gauche, 0);
+    _placer(droite, lg + _ecart);
+    size = constraints.constrain(Size(largeur, h));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// Un bloc sans rien a montrer : une phrase, pas un graphique vide.
