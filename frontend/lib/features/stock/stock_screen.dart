@@ -27,6 +27,8 @@ import '../../core/recherche.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
+import '../../core/widgets/choix_en_menu.dart';
+import '../../core/widgets/choix_vue.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
@@ -338,10 +340,24 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                 ),
             ],
           );
-          final choixVue = _ChoixVue(
+          final choixVue = ChoixVue<_Vue>(
             vue: vue,
             compact: c.maxWidth < 700,
             onChoisi: ref.read(_vueStockProvider.notifier).choisir,
+            segments: const [
+              SegmentVue(
+                _Vue.liste,
+                'Liste',
+                PhosphorIconsLight.list,
+                aide: 'Afficher en tableau',
+              ),
+              SegmentVue(
+                _Vue.cartes,
+                'Cartes',
+                PhosphorIconsLight.squaresFour,
+                aide: 'Afficher en cartes',
+              ),
+            ],
           );
           if (c.maxWidth >= 1240) {
             return Row(
@@ -537,7 +553,6 @@ class _ChoixMagasin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
     if (magasins.length == 1) {
       return const SizedBox.shrink();
     }
@@ -546,87 +561,24 @@ class _ChoixMagasin extends StatelessWidget {
         if (a.isCentral != b.isCentral) return a.isCentral ? -1 : 1;
         return a.label.compareTo(b.label);
       });
-    IconData icone(StockPlace m) =>
-        m.isCentral ? PhosphorIconsLight.archive : PhosphorIconsLight.storefront;
 
     return Align(
       alignment: Alignment.centerLeft,
-      child: MenuAnchor(
-        alignmentOffset: const Offset(0, 6),
-        menuChildren: [
+      child: ChoixEnMenu<StockPlace>(
+        choisi: choisi,
+        onChoisi: onChoisi,
+        compte: '${magasins.length} magasins',
+        options: [
           for (final m in tries)
-            MenuItemButton(
-              leadingIcon: Icon(icone(m), size: 18),
-              trailingIcon: m.id == choisi.id
-                  ? Icon(PhosphorIconsLight.check, size: 18, color: p.accent)
-                  : null,
-              onPressed: () => onChoisi(m),
-              child: Text(m.label),
+            OptionMenu(
+              m,
+              m.label,
+              icone: m.isCentral
+                  ? PhosphorIconsLight.archive
+                  : PhosphorIconsLight.storefront,
+              genre: m.isCentral ? 'Magasin central' : 'Point de vente',
             ),
         ],
-        builder: (context, menu, _) => Material(
-          color: p.paper,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AtriumRadii.md),
-            side: BorderSide(color: p.border),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AtriumRadii.md),
-            onTap: () => menu.isOpen ? menu.close() : menu.open(),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: p.accentTint,
-                      borderRadius: BorderRadius.circular(AtriumRadii.sm),
-                    ),
-                    child: Icon(icone(choisi), size: 19, color: p.accent),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        choisi.isCentral ? 'Magasin central' : 'Point de vente',
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 12,
-                          color: p.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        choisi.label,
-                        style: TextStyle(
-                          fontFamily: atriumFontFamily,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: p.text,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 14),
-                  Text(
-                    '${magasins.length} magasins',
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 12.5,
-                      color: p.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(PhosphorIconsLight.caretDown, size: 16, color: p.textSecondary),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1115,120 +1067,6 @@ class _CarteProduit extends StatelessWidget {
 }
 
 // --- La vue en tableau -------------------------------------------------------
-
-/// Le choix entre tableau et cartes : deux segments, une pastille qui glisse
-/// sous celui retenu. Sur telephone, les icones seules.
-class _ChoixVue extends StatelessWidget {
-  const _ChoixVue({
-    required this.vue,
-    required this.compact,
-    required this.onChoisi,
-  });
-
-  final _Vue vue;
-  final bool compact;
-  final ValueChanged<_Vue> onChoisi;
-
-  static const _segments = [
-    (_Vue.liste, 'Liste', PhosphorIconsLight.list),
-    (_Vue.cartes, 'Cartes', PhosphorIconsLight.squaresFour),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final largeur = compact ? 46.0 : 96.0;
-    final rayon = BorderRadius.circular(AtriumRadii.md - 2);
-    final index = _segments.indexWhere((s) => s.$1 == vue);
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: p.paper,
-        borderRadius: rayon,
-        border: Border.all(color: p.border),
-      ),
-      child: SizedBox(
-        width: largeur * _segments.length,
-        child: Stack(
-          children: [
-            AnimatedPositioned(
-              duration: AtriumMotion.of(context, AtriumMotion.base),
-              curve: atriumSpring,
-              left: largeur * index,
-              top: 0,
-              bottom: 0,
-              width: largeur,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: p.selected,
-                  borderRadius: BorderRadius.circular(AtriumRadii.sm),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                for (final (valeur, libelle, icone) in _segments)
-                  SizedBox(
-                    width: largeur,
-                    child: Tooltip(
-                      message: valeur == _Vue.liste
-                          ? 'Afficher en tableau'
-                          : 'Afficher en cartes',
-                      child: Semantics(
-                        button: true,
-                        selected: valeur == vue,
-                        label: libelle,
-                        excludeSemantics: true,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(AtriumRadii.sm),
-                          onTap: () => onChoisi(valeur),
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  icone,
-                                  size: 18,
-                                  color: valeur == vue
-                                      ? p.onSelected
-                                      : p.textSecondary,
-                                ),
-                                if (!compact) ...[
-                                  const SizedBox(width: 6),
-                                  // Souple : une police plus large que
-                                  // prevu ne fait pas deborder la case.
-                                  Flexible(
-                                    child: Text(
-                                    libelle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: atriumFontFamily,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: valeur == vue
-                                          ? p.onSelected
-                                          : p.text,
-                                    ),
-                                  ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// Le bouton Ravitailler tient sur une ligne : sa colonne a une largeur
 /// fixe, les autres se partagent le reste.

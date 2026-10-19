@@ -87,8 +87,8 @@ void main() {
         child: MaterialApp(theme: themeAtrium(), home: const OrdersScreen()),
       ),
     );
-    await attendre(tester);
-    await tester.tap(find.text('Bar'));
+    // Le bar, seul point de vente : il s'ouvre d'emblee, sans menu a
+    // derouler (18 octobre).
     await attendre(tester);
 
     expect(tester.takeException(), isNull);

@@ -17,6 +17,7 @@ import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
+import '../../core/widgets/choix_en_menu.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/outlet_dashboard_queries.dart';
@@ -147,6 +148,7 @@ class _Tableau extends ConsumerWidget {
             child: Wrap(
               spacing: 16,
               runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 if (genres.length > 1)
                   FilterPills<OutletKind>(
@@ -160,13 +162,38 @@ class _Tableau extends ConsumerWidget {
                         ),
                     ],
                   ),
+                // Un menu deroulant, comme au Stock et au point de vente (18
+                // octobre) : une pastille par point de vente ne tenait plus
+                // sur une ligne.
                 if (points.length > 1)
-                  FilterPills<String?>(
-                    selected: choisi?.id,
-                    onChanged: notifier.pointDeVente,
+                  ChoixEnMenu<String?>(
+                    choisi: choisi?.id,
+                    onChoisi: notifier.pointDeVente,
+                    compte: genre == OutletKind.SERVICE
+                        ? '${points.length} services'
+                        : '${points.length} points de vente',
                     options: [
-                      const FilterOption(null, 'Tous'),
-                      for (final o in points) FilterOption(o.id, o.label),
+                      OptionMenu(
+                        null,
+                        genre == OutletKind.SERVICE
+                            ? 'Tous les services'
+                            : 'Tous les points de vente',
+                        icone: PhosphorIconsLight.squaresFour,
+                        genre: genre == OutletKind.SERVICE
+                            ? 'Services'
+                            : 'Points de vente',
+                      ),
+                      for (final o in points)
+                        OptionMenu(
+                          o.id,
+                          o.label,
+                          icone: genre == OutletKind.SERVICE
+                              ? PhosphorIconsLight.bell
+                              : PhosphorIconsLight.storefront,
+                          genre: genre == OutletKind.SERVICE
+                              ? 'Service'
+                              : 'Point de vente',
+                        ),
                     ],
                   ),
                 FilterPills<PeriodePdv>(

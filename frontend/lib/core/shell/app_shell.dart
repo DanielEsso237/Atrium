@@ -118,7 +118,6 @@ class Destination {
   /// Le nom sous l'icone du rail, ou la place manque.
   String get court => switch (label) {
     'Caisse du jour' => 'Caisse',
-    'Mouvements' => 'Mouvts',
     'Administration' => 'Admin',
     _ => label,
   };
@@ -164,8 +163,10 @@ final destinations = <Destination>[
   ),
   // Tout ce qui entre et sort de l'hotel (demande du 16 octobre) : un clic
   // ouvre le tableau de bord des mouvements, la fleche deplie ses vues.
+  // « Réception » depuis le 18 octobre : c'est le nom du poste qui s'en
+  // sert ; la route garde son ancien nom.
   Destination(
-    'Mouvements',
+    'Réception',
     PhosphorIconsLight.arrowsLeftRight,
     PhosphorIconsFill.arrowsLeftRight,
     '/mouvements',
@@ -297,7 +298,7 @@ final destinations = <Destination>[
   ),
   // Le tableau de bord des points de vente et des services : tout l'hotel
   // pour la direction et la reception, le sien pour l'agent d'un comptoir.
-  // Comme Mouvements et Entretien (16 octobre) : un clic ouvre ce tableau de
+  // Comme Réception et Entretien (16 octobre) : un clic ouvre ce tableau de
   // bord, la fleche deplie les points de vente et les services.
   const Destination(
     'Ventes',
@@ -348,7 +349,7 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/stocks',
   ),
-  // L'argent sous un meme toit (16 octobre), comme Mouvements et
+  // L'argent sous un meme toit (16 octobre), comme Réception et
   // Entretien : un clic ouvre ses tuiles, la fleche deplie ses ecrans.
   // Sans chiffre en bout de ligne : le comptoir l'ouvre aussi, et n'a pas a
   // lire la recette de l'hotel. Caisse du jour garde la sienne.
@@ -725,7 +726,7 @@ class _Barre extends StatefulWidget {
 }
 
 class _BarreState extends State<_Barre> {
-  /// Les parents (Mouvements, Entretien) deplies.
+  /// Les parents (Réception, Entretien) deplies.
   final _ouverts = <String>{};
 
   /// Les entrees a liste de points de vente qui sont depliees.
@@ -1373,7 +1374,7 @@ class _EntreeRail extends StatelessWidget {
   }
 }
 
-/// Dans le rail et sur telephone, un parent (Mouvements, Entretien) ouvre
+/// Dans le rail et sur telephone, un parent (Réception, Entretien) ouvre
 /// un menu : son tableau de bord, puis ses vues, avec les memes droits et
 /// filtres que le panneau etendu.
 void _choisirVue(

@@ -135,7 +135,7 @@ void main() {
 
   for (final largeur in [1280.0, 400.0]) {
     for (final (nom, ecran) in [
-      ('Mouvements', const MouvementsScreen()),
+      ('Réception', const MouvementsScreen()),
       ('Historique', const HistoriqueScreen()),
       ('Entretien', const EntretienScreen()),
     ]) {
