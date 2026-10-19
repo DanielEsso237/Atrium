@@ -358,6 +358,17 @@ final destinations = <Destination>[
     'stock.read',
     Groupe.services,
   ),
+  // La liste produit par produit, sous le tableau de bord des stocks (18
+  // octobre).
+  const Destination(
+    'État des stocks',
+    PhosphorIconsLight.list,
+    PhosphorIconsLight.list,
+    '/stocks/etat',
+    'stock.read',
+    Groupe.services,
+    parent: '/stocks',
+  ),
   // Compter un magasin et realigner son stock (15 octobre) : deplie sous
   // Stocks (16 octobre).
   const Destination(
@@ -366,6 +377,16 @@ final destinations = <Destination>[
     PhosphorIconsLight.checks,
     '/inventaire',
     'stock.inventory|stock.rebalance',
+    Groupe.services,
+    parent: '/stocks',
+  ),
+  // Tout ce qui est entre, sorti, transfere ou perdu (18 octobre).
+  const Destination(
+    'Historique des stocks',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/stocks/historique',
+    'stock.read',
     Groupe.services,
     parent: '/stocks',
   ),
@@ -489,8 +510,8 @@ final destinations = <Destination>[
 const _parents = {'/mouvements', '/entretien', '/finances'};
 
 /// Les parents dont l'ecran est un tableau de bord : le menu du rail l'appelle
-/// ainsi. Stocks garde son nom.
-const _tableauxDeBord = {..._parents, '/ventes'};
+/// ainsi. Stocks aussi depuis le 18 octobre.
+const _tableauxDeBord = {..._parents, '/ventes', '/stocks'};
 
 /// Les entrees permises a cet agent, dans l'ordre du menu.
 List<Destination> destinationsPour(SessionState session) {

@@ -37,6 +37,8 @@ import '../features/maintenance/maintenance_screen.dart';
 import '../features/mouvements/historique_screen.dart';
 import '../features/mouvements/mouvements_screen.dart';
 import '../features/stats/stats_screen.dart';
+import '../features/stock/historique_stock_screen.dart';
+import '../features/stock/stock_dashboard_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/stock/inventory_screen.dart';
 import '../data/local/enums.dart';
@@ -277,7 +279,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(path: '/commandes', builder: (_, _) => const OrdersScreen()),
-          GoRoute(path: '/stocks', builder: (_, _) => const StockScreen()),
+          // Le tableau de bord des stocks (18 octobre) ; la liste produit par
+          // produit passe dessous, avec l'historique.
+          GoRoute(
+            path: '/stocks',
+            builder: (_, _) => const StockDashboardScreen(),
+            routes: [
+              GoRoute(path: 'etat', builder: (_, _) => const StockScreen()),
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueStockScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: '/inventaire',
             builder: (_, _) => const InventoryScreen(),
