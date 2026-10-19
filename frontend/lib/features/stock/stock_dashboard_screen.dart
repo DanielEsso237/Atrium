@@ -222,32 +222,32 @@ class _StockDashboardScreenState extends ConsumerState<StockDashboardScreen> {
                     inventaires: inventaires.length,
                   ),
                   const SizedBox(height: 16),
+                  // Ce que chaque magasin a, en nombre puis en valeur :
+                  // deux graphiques de meme hauteur, cote a cote.
                   DeuxColonnes(
-                    flexGauche: 3,
-                    flexDroite: 2,
                     gauche: _EtatParMagasin(etats: etats, progres: barres),
-                    droite: _Repartition(etats: etats, progres: barres),
-                  ),
-                  const SizedBox(height: 16),
-                  DeuxColonnes(
-                    gauche: _ASurveiller(cle: cle),
-                    droite: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _Transferts(transferts: transferts),
-                        const SizedBox(height: 16),
-                        _Inventaires(inventaires: inventaires),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DeuxColonnes(
-                    flexGauche: 3,
-                    flexDroite: 2,
-                    gauche: _Flux(cle: cle, progres: barres),
                     droite: voitValeur && etats.length > 1
                         ? _ValeurParMagasin(etats: etats, progres: barres)
                         : _ParGenre(cle: cle, progres: barres),
+                  ),
+                  const SizedBox(height: 16),
+                  DeuxColonnes(
+                    flexGauche: 2,
+                    flexDroite: 3,
+                    gauche: _Repartition(etats: etats, progres: barres),
+                    droite: _Flux(cle: cle, progres: barres),
+                  ),
+                  const SizedBox(height: 16),
+                  // Ce qui demande une action : la liste a gauche, ce qui
+                  // attend une validation ou un comptage a droite.
+                  DeuxColonnes.empilees(
+                    flexGauche: 3,
+                    flexDroite: 2,
+                    gauches: [_ASurveiller(cle: cle)],
+                    droites: [
+                      _Transferts(transferts: transferts),
+                      _Inventaires(inventaires: inventaires),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   _Derniers(cle: cle, regardes: {for (final m in regardes) m.id}),
@@ -363,6 +363,7 @@ class _EtatParMagasin extends StatelessWidget {
         ]),
     ];
     return CarteSection(
+      centrer: true,
       titre: unSeul ? 'Produits par état' : 'État des stocks par magasin',
       icone: PhosphorIconsLight.chartBar,
       description: unSeul
@@ -424,6 +425,7 @@ class _Repartition extends StatelessWidget {
     final p = AtriumPalette.current;
     int somme(int Function(EtatMagasin) f) => etats.fold(0, (s, e) => s + f(e));
     return CarteSection(
+      centrer: true,
       titre: 'État des produits',
       icone: PhosphorIconsLight.chartDonut,
       child: AnneauRapport(
@@ -729,6 +731,7 @@ class _Flux extends ConsumerWidget {
     final rien =
         entrees.every((v) => v == 0) && sorties.every((v) => v == 0);
     return CarteSection(
+      centrer: true,
       titre: 'Entrées et sorties',
       icone: PhosphorIconsLight.chartBar,
       description: 'Les quatorze derniers jours, en quantités, tels que '
@@ -789,12 +792,30 @@ class _ValeurParMagasin extends StatelessWidget {
         if (e.valeur > 0) e,
     ];
     return CarteSection(
+      centrer: true,
       titre: 'Valeur par magasin',
       icone: PhosphorIconsLight.coins,
       description: 'Au prix d’achat, du plus garni au moins garni.',
       child: tries.isEmpty
           ? const SectionVide('Aucun stock valorisé.')
-          : ColonnesParCategorie(
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // A la place de la legende de sa voisine : les deux
+                // graphiques de la rangee commencent a la meme hauteur.
+                Text(
+                  '${formatAmount(total)} sur ${tries.length} magasin'
+                  '${tries.length > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontFamily: atriumFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AtriumPalette.current.text,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ColonnesParCategorie(
               categories: [for (final e in tries) e.libelle],
               series: [
                 SerieEmpilee('Valeur', AtriumChartColors.current, [
@@ -807,6 +828,8 @@ class _ValeurParMagasin extends StatelessWidget {
               lire: (i) =>
                   '${tries[i].libelle} : ${formatAmount(tries[i].valeur)}, '
                   '${(tries[i].valeur * 100 / total).round()} % du stock',
+                ),
+              ],
             ),
     );
   }
@@ -827,6 +850,7 @@ class _ParGenre extends ConsumerWidget {
     int nombre(Set<StockMovementType> t) =>
         mouvements.where((m) => t.contains(m.type)).length;
     return CarteSection(
+      centrer: true,
       titre: 'Mouvements par genre',
       icone: PhosphorIconsLight.chartDonut,
       description: 'Les quatorze derniers jours, sur cette tablette.',
