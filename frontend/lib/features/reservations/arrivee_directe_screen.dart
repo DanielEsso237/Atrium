@@ -32,9 +32,15 @@ import '../guests/id_photos.dart';
 import 'etape_formulaire.dart';
 import 'new_reservation_screen.dart' show roomTypesProvider;
 
-final _chambresLibresProvider = StreamProvider<List<ChambreLibre>>(
-  (ref) => ref.watch(reservationRepositoryProvider).watchChambresLibres(),
-);
+/// Les chambres libres sur toute la duree choisie : une chambre promise a
+/// une reservation sur l'une de ces nuits n'y est pas (reunion du 18
+/// octobre -- elle s'affichait, puis l'enregistrement la refusait).
+final _chambresLibresProvider = StreamProvider.autoDispose
+    .family<List<ChambreLibre>, (UniteSejour, int)>(
+      (ref, sejour) => ref
+          .watch(reservationRepositoryProvider)
+          .watchChambresLibres(unite: sejour.$1, duree: sejour.$2),
+    );
 
 class ArriveeDirecteScreen extends ConsumerStatefulWidget {
   const ArriveeDirecteScreen({super.key});
@@ -56,6 +62,10 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
   /// la chambre change.
   bool _prixSaisi = false;
   bool _busy = false;
+
+  /// La derniere liste lue : pendant qu'une nouvelle duree se relit, les
+  /// tuiles restent a l'ecran au lieu de clignoter sur « aucune libre ».
+  List<ChambreLibre> _chambres = const [];
 
   @override
   void dispose() {
@@ -128,8 +138,9 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    final chambres =
-        ref.watch(_chambresLibresProvider).value ?? const <ChambreLibre>[];
+    final chambres = _chambres =
+        ref.watch(_chambresLibresProvider((_unite, _duree))).value ??
+        _chambres;
     final chambre = chambres.where((c) => c.id == _chambreId).firstOrNull;
     final categories = ref.watch(roomTypesProvider);
     final photos = _clientId == null
@@ -140,7 +151,7 @@ class _ArriveeDirecteScreenState extends ConsumerState<ArriveeDirecteScreen> {
     final marge = etroit ? 18.0 : 32.0;
     final prix = int.tryParse(_prix.text.trim());
     final pret =
-        _chambreId != null &&
+        chambre != null &&
         _clientId != null &&
         pieceFaite &&
         prix != null &&
@@ -418,8 +429,9 @@ class _ChambresLibres extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Aucune chambre libre de cette catégorie en ce moment. '
-              'Choisissez une autre catégorie.',
+              'Aucune chambre de cette catégorie n’est libre sur toute la '
+              'durée : elles sont occupées ou promises à des réservations. '
+              'Choisissez une autre catégorie ou une autre durée.',
               style: TextStyle(
                 fontFamily: atriumFontFamily,
                 fontSize: 14.5,
@@ -436,7 +448,7 @@ class _ChambresLibres extends StatelessWidget {
       children: [
         Text(
           '$n chambre${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''} '
-          'en ce moment.',
+          'sur toute la durée.',
           style: TextStyle(
             fontFamily: atriumFontFamily,
             fontSize: 14,
