@@ -301,6 +301,7 @@ class _MenageParJour extends StatelessWidget {
     DateTime jour(int i) => DateTime(debut.year, debut.month, debut.day + i);
     final total = parJour.fold(0, (s, v) => s + v);
     return CarteSection(
+      centrer: true,
       titre: 'Chambres faites jour par jour',
       icone: PhosphorIconsLight.chartBar,
       description: total == 0
@@ -338,6 +339,7 @@ class _EtatDesChambres extends StatelessWidget {
     final p = AtriumPalette.current;
     final r = resume;
     return CarteSection(
+      centrer: true,
       titre: 'État des chambres',
       icone: PhosphorIconsLight.chartDonut,
       child: AnneauRapport(
