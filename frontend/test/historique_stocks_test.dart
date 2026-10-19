@@ -201,7 +201,14 @@ void main() {
         // Sur telephone, les lignes sont plus bas que l'ecran : la liste ne
         // les construit pas encore.
         if (taille.width > 600) {
-          expect(find.textContaining('Bière test'), findsWidgets);
+          // Le tableau de bord ouvre sur ses colonnes par magasin ;
+          // l'historique, sur ses lignes.
+          expect(
+            nom == 'historique'
+                ? find.textContaining('Bière test')
+                : find.text('État des stocks par magasin'),
+            findsWidgets,
+          );
         }
 
         await tester.pumpWidget(const SizedBox());

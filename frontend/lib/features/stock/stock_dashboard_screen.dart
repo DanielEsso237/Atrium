@@ -24,12 +24,14 @@ import '../../core/widgets/historique.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../core/widgets/tableau_de_bord.dart';
 import '../../data/local/database_provider.dart';
+import '../../data/local/enums.dart';
 import '../../data/local/queries/stock_tableau_queries.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
 import '../auth/session.dart';
 import '../dashboard/dashboard_charts.dart' show Legende;
 import '../reports/report_charts.dart';
+import 'stock_charts.dart';
 import 'stock_presentation.dart';
 
 /// Les magasins regardes : leurs ids joints par une virgule, une cle
@@ -55,6 +57,18 @@ final _inventairesProvider =
       (ref, cle) =>
           ref.watch(databaseProvider).watchInventairesStock(_ids(cle)),
     );
+
+/// Les mouvements des quatorze derniers jours, pour l'anneau par genre.
+final _mouvements14Provider =
+    StreamProvider.family<List<MouvementStock>, String>((ref, cle) {
+      final j = DateTime.now().subtract(const Duration(days: 13));
+      return ref
+          .watch(databaseProvider)
+          .watchMouvementsStock(
+            _ids(cle),
+            depuis: DateTime(j.year, j.month, j.day),
+          );
+    });
 
 /// Les quatorze derniers jours : entrees, puis sorties.
 final _fluxProvider = StreamProvider.family<(List<int>, List<int>), String>((
@@ -211,12 +225,7 @@ class _StockDashboardScreenState extends ConsumerState<StockDashboardScreen> {
                   DeuxColonnes(
                     flexGauche: 3,
                     flexDroite: 2,
-                    gauche: _Sante(
-                      etats: etats,
-                      onChoisir: magasins.length > 1 && choisi == null
-                          ? (id) => setState(() => _magasin = id)
-                          : null,
-                    ),
+                    gauche: _EtatParMagasin(etats: etats, progres: barres),
                     droite: _Repartition(etats: etats, progres: barres),
                   ),
                   const SizedBox(height: 16),
@@ -236,9 +245,9 @@ class _StockDashboardScreenState extends ConsumerState<StockDashboardScreen> {
                     flexGauche: 3,
                     flexDroite: 2,
                     gauche: _Flux(cle: cle, progres: barres),
-                    droite: voitValeur
+                    droite: voitValeur && etats.length > 1
                         ? _ValeurParMagasin(etats: etats, progres: barres)
-                        : _AlertesParMagasin(etats: etats, progres: barres),
+                        : _ParGenre(cle: cle, progres: barres),
                   ),
                   const SizedBox(height: 16),
                   _Derniers(cle: cle, regardes: {for (final m in regardes) m.id}),
@@ -317,133 +326,87 @@ class _Bandeau extends StatelessWidget {
   }
 }
 
-// --- La sante des magasins ------------------------------------------------------------
+// --- L'etat par magasin ----------------------------------------------------------------
 
-/// Une barre par magasin, decoupee par etat : on voit d'un coup d'oeil quel
-/// magasin manque de quoi. Toucher un magasin ne regarde que lui.
-class _Sante extends StatelessWidget {
-  const _Sante({required this.etats, this.onChoisir});
+/// Une colonne par magasin, empilee par etat : on voit d'un coup d'oeil quel
+/// magasin manque de quoi, et le nombre exact de produits. Un seul magasin
+/// regarde : une colonne par etat.
+class _EtatParMagasin extends StatelessWidget {
+  const _EtatParMagasin({required this.etats, required this.progres});
 
   final List<EtatMagasin> etats;
-  final ValueChanged<String>? onChoisir;
+  final Animation<double> progres;
 
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
+    final libelles = ['En stock', 'Stock bas', 'Rupture', 'Négatif'];
+    final couleurs = [
+      _couleurEnStock(p),
+      _couleurBas(p),
+      _couleurRupture,
+      _couleurNegatif(p),
+    ];
+    List<int> valeurs(EtatMagasin e) => [e.enStock, e.bas, e.rupture, e.negatif];
+    int somme(int k) => etats.fold(0, (s, e) => s + valeurs(e)[k]);
+
+    final unSeul = etats.length == 1;
+    // Un magasin : quatre colonnes, une par etat ; sinon une par magasin.
+    final categories = unSeul ? libelles : [for (final e in etats) e.libelle];
+    final series = [
+      for (var k = 0; k < 4; k++)
+        SerieEmpilee(libelles[k], couleurs[k], [
+          if (unSeul)
+            for (var c = 0; c < 4; c++) c == k ? valeurs(etats.single)[k] : 0
+          else
+            for (final e in etats) valeurs(e)[k],
+        ]),
+    ];
     return CarteSection(
-      titre: 'Santé des magasins',
-      icone: PhosphorIconsLight.pulse,
-      description: onChoisir == null
+      titre: unSeul ? 'Produits par état' : 'État des stocks par magasin',
+      icone: PhosphorIconsLight.chartBar,
+      description: unSeul
           ? 'Chaque produit suivi, selon son état.'
-          : 'Chaque produit suivi, selon son état. Touchez un magasin '
-                'pour ne regarder que lui.',
+          : 'Chaque produit suivi, magasin par magasin, selon son état.',
       child: etats.isEmpty
           ? const SectionVide('Aucun produit suivi.')
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 6,
-                  children: [
-                    Legende(couleur: _couleurEnStock(p), libelle: 'En stock'),
-                    Legende(couleur: _couleurBas(p), libelle: 'Stock bas'),
-                    const Legende(couleur: _couleurRupture, libelle: 'Rupture'),
-                    Legende(couleur: _couleurNegatif(p), libelle: 'Négatif'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                for (final e in etats)
-                  HoverRow(
-                    onTap: onChoisir == null ? null : () => onChoisir!(e.id),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 9,
-                    ),
-                    child: Semantics(
-                      label:
-                          '${e.libelle} : ${e.enStock} en stock, ${e.bas} bas, '
-                          '${e.rupture} en rupture, ${e.negatif} négatifs',
-                      child: ExcludeSemantics(child: _BarreSante(etat: e)),
-                    ),
+                if (!unSeul) ...[
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 6,
+                    children: [
+                      for (var k = 0; k < 4; k++)
+                        Legende(
+                          couleur: couleurs[k],
+                          libelle: '${libelles[k]} : ${somme(k)}',
+                        ),
+                    ],
                   ),
-              ],
-            ),
-    );
-  }
-}
-
-class _BarreSante extends StatelessWidget {
-  const _BarreSante({required this.etat});
-
-  final EtatMagasin etat;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final e = etat;
-    final parts = [
-      (e.enStock, _couleurEnStock(p)),
-      (e.bas, _couleurBas(p)),
-      (e.rupture, _couleurRupture),
-      (e.negatif, _couleurNegatif(p)),
-    ].where((x) => x.$1 > 0).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                e.libelle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                  color: p.text,
-                ),
-              ),
-            ),
-            Text(
-              e.enAlerte == 0
-                  ? '${e.produits} produits, tout est en stock'
-                  : '${e.enAlerte} sur ${e.produits} à surveiller',
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 12.5,
-                color: e.enAlerte == 0 ? p.textSecondary : p.text,
-                fontWeight: e.enAlerte == 0 ? null : FontWeight.w600,
-                fontFeatures: tabularFigures,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Les segments, separes par un filet de surface de 2 points.
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 10,
-            // Etirees en hauteur : un aplat sans enfant n'en prend pas.
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, (n, couleur)) in parts.indexed) ...[
-                  if (i > 0) const SizedBox(width: 2),
-                  Expanded(
-                    flex: n,
-                    child: ColoredBox(color: couleur),
-                  ),
+                  const SizedBox(height: 10),
                 ],
-                if (parts.isEmpty)
-                  Expanded(child: ColoredBox(color: p.border)),
+                ColonnesParCategorie(
+                  categories: categories,
+                  series: series,
+                  progres: progres,
+                  ecrire: (n) => '$n',
+                  description: 'Produits suivis par état',
+                  lire: (i) {
+                    if (unSeul) {
+                      return '${libelles[i]} : ${valeurs(etats.single)[i]} '
+                          'produit${valeurs(etats.single)[i] > 1 ? 's' : ''}';
+                    }
+                    final e = etats[i];
+                    return '${e.libelle} : ${e.produits} produits, '
+                        '${e.enStock} en stock, ${e.bas} bas, '
+                        '${e.rupture} en rupture, ${e.negatif} négatif'
+                        '${e.negatif > 1 ? 's' : ''}';
+                  },
+                ),
               ],
             ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -714,24 +677,30 @@ class _Inventaires extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '${i.comptees} sur ${i.lignes} comptés',
+                              '${i.comptees} / ${i.lignes} comptés',
                               style: TextStyle(
                                 fontFamily: atriumFontFamily,
-                                fontSize: 12.5,
-                                color: p.textSecondary,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: p.text,
                                 fontFeatures: tabularFigures,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: i.lignes == 0 ? 0 : i.comptees / i.lignes,
-                            minHeight: 6,
-                            color: p.accent,
-                            backgroundColor: p.border,
+                        const SizedBox(height: 4),
+                        Text(
+                          i.ecarts == 0
+                              ? i.libelle
+                              : '${i.libelle}, ${i.ecarts} écart'
+                                    '${i.ecarts > 1 ? 's' : ''} déjà relevé'
+                                    '${i.ecarts > 1 ? 's' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 12.5,
+                            color: p.textSecondary,
                           ),
                         ),
                       ],
@@ -814,55 +783,80 @@ class _ValeurParMagasin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = etats.fold(0, (s, e) => s + e.valeur);
-    final tries = [...etats]..sort((a, b) => b.valeur.compareTo(a.valeur));
+    // Du plus riche au plus pauvre : le classement est la lecture.
+    final tries = [
+      for (final e in [...etats]..sort((a, b) => b.valeur.compareTo(a.valeur)))
+        if (e.valeur > 0) e,
+    ];
     return CarteSection(
       titre: 'Valeur par magasin',
       icone: PhosphorIconsLight.coins,
-      description: 'Au prix d’achat.',
-      child: BarresParts(
-        couleur: AtriumChartColors.current,
-        progres: progres,
-        vide: 'Aucun stock valorisé.',
-        parts: [
-          for (final e in tries.take(8))
-            if (e.valeur > 0)
-              BarrePart(
-                e.libelle,
-                e.valeur,
-                formatAmount(e.valeur),
-                detail: total == 0 ? null : '${(e.valeur * 100 / total).round()} %',
-              ),
-        ],
-      ),
+      description: 'Au prix d’achat, du plus garni au moins garni.',
+      child: tries.isEmpty
+          ? const SectionVide('Aucun stock valorisé.')
+          : ColonnesParCategorie(
+              categories: [for (final e in tries) e.libelle],
+              series: [
+                SerieEmpilee('Valeur', AtriumChartColors.current, [
+                  for (final e in tries) e.valeur,
+                ]),
+              ],
+              progres: progres,
+              ecrire: montantCourt,
+              description: 'Valeur du stock par magasin',
+              lire: (i) =>
+                  '${tries[i].libelle} : ${formatAmount(tries[i].valeur)}, '
+                  '${(tries[i].valeur * 100 / total).round()} % du stock',
+            ),
     );
   }
 }
 
-class _AlertesParMagasin extends StatelessWidget {
-  const _AlertesParMagasin({required this.etats, required this.progres});
+/// Ce qui a bouge ces quatorze jours, par genre de mouvement : la part des
+/// entrees, des sorties, des transferts et des pertes.
+class _ParGenre extends ConsumerWidget {
+  const _ParGenre({required this.cle, required this.progres});
 
-  final List<EtatMagasin> etats;
+  final String cle;
   final Animation<double> progres;
 
   @override
-  Widget build(BuildContext context) {
-    final tries = [...etats]..sort((a, b) => b.enAlerte.compareTo(a.enAlerte));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mouvements =
+        ref.watch(_mouvements14Provider(cle)).value ?? const <MouvementStock>[];
+    int nombre(Set<StockMovementType> t) =>
+        mouvements.where((m) => t.contains(m.type)).length;
     return CarteSection(
-      titre: 'Alertes par magasin',
-      icone: PhosphorIconsLight.warningCircle,
-      child: BarresParts(
-        couleur: AtriumChartColors.negatif,
+      titre: 'Mouvements par genre',
+      icone: PhosphorIconsLight.chartDonut,
+      description: 'Les quatorze derniers jours, sur cette tablette.',
+      child: AnneauRapport(
         progres: progres,
-        vide: 'Aucune alerte.',
+        libelleTotal: 'mouvements',
+        description: 'Mouvements de stock par genre',
+        vide: 'Aucun mouvement sur ces quatorze jours.',
+        ecrire: (n) => '$n',
         parts: [
-          for (final e in tries.take(8))
-            if (e.enAlerte > 0)
-              BarrePart(
-                e.libelle,
-                e.enAlerte,
-                '${e.enAlerte}',
-                detail: 'sur ${e.produits}',
-              ),
+          PartAnneau(
+            'Entrées',
+            nombre({StockMovementType.IN, StockMovementType.RETURN}),
+            AtriumChartColors.parts[0],
+          ),
+          PartAnneau(
+            'Sorties',
+            nombre({StockMovementType.OUT}),
+            AtriumChartColors.parts[1],
+          ),
+          PartAnneau(
+            'Transferts',
+            nombre({StockMovementType.TRANSFER}),
+            AtriumChartColors.parts[2],
+          ),
+          PartAnneau(
+            'Pertes et ajustements',
+            nombre({StockMovementType.LOSS, StockMovementType.ADJUSTMENT}),
+            AtriumChartColors.parts[3],
+          ),
         ],
       ),
     );
