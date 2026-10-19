@@ -16,6 +16,7 @@ import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
 import '../features/finances/finances_screen.dart';
+import '../features/finances/historique_finances_screen.dart';
 import '../features/expenses/expenses_screen.dart';
 import '../features/guests/guest_detail_screen.dart';
 import '../features/guests/guests_screen.dart';
@@ -76,6 +77,9 @@ const _permissionParZone = <String, String>{
   // Les deux tuiles de l'entretien : chacune ne s'affiche qu'a qui lit son
   // metier, l'ecran s'ouvre a qui lit l'un des deux.
   '/entretien': 'housekeeping.read|maintenance.read',
+  // Avant '/finances' : l'historique de l'argent de l'hotel (18 octobre)
+  // ne s'ouvre pas au comptoir, qui n'en lit que sa caisse.
+  '/finances/historique': 'folio.read|accounting.read',
   // Les tuiles des finances (16 octobre) : chacune ne s'affiche qu'a qui
   // ouvre son ecran ; la page s'ouvre a qui en ouvre un.
   '/finances': 'folio.read|accounting.read|cash.session',
@@ -239,7 +243,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/entretien',
             builder: (_, _) => const EntretienScreen(),
           ),
-          GoRoute(path: '/finances', builder: (_, _) => const FinancesScreen()),
+          GoRoute(
+            path: '/finances',
+            builder: (_, _) => const FinancesScreen(),
+            routes: [
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueFinancesScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: '/mouvements',
             builder: (_, _) => const MouvementsScreen(),

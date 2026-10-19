@@ -434,6 +434,16 @@ final destinations = <Destination>[
     Groupe.finances,
     parent: '/finances',
   ),
+  // Tout l'argent qui entre et sort, dans l'ordre (18 octobre).
+  const Destination(
+    'Historique des finances',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/finances/historique',
+    'folio.read|accounting.read',
+    Groupe.finances,
+    parent: '/finances',
+  ),
   // La liste du personnel et ce que chacun genere (15 octobre).
   const Destination(
     'Personnel',
