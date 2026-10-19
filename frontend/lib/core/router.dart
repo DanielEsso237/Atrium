@@ -28,6 +28,8 @@ import '../features/outlets/outlet_invoices_screen.dart';
 import '../features/outlets/historique_ventes_screen.dart';
 import '../features/outlets/outlet_dashboard_screen.dart';
 import '../features/personnel/personnel_screen.dart';
+import '../features/reports/rapport_module_screen.dart';
+import '../features/reports/rapports_modules.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/reservations/arrivee_directe_screen.dart';
 import '../features/reservations/new_reservation_screen.dart';
@@ -70,6 +72,12 @@ const _permissionParZone = <String, String>{
   '/clients': 'guests.read',
   '/factures': 'folio.read',
   '/caisse': 'folio.read',
+  // Avant '/rapports' : le rapport de chaque module (F3.3, 19 octobre)
+  // s'ouvre avec le droit de lire son module, pas celui des factures.
+  '/rapports/reception': 'reservation.read',
+  '/rapports/ventes': 'order.read',
+  '/rapports/stocks': 'stock.read',
+  '/rapports/entretien': 'housekeeping.read|maintenance.read',
   // Les rapports montrent les memes montants que les factures et la caisse.
   '/rapports': 'folio.read',
   // Les depenses se lisent avec les marges : le comptoir ne les voit pas.
@@ -229,7 +237,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/clients', builder: (_, _) => const GuestsScreen()),
           GoRoute(path: '/factures', builder: (_, _) => const FoliosScreen()),
           GoRoute(path: '/caisse', builder: (_, _) => const CashScreen()),
-          GoRoute(path: '/rapports', builder: (_, _) => const ReportsScreen()),
+          GoRoute(
+            path: '/rapports',
+            builder: (_, _) => const ReportsScreen(),
+            routes: [
+              for (final m in ModuleRapport.values)
+                GoRoute(
+                  path: m.chemin,
+                  builder: (_, _) => RapportModuleScreen(module: m),
+                ),
+            ],
+          ),
           GoRoute(path: '/depenses', builder: (_, _) => const ExpensesScreen()),
           GoRoute(
             path: '/comptabilite',

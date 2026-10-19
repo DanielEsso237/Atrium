@@ -83,11 +83,17 @@ class Tableau {
     required this.colonnes,
     required this.lignes,
     this.total,
+    this.largeurs,
   });
 
   final String titre;
   final List<Colonne> colonnes;
   final List<List<Object?>> lignes;
+
+  /// Le poids de chaque colonne dans la largeur de la page ; `null` : la
+  /// premiere (le libelle) en prend plus, les chiffres se partagent le reste.
+  /// Un registre donne plus de place aux articles qu'a la date.
+  final List<double>? largeurs;
 
   /// La ligne de total, mise en evidence ; `null` quand un total n'a pas de
   /// sens (un stock ne s'additionne pas d'un produit a l'autre).
@@ -162,6 +168,8 @@ class DocumentRapport {
     required this.sections,
     this.logo,
     this.coordonnees = const [],
+    this.etabliPar,
+    this.visas = const [],
   });
 
   final String titre;
@@ -177,6 +185,13 @@ class DocumentRapport {
   /// Les filtres retenus, en clair ; vide quand rien n'est filtre.
   final List<String> filtres;
   final DateTime etabliLe;
+
+  /// L'agent connecte qui a produit le document.
+  final String? etabliPar;
+
+  /// Les cases de signature en fin de document (« Établi par », « Visa de
+  /// la direction ») ; vide : pas de bloc de signatures.
+  final List<String> visas;
   final List<Section> sections;
 
   /// `rapport-financier_2026-10-01_2026-10-09`, sans accent ni espace :
