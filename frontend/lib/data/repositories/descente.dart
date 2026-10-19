@@ -35,7 +35,9 @@ import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
 import 'cash_repository.dart';
+import 'guest_repository.dart' show codeFromId;
 import 'hotel_repository.dart';
+import 'room_order_repository.dart';
 import 'settings_repository.dart'
     show depositRuleKey, notificationLevelsKey, notificationSoundsKey;
 import 'sync_repository.dart';
@@ -178,7 +180,15 @@ class Descente {
       // collegue a ouvert, au lieu d'en ouvrir un autre. Sous `stock.read`.
       final inventaires = await _siPermisOuRien<RemoteInventory>(
         () async =>
-            await _catalog.fetchInventories(depuis) ?? const <RemoteInventory>[],
+            await _catalog.fetchInventories(depuis) ??
+            const <RemoteInventory>[],
+      );
+      // Les commandes en chambre (F2.6) : la reception suit celles qu'elle a
+      // passees, le point de vente voit arriver celles qu'il doit monter.
+      // Sous `order.read` ; `null` aussi si le serveur ne connait pas la route.
+      final commandesChambre = await _siPermisOuRien<RemoteRoomOrder>(
+        () async =>
+            await _catalog.fetchRoomOrders(depuis) ?? const <RemoteRoomOrder>[],
       );
       // Et ce que chaque journee a coute en stock : les mouvements, eux, ne
       // descendent pas. Un 403 vaut « rien a ecrire », comme un 404.
@@ -278,20 +288,26 @@ class Descente {
       // Un meme encaissement ou une meme caisse peut venir des deux appels :
       // ecrits une fois.
       ecartees += await _ecrireEncaissements(
-        {for (final p in [...encaissements, ...activite.payments]) p.id: p}
-            .values
-            .toList(),
+        {
+          for (final p in [...encaissements, ...activite.payments]) p.id: p,
+        }.values.toList(),
         maintenant,
       );
       ecartees += await _ecrireDepenses(depenses, maintenant);
       if (inventaires != null) {
         ecartees += await _ecrireInventaires(inventaires, maintenant);
       }
+      if (commandesChambre != null) {
+        ecartees += await _ecrireCommandesEnChambre(
+          commandesChambre,
+          maintenant,
+        );
+      }
       if (couts != null) await _ecrireCouts(couts, depuis, maintenant);
       ecartees += await _ecrireCaisses(
-        {for (final c in [...caisses, ...activite.cashSessions]) c.id: c}
-            .values
-            .toList(),
+        {
+          for (final c in [...caisses, ...activite.cashSessions]) c.id: c,
+        }.values.toList(),
         maintenant,
       );
 
@@ -884,7 +900,10 @@ class Descente {
     List<RemoteFolio> ardoises,
     DateTime maintenant,
   ) async {
-    final protegesArdoises = await _sync.lignesEnAttente(db.folios);
+    final protegesArdoises = {
+      ...await _sync.lignesEnAttente(db.folios),
+      ...await _ardoisesDeLivraisonsEnAttente(),
+    };
     final protegesLignes = await _sync.lignesEnAttente(db.folioItems);
     final sejoursConnus = await _identifiants('reservation_rooms');
 
@@ -1188,7 +1207,10 @@ class Descente {
     DateTime maintenant,
   ) async {
     if (ventes.isEmpty) return (0, 0);
-    final protegesArdoises = await _sync.lignesEnAttente(db.folios);
+    final protegesArdoises = {
+      ...await _sync.lignesEnAttente(db.folios),
+      ...await _ardoisesDeLivraisonsEnAttente(),
+    };
     final protegesLignes = await _sync.lignesEnAttente(db.folioItems);
     final ardoisesConnues = await _identifiants('folios');
 
@@ -1358,6 +1380,143 @@ class Descente {
                   theoreticalQty: Value(l.theoreticalQty),
                   countedQty: Value(l.countedQty),
                   variance: Value(l.variance),
+                  syncState: const Value(SyncState.synced),
+                ),
+              );
+        }
+      }
+    });
+    return sautes;
+  }
+
+  // --- Les commandes en chambre ------------------------------------------------
+
+  /// Les ardoises sur lesquelles une livraison attend de remonter.
+  ///
+  /// La tablette qui livre ecrit les lignes sur l'ardoise sans les enfiler :
+  /// c'est le serveur qui les ecrira, a la reception de la livraison. D'ici
+  /// la, son ardoise ne les a pas, et la descente ecraserait le solde local
+  /// avec un solde sans elles. La livraison en attente protege l'ardoise.
+  Future<Set<String>> _ardoisesDeLivraisonsEnAttente() async {
+    final lignes = await db
+        .customSelect(
+          '''
+      SELECT o.folio_id AS id
+        FROM outbox_entries e
+        JOIN orders o ON o.id = e.entity_id
+       WHERE e.entity_table = 'orders'
+         AND e.status IN ('PENDING','FAILED')
+         AND json_extract(e.payload, '\$.action') = 'DELIVER'
+         AND o.folio_id IS NOT NULL
+      ''',
+          readsFrom: {db.outboxEntries, db.orders},
+        )
+        .get();
+    return {for (final l in lignes) l.read<String>('id')};
+  }
+
+  /// Ecrit les commandes en chambre ; rend le nombre de commandes ecartees.
+  ///
+  /// Une commande qui a un geste en attente ici est epargnee en entier,
+  /// lignes comprises : la version locale fait foi tant qu'elle n'est pas
+  /// remontee. L'ardoise d'une chambre n'est pas sur la tablette du bar --
+  /// il ne lit pas les ardoises : pour une commande en route, son en-tete
+  /// s'ecrit seul, sans totaux, comme pour les ventes des points de vente.
+  /// La livraison y posera ses lignes.
+  Future<int> _ecrireCommandesEnChambre(
+    List<RemoteRoomOrder> commandes,
+    DateTime maintenant,
+  ) async {
+    if (commandes.isEmpty) return 0;
+    final proteges = await _sync.lignesEnAttente(db.orders);
+    final ardoisesConnues = await _identifiants('folios');
+    var sautes = 0;
+    await db.transaction(() async {
+      for (final c in commandes) {
+        final statut = OrderStatus.values
+            .where((s) => s.name == c.status)
+            .firstOrNull;
+        if (proteges.contains(c.id) || statut == null) {
+          sautes++;
+          continue;
+        }
+        final enRoute = RoomOrderRepository.enCours.contains(statut);
+        if (enRoute &&
+            c.folioId != null &&
+            !ardoisesConnues.contains(c.folioId)) {
+          await db
+              .into(db.folios)
+              .insert(
+                FoliosCompanion.insert(
+                  id: c.folioId!,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  hotelId: hotelId,
+                  number: codeFromId(c.folioId!, 'FOL'),
+                  guestId: Value(c.guestId),
+                  syncState: const Value(SyncState.synced),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+          ardoisesConnues.add(c.folioId!);
+        }
+        await db
+            .into(db.orders)
+            .insertOnConflictUpdate(
+              OrdersCompanion.insert(
+                id: c.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                number: c.number.isEmpty ? codeFromId(c.id, 'ORD') : c.number,
+                outletId: c.outletId,
+                type: const Value(OrderType.ROOM_SERVICE),
+                status: Value(statut),
+                roomId: Value(c.roomId),
+                folioId: Value(c.folioId),
+                guestId: Value(c.guestId),
+                businessDate: Value(c.businessDate),
+                openedAt: Value(c.openedAt),
+                sentAt: Value(c.openedAt),
+                servedAt: Value(c.servedAt),
+                cancelledAt: Value(c.cancelledAt),
+                cancelReason: Value(c.cancelReason),
+                subtotal: Value(c.total),
+                taxTotal: Value(c.taxTotal),
+                total: Value(c.total),
+                notes: Value(c.notes),
+                orderedBy: Value(c.orderedBy),
+                takenBy: Value(c.takenBy),
+                takenAt: Value(c.takenAt),
+                deliveredBy: Value(c.deliveredBy),
+                cancelledBy: Value(c.cancelledBy),
+                overrideBy: Value(c.overrideBy),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+        for (var i = 0; i < c.items.length; i++) {
+          final l = c.items[i];
+          final etat = OrderStatus.values
+              .where((s) => s.name == l.status)
+              .firstOrNull;
+          await db
+              .into(db.orderItems)
+              .insertOnConflictUpdate(
+                OrderItemsCompanion.insert(
+                  id: l.id,
+                  createdAt: maintenant,
+                  updatedAt: maintenant,
+                  orderId: c.id,
+                  menuItemId: Value(l.menuItemId),
+                  prepStationId: Value(l.prepStationId),
+                  labelSnapshot: l.label,
+                  quantity: Value(l.quantity),
+                  unitPrice: Value(l.unitPrice),
+                  taxRate: Value(l.taxRate),
+                  amount: Value(l.amount),
+                  status: Value(etat ?? statut),
+                  notes: Value(l.notes),
+                  sortOrder: Value(i),
                   syncState: const Value(SyncState.synced),
                 ),
               );

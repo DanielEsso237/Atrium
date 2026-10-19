@@ -39,6 +39,7 @@ class FakeCatalogApi implements CatalogApi {
     this.outletActivity = const RemoteOutletActivity(),
     this.chargeableStays = const [],
     this.inventories,
+    this.roomOrders,
   });
 
   final List<RemoteRoom> rooms;
@@ -69,6 +70,9 @@ class FakeCatalogApi implements CatalogApi {
 
   /// `null` : un serveur sans la route des inventaires.
   final List<RemoteInventory>? inventories;
+
+  /// `null` : un serveur sans la route des commandes en chambre.
+  final List<RemoteRoomOrder>? roomOrders;
 
   /// `HotelOut` brut ; `null` : le serveur ne l'expose pas (ancien serveur).
   final Map<String, dynamic>? hotel;
@@ -173,10 +177,13 @@ class FakeCatalogApi implements CatalogApi {
   Future<List<RemoteInventory>?> fetchInventories(DateTime since) async =>
       inventories;
 
+  @override
+  Future<List<RemoteRoomOrder>?> fetchRoomOrders(DateTime since) async =>
+      roomOrders;
+
   /// `null` : un serveur sans la route des couts, la tablette garde les siens.
   @override
-  Future<List<RemoteDailyCost>?> fetchDailyCosts(DateTime since) async =>
-      null;
+  Future<List<RemoteDailyCost>?> fetchDailyCosts(DateTime since) async => null;
 
   @override
   Future<List<Map<String, dynamic>>> fetchUsers() async => users;
@@ -283,11 +290,14 @@ class CatalogApiHorsLigne implements CatalogApi {
   Future<Object?> fetchNotificationSounds() async => _couloir();
 
   @override
-  Future<List<RemoteExpense>> fetchExpenses(DateTime since) async =>
-      _couloir();
+  Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => _couloir();
 
   @override
   Future<List<RemoteInventory>?> fetchInventories(DateTime since) async =>
+      _couloir();
+
+  @override
+  Future<List<RemoteRoomOrder>?> fetchRoomOrders(DateTime since) async =>
       _couloir();
 
   @override

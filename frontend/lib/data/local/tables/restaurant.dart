@@ -160,6 +160,20 @@ class Orders extends Table with SyncedTableColumns, HotelScoped {
   IntColumn get discountTotal => integer().withDefault(const Constant(0))();
   IntColumn get total => integer().withDefault(const Constant(0))();
   TextColumn get notes => text().nullable()();
+
+  /// La commande en chambre passe par deux metiers (F2.6, reunion du 18
+  /// octobre) : la reception commande, le point de vente prend en charge et
+  /// livre. Chaque geste garde son agent -- c'est a lui qu'on demande ou est
+  /// passe le plateau. Memes colonnes que le serveur (migration 0029).
+  TextColumn get orderedBy => text().nullable()();
+  TextColumn get takenBy => text().nullable()();
+  DateTimeColumn get takenAt => dateTime().nullable()();
+  TextColumn get deliveredBy => text().nullable()();
+  TextColumn get cancelledBy => text().nullable()();
+
+  /// Le responsable qui a laisse passer la commande au-dela du plafond du
+  /// client ; recopie sur les lignes de l'ardoise a la livraison.
+  TextColumn get overrideBy => text().nullable()();
 }
 
 /// Ligne de commande.
