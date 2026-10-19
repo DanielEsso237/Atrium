@@ -64,6 +64,7 @@ Future<Uint8List> construirePdf(DocumentRapport doc) async {
       build: (context) => [
         _enTete(doc),
         for (final s in doc.sections) ..._section(s),
+        if (doc.visas.isNotEmpty) _signatures(doc),
       ],
     ),
   );
@@ -135,7 +136,8 @@ pw.Widget _enTete(DocumentRapport doc) {
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
-                  'Établi le ${formatLongDate(h)} à $heure',
+                  'Établi le ${formatLongDate(h)} à $heure'
+                  '${doc.etabliPar == null ? '' : ' par ${doc.etabliPar}'}',
                   style: petit,
                 ),
               ],
@@ -279,9 +281,10 @@ List<pw.Widget> _tableau(Tableau t) {
     else
       pw.Table(
         columnWidths: {
-          0: const pw.FlexColumnWidth(2.2),
-          for (var i = 1; i < t.colonnes.length; i++)
-            i: const pw.FlexColumnWidth(1),
+          for (var i = 0; i < t.colonnes.length; i++)
+            i: pw.FlexColumnWidth(
+              t.largeurs?[i] ?? (i == 0 ? 2.2 : 1),
+            ),
         },
         border: const pw.TableBorder(
           horizontalInside: pw.BorderSide(color: _filet, width: 0.5),
@@ -328,3 +331,53 @@ List<pw.Widget> _tableau(Tableau t) {
       ),
   ];
 }
+
+/// Les cases de signature, cote a cote, en fin de document : un rapport
+/// remis a la direction se vise. La premiere porte le nom de qui l'a
+/// etabli.
+pw.Widget _signatures(DocumentRapport doc) => pw.Container(
+  margin: const pw.EdgeInsets.only(top: 8),
+  child: pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      for (final (i, visa) in doc.visas.indexed) ...[
+        if (i > 0) pw.SizedBox(width: 16),
+        pw.Expanded(
+          child: pw.Container(
+            height: 92,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: _filet),
+              borderRadius: pw.BorderRadius.circular(6),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  visa,
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _encre,
+                  ),
+                ),
+                if (i == 0 && doc.etabliPar != null) ...[
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    doc.etabliPar!,
+                    style: const pw.TextStyle(fontSize: 9, color: _encre),
+                  ),
+                ],
+                pw.Spacer(),
+                pw.Text(
+                  'Date et signature',
+                  style: const pw.TextStyle(fontSize: 7.5, color: _gris),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ],
+  ),
+);

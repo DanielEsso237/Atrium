@@ -27,6 +27,7 @@ import 'export/export_model.dart';
 import 'export/exporter.dart';
 import 'export/partage.dart';
 import 'export/report_sections.dart';
+import 'filtre_rapport.dart';
 import '../dashboard/dashboard_charts.dart' show Legende;
 import 'report_charts.dart';
 import 'report_state.dart';
@@ -247,7 +248,7 @@ class _BarreFiltres extends ConsumerWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _Filtre<Periode>(
+        FiltreRapport<Periode>(
           icone: PhosphorIconsLight.calendarBlank,
           libelle: etat.periode == Periode.personnalisee
               ? libellePeriode(f)
@@ -263,7 +264,7 @@ class _BarreFiltres extends ConsumerWidget {
               : notifier.choisirPeriode(p!),
           sansTous: true,
         ),
-        _Filtre<String>(
+        FiltreRapport<String>(
           icone: PhosphorIconsLight.storefront,
           libelle: nom(points, f.pointDeVenteId, (o) => o.id, (o) => o.label) ??
               'Point de vente',
@@ -273,7 +274,7 @@ class _BarreFiltres extends ConsumerWidget {
           courant: f.pointDeVenteId,
           surChoix: notifier.pointDeVente,
         ),
-        _Filtre<String>(
+        FiltreRapport<String>(
           icone: PhosphorIconsLight.user,
           libelle: nom(agents, f.agentId, (u) => u.id,
                   (u) => '${u.firstName} ${u.lastName}') ??
@@ -286,7 +287,7 @@ class _BarreFiltres extends ConsumerWidget {
           courant: f.agentId,
           surChoix: notifier.agent,
         ),
-        _Filtre<PaymentMethod>(
+        FiltreRapport<PaymentMethod>(
           icone: PhosphorIconsLight.creditCard,
           libelle: f.moyen == null
               ? 'Moyen de paiement'
@@ -299,7 +300,7 @@ class _BarreFiltres extends ConsumerWidget {
           courant: f.moyen,
           surChoix: notifier.moyen,
         ),
-        _Filtre<String>(
+        FiltreRapport<String>(
           icone: PhosphorIconsLight.bed,
           libelle: nom(types, f.typeChambreId, (t) => t.id, (t) => t.label) ??
               'Type de chambre',
@@ -325,104 +326,6 @@ class _BarreFiltres extends ConsumerWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-/// Un filtre en pilule qui ouvre sa liste. Plein quand il restreint le
-/// rapport : on voit d'un coup d'oeil ce qui est filtre.
-class _Filtre<T> extends StatelessWidget {
-  const _Filtre({
-    required this.icone,
-    required this.libelle,
-    required this.actif,
-    required this.choix,
-    required this.courant,
-    required this.surChoix,
-    this.tous = '',
-    this.sansTous = false,
-  });
-
-  final IconData icone;
-  final String libelle;
-  final bool actif;
-  final List<(T, String)> choix;
-  final T? courant;
-  final ValueChanged<T?> surChoix;
-  final String tous;
-  final bool sansTous;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
-    final style = TextStyle(
-      fontFamily: atriumFontFamily,
-      fontSize: 14,
-      fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
-      color: actif ? p.accent : p.text,
-    );
-    MenuItemButton item(T? valeur, String texte) => MenuItemButton(
-      onPressed: () => surChoix(valeur),
-      trailingIcon: valeur == courant
-          ? Icon(PhosphorIconsLight.check, size: 18, color: p.accent)
-          : null,
-      style: MenuItemButton.styleFrom(minimumSize: const Size(220, 46)),
-      child: Text(
-        texte,
-        style: TextStyle(
-          fontFamily: atriumFontFamily,
-          fontSize: 14,
-          fontWeight: valeur == courant ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    );
-
-    return MenuAnchor(
-      menuChildren: [
-        if (!sansTous) item(null, tous),
-        for (final (v, t) in choix) item(v, t),
-      ],
-      builder: (context, menu, _) => Semantics(
-        button: true,
-        label: 'Filtre $libelle',
-        child: InkWell(
-          onTap: () => menu.isOpen ? menu.close() : menu.open(),
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: AtriumMotion.of(context, AtriumMotion.base),
-            curve: AtriumMotion.standard,
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: actif ? p.accentFill : p.paper,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: actif ? p.accentBorder : p.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icone, size: 18, color: actif ? p.accent : p.textSecondary),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 260),
-                  child: Text(
-                    libelle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  PhosphorIconsLight.caretDown,
-                  size: 14,
-                  color: actif ? p.accent : p.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

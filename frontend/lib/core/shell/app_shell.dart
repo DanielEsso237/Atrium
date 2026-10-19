@@ -44,6 +44,7 @@ import '../theme_mode.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
 import '../../features/alerts/alert_banner.dart';
+import '../../features/reports/rapports_modules.dart' show ModuleRapport;
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
 
 /// Les familles du menu, dans l'ordre ou un hotel se lit : d'abord la vue
@@ -466,7 +467,7 @@ List<Destination> destinationsPour(SessionState session) {
   final accueil = session.acces.homeRoute;
   final ecranUnique = accueil != null && accueil != '/';
   final permises = [
-    for (final d in destinations)
+    for (final d in _avecRapports(destinations))
       if ((d.permission == null || session.acces.peutUnDe(d.permission!)) &&
           (d.aussi == null || session.acces.peut(d.aussi!)) &&
           (d.sauf == null || !session.acces.peut(d.sauf!)) &&
@@ -489,10 +490,12 @@ List<Destination> destinationsPour(SessionState session) {
   final presents = {for (final d in permises) d.route};
   return [
     for (final d in permises)
-      if (d.parent != null && !presents.contains(d.parent))
-        d.sansParent()
-      else
-        d,
+      if (d.parent == null || presents.contains(d.parent))
+        d
+      // Un rapport ne remonte pas seul : sans son onglet, il n'y a pas de
+      // module a rapporter (la femme de chambre garde son seul ecran).
+      else if (!ModuleRapport.values.any((m) => m.route == d.route))
+        d.sansParent(),
   ];
 }
 
@@ -1806,3 +1809,32 @@ abstract final class _Nav {
       sombre ? Colors.white : AtriumPalette.current.primary;
   static Color get iconePastille => surPastille;
 }
+
+/// Les entrees « Rapport » des modules (F3.3, 19 octobre), chacune en
+/// derniere vue de son onglet : Réservations, Ventes, Stocks, Entretien.
+/// Ajoutees ici plutot que dans la liste : leur place suit les vues que
+/// chaque onglet range, quelles qu'elles soient.
+List<Destination> _avecRapports(List<Destination> liste) {
+  final resultat = [...liste];
+  for (final m in ModuleRapport.values) {
+    final parent = resultat.where((d) => d.route == m.parent).firstOrNull;
+    if (parent == null) continue;
+    final dernier = resultat.lastIndexWhere(
+      (d) => d.route == m.parent || d.parent == m.parent,
+    );
+    resultat.insert(
+      dernier + 1,
+      Destination(
+        m.titre,
+        m.icone,
+        m.icone,
+        m.route,
+        m.permission,
+        parent.groupe,
+        parent: m.parent,
+      ),
+    );
+  }
+  return resultat;
+}
+
