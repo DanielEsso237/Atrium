@@ -659,6 +659,7 @@ class AnneauRapport extends StatefulWidget {
     required this.libelleTotal,
     required this.description,
     this.vide = 'Rien sur la période.',
+    this.ecrire = formatAmount,
   });
 
   final List<PartAnneau> parts;
@@ -668,6 +669,10 @@ class AnneauRapport extends StatefulWidget {
   final String libelleTotal;
   final String description;
   final String vide;
+
+  /// La valeur d'une part, dans la legende : un montant par defaut, un
+  /// nombre pour ce qui se compte (des produits par etat, 18 octobre).
+  final String Function(int) ecrire;
 
   @override
   State<AnneauRapport> createState() => _AnneauRapportState();
@@ -788,6 +793,7 @@ class _AnneauRapportState extends State<AnneauRapport> {
         for (var i = 0; i < parts.length; i++)
           _LigneLegende(
             part: parts[i],
+            valeur: widget.ecrire(parts[i].valeur),
             pourcentage: formatPointsDeBase(
                 (parts[i].valeur * 10000 / total).round()),
             choisie: choix == i,
@@ -827,6 +833,7 @@ class _AnneauRapportState extends State<AnneauRapport> {
 class _LigneLegende extends StatelessWidget {
   const _LigneLegende({
     required this.part,
+    required this.valeur,
     required this.pourcentage,
     required this.choisie,
     required this.estompee,
@@ -834,6 +841,7 @@ class _LigneLegende extends StatelessWidget {
   });
 
   final PartAnneau part;
+  final String valeur;
   final String pourcentage;
   final bool choisie;
   final bool estompee;
@@ -890,7 +898,7 @@ class _LigneLegende extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    formatAmount(part.valeur),
+                    valeur,
                     style: TextStyle(
                       fontFamily: atriumFontFamily,
                       fontSize: 13.5,

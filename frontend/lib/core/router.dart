@@ -15,6 +15,7 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
+import '../features/entretien/historique_entretien_screen.dart';
 import '../features/finances/finances_screen.dart';
 import '../features/finances/historique_finances_screen.dart';
 import '../features/expenses/expenses_screen.dart';
@@ -242,6 +243,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/entretien',
             builder: (_, _) => const EntretienScreen(),
+            routes: [
+              // L'historique de l'entretien (18 octobre) : le droit de l'un
+              // des deux metiers, comme le tableau de bord.
+              GoRoute(
+                path: 'historique',
+                builder: (_, _) => const HistoriqueEntretienScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/finances',
