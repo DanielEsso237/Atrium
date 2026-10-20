@@ -29,7 +29,13 @@ class AdministrationScreen extends StatelessWidget {
   static const _sections = <(String, IconData, Widget)>[
     // L'identite de l'hotel d'abord : elle ouvre chaque facture.
     ('Établissement', PhosphorIconsLight.buildings, HotelSection()),
-    ('Points de vente', PhosphorIconsLight.storefront, OutletsSection()),
+    // Les deux genres vivent ici : « Points de vente » seul faisait chercher
+    // les services ailleurs.
+    (
+      'Points de vente / Services',
+      PhosphorIconsLight.storefront,
+      OutletsSection(),
+    ),
     ('Arrhes', PhosphorIconsLight.coins, DepositSection()),
     ('Départ', PhosphorIconsLight.clock, StayRulesSection()),
     ('Alertes', PhosphorIconsLight.bell, AlertsSection()),

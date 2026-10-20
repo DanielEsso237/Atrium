@@ -793,6 +793,9 @@ class OutboxSender {
             'allows_room_charge': p['allows_room_charge'],
             'sort_order': p['sort_order'],
             'is_active': p['is_active'],
+            // Une entree d'avant le correctif n'en porte pas : le serveur
+            // ignore un genre nul.
+            'kind': p['kind'],
           },
           methode: _Methode.patch,
         );

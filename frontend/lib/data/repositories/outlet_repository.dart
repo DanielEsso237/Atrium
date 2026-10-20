@@ -105,6 +105,9 @@ class OutletRepository with OutboxWriter {
   ///
   /// L'entree de file porte l'etat complet de l'ecran, horaires vides
   /// compris : un horaire retire doit l'etre aussi sur le serveur.
+  ///
+  /// `kind` corrige le genre : une piscine creee comme point de vente alors
+  /// qu'elle est un service ne se rattrapait pas. Nul, il ne change pas.
   Future<OutletRow> update({
     required String id,
     required String code,
@@ -114,6 +117,7 @@ class OutletRepository with OutboxWriter {
     required bool allowsRoomCharge,
     required int sortOrder,
     required bool isActive,
+    OutletKind? kind,
   }) async {
     // Les points de vente d'office (Restaurant, Reception) : ni desactives,
     // ni recodes -- le serveur les refuse (409), et un refus par la file la
@@ -153,6 +157,7 @@ class OutletRepository with OutboxWriter {
         'allows_room_charge': allowsRoomCharge,
         'sort_order': sortOrder,
         'is_active': isActive,
+        if (kind != null) 'kind': kind.name,
       },
       action: () async {
         await (db.update(db.outlets)..where((o) => o.id.equals(id))).write(
@@ -164,6 +169,7 @@ class OutletRepository with OutboxWriter {
             allowsRoomCharge: Value(allowsRoomCharge),
             sortOrder: Value(sortOrder),
             isActive: Value(isActive),
+            kind: Value.absentIfNull(kind),
             updatedAt: Value(now),
             syncState: const Value(SyncState.pending),
           ),
