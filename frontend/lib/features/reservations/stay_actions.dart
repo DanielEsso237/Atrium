@@ -515,6 +515,17 @@ Future<bool> confirmCheckOut(
   required String guestName,
   required String roomNumber,
 }) async {
+  // Le refus passe avant tout le reste, prolongation et encaissement
+  // compris : il venait apres, a l'enregistrement, et sans un mot -- le
+  // client payait, et le bouton ne faisait rien.
+  try {
+    await ref.read(reservationRepositoryProvider).verifierDepart(lineId);
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
+  if (!context.mounted) return false;
+
   // Parti apres l'heure de depart : la prolongation se propose AVANT de lire
   // le solde, sinon l'agent encaisserait une note qui change juste apres.
   if (!await _proposerProlongation(
@@ -584,9 +595,15 @@ Future<bool> confirmCheckOut(
 
   if (!context.mounted) return false;
 
-  await ref
-      .read(reservationRepositoryProvider)
-      .checkOut(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
+  try {
+    await ref
+        .read(reservationRepositoryProvider)
+        .checkOut(lineId: lineId, by: ref.read(sessionProvider).agent?.id);
+  } on StateError catch (e) {
+    // Une commande envoyee pendant l'encaissement, depuis un autre poste.
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
 
   if (context.mounted) {
     montrerSucces(

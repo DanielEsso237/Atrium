@@ -102,7 +102,8 @@ void _feuille(Sheet f, DocumentRapport doc, Section s) {
     TextCellValue(
       'Établi le ${formatLongDate(doc.etabliLe)} à '
       '${doc.etabliLe.hour.toString().padLeft(2, '0')} h '
-      '${doc.etabliLe.minute.toString().padLeft(2, '0')}',
+      '${doc.etabliLe.minute.toString().padLeft(2, '0')}'
+      '${doc.etabliPar == null ? '' : ' par ${doc.etabliPar}'}',
     ),
     _discret,
   );

@@ -14,9 +14,12 @@ library;
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/local/seed_accounts.dart';
 import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
+import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/descente.dart';
+import 'package:atrium/data/repositories/folio_repository.dart';
 import 'package:atrium/data/repositories/sync_repository.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
@@ -345,6 +348,42 @@ void main() {
     expect(f.balance, 5000);
     expect(f.reservationRoomId, _ligne);
     expect(await compter('folio_items'), 1);
+  });
+
+  // Le 19 octobre : la descente avait lu l'ardoise juste avant
+  // l'encaissement et l'ecrivait juste apres. Le solde revenait a son
+  // montant d'avant, l'ecran redemandait la somme, et le second encaissement
+  // bloquait la file sur le refus du serveur, deja solde.
+  test('un encaissement en attente garde son solde a la descente', () async {
+    await descente(
+      guests: [_guest()],
+      reservations: [_reservation(typeStandard)],
+      folios: [_folio()],
+    ).pull();
+    await seedAccounts(db);
+    final agent = await (db.select(
+      db.users,
+    )..where((u) => u.employeeCode.equals('ADMIN01'))).getSingle();
+    await CashRepository(db).open(userId: agent.id, openingFloat: 0);
+    await FolioRepository(db).addPayment(
+      folioId: _ardoise,
+      method: PaymentMethod.CASH,
+      amount: 25000,
+      receivedBy: agent.id,
+    );
+
+    // Le serveur ne l'a pas encore : il rend toujours 25 000 a payer.
+    await descente(
+      guests: [_guest()],
+      reservations: [_reservation(typeStandard)],
+      folios: [_folio()],
+    ).pull();
+
+    final f = await (db.select(
+      db.folios,
+    )..where((f) => f.id.equals(_ardoise))).getSingle();
+    expect(f.balance, 0);
+    expect(f.paymentsTotal, 25000);
   });
 
   test('les points de vente descendent avec leur ordre', () async {

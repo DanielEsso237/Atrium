@@ -287,20 +287,21 @@ const _permissions = <_PermissionDemo>[
     'Autoriser une annulation (arrivee, depart, encaissement)',
     'operations',
   ),
+  // Envoyer, servir ou annuler une commande : c'est lui qui laisse le point
+  // de vente prendre en charge et livrer une commande en chambre (F2.7).
+  // Meme identifiant que le serveur.
+  (
+    '01920000-0000-7000-8000-000000004125',
+    'order.manage',
+    'Envoyer, servir ou annuler une commande',
+    'order',
+  ),
   // Commander pour une chambre (F2.6, 18 octobre) : la reception commande
   // au point de vente, qui livre. Meme identifiant que le serveur.
   (
     '01920000-0000-7000-8000-000000004144',
     'room_order.create',
     'Commander pour une chambre (room service)',
-    'order',
-  ),
-  // Prendre en charge et livrer une commande en chambre (19 octobre) : le
-  // point de vente qui la recoit. Meme identifiant que le serveur.
-  (
-    '01920000-0000-7000-8000-000000004125',
-    'order.manage',
-    'Envoyer, servir ou annuler une commande',
     'order',
   ),
 ];
@@ -343,8 +344,9 @@ const _droits = <(String role, String permission)>[
   // serveur (migration 0029).
   (_roleAdmin, '01920000-0000-7000-8000-000000004144'),
   (_roleReception, '01920000-0000-7000-8000-000000004144'),
-  // La servir : le point de vente et l'administration, comme cote serveur.
-  // Pas la reception -- elle commande, elle ne monte pas le plateau.
+  // Prendre en charge et livrer une commande en chambre : le point de vente
+  // et l'administrateur, comme cote serveur. Sans lui, hors ligne, aucune
+  // tablette ne pouvait monter la commande.
   (_roleAdmin, '01920000-0000-7000-8000-000000004125'),
   (_roleRestaurant, '01920000-0000-7000-8000-000000004125'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),

@@ -773,6 +773,7 @@ class RemoteInventoryLine {
     required this.theoreticalQty,
     required this.variance,
     this.countedQty,
+    this.comment,
   });
 
   final String id;
@@ -780,6 +781,9 @@ class RemoteInventoryLine {
   final int theoreticalQty;
   final int? countedQty;
   final int variance;
+
+  /// Le motif de l'ecart ; absent d'un serveur qui ne le connait pas.
+  final String? comment;
 
   static RemoteInventoryLine? fromJson(Object? raw) {
     if (raw is! Map || raw['id'] == null || raw['product_id'] == null) {
@@ -791,6 +795,7 @@ class RemoteInventoryLine {
       theoreticalQty: _entier(raw['theoretical_qty']),
       countedQty: (raw['counted_qty'] as num?)?.toInt(),
       variance: _entier(raw['variance']),
+      comment: _texte(raw['comment']),
     );
   }
 }

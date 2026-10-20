@@ -122,7 +122,8 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Ravitailler Bar'), findsOneWidget);
     expect(find.text('Depuis'), findsOneWidget);
-    expect(find.text('Demander le ravitaillement'), findsOneWidget);
+    // Le bouton dit le geste, comme au comptoir (18 octobre).
+    expect(find.widgetWithText(FilledButton, 'Ravitailler'), findsOneWidget);
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());

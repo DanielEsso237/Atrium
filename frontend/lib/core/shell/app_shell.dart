@@ -44,6 +44,7 @@ import '../theme_mode.dart';
 import '../tokens.dart';
 import '../ui/atrium_ui.dart';
 import '../../features/alerts/alert_banner.dart';
+import '../../features/reports/rapports_modules.dart' show ModuleRapport;
 import '../widgets/module_scaffold.dart' show PendingWritesBadge;
 
 /// Les familles du menu, dans l'ordre ou un hotel se lit : d'abord la vue
@@ -118,7 +119,6 @@ class Destination {
   /// Le nom sous l'icone du rail, ou la place manque.
   String get court => switch (label) {
     'Caisse du jour' => 'Caisse',
-    'Mouvements' => 'Mouvts',
     'Administration' => 'Admin',
     _ => label,
   };
@@ -164,8 +164,10 @@ final destinations = <Destination>[
   ),
   // Tout ce qui entre et sort de l'hotel (demande du 16 octobre) : un clic
   // ouvre le tableau de bord des mouvements, la fleche deplie ses vues.
+  // « Réception » depuis le 18 octobre : c'est le nom du poste qui s'en
+  // sert ; la route garde son ancien nom.
   Destination(
-    'Mouvements',
+    'Réception',
     PhosphorIconsLight.arrowsLeftRight,
     PhosphorIconsFill.arrowsLeftRight,
     '/mouvements',
@@ -295,9 +297,19 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/entretien',
   ),
+  // Le menage et les pannes, dans l'ordre (18 octobre).
+  const Destination(
+    'Historique de l’entretien',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/entretien/historique',
+    'housekeeping.read|maintenance.read',
+    Groupe.services,
+    parent: '/entretien',
+  ),
   // Le tableau de bord des points de vente et des services : tout l'hotel
   // pour la direction et la reception, le sien pour l'agent d'un comptoir.
-  // Comme Mouvements et Entretien (16 octobre) : un clic ouvre ce tableau de
+  // Comme Réception et Entretien (16 octobre) : un clic ouvre ce tableau de
   // bord, la fleche deplie les points de vente et les services.
   const Destination(
     'Ventes',
@@ -327,6 +339,16 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/ventes',
   ),
+  // Tout ce qui s'est vendu, et ce qu'est devenu l'argent (18 octobre).
+  const Destination(
+    'Historique des ventes',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/ventes/historique',
+    'order.read',
+    Groupe.services,
+    parent: '/ventes',
+  ),
   // L'economat et le stock de chaque point de vente. L'icone pleine est la
   // meme : la police Phosphor Fill n'a pas d'archive distincte listee ici.
   const Destination(
@@ -336,6 +358,17 @@ final destinations = <Destination>[
     '/stocks',
     'stock.read',
     Groupe.services,
+  ),
+  // La liste produit par produit, sous le tableau de bord des stocks (18
+  // octobre).
+  const Destination(
+    'État des stocks',
+    PhosphorIconsLight.list,
+    PhosphorIconsLight.list,
+    '/stocks/etat',
+    'stock.read',
+    Groupe.services,
+    parent: '/stocks',
   ),
   // Compter un magasin et realigner son stock (15 octobre) : deplie sous
   // Stocks (16 octobre).
@@ -348,7 +381,17 @@ final destinations = <Destination>[
     Groupe.services,
     parent: '/stocks',
   ),
-  // L'argent sous un meme toit (16 octobre), comme Mouvements et
+  // Tout ce qui est entre, sorti, transfere ou perdu (18 octobre).
+  const Destination(
+    'Historique des stocks',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/stocks/historique',
+    'stock.read',
+    Groupe.services,
+    parent: '/stocks',
+  ),
+  // L'argent sous un meme toit (16 octobre), comme Réception et
   // Entretien : un clic ouvre ses tuiles, la fleche deplie ses ecrans.
   // Sans chiffre en bout de ligne : le comptoir l'ouvre aussi, et n'a pas a
   // lire la recette de l'hotel. Caisse du jour garde la sienne.
@@ -433,6 +476,16 @@ final destinations = <Destination>[
     Groupe.finances,
     parent: '/finances',
   ),
+  // Tout l'argent qui entre et sort, dans l'ordre (18 octobre).
+  const Destination(
+    'Historique des finances',
+    PhosphorIconsLight.clockCounterClockwise,
+    PhosphorIconsFill.clockCounterClockwise,
+    '/finances/historique',
+    'folio.read|accounting.read',
+    Groupe.finances,
+    parent: '/finances',
+  ),
   // La liste du personnel et ce que chacun genere (15 octobre).
   const Destination(
     'Personnel',
@@ -458,15 +511,15 @@ final destinations = <Destination>[
 const _parents = {'/mouvements', '/entretien', '/finances'};
 
 /// Les parents dont l'ecran est un tableau de bord : le menu du rail l'appelle
-/// ainsi. Stocks garde son nom.
-const _tableauxDeBord = {..._parents, '/ventes'};
+/// ainsi. Stocks aussi depuis le 18 octobre.
+const _tableauxDeBord = {..._parents, '/ventes', '/stocks'};
 
 /// Les entrees permises a cet agent, dans l'ordre du menu.
 List<Destination> destinationsPour(SessionState session) {
   final accueil = session.acces.homeRoute;
   final ecranUnique = accueil != null && accueil != '/';
   final permises = [
-    for (final d in destinations)
+    for (final d in _avecRapports(destinations))
       if ((d.permission == null || session.acces.peutUnDe(d.permission!)) &&
           (d.aussi == null || session.acces.peut(d.aussi!)) &&
           (d.sauf == null || !session.acces.peut(d.sauf!)) &&
@@ -481,7 +534,10 @@ List<Destination> destinationsPour(SessionState session) {
           !(ecranUnique &&
               (d.route == '/' ||
                   d.route == '/statistiques' ||
-                  _parents.contains(d.route))))
+                  _parents.contains(d.route))) &&
+          // L'historique de l'entretien range le travail de toute l'equipe :
+          // la femme de chambre garde son seul ecran (18 octobre).
+          !(ecranUnique && d.route == '/entretien/historique'))
         d,
   ];
   // Une sous-entree dont le parent manque remonte au premier niveau : sans
@@ -489,10 +545,12 @@ List<Destination> destinationsPour(SessionState session) {
   final presents = {for (final d in permises) d.route};
   return [
     for (final d in permises)
-      if (d.parent != null && !presents.contains(d.parent))
-        d.sansParent()
-      else
-        d,
+      if (d.parent == null || presents.contains(d.parent))
+        d
+      // Un rapport ne remonte pas seul : sans son onglet, il n'y a pas de
+      // module a rapporter (la femme de chambre garde son seul ecran).
+      else if (!ModuleRapport.values.any((m) => m.route == d.route))
+        d.sansParent(),
   ];
 }
 
@@ -725,7 +783,7 @@ class _Barre extends StatefulWidget {
 }
 
 class _BarreState extends State<_Barre> {
-  /// Les parents (Mouvements, Entretien) deplies.
+  /// Les parents (Réception, Entretien) deplies.
   final _ouverts = <String>{};
 
   /// Les entrees a liste de points de vente qui sont depliees.
@@ -1373,7 +1431,7 @@ class _EntreeRail extends StatelessWidget {
   }
 }
 
-/// Dans le rail et sur telephone, un parent (Mouvements, Entretien) ouvre
+/// Dans le rail et sur telephone, un parent (Réception, Entretien) ouvre
 /// un menu : son tableau de bord, puis ses vues, avec les memes droits et
 /// filtres que le panneau etendu.
 void _choisirVue(
@@ -1806,3 +1864,32 @@ abstract final class _Nav {
       sombre ? Colors.white : AtriumPalette.current.primary;
   static Color get iconePastille => surPastille;
 }
+
+/// Les entrees « Rapport » des modules (F3.3, 19 octobre), chacune en
+/// derniere vue de son onglet : Réservations, Ventes, Stocks, Entretien.
+/// Ajoutees ici plutot que dans la liste : leur place suit les vues que
+/// chaque onglet range, quelles qu'elles soient.
+List<Destination> _avecRapports(List<Destination> liste) {
+  final resultat = [...liste];
+  for (final m in ModuleRapport.values) {
+    final parent = resultat.where((d) => d.route == m.parent).firstOrNull;
+    if (parent == null) continue;
+    final dernier = resultat.lastIndexWhere(
+      (d) => d.route == m.parent || d.parent == m.parent,
+    );
+    resultat.insert(
+      dernier + 1,
+      Destination(
+        m.titre,
+        m.icone,
+        m.icone,
+        m.route,
+        m.permission,
+        parent.groupe,
+        parent: m.parent,
+      ),
+    );
+  }
+  return resultat;
+}
+

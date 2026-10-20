@@ -1,15 +1,16 @@
 /// Entrer ou transférer plusieurs produits d'un coup, en plein ecran
 /// (demande du 15 octobre).
 ///
-/// Comme la fiche de vente du point de vente : a gauche, ce qui est deja
-/// choisi ; a droite, la liste des produits avec leur stock et leur prix
-/// d'achat. En portrait, tout s'empile.
+/// Comme la fiche de vente du point de vente, a l'identique depuis le 18
+/// octobre : a gauche, ce qui est deja choisi, une ligne par produit ; a
+/// droite, la liste des produits et leur stock, de la meme largeur que la
+/// carte du comptoir. En portrait, tout s'empile.
 ///
 /// **La quantite se tape, elle ne se clique pas.** Toucher un produit
 /// l'ajoute et met le curseur dans sa quantite, deja selectionnee, clavier
-/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Des
-/// boutons +6, +12, +24 suivent les colis ; − et + ajustent d'une unite.
-/// Toucher un produit deja choisi ramene a sa ligne, sans doublon.
+/// numerique ouvert : cent bouteilles, c'est `100`, pas cent touches. Les
+/// boutons - et + ajustent d'une unite. Toucher un produit deja choisi
+/// ramene a sa ligne, sans doublon.
 ///
 /// Chaque ligne part comme un mouvement a part : une entree, ou une demande
 /// de transfert qui attend sa validation, comme avant.
@@ -29,6 +30,7 @@ import '../../core/widgets/fiche_laterale.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/stock_repository.dart';
 import '../auth/session.dart';
+import '../orders/tableau_carte.dart' show largeurCarteFiche;
 
 /// Ouvre l'ecran ; rend `true` si quelque chose a ete enregistre.
 ///
@@ -244,6 +246,9 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
         : 'Transfert depuis ${widget.magasin.label}';
     final unites = _lignes.fold(0, (n, l) => n + l.q);
     final valeur = _lignes.fold(0, (n, l) => n + l.q * l.pu);
+    final produitsChoisis =
+        '${_lignes.length} produit${_lignes.length > 1 ? 's' : ''}';
+    String enUnites(int n) => '$n unité${n > 1 ? 's' : ''}';
 
     return FicheSurface(
       panneau: widget.plein,
@@ -264,58 +269,73 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
             valeur: '${_lignes.length}',
             legendeValeur: 'produit${_lignes.length > 1 ? 's' : ''}',
           ),
+          // La liste a la largeur de la carte du comptoir : la saisie, a
+          // gauche, prend le reste.
+          largeurCarte: largeurCarteFiche,
           contenu: ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             children: [
-              if (!widget.entree) ...[
-                DropdownButtonFormField<StockPlace>(
-                  initialValue: _autre,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: widget.ravitaillement ? 'Depuis' : 'Vers',
-                  ),
-                  items: [
-                    for (final m in widget.autres)
-                      DropdownMenuItem(value: m, child: Text(m.label)),
+              FicheCarte(
+                titre: widget.entree
+                    ? 'Livraison'
+                    : widget.ravitaillement
+                    ? 'Ravitaillement'
+                    : 'Transfert',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!widget.entree) ...[
+                      DropdownButtonFormField<StockPlace>(
+                        initialValue: _autre,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: widget.ravitaillement
+                              ? 'Depuis'
+                              : 'Vers',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                        ),
+                        hint: const Text('Choisir le magasin'),
+                        items: [
+                          for (final m in widget.autres)
+                            DropdownMenuItem(value: m, child: Text(m.label)),
+                        ],
+                        onChanged: (m) => setState(() => _autre = m),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
+                    if (_lignes.isEmpty)
+                      _AucuneLigne(plein: widget.plein),
+                    for (final (i, l) in _lignes.indexed) ...[
+                      if (i > 0) ...[
+                        const SizedBox(height: 12),
+                        Divider(height: 1, color: AtriumDashColors.cardBorder),
+                        const SizedBox(height: 12),
+                      ],
+                      _LigneSaisie(
+                        key: ObjectKey(l),
+                        ligne: l,
+                        numero: _lignes.length > 1 ? i + 1 : null,
+                        entree: widget.entree,
+                        disponible: enStock[l.produit.id] ?? 0,
+                        depart: depart?.label,
+                        onChange: () => setState(() {}),
+                        onRetirer: () => _retirer(l),
+                      ),
+                    ],
                   ],
-                  onChanged: (m) => setState(() => _autre = m),
                 ),
-                const SizedBox(height: 16),
-              ],
-              if (_lignes.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text(
-                    widget.plein
-                        ? 'Touchez un produit dans la liste pour l’ajouter.'
-                        : 'Touchez un produit dans la liste ci-dessous.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AtriumPalette.current.textSecondary,
-                    ),
+              ),
+              const SizedBox(height: 16),
+              FicheCarte(
+                titre: widget.entree ? 'Bon de livraison' : 'Motif',
+                child: TextField(
+                  controller: _motif,
+                  maxLength: 255,
+                  decoration: InputDecoration(
+                    labelText: widget.entree
+                        ? 'Fournisseur, numéro du bon (facultatif)'
+                        : 'Pourquoi ce transfert (facultatif)',
                   ),
-                ),
-              for (final l in _lignes) ...[
-                _CarteLigne(
-                  key: ObjectKey(l),
-                  ligne: l,
-                  entree: widget.entree,
-                  disponible: widget.entree ? null : enStock[l.produit.id] ?? 0,
-                  depart: depart?.label,
-                  onChange: () => setState(() {}),
-                  onRetirer: () => _retirer(l),
-                ),
-                const SizedBox(height: 12),
-              ],
-              const SizedBox(height: 4),
-              TextField(
-                controller: _motif,
-                maxLength: 255,
-                decoration: InputDecoration(
-                  labelText: widget.entree
-                      ? 'Fournisseur, bon de livraison (facultatif)'
-                      : 'Motif (facultatif)',
                 ),
               ),
             ],
@@ -329,15 +349,16 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
             onChoisi: _choisir,
           ),
           barre: _Barre(
-            resume: [
-              '${_lignes.length} produit${_lignes.length > 1 ? 's' : ''}',
-              '$unites unité${unites > 1 ? 's' : ''}',
-              if (widget.entree && valeur > 0) formatAmount(valeur),
-            ].join(' · '),
+            resume: widget.entree
+                ? 'À entrer, $produitsChoisis, ${enUnites(unites)}'
+                : 'À transférer, $produitsChoisis',
+            // Une livraison se lit en argent ; un transfert, en unites.
+            nombre: widget.entree && valeur > 0 ? valeur : unites,
+            format: widget.entree && valeur > 0 ? formatAmount : enUnites,
             libelle: widget.entree
                 ? 'Enregistrer l’entrée'
                 : widget.ravitaillement
-                ? 'Demander le ravitaillement'
+                ? 'Ravitailler'
                 : 'Demander le transfert',
             onValider: _pret ? _valider : null,
           ),
@@ -347,60 +368,203 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
   }
 }
 
-/// Une ligne choisie : la quantite a taper, les colis, le prix d'achat.
-class _CarteLigne extends StatelessWidget {
-  const _CarteLigne({
+/// Rien de choisi encore : ou toucher.
+class _AucuneLigne extends StatelessWidget {
+  const _AucuneLigne({required this.plein});
+
+  final bool plein;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      decoration: BoxDecoration(
+        color: p.accentTint,
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
+      ),
+      child: Row(
+        children: [
+          Icon(PhosphorIconsLight.package, size: 24, color: p.accent),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              plein
+                  ? 'Touchez un produit dans la liste à droite pour l’ajouter.'
+                  : 'Touchez un produit dans la liste ci-dessous.',
+              style: TextStyle(fontSize: 15, color: p.text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Une ligne choisie, comme une ligne de commande au comptoir : le produit,
+/// son prix d'achat, sa quantite. Dessous, le stock du magasin.
+class _LigneSaisie extends StatelessWidget {
+  const _LigneSaisie({
     super.key,
     required this.ligne,
     required this.entree,
+    required this.disponible,
     required this.onChange,
     required this.onRetirer,
-    this.disponible,
+    this.numero,
     this.depart,
   });
 
   final _Ligne ligne;
+
+  /// Son rang, quand il y en a plusieurs : « Produit 2 ».
+  final int? numero;
   final bool entree;
+
+  /// Ce qu'a le magasin dont on montre le stock.
+  final int disponible;
+  final String? depart;
   final VoidCallback onChange;
   final VoidCallback onRetirer;
-
-  /// Pour un transfert : ce qu'a le magasin de depart.
-  final int? disponible;
-  final String? depart;
 
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
     final l = ligne;
-    final manque = disponible != null && l.q > disponible!;
+    // Seul un transfert retire du stock : une livraison ne manque de rien.
+    final manque = !entree && l.q > disponible;
+
+    final produit = InputDecorator(
+      isEmpty: false,
+      decoration: InputDecoration(
+        labelText: numero == null ? 'Produit' : 'Produit $numero',
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+      ),
+      child: Text(
+        l.produit.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
+    final prix = SizedBox(
+      width: 130,
+      child: TextField(
+        controller: l.prix,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (_) => onChange(),
+        decoration: const InputDecoration(
+          labelText: 'Prix d’achat',
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+        ),
+      ),
+    );
+    final retirer = IconButton(
+      tooltip: 'Retirer ${l.produit.label}',
+      icon: const Icon(PhosphorIconsLight.x, size: 20),
+      onPressed: onRetirer,
+    );
+    final reglages = [
+      if (entree) ...[prix, const SizedBox(width: 8)],
+      _Quantite(ligne: l, onChange: onChange),
+      retirer,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, zone) => zone.maxWidth >= 560
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: produit),
+                    const SizedBox(width: 8),
+                    ...reglages,
+                  ],
+                )
+              // Etroit : le produit sur sa ligne, les reglages dessous.
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    produit,
+                    const SizedBox(height: 10),
+                    Row(children: reglages),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (depart != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  manque
+                      ? '$depart n’en a que $disponible : son stock passera '
+                            'sous zéro si le transfert est validé.'
+                      : '$depart en a $disponible.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: manque ? FontWeight.w700 : FontWeight.w500,
+                    color: manque ? p.warning : p.textSecondary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// La quantite, dans le cadre de la commande du comptoir, avec un champ au
+/// milieu : elle se tape, - et + ajustent d'une unite. Le cadre s'allume
+/// quand le curseur y est -- l'oeil sait ou va la frappe.
+class _Quantite extends StatelessWidget {
+  const _Quantite({required this.ligne, required this.onChange});
+
+  final _Ligne ligne;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = ligne;
     void plus(int n) {
       l.ajouter(n);
       onChange();
     }
 
-    return FicheCarte(
-      titre: l.produit.label,
-      suffixe: IconButton(
-        tooltip: 'Retirer ${l.produit.label}',
-        visualDensity: VisualDensity.compact,
-        icon: const Icon(PhosphorIconsLight.x, size: 18),
-        onPressed: onRetirer,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+    return ListenableBuilder(
+      listenable: l.focus,
+      builder: (context, _) => SizedBox(
+        width: 168,
+        child: InputDecorator(
+          isFocused: l.focus.hasFocus,
+          isEmpty: false,
+          decoration: InputDecoration(
+            labelText: 'Quantité',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            // La hauteur des champs voisins.
+            constraints: const BoxConstraints.tightFor(height: 56),
+            contentPadding: const EdgeInsets.fromLTRB(2, 6, 6, 6),
+          ),
+          child: Row(
             children: [
-              IconButton.outlined(
+              IconButton(
                 tooltip: 'Une de moins',
+                iconSize: 22,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(PhosphorIconsLight.minusCircle),
                 onPressed: l.q > 1 ? () => plus(-1) : null,
-                icon: const Icon(PhosphorIconsLight.minus, size: 18),
               ),
-              SizedBox(
-                width: 110,
+              Expanded(
                 child: TextField(
                   controller: l.quantite,
                   focusNode: l.focus,
@@ -415,61 +579,38 @@ class _CarteLigne extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
+                    fontFeatures: tabularFigures,
                   ),
-                  decoration: InputDecoration(
-                    labelText: 'Quantité',
-                    suffixText: l.produit.unit,
+                  // Sans cadre a lui : le theme en pose un sur chaque
+                  // champ, le cadre de la quantite suffit.
+                  decoration: const InputDecoration(
+                    isCollapsed: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    hintText: '0',
                   ),
                 ),
               ),
-              IconButton.outlined(
+              IconButton(
                 tooltip: 'Une de plus',
+                iconSize: 22,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(PhosphorIconsLight.plusCircle),
                 onPressed: () => plus(1),
-                icon: const Icon(PhosphorIconsLight.plus, size: 18),
               ),
-              // Les colis : un carton de 6, 12 ou 24 d'un geste.
-              for (final n in const [6, 12, 24])
-                ActionChip(label: Text('+$n'), onPressed: () => plus(n)),
             ],
           ),
-          if (entree) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 220,
-              child: TextField(
-                controller: l.prix,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => onChange(),
-                decoration: const InputDecoration(
-                  labelText: 'Prix d’achat unitaire',
-                  suffixText: 'FCFA',
-                ),
-              ),
-            ),
-          ],
-          if (disponible != null && depart != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              manque
-                  ? '$depart n’en a que $disponible : son stock passera sous '
-                        'zéro si le transfert est validé.'
-                  : '$depart en a $disponible.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: manque ? FontWeight.w700 : FontWeight.w500,
-                color: manque ? p.warning : p.textSecondary,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
-/// La liste des produits : nom, stock du magasin de depart, prix d'achat,
-/// et une recherche.
+/// La liste des produits, comme la carte du comptoir : le nom, le stock du
+/// magasin de depart, et une recherche. Le prix d'achat passe sous le nom :
+/// la colonne prenait la place de la saisie.
 class _ListeProduits extends StatefulWidget {
   const _ListeProduits({
     required this.produits,
@@ -538,15 +679,7 @@ class _ListeProduitsState extends State<_ListeProduits> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-                SizedBox(
-                  width: 120,
-                  child: Text(
-                    'Prix d’achat',
-                    style: entete,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                const SizedBox(width: 56),
+                const SizedBox(width: 44),
               ],
             ),
           ),
@@ -568,91 +701,12 @@ class _ListeProduitsState extends State<_ListeProduits> {
                         Divider(height: 1, color: p.border),
                     itemBuilder: (_, i) {
                       final x = produits[i];
-                      final stock = widget.enStock[x.id];
-                      final choisi = widget.choisis[x.id];
-                      return InkWell(
+                      return _LigneProduit(
+                        produit: x,
+                        stock: widget.enStock[x.id] ?? 0,
+                        prix: widget.entree ? x.purchasePrice : 0,
+                        choisi: widget.choisis[x.id] ?? 0,
                         onTap: () => widget.onChoisi(x),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 56),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        x.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: p.text,
-                                        ),
-                                      ),
-                                      Text(
-                                        x.unit,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: p.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    stock == null ? '0' : '$stock',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: (stock ?? 0) <= 0
-                                          ? p.error
-                                          : p.text,
-                                      fontFeatures: tabularFigures,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 120,
-                                  child: Text(
-                                    x.purchasePrice > 0
-                                        ? formatAmount(x.purchasePrice)
-                                        : '—',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: p.text,
-                                      fontFeatures: tabularFigures,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 56,
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: choisi == null
-                                        ? Icon(
-                                            PhosphorIconsLight.plus,
-                                            size: 18,
-                                            color: p.textSecondary,
-                                          )
-                                        : Tag('$choisi', color: p.accent),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       );
                     },
                   ),
@@ -663,21 +717,149 @@ class _ListeProduitsState extends State<_ListeProduits> {
   }
 }
 
-/// En bas : le resume et le bouton qui enregistre tout.
+/// Une ligne de la liste, comme un article de la carte du comptoir.
+class _LigneProduit extends StatelessWidget {
+  const _LigneProduit({
+    required this.produit,
+    required this.stock,
+    required this.prix,
+    required this.choisi,
+    required this.onTap,
+  });
+
+  final StockProduct produit;
+  final int stock;
+
+  /// Le prix d'achat, sous le nom ; 0 : on ne l'affiche pas.
+  final int prix;
+
+  /// La quantite deja choisie ; 0 : pas encore dans la saisie.
+  final int choisi;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AtriumPalette.current;
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      produit.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: p.text,
+                      ),
+                    ),
+                    Text(
+                      prix > 0
+                          ? '${produit.unit}, ${formatAmount(prix)} à l’achat'
+                          : produit.unit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: p.textSecondary,
+                        fontFeatures: tabularFigures,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // A zero ou dessous, en rouge : un transfert le ferait passer
+              // sous zero.
+              SizedBox(
+                width: 90,
+                child: Text(
+                  '$stock',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: stock <= 0 ? p.error : p.text,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: choisi > 0
+                      ? Container(
+                          constraints: const BoxConstraints(minWidth: 26),
+                          height: 26,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: p.accent,
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Text(
+                            '$choisi',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: p.onAccent,
+                              fontFeatures: tabularFigures,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          PhosphorIconsLight.plus,
+                          size: 18,
+                          color: p.textSecondary,
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// En bas, comme au comptoir : ce qui part et son total, qui glisse d'une
+/// valeur a l'autre ; puis Annuler et le bouton qui enregistre tout.
 class _Barre extends StatelessWidget {
   const _Barre({
     required this.resume,
+    required this.nombre,
+    required this.format,
     required this.libelle,
     required this.onValider,
   });
 
   final String resume;
+  final int nombre;
+  final String Function(int) format;
   final String libelle;
   final VoidCallback? onValider;
 
   @override
   Widget build(BuildContext context) {
-    final p = AtriumPalette.current;
+    final forme = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AtriumRadii.md),
+    );
+    const texteBouton = TextStyle(
+      fontFamily: atriumFontFamily,
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+    );
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -689,24 +871,84 @@ class _Barre extends StatelessWidget {
         color: AtriumDashColors.card,
         border: Border(top: BorderSide(color: AtriumDashColors.cardBorder)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Text(
-              resume,
-              style: TextStyle(
-                fontFamily: atriumFontFamily,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: p.text,
-                fontFeatures: tabularFigures,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: Text(
+                  resume,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AtriumColors.textSecondary,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: nombre.toDouble()),
+                duration: AtriumMotion.of(
+                  context,
+                  const Duration(milliseconds: 280),
+                ),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => Text(
+                  format(v.round()),
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: AtriumDashColors.title,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ),
+            ],
           ),
-          FilledButton.icon(
-            onPressed: onValider,
-            icon: const Icon(PhosphorIconsLight.check),
-            label: Text(libelle),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 54),
+                    foregroundColor: AtriumDashColors.title,
+                    side: BorderSide(color: AtriumDashColors.cardBorder),
+                    shape: forme,
+                    textStyle: texteBouton,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 54),
+                    backgroundColor: AtriumColors.mintSoft,
+                    foregroundColor: AtriumColors.ink,
+                    shape: forme,
+                    textStyle: texteBouton,
+                  ),
+                  onPressed: onValider,
+                  icon: const Icon(PhosphorIconsLight.check),
+                  label: Text(
+                    libelle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

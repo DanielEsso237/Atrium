@@ -6,6 +6,7 @@
 library;
 
 import 'package:atrium/data/local/database.dart';
+import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/outbox_sender.dart';
@@ -99,6 +100,30 @@ void main() {
     // L'horaire de fermeture retire l'est aussi sur le serveur.
     expect(corps.containsKey('closes_at'), isTrue);
     expect(corps['closes_at'], isNull);
+  });
+
+  // Le 20 octobre : une piscine creee comme point de vente au lieu d'un
+  // service ne se rattrapait pas, le genre ne se choisissait qu'a la creation.
+  test('un point de vente cree par erreur devient un service', () async {
+    final piscine = await points.create(label: 'Piscine');
+    expect(piscine.kind, OutletKind.OUTLET);
+
+    final corrige = await points.update(
+      id: piscine.id,
+      code: piscine.code,
+      label: 'Piscine',
+      allowsRoomCharge: true,
+      sortOrder: piscine.sortOrder,
+      isActive: true,
+      kind: OutletKind.SERVICE,
+    );
+    expect(corrige.kind, OutletKind.SERVICE);
+
+    final api = _FauxApi();
+    await OutboxSender(db: db, api: api).drain();
+    final (methode, chemin, corps) = api.appels.last;
+    expect((methode, chemin), ('PATCH', '/outlets/${piscine.id}'));
+    expect(corps['kind'], 'SERVICE');
   });
 
   test("le Restaurant par defaut ne se desactive pas et garde son code",

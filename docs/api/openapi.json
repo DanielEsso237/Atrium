@@ -3253,8 +3253,21 @@
         "type": "object"
       },
       "InventoryCountIn": {
-        "description": "Ce qui a ete compte ; `null` efface le comptage.",
+        "description": "Ce qui a ete compte, et pourquoi l'ecart.\n\nSeuls les champs envoyes changent (meme regle que `PATCH /guests`) :\nabsent, un champ reste tel quel ; `null`, il s'efface. Le motif ne\ns'efface donc pas quand la tablette renvoie un simple comptage.",
         "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le motif de l'ecart ; null l'efface",
+            "title": "Comment"
+          },
           "counted_qty": {
             "anyOf": [
               {
@@ -3331,6 +3344,17 @@
       },
       "InventoryLineOut": {
         "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
           "counted_qty": {
             "anyOf": [
               {
@@ -3366,7 +3390,8 @@
           "product_id",
           "theoretical_qty",
           "counted_qty",
-          "variance"
+          "variance",
+          "comment"
         ],
         "title": "InventoryLineOut",
         "type": "object"
@@ -7895,6 +7920,23 @@
           "reason"
         ],
         "title": "RoomOrderCancelIn",
+        "type": "object"
+      },
+      "RoomOrderDeliverIn": {
+        "properties": {
+          "payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le client paie maintenant : le total, dans le tiroir de celui qui livre"
+          }
+        },
+        "title": "RoomOrderDeliverIn",
         "type": "object"
       },
       "RoomOrderIn": {
@@ -12889,7 +12931,7 @@
     },
     "/api/v1/inventories/{inventory_id}/lines/{product_id}": {
       "put": {
-        "description": "Ce qui a ete compte pour un article ; `null` efface le comptage.",
+        "description": "Ce qui a ete compte pour un article, et le motif de l'ecart.\n\nSeuls les champs envoyes changent : `counted_qty` ou `comment` absent\nreste tel quel, `null` l'efface.",
         "operationId": "count_line_api_v1_inventories__inventory_id__lines__product_id__put",
         "parameters": [
           {
@@ -16586,7 +16628,7 @@
     },
     "/api/v1/room-orders/{order_id}/deliver": {
       "post": {
-        "description": "Le plateau est monte : chaque ligne passe sur l'ardoise du sejour.\n\nLa ligne d'ardoise prend l'id de la ligne de commande : la tablette qui\nlivre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte\nle point de vente (`source_table = 'outlets'`) : son chiffre, son stock.",
+        "description": "Le plateau est monte : chaque ligne passe sur l'ardoise du sejour.\n\nLa ligne d'ardoise prend l'id de la ligne de commande : la tablette qui\nlivre hors ligne ecrit la meme, et rien ne se double au renvoi. Elle porte\nle point de vente (`source_table = 'outlets'`) : son chiffre, son stock.\n\nAvec `payment`, le client paie a la livraison : le total de la commande,\ndans le tiroir de celui qui livre. Les lignes passent quand meme sur\nl'ardoise -- la facture du sejour les montre --, et le paiement les\nsolde : le client ne doit rien de plus.",
         "operationId": "deliver_room_order_api_v1_room_orders__order_id__deliver_post",
         "parameters": [
           {
@@ -16600,6 +16642,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RoomOrderDeliverIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

@@ -1,5 +1,5 @@
-/// Le tableau de bord des finances (16 octobre) : une tuile par ecran,
-/// chacune a qui peut l'ouvrir.
+/// Le tableau de bord des finances (16 octobre, refait le 18) : l'argent de
+/// l'hotel pour la direction, sa caisse et ses factures pour le comptoir.
 library;
 
 import 'package:atrium/core/theme.dart';
@@ -92,19 +92,20 @@ void main() {
   }
 
   for (final taille in [const Size(1280, 800), const Size(400, 900)]) {
-    testWidgets('la direction voit toutes les tuiles (${taille.width} px)', (
+    testWidgets('la direction voit le tableau de bord (${taille.width} px)', (
       tester,
     ) async {
       await ouvrir(tester, taille: taille);
       expect(tester.takeException(), isNull);
-      // La premiere tuile, avant de faire defiler : rien d'encaisse encore.
-      expect(find.text('Rien d’encaissé aujourd’hui.'), findsOneWidget);
+      // Le chiffre qui compte, en tete : le chiffre d'affaires du mois.
+      expect(find.text('Chiffre d’affaires, ce mois'), findsOneWidget);
       for (final titre in [
-        'Caisse du jour',
-        'Factures',
-        'Dépenses',
-        'Comptabilité',
-        'Rapports',
+        'Par moyen de paiement',
+        'Du chiffre d’affaires au bénéfice',
+        'Dépenses par rubrique',
+        'Caisses',
+        'À encaisser',
+        'Derniers mouvements d’argent',
       ]) {
         await tester.scrollUntilVisible(
           find.text(titre),
@@ -113,7 +114,7 @@ void main() {
         );
         expect(find.text(titre), findsOneWidget, reason: titre);
       }
-      // La caisse de l'hotel : pas celle du comptoir.
+      // L'argent de l'hotel : pas la caisse du comptoir.
       expect(find.text('Ma caisse'), findsNothing);
       expect(tester.takeException(), isNull);
       await fermer(tester);
@@ -133,10 +134,12 @@ void main() {
     expect(find.text('Mes factures'), findsOneWidget);
     expect(find.text('Aucune caisse ouverte.'), findsOneWidget);
     for (final cache in [
+      'Chiffre d’affaires, ce mois',
       'Caisse du jour',
       'Dépenses',
       'Comptabilité',
       'Rapports',
+      'Historique',
     ]) {
       expect(find.text(cache), findsNothing, reason: cache);
     }
@@ -161,10 +164,9 @@ void main() {
       },
     );
     expect(tester.takeException(), isNull);
-    expect(
-      find.text('${formatAmount(12000)} dépensés ce mois-ci.'),
-      findsOneWidget,
-    );
+    // Le bandeau et les rubriques ne comptent que la depense gardee.
+    expect(find.text(formatAmount(12000)), findsWidgets);
+    expect(find.text(formatAmount(62000)), findsNothing);
     await fermer(tester);
   });
 }

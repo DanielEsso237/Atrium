@@ -35,7 +35,7 @@ class OutletsSection extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 6),
           child: Row(
             children: [
-              const Expanded(child: Eyebrow('Points de vente')),
+              const Expanded(child: Eyebrow('Points de vente et services')),
               PillButton(
                 label: 'Nouveau point de vente',
                 icon: PhosphorIconsLight.plus,
@@ -256,6 +256,7 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
           allowsRoomCharge: _chambre,
           sortOrder: existant.sortOrder,
           isActive: _actif,
+          kind: _genre,
         );
       }
     } on StateError catch (e) {
@@ -281,7 +282,13 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
 
     return AlertDialog(
       icon: const Icon(PhosphorIconsLight.storefront, size: 30),
-      title: Text(creation ? 'Nouveau point de vente' : 'Point de vente'),
+      title: Text(
+        creation
+            ? 'Nouveau point de vente'
+            : _genre == OutletKind.SERVICE
+            ? 'Service'
+            : 'Point de vente',
+      ),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -289,9 +296,11 @@ class _OutletDialogState extends ConsumerState<_OutletDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Le genre se choisit a la creation : il range l'onglet dans
-              // l'ecran Points de vente ou Services.
-              if (creation) ...[
+              // Le genre range l'onglet dans l'ecran Points de vente ou
+              // Services. Il se corrige apres coup : une piscine creee comme
+              // point de vente ne se rattrapait pas. Sauf pour ceux d'office,
+              // que la caisse centrale et la carte retrouvent tels quels.
+              if (!parDefaut) ...[
                 SegmentedButton<OutletKind>(
                   segments: const [
                     ButtonSegment(

@@ -658,7 +658,12 @@ class OutboxSender {
           }),
           'COUNT' => _Envoi(
             '/inventories/$id/lines/${p['product_id']}',
-            {'counted_qty': p['counted_qty']},
+            {
+              'counted_qty': p['counted_qty'],
+              // Le motif de l'ecart ; une entree d'avant le 18 octobre n'en
+              // a pas.
+              if (p.containsKey('comment')) 'comment': p['comment'],
+            },
             methode: _Methode.put,
           ),
           'REBALANCE' => _Envoi('/inventories/$id/rebalance', {
@@ -689,7 +694,11 @@ class OutboxSender {
             }),
           ),
           'ACCEPT' => _Envoi('/room-orders/$id/accept', const {}),
-          'DELIVER' => _Envoi('/room-orders/$id/deliver', const {}),
+          // Le client a paye devant le plateau : le paiement part avec la
+          // livraison, le serveur l'ecrit dans le tiroir de celui qui livre.
+          'DELIVER' => _Envoi('/room-orders/$id/deliver', {
+            if (p['payment'] != null) 'payment': p['payment'],
+          }),
           'CANCEL' => _Envoi('/room-orders/$id/cancel', {
             'reason': p['reason'],
           }),
@@ -784,6 +793,9 @@ class OutboxSender {
             'allows_room_charge': p['allows_room_charge'],
             'sort_order': p['sort_order'],
             'is_active': p['is_active'],
+            // Une entree d'avant le correctif n'en porte pas : le serveur
+            // ignore un genre nul.
+            'kind': p['kind'],
           },
           methode: _Methode.patch,
         );

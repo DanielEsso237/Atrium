@@ -414,17 +414,26 @@ class RoomOrderRepository with OutboxWriter {
   /// l'agent qui livre sans **son** tiroir ouvert sur ce point de vente, une
   /// ardoise close. Le plafond ne se revérifie pas : c'est a la commande que
   /// quelqu'un pouvait encore dire non.
-  Future<void> livrer({required String orderId, required String by}) async {
+  ///
+  /// `payeMaintenant` : le client paie devant le plateau plutot que de
+  /// laisser sur l'ardoise (decision du client, 18 octobre). Le total de la
+  /// commande tombe dans le tiroir de celui qui livre, sur l'ardoise du
+  /// sejour : les lignes y sont, et le paiement les solde.
+  Future<void> livrer({
+    required String orderId,
+    required String by,
+    PaymentMethod? payeMaintenant,
+  }) async {
     final commande = await _commande(orderId);
     await _verifierRattachement(by, commande.outletId);
     if (commande.status == OrderStatus.SERVED) return;
     if (!enCours.contains(commande.status)) {
       throw StateError('Cette commande a été annulée.');
     }
-    if (await CashRepository(
-          db,
-        ).openSessionId(by, outletId: commande.outletId) ==
-        null) {
+    final caisse = await CashRepository(
+      db,
+    ).openSessionId(by, outletId: commande.outletId);
+    if (caisse == null) {
       throw StateError(
         'Ouvrez la caisse du point de vente avant de livrer : il est fermé.',
       );
@@ -444,12 +453,25 @@ class RoomOrderRepository with OutboxWriter {
     )..where((i) => i.orderId.equals(orderId) & i.isVoid.equals(false))).get();
     final now = DateTime.now().toUtc();
     final journee = commande.businessDate ?? businessDateNow();
+    // Le paiement couvre la commande, ni plus ni moins, comme le serveur
+    // l'exige : la monnaie rendue n'est pas une ligne d'ardoise.
+    final aPayer = lignes.fold(0, (s, l) => s + l.amount);
+    final paiementId = payeMaintenant == null ? null : newId();
 
     await writeAndEnqueue(
       table: 'orders',
       id: orderId,
       operation: SyncOp.UPDATE,
-      payload: {'action': 'DELIVER', 'id': orderId},
+      payload: {
+        'action': 'DELIVER',
+        'id': orderId,
+        if (payeMaintenant != null)
+          'payment': {
+            'id': paiementId,
+            'method': payeMaintenant.name,
+            'amount': aPayer,
+          },
+      },
       action: () async {
         for (final l in lignes) {
           await db
@@ -488,6 +510,27 @@ class RoomOrderRepository with OutboxWriter {
               by: by,
             );
           }
+        }
+        if (payeMaintenant != null) {
+          await db
+              .into(db.payments)
+              .insert(
+                PaymentsCompanion.insert(
+                  id: paiementId!,
+                  createdAt: now,
+                  updatedAt: now,
+                  hotelId: hotelId,
+                  method: payeMaintenant,
+                  amount: aPayer,
+                  folioId: Value(ardoise.id),
+                  receivedBy: Value(by),
+                  cashSessionId: Value(caisse),
+                  receivedAt: Value(now),
+                  businessDate: Value(businessDateNow()),
+                  // Remonte avec la livraison, pas a part.
+                  syncState: const Value(SyncState.synced),
+                ),
+              );
         }
         await FolioRepository(db).recalculer(ardoise.id);
         await (db.update(db.orders)..where((o) => o.id.equals(orderId))).write(

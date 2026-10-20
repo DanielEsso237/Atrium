@@ -62,6 +62,7 @@ void main() {
       await chargerDonneesDeTest(db, agentId: admin, peut: (_) => true),
       'Les données de test sont déjà sur cette tablette. '
       'Le complément pour les rapports est déjà là. '
+      "Inventaires : aucun magasin n'a d'article en stock. "
       "L'hôtel avait déjà son logo et ses coordonnées.",
     );
     expect(await db.select(db.outboxEntries).get(), hasLength(avant));

@@ -8,6 +8,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import OrderStatus
+from app.schemas.billing import PaymentIn
 
 
 class RoomOrderLineIn(BaseModel):
@@ -29,6 +30,16 @@ class RoomOrderIn(BaseModel):
         description="Responsable (folio.override_limit) qui autorise le depassement du plafond",
     )
     items: list[RoomOrderLineIn] = Field(min_length=1)
+
+
+class RoomOrderDeliverIn(BaseModel):
+    # Le client paie a la livraison plutot que de laisser sur l'ardoise
+    # (decision du client, 18 octobre) : le total de la commande, dans le
+    # tiroir de celui qui livre. Absent, la commande reste due sur l'ardoise.
+    payment: PaymentIn | None = Field(
+        default=None,
+        description="Le client paie maintenant : le total, dans le tiroir de celui qui livre",
+    )
 
 
 class RoomOrderCancelIn(BaseModel):
