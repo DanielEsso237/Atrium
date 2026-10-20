@@ -35,6 +35,7 @@ import '../../core/widgets/atrium_puces.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/enums.dart';
 import '../../data/local/queries/rooms_queries.dart';
+import '../alerts/centre_notifications.dart';
 import '../auth/session.dart';
 import 'room_cleaning_dialog.dart';
 import 'room_detail_panel.dart';
@@ -464,7 +465,14 @@ class _Bandeau extends ConsumerWidget {
           ],
         );
 
-        final actions = BarreSynchronisation(compact: telephone);
+        final actions = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BarreSynchronisation(compact: telephone),
+            const SizedBox(width: 6),
+            const ClocheNotifications(),
+          ],
+        );
 
         return ConstrainedBox(
           constraints: BoxConstraints(minHeight: haut + 120),

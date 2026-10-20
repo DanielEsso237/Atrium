@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/repository_providers.dart';
 // L'ossature commune porte l'etat des echanges : c'est le seul endroit vu de
 // tous les modules, donc le seul ou l'indicateur soit reellement permanent.
+import '../../features/alerts/centre_notifications.dart';
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
 import '../tokens.dart';
@@ -106,6 +107,12 @@ class ModuleScaffold extends ConsumerWidget {
               ),
             ),
             if (barreEnLigne) barre,
+            // La cloche, sur chaque ecran (19 octobre) : une commande en
+            // chambre ou une chambre a faire se voit d'ou que l'on soit.
+            const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: ClocheNotifications(),
+            ),
             // Un metier a ecran unique ne passe jamais par le tableau de bord,
             // ou vit le bouton de deconnexion : sans celui-ci, la femme de
             // chambre etait prisonniere de sa liste. Sur une tablette que dix

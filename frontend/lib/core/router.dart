@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/accounting/accounting_screen.dart';
 import '../features/administration/administration_screen.dart';
+import '../features/alerts/centre_notifications.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
@@ -210,6 +211,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             AppShell(location: state.matchedLocation, child: child),
         routes: [
           GoRoute(path: '/', builder: (_, _) => const TodayScreen()),
+          // Ouvert a tous : chacun n'y voit que ce que ses droits lui
+          // laissent voir. C'est la que mene une notification touchee.
+          GoRoute(
+            path: '/notifications',
+            builder: (_, _) => const CentreNotificationsScreen(),
+          ),
           GoRoute(
             path: '/statistiques',
             builder: (_, _) => const StatsScreen(),

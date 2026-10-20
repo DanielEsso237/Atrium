@@ -25,6 +25,7 @@ import '../../core/theme.dart';
 import '../../core/tokens.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/dashboard_queries.dart';
+import '../alerts/centre_notifications.dart';
 import '../auth/session.dart';
 import '../../core/widgets/atrium_bandeau.dart';
 import '../../core/widgets/atrium_puces.dart';
@@ -50,14 +51,6 @@ final activiteDuJourProvider = StreamProvider<ActiviteHoraire>(
 
 final dernieresActivitesProvider = StreamProvider<List<Activite>>(
   (ref) => ref.watch(databaseProvider).watchDernieresActivites(limite: 30),
-);
-
-final notificationsNonLuesProvider = StreamProvider<int>(
-  (ref) => ref.watch(databaseProvider).watchNotificationsNonLues(),
-);
-
-final notificationsProvider = StreamProvider<List<NotificationResume>>(
-  (ref) => ref.watch(databaseProvider).watchNotifications(),
 );
 
 /// La periode du graphique d'occupation, en jours.
@@ -506,7 +499,7 @@ class _Bandeau extends ConsumerWidget {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _Cloche(),
+            const ClocheNotifications(),
             const SizedBox(width: AtriumSpacing.md),
             MenuCompte(
               session: session,
@@ -770,103 +763,6 @@ class _PuceDate extends StatelessWidget {
           "La journée hôtelière court jusqu'à 6 h. Les chiffres sont ceux de "
           'cette journée, pas de la date du calendrier.',
       child: puce,
-    );
-  }
-}
-
-/// La cloche : un point menthe s'il reste des notifications non lues.
-class _Cloche extends ConsumerWidget {
-  const _Cloche();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final nonLues = ref.watch(notificationsNonLuesProvider).value ?? 0;
-
-    return IconButton(
-      tooltip: nonLues == 0
-          ? 'Notifications'
-          : '$nonLues notification${nonLues > 1 ? 's' : ''} non lue'
-                '${nonLues > 1 ? 's' : ''}',
-      onPressed: () => showDialog<void>(
-        context: context,
-        builder: (_) => const _Notifications(),
-      ),
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Icon(
-            Icons.notifications_none_rounded,
-            size: 28,
-            color: AtriumDashColors.title,
-          ),
-          if (nonLues > 0)
-            Positioned(
-              right: 1,
-              top: 1,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: AtriumColors.mintStrong,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AtriumColors.onNight, width: 1.5),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Notifications extends ConsumerWidget {
-  const _Notifications();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final liste = ref.watch(notificationsProvider).value ?? const [];
-
-    return AlertDialog(
-      title: const Text('Notifications'),
-      content: SizedBox(
-        width: 420,
-        child: liste.isEmpty
-            ? Text(
-                'Aucune notification pour le moment.',
-                style: TextStyle(color: AtriumColors.textSecondary),
-              )
-            : ListView.separated(
-                shrinkWrap: true,
-                itemCount: liste.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (_, i) {
-                  final n = liste[i];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      n.titre,
-                      style: TextStyle(
-                        fontWeight: n.lue ? FontWeight.w500 : FontWeight.w700,
-                      ),
-                    ),
-                    subtitle: n.corps == null ? null : Text(n.corps!),
-                    trailing: Text(
-                      _heure(n.moment),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AtriumColors.textSecondary,
-                      ),
-                    ),
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
-        ),
-      ],
     );
   }
 }

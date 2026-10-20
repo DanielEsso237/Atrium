@@ -66,6 +66,9 @@ class CommandeChambre {
     this.commandeeA,
     this.notes,
     this.motifAnnulation,
+    this.commandeePar,
+    this.prisePar,
+    this.priseA,
   });
 
   final String id;
@@ -82,6 +85,12 @@ class CommandeChambre {
   final DateTime? commandeeA;
   final String? notes;
   final String? motifAnnulation;
+
+  /// Qui l'a passee (la reception) et qui l'a prise en charge : c'est a lui
+  /// qu'on demande ou en est le plateau.
+  final String? commandeePar;
+  final String? prisePar;
+  final DateTime? priseA;
 
   /// Commandee ou en preparation : pas encore sur l'ardoise, mais deja due.
   bool get enRoute => RoomOrderRepository.enCours.contains(statut);
@@ -626,6 +635,18 @@ class RoomOrderRepository with OutboxWriter {
     plusAnciennesDabord: true,
   );
 
+  /// Celles qu'un agent suit dans le centre de notifications : les commandes
+  /// en route vers ses points de vente s'il y est rattache, toutes sinon --
+  /// la reception suit celles qu'elle a passees.
+  Stream<List<CommandeChambre>> watchEnRoutePourAgent(String agentId) =>
+      _watch(
+        "o.status IN ('SENT','IN_PREP') AND ("
+        'NOT EXISTS (SELECT 1 FROM user_outlets x WHERE x.user_id = ?) OR '
+        'o.outlet_id IN (SELECT outlet_id FROM user_outlets WHERE user_id = ?))',
+        [Variable.withString(agentId), Variable.withString(agentId)],
+        plusAnciennesDabord: true,
+      );
+
   Stream<List<CommandeChambre>> _watch(
     String filtre,
     List<Variable> variables, {
@@ -636,13 +657,20 @@ class RoomOrderRepository with OutboxWriter {
           '''
       SELECT o.id, o.number, o.status, o.outlet_id, o.folio_id, o.total,
              o.room_id, o.opened_at, o.notes, o.cancel_reason,
+             o.taken_at,
              p.label AS point_de_vente, r.number AS chambre,
              TRIM(COALESCE(g.first_name, '') || ' ' ||
-                  COALESCE(g.last_name, '')) AS client
+                  COALESCE(g.last_name, '')) AS client,
+             TRIM(COALESCE(uc.first_name, '') || ' ' ||
+                  COALESCE(uc.last_name, '')) AS commandee_par,
+             TRIM(COALESCE(up.first_name, '') || ' ' ||
+                  COALESCE(up.last_name, '')) AS prise_par
         FROM orders o
         LEFT JOIN outlets p ON p.id = o.outlet_id
         LEFT JOIN rooms r ON r.id = o.room_id
         LEFT JOIN guests g ON g.id = o.guest_id
+        LEFT JOIN users uc ON uc.id = o.ordered_by
+        LEFT JOIN users up ON up.id = o.taken_by
        WHERE o.type = 'ROOM_SERVICE' AND o.deleted_at IS NULL AND $filtre
        ORDER BY o.opened_at ${plusAnciennesDabord ? 'ASC' : 'DESC'}, o.id
       ''',
@@ -653,6 +681,7 @@ class RoomOrderRepository with OutboxWriter {
             db.outlets,
             db.rooms,
             db.guests,
+            db.users,
           },
         )
         .watch()
@@ -683,6 +712,9 @@ class RoomOrderRepository with OutboxWriter {
                 commandeeA: r.read<DateTime?>('opened_at'),
                 notes: r.read<String?>('notes'),
                 motifAnnulation: r.read<String?>('cancel_reason'),
+                commandeePar: _nom(r.read<String?>('commandee_par')),
+                prisePar: _nom(r.read<String?>('prise_par')),
+                priseA: r.read<DateTime?>('taken_at'),
                 lignes: [
                   for (final l in lignes)
                     if (l.orderId == r.read<String>('id'))
@@ -698,4 +730,7 @@ class RoomOrderRepository with OutboxWriter {
           ];
         });
   }
+
+  static String? _nom(String? nom) =>
+      nom == null || nom.isEmpty ? null : nom;
 }

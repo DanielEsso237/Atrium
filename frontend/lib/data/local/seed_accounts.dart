@@ -295,6 +295,14 @@ const _permissions = <_PermissionDemo>[
     'Commander pour une chambre (room service)',
     'order',
   ),
+  // Prendre en charge et livrer une commande en chambre (19 octobre) : le
+  // point de vente qui la recoit. Meme identifiant que le serveur.
+  (
+    '01920000-0000-7000-8000-000000004125',
+    'order.manage',
+    'Envoyer, servir ou annuler une commande',
+    'order',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -335,6 +343,10 @@ const _droits = <(String role, String permission)>[
   // serveur (migration 0029).
   (_roleAdmin, '01920000-0000-7000-8000-000000004144'),
   (_roleReception, '01920000-0000-7000-8000-000000004144'),
+  // La servir : le point de vente et l'administration, comme cote serveur.
+  // Pas la reception -- elle commande, elle ne monte pas le plateau.
+  (_roleAdmin, '01920000-0000-7000-8000-000000004125'),
+  (_roleRestaurant, '01920000-0000-7000-8000-000000004125'),
   (_roleReception, '01920000-0000-7000-8000-000000004104'),
   (_roleReception, '01920000-0000-7000-8000-000000004105'),
   // Ecrire la fiche, comme cote serveur : c'est le droit qui ouvre les
