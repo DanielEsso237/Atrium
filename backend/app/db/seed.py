@@ -139,6 +139,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004142"), "stock.rebalance", "Reequilibrer le stock apres inventaire", "stock"),
     (uuid.UUID("01920000-0000-7000-8000-000000004143"), "operations.undo", "Autoriser une annulation (arrivee, depart, encaissement)", "operations"),
     (uuid.UUID("01920000-0000-7000-8000-000000004144"), "room_order.create", "Commander pour une chambre (room service)", "order"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004145"), "users.reset_secret", "Reinitialiser le code oublie d'un agent", "users"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -176,6 +177,7 @@ STOCK_INVENTORY = PERMISSIONS[40][0]
 STOCK_REBALANCE = PERMISSIONS[41][0]
 OPERATIONS_UNDO = PERMISSIONS[42][0]
 ROOM_ORDER_CREATE = PERMISSIONS[43][0]
+USERS_RESET_SECRET = PERMISSIONS[44][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -241,6 +243,7 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # erreur : le responsable donne son code, celui qui s'est trompe ne
     # s'autorise pas lui-meme.
     (MANAGER_ROLE, OPERATIONS_UNDO),
+    (MANAGER_ROLE, USERS_RESET_SECRET),
     # Les marges et la valeur du stock : la direction, et les deux metiers
     # qui controlent les comptes. Pas le comptoir, qui compte son tiroir a
     # l'aveugle -- une marge lui donnerait sa recette --, ni l'econome, dont

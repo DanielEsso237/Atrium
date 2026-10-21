@@ -105,6 +105,7 @@ _PERMISSIONS_NEEDED = [
     "expense.write",
     "stock.inventory", "stock.rebalance",
     "operations.undo",
+    "users.reset_secret",
 ]
 
 

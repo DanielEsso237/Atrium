@@ -29,18 +29,28 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     hash_refresh_token,
+    hash_secret,
     new_refresh_token,
     secret_accepte,
 )
 from app.db.session import get_session
-from app.models import Device, RefreshToken, User
+from app.models import AuditLog, Device, RefreshToken, User
 from app.schemas.auth import (
     AuthorizeIn,
     AuthorizeOut,
+    CredentialOut,
     LoginIn,
     RefreshIn,
+    ResetSecretIn,
+    ResetSecretOut,
     TokenOut,
     UserOut,
+)
+from app.services.verrouillage import (
+    DROIT_REINITIALISER,
+    compter_echec,
+    debloquer,
+    est_verrouille,
 )
 
 router = APIRouter(prefix="/auth", tags=["authentification"])
@@ -94,10 +104,10 @@ async def login(
         raise invalid
 
     now = dt.datetime.now(dt.timezone.utc)
-    if user.locked_until is not None and user.locked_until > now:
+    if est_verrouille(user, now):
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail="Compte temporairement verrouille, reessayez plus tard.",
+            detail="Compte bloque apres cinq codes faux : un responsable doit le debloquer.",
         )
 
     # Mot de passe **ou** code PIN : sur une tablette de comptoir que dix
@@ -107,12 +117,11 @@ async def login(
     # verifie : il ne fonctionnait donc qu'en mode hors ligne.
     #
     # Quatre chiffres se devinent, evidemment. Ce qui protege ici n'est pas la
-    # longueur du secret mais le verrouillage au bout de cinq essais, quelques
-    # lignes plus bas, et le fait que la tablette soit derriere un comptoir.
+    # longueur du secret mais le blocage au bout de cinq essais
+    # (`app/services/verrouillage.py`), et le fait que la tablette soit
+    # derriere un comptoir.
     if not secret_accepte(payload.password, user.password_hash, user.pin_hash):
-        user.failed_login_count += 1
-        if user.failed_login_count >= 5:
-            user.locked_until = now + dt.timedelta(minutes=15)
+        compter_echec(user, now)
         await session.commit()
         raise invalid
 
@@ -126,8 +135,7 @@ async def login(
         if device is None or device.hotel_id != user.hotel_id or device.deleted_at is not None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Appareil inconnu.")
 
-    user.failed_login_count = 0
-    user.locked_until = None
+    debloquer(user)
     user.last_login_at = now
     tokens = await _issue_tokens(
         session, user, payload.device_id, request.headers.get("user-agent"), now
@@ -262,20 +270,18 @@ async def authorize(
     if responsable is None:
         raise refus
     now = dt.datetime.now(dt.timezone.utc)
-    if responsable.locked_until is not None and responsable.locked_until > now:
+    if est_verrouille(responsable, now):
         raise HTTPException(
             status.HTTP_423_LOCKED,
-            "Compte du responsable temporairement verrouille, reessayez plus tard.",
+            "Compte du responsable bloque apres cinq codes faux.",
         )
     if not secret_accepte(payload.secret, responsable.password_hash, responsable.pin_hash):
-        responsable.failed_login_count += 1
-        if responsable.failed_login_count >= 5:
-            responsable.locked_until = now + dt.timedelta(minutes=15)
+        compter_echec(responsable, now)
         await session.commit()
         raise refus
     if not responsable.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte du responsable desactive.")
-    responsable.failed_login_count = 0
+    debloquer(responsable)
     await session.commit()
     # populate_existing : les roles et leurs droits relus apres le commit,
     # meme quand le responsable est l'agent connecte.
@@ -291,3 +297,117 @@ async def authorize(
         first_name=responsable.first_name,
         last_name=responsable.last_name,
     )
+
+
+@router.post("/reset-secret", response_model=ResetSecretOut)
+async def reset_secret(
+    payload: ResetSecretIn, session: AsyncSession = Depends(get_session)
+) -> ResetSecretOut:
+    """Code oublie : un responsable le reinitialise sur la tablette de l'agent.
+
+    Decision du 21 octobre. L'agent touche « Code oublie ? », un responsable
+    (`users.reset_secret`) tape **son** code, l'agent choisit un nouveau PIN,
+    un nouveau mot de passe, ou les deux. Le compte est debloque.
+
+    **Sans session**, et c'est voulu : l'agent qui a oublie son code n'a pas
+    de jeton, et hors ligne la tablette enfile ce geste pour plus tard. Il
+    remonte alors avant meme que l'agent se reconnecte en ligne -- sinon le
+    serveur refuserait le nouveau code qu'il ne connait pas encore. C'est le
+    code du responsable, verifie ici, qui tient lieu de session ; il subit le
+    meme blocage que la connexion, sans quoi la route servirait a deviner des
+    PIN.
+
+    Rejouable : renvoyer le meme corps laisse le meme etat.
+    """
+    refus = HTTPException(status.HTTP_403_FORBIDDEN, "Code du responsable incorrect.")
+    agent = await session.scalar(
+        select(User).where(
+            User.employee_code == payload.employee_code.strip().upper(),
+            User.deleted_at.is_(None),
+        )
+    )
+    if agent is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Agent inconnu.")
+    responsable = await session.scalar(
+        select(User).where(
+            User.employee_code == payload.approver_code.strip().upper(),
+            User.hotel_id == agent.hotel_id,
+            User.deleted_at.is_(None),
+        )
+    )
+    if responsable is None:
+        raise refus
+    # Le second regard : celui qui a oublie son code ne se l'accorde pas.
+    if responsable.id == agent.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Un autre responsable doit valider : on ne reinitialise pas son propre code.",
+        )
+    now = dt.datetime.now(dt.timezone.utc)
+    if est_verrouille(responsable, now):
+        raise HTTPException(
+            status.HTTP_423_LOCKED, "Compte du responsable bloque apres cinq codes faux."
+        )
+    if not secret_accepte(
+        payload.approver_secret, responsable.password_hash, responsable.pin_hash
+    ):
+        compter_echec(responsable, now)
+        await session.commit()
+        raise refus
+    if not responsable.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte du responsable desactive.")
+    if DROIT_REINITIALISER not in permission_codes(responsable):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"{responsable.first_name} {responsable.last_name} n'a pas le droit "
+            "de reinitialiser un code.",
+        )
+    if not agent.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte de l'agent desactive.")
+
+    debloquer(responsable)
+    if payload.new_pin is not None:
+        agent.pin_hash = hash_secret(payload.new_pin)
+    if payload.new_password is not None:
+        agent.password_hash = hash_secret(payload.new_password)
+        agent.must_change_password = False
+    debloquer(agent)
+    session.add(
+        AuditLog(
+            user_id=responsable.id,
+            entity_table="users",
+            entity_id=agent.id,
+            action="RESET_SECRET",
+            # Ce qui a change, jamais la valeur.
+            after={
+                "approved_by": str(responsable.id),
+                "pin": payload.new_pin is not None,
+                "password": payload.new_password is not None,
+            },
+            occurred_at=now,
+        )
+    )
+    await session.commit()
+    return ResetSecretOut(user_id=agent.id, approved_by=responsable.id)
+
+
+@router.get("/credentials", response_model=list[CredentialOut])
+async def credentials(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> list[User]:
+    """Les empreintes des agents de l'hotel, pour la connexion hors ligne.
+
+    Sans elles, un agent cree depuis l'administration ne se connectait qu'en
+    ligne, et un code reinitialise sur un poste restait inconnu des autres
+    hors ligne. Des empreintes bcrypt, jamais les secrets.
+
+    Ouvert a tout agent connecte : la tablette est partagee, et c'est
+    n'importe quel agent qui doit pouvoir s'y connecter pendant une coupure.
+    Ce que la tablette garde, elle le garde dans sa base locale -- la meme
+    que les clients et les ardoises.
+    """
+    rows = await session.scalars(
+        select(User).where(User.hotel_id == user.hotel_id, User.deleted_at.is_(None))
+    )
+    return list(rows)

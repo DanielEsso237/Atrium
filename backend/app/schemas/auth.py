@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class LoginIn(BaseModel):
@@ -81,3 +82,42 @@ class AuthorizeOut(BaseModel):
     user_id: uuid.UUID
     first_name: str
     last_name: str
+
+
+class ResetSecretIn(BaseModel):
+    """Un agent a oublie son code ; un responsable valide sur place.
+
+    `approver_secret` part en clair, comme tout secret vers `/auth/login`
+    (HTTPS) ; la tablette l'efface de sa file des que le serveur a repondu.
+    """
+
+    employee_code: str
+    approver_code: str
+    approver_secret: str
+    new_pin: str | None = Field(default=None, pattern=r"^\d{4,8}$")
+    new_password: str | None = Field(default=None, min_length=8)
+
+    @model_validator(mode="after")
+    def _au_moins_un(self) -> "ResetSecretIn":
+        if self.new_pin is None and self.new_password is None:
+            raise ValueError("Un nouveau PIN, un nouveau mot de passe, ou les deux.")
+        return self
+
+
+class ResetSecretOut(BaseModel):
+    user_id: uuid.UUID
+    approved_by: uuid.UUID
+
+
+class CredentialOut(UserOut):
+    """Ce qu'il faut a la tablette pour reconnaitre un agent hors ligne.
+
+    La fiche entiere, roles et droits compris, et pas seulement les
+    empreintes : la tablette du menage ne lit pas `/users`, et un agent
+    reconnu sans ses droits n'ouvrirait aucun ecran.
+    """
+
+    pin_hash: str | None
+    password_hash: str | None
+    failed_login_count: int
+    locked_until: dt.datetime | None
