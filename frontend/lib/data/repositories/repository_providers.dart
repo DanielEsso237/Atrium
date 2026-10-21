@@ -220,6 +220,15 @@ final commandesEnRouteProvider =
           ref.watch(roomOrderRepositoryProvider).watchEnRoutePour(outletId),
     );
 
+/// Les commandes en chambre qu'un agent suit dans le centre de
+/// notifications : celles de ses points de vente, toutes s'il n'y est pas
+/// rattache.
+final commandesSuiviesProvider = StreamProvider.autoDispose
+    .family<List<CommandeChambre>, String>(
+      (ref, agentId) =>
+          ref.watch(roomOrderRepositoryProvider).watchEnRoutePourAgent(agentId),
+    );
+
 /// Les ardoises du comptoir d'un point de vente, en direct.
 final ardoisesProvider = StreamProvider.family<List<Ardoise>, String>(
   (ref, outletId) =>

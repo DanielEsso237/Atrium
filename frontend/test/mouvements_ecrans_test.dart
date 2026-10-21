@@ -27,6 +27,8 @@ import 'package:atrium/features/mouvements/mouvements_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:atrium/features/alerts/alert_signal.dart';
+import 'helpers/signal_silencieux.dart';
 
 class _TestSession extends SessionNotifier {
   _TestSession(this.session);
@@ -164,6 +166,7 @@ void main() {
                 () => _TestSession(SessionState(agent: agent, acces: acces)),
               ),
               pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+              signalAlerteProvider.overrideWithValue(SignalSilencieux()),
             ],
             child: MaterialApp(theme: themeAtrium(), home: ecran),
           ),

@@ -26,6 +26,7 @@ IconData iconeEvenement(TypeEvenement t) => switch (t) {
   TypeEvenement.departDepasse => PhosphorIconsLight.doorOpen,
   TypeEvenement.transfertAValider => PhosphorIconsLight.arrowsLeftRight,
   TypeEvenement.stockBas => PhosphorIconsLight.package,
+  TypeEvenement.commandeChambre => PhosphorIconsLight.forkKnife,
 };
 
 /// Fait entendre une sonnerie, sur le flux de la vraie alerte, sans vibrer.

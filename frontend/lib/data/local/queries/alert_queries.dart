@@ -22,6 +22,10 @@ import '../database.dart';
 import '../enums.dart';
 import '../../repositories/settings_repository.dart' show stayCheckoutHourKey;
 
+/// Le centre de notifications : la ou une commande en chambre se prend en
+/// charge et se livre.
+const routeCentreNotifications = '/notifications';
+
 /// Les evenements qui font une alerte : la liste arretee avec l'hotel.
 ///
 /// Le code est celui que le serveur garde avec le niveau choisi par
@@ -83,6 +87,17 @@ enum TypeEvenement {
     'Qui suit les stocks',
     NiveauSignal.discret,
     Sonnerie.bulles,
+  ),
+  // La reception commande pour une chambre (F2.6) : le point de vente doit
+  // la voir arriver sans regarder l'ecran, comme une chambre a faire.
+  commandeChambre(
+    'ROOM_ORDER',
+    'Commande en chambre',
+    'Une chambre a commandé : le point de vente doit la prendre en charge '
+        'et la monter.',
+    'Les agents du point de vente qui reçoit la commande',
+    NiveauSignal.sonoreVibration,
+    Sonnerie.quiMonte,
   );
 
   const TypeEvenement(
@@ -119,6 +134,7 @@ enum TypeEvenement {
     arriveeAttendue || departDepasse => c.peut('reservation.read') && c.poste,
     transfertAValider => c.peut('stock.transfer.approve'),
     stockBas => c.peut('stock.read'),
+    commandeChambre => c.peut('order.manage'),
   };
 
   static TypeEvenement? depuisCode(String code) {
@@ -279,6 +295,7 @@ extension AlertQueries on AtriumDatabase {
       stockLevels,
       stockMovements,
       products,
+      orders,
     ]),
   );
 
@@ -292,6 +309,8 @@ extension AlertQueries on AtriumDatabase {
       if (TypeEvenement.departDepasse.concerne(c)) ...await _departs(c),
       if (TypeEvenement.transfertAValider.concerne(c)) ...await _transferts(),
       if (TypeEvenement.stockBas.concerne(c)) ...await _stockBas(),
+      if (TypeEvenement.commandeChambre.concerne(c))
+        ...await _commandesChambre(c),
     ];
     alertes.sort((a, b) {
       final n = b.niveau.index.compareTo(a.niveau.index);
@@ -584,6 +603,51 @@ extension AlertQueries on AtriumDatabase {
               '« ${l.read<String>('vers')} ». Rien ne bouge avant la '
               'validation.',
           route: '/stocks',
+          depuis: l.readNullable<DateTime>('moment'),
+        ),
+    ];
+  }
+
+  /// Les commandes en chambre que personne n'a encore prises en charge, pour
+  /// les agents du point de vente qui les recoit. Un agent sans
+  /// rattachement (la reception, la direction) n'en sonne pas : c'est lui
+  /// qui commande, il suit la commande dans le centre de notifications.
+  Future<List<Alerte>> _commandesChambre(ContexteAlertes c) async {
+    if (c.agentId == null) return const [];
+    final lignes = await customSelect(
+      '''
+      SELECT o.id AS id, o.opened_at AS moment, o.total AS total,
+             r.number AS chambre, p.label AS point_de_vente,
+             (SELECT GROUP_CONCAT(i.quantity || ' × ' || i.label_snapshot,
+                                  ', ')
+                FROM order_items i
+               WHERE i.order_id = o.id AND i.is_void = 0) AS articles
+        FROM orders o
+        JOIN user_outlets u ON u.outlet_id = o.outlet_id AND u.user_id = ?1
+        LEFT JOIN rooms r   ON r.id = o.room_id
+        LEFT JOIN outlets p ON p.id = o.outlet_id
+       WHERE o.type = 'ROOM_SERVICE' AND o.status = 'SENT'
+         AND o.deleted_at IS NULL
+       ORDER BY o.opened_at, o.id
+      ''',
+      variables: [Variable.withString(c.agentId!)],
+      readsFrom: {orders, orderItems, userOutlets, rooms, outlets},
+    ).get();
+    return [
+      for (final l in lignes)
+        Alerte(
+          cle: 'commande-${l.read<String>('id')}',
+          type: TypeEvenement.commandeChambre,
+          niveau: NiveauAlerte.urgente,
+          titre:
+              'Commande en chambre : chambre '
+              '${l.readNullable<String>('chambre') ?? '?'}',
+          corps: [
+            ?l.readNullable<String>('articles'),
+            'pour ${l.readNullable<String>('point_de_vente') ?? 'le point de vente'}'
+                ', ${formatAmount(l.read<int>('total'))}. Prenez-la en charge.',
+          ].join(' '),
+          route: routeCentreNotifications,
           depuis: l.readNullable<DateTime>('moment'),
         ),
     ];

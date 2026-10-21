@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/repository_providers.dart';
 // L'ossature commune porte l'etat des echanges : c'est le seul endroit vu de
 // tous les modules, donc le seul ou l'indicateur soit reellement permanent.
+import '../../features/alerts/centre_notifications.dart';
 import '../../features/auth/session.dart';
 import '../../features/sync/sync_status.dart';
 import '../tokens.dart';
@@ -64,8 +65,24 @@ class ModuleScaffold extends ConsumerWidget {
         // cote du titre et de l'action, elle debordait d'une tablette en
         // portrait. Quand la place manque, elle monte au-dessus du titre,
         // comme sur le plan des chambres.
-        final barreEnLigne = contraintes.maxWidth >= 1000;
-        final barre = BarreSynchronisation(compact: etroit);
+        //
+        // La cloche la suit, sur chaque ecran (19 octobre) : une commande en
+        // chambre ou une chambre a faire se voit d'ou que l'on soit. Placee
+        // sur la ligne du titre, elle faisait deborder les en-tetes qui ont
+        // deux actions (Reception, 1 280 px) ; le seuil compte sa largeur.
+        // Avec le menu lateral, une tablette de 1 280 px la met toujours au-
+        // dessus du titre ; seul un grand ecran la garde en ligne.
+        final barreEnLigne = contraintes.maxWidth >= 1300;
+        final barre = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BarreSynchronisation(compact: etroit),
+            const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: ClocheNotifications(),
+            ),
+          ],
+        );
         final ligne = Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

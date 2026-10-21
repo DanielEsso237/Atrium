@@ -21,8 +21,6 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/queries/dashboard_queries.dart';
-import '../alerts/alert_banner.dart';
-import '../alerts/alert_center.dart';
 import '../auth/session.dart';
 import '../dashboard/dashboard_charts.dart';
 import '../dashboard/dashboard_screen.dart'
@@ -32,8 +30,6 @@ import '../dashboard/dashboard_screen.dart'
         repartitionProvider,
         activiteDuJourProvider,
         dernieresActivitesProvider,
-        notificationsProvider,
-        notificationsNonLuesProvider,
         periodeOccupationProvider;
 
 class StatsScreen extends ConsumerStatefulWidget {
@@ -94,7 +90,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     return ModuleScaffold(
       title: 'Dashboard',
       subtitle: 'Journée du ${formatLongDate(jour)}',
-      action: const NotificationBell(),
       body: LayoutBuilder(
         builder: (context, c) {
           final large = c.maxWidth >= 900;
@@ -723,157 +718,4 @@ String heureActivite(DateTime instant) {
   if (journee.difference(jourEvenement).inDays == 1) return 'Hier';
   return '${local.day.toString().padLeft(2, '0')}/'
       '${local.month.toString().padLeft(2, '0')}';
-}
-
-// --- Notifications -----------------------------------------------------------
-
-/// La cloche : le nombre de notifications non lues, et leur liste au toucher.
-class NotificationBell extends ConsumerWidget {
-  const NotificationBell({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = AtriumPalette.current;
-    // Les alertes en cours comptent comme des notifications non lues : la
-    // cloche est l'endroit ou on les retrouve apres les avoir acquittees.
-    final nonLues =
-        (ref.watch(notificationsNonLuesProvider).value ?? 0) +
-        ref.watch(centreAlertesProvider).nonVues;
-    return Tooltip(
-      message: nonLues == 0
-          ? 'Notifications'
-          : '$nonLues notification${nonLues > 1 ? 's' : ''} non lue'
-                '${nonLues > 1 ? 's' : ''}',
-      child: InkResponse(
-        onTap: () => showDialog<void>(
-          context: context,
-          builder: (_) => const _Notifications(),
-        ),
-        radius: 26,
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(PhosphorIconsLight.bell, size: 24, color: p.text),
-              if (nonLues > 0)
-                Positioned(
-                  top: 6,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: p.accent,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      nonLues > 9 ? '9+' : '$nonLues',
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: p.onAccent,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Notifications extends ConsumerWidget {
-  const _Notifications();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = AtriumPalette.current;
-    final liste = ref.watch(notificationsProvider).value ?? const [];
-    final alertes = ref.watch(centreAlertesProvider).actives;
-    return AlertDialog(
-      icon: const Icon(PhosphorIconsLight.bell, size: 30),
-      title: const Text('Notifications'),
-      content: SizedBox(
-        width: 440,
-        child: liste.isEmpty && alertes.isEmpty
-            ? Text(
-                'Aucune notification pour le moment.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: p.textSecondary),
-              )
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  const ListeAlertes(),
-                  for (final n in liste)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(top: 6, right: 12),
-                            decoration: BoxDecoration(
-                              color: n.lue ? Colors.transparent : p.accent,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  n.titre,
-                                  style: TextStyle(
-                                    fontFamily: atriumFontFamily,
-                                    fontSize: 14.5,
-                                    fontWeight: n.lue
-                                        ? FontWeight.w500
-                                        : FontWeight.w700,
-                                    color: p.text,
-                                  ),
-                                ),
-                                if (n.corps != null)
-                                  Text(
-                                    n.corps!,
-                                    style: TextStyle(
-                                      fontFamily: atriumFontFamily,
-                                      fontSize: 13,
-                                      color: p.textSecondary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            heureActivite(n.moment),
-                            style: TextStyle(
-                              fontFamily: atriumFontFamily,
-                              fontSize: 12.5,
-                              color: p.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
-        ),
-      ],
-    );
-  }
 }

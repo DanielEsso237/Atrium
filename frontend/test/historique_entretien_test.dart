@@ -28,6 +28,8 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:atrium/features/alerts/alert_signal.dart';
+import 'helpers/signal_silencieux.dart';
 
 const _hotel = '01920000-0000-7000-8000-000000000001';
 
@@ -196,6 +198,7 @@ void main() {
                 () => _TestSession(SessionState(agent: admin, acces: acces)),
               ),
               pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+              signalAlerteProvider.overrideWithValue(SignalSilencieux()),
             ],
             child: MaterialApp(theme: themeAtrium(), home: ecran),
           ),

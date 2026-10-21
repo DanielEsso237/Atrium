@@ -32,7 +32,7 @@ import '../reservations/reservations_screen.dart'
 import '../reservations/stay_actions.dart';
 import '../rooms/room_board_screen.dart' show apparence, roomBoardProvider;
 import '../rooms/room_detail_panel.dart';
-import '../stats/stats_screen.dart' show NotificationBell;
+import '../alerts/centre_notifications.dart';
 
 final _sejoursVivantsProvider = StreamProvider<List<ReservationSummary>>(
   (ref) => ref
@@ -214,7 +214,7 @@ class _EnTete extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const NotificationBell(),
+            const ClocheNotifications(),
             if (peutArriveeDirecte) ...[
               const SizedBox(width: 10),
               PillButton(

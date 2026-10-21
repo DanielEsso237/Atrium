@@ -13,6 +13,9 @@ import 'package:atrium/features/housekeeping/housekeeping_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:atrium/data/local/database_provider.dart';
+import 'package:atrium/features/alerts/alert_signal.dart';
+import 'helpers/signal_silencieux.dart';
 
 class _TestSession extends SessionNotifier {
   _TestSession(this.session);
@@ -79,6 +82,8 @@ void main() {
           sessionProvider.overrideWith(() => _TestSession(session)),
           housekeepingRepositoryProvider.overrideWithValue(depot),
           pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+          databaseProvider.overrideWithValue(db),
+          signalAlerteProvider.overrideWithValue(SignalSilencieux()),
         ],
         child: MaterialApp(
           theme: themeAtrium().copyWith(
