@@ -143,6 +143,15 @@ class AuthApi {
     );
   }
 
+  /// Code oublie : un responsable valide sur place, l'agent choisit son
+  /// nouveau code (`POST /auth/reset-secret`).
+  ///
+  /// **Sans jeton**, contrairement a [authorize] : l'agent n'est pas
+  /// connecte, et c'est le code du responsable qui tient lieu de session.
+  /// Le corps est celui de la file d'envoi (`ReinitialisationRepository`).
+  Future<Map<String, dynamic>> resetSecret(Map<String, Object?> corps) =>
+      _client.post('/auth/reset-secret', body: corps);
+
   /// L'agent deja connecte, si un jeton valide a survecu au redemarrage.
   ///
   /// Renvoie `null` hors ligne comme sur jeton expire : dans les deux cas

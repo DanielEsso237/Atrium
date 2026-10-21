@@ -517,13 +517,32 @@ chaque encaissement de l'ardoise et de la caisse du jour, et le panneau
 **« Revenir en arrière »** de la fiche de chaque client : tout ce qui peut
 encore s'y défaire (`watchMouvements(guestId:)`).
 
+## Code oublié et connexion hors ligne (21 octobre)
+
+**Code oublié ?** sur l'écran de connexion (`features/auth/code_oublie.dart`) :
+l'agent choisit un nouveau PIN, un mot de passe ou les deux, puis un
+**responsable** (`users.reset_secret`, migration 0030 : administrateur et
+direction) tape son propre code. Jamais le sien pour soi-même. Hors ligne, la
+tablette vérifie le responsable, écrit le nouveau code et l'enfile **avec le
+secret du responsable** — l'agent n'a pas de session, c'est ce secret que
+`POST /auth/reset-secret` revérifie —, effacé de la file dès la réponse.
+Avant toute connexion en ligne, `ReinitialisationRepository.remonterEnAttente`
+fait partir ces entrées hors de leur tour : sinon le serveur refusait le
+nouveau code, et un refus du serveur n'a pas de repli local.
+
+- **Cinq codes faux bloquent un agent jusqu'à ce qu'un responsable le
+  débloque** ; un responsable bloqué attend quinze minutes (personne
+  au-dessus de lui). Même règle des deux côtés
+  (`app/services/verrouillage.py`, `auth_locale.dart`).
+- **Les empreintes descendent** (`GET /auth/credentials`, tout agent
+  connecté : la fiche, les rôles et les empreintes bcrypt) : un agent créé ou
+  réinitialisé sur un poste se connecte hors ligne sur les autres. La
+  tablette vérifie bcrypt hors du fil de l'interface (`compute`).
+- Les comptes de démonstration ne sont plus **réécrits** au démarrage
+  (`insertOrIgnore`) : un code changé revenait à 1234.
+
 ## Ce qui manque
 
-- **La connexion hors ligne des nouveaux agents.** Un agent créé depuis
-  l'administration se connecte en ligne seulement : son PIN est haché par le
-  serveur et effacé de la file. `auth_locale.dart` ne vérifie que les
-  empreintes `DEMO:` ; il faudrait bcrypt côté tablette et la descente des
-  empreintes.
 - **Impression des factures**, brique rouverte : les factures et le ticket du
   comptoir existent en PDF (partage), pas encore l'envoi à une imprimante.
 - **Photos de CNI** : prises à l'arrivée, rangées sur la tablette, remontées

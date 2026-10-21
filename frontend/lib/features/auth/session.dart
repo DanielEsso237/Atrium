@@ -38,6 +38,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
         EchecConnexion.utilisateurInconnu => LoginFailure.offlineAndUnknown,
         EchecConnexion.compteDesactive => LoginFailure.disabledAccount,
         EchecConnexion.secretInvalide => LoginFailure.wrongSecret,
+        EchecConnexion.compteBloque => LoginFailure.locked,
       });
     },
   );

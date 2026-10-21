@@ -278,6 +278,37 @@ class AgentRepository with OutboxWriter {
     });
   }
 
+  /// Les empreintes d'un agent et son compte d'echecs, tels que le serveur
+  /// les tient (`GET /auth/credentials`) : ce qui le laisse se connecter
+  /// ici hors ligne.
+  ///
+  /// Le serveur fait foi, compteur compris : un agent debloque sur un autre
+  /// poste l'est ici a la descente suivante. Sauf un agent dont une
+  /// reinitialisation attend de remonter : son nouveau code vaut sur cette
+  /// tablette, et l'ancienne empreinte du serveur le refuserait.
+  Future<void> applyServerCredentials(Map<String, dynamic> json) async {
+    final id = json['id'] as String?;
+    if (id == null) return;
+    await applyServerAgent(json);
+    await (db.update(db.users)..where(
+          (u) =>
+              u.id.equals(id) &
+              u.syncState.equalsValue(SyncState.pending).not(),
+        ))
+        .write(
+          UsersCompanion(
+            pinHash: Value(json['pin_hash'] as String?),
+            passwordHash: Value(json['password_hash'] as String?),
+            failedLoginCount: Value(
+              (json['failed_login_count'] as num?)?.toInt() ?? 0,
+            ),
+            lockedUntil: Value(
+              DateTime.tryParse(json['locked_until'] as String? ?? '')?.toUtc(),
+            ),
+          ),
+        );
+  }
+
   /// Enregistre un role tel que le serveur le decrit : code, libelle,
   /// permissions. Un role modifie ici et pas encore remonte n'est pas
   /// ecrase.

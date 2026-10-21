@@ -17,6 +17,7 @@ import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
 import 'agent_repository.dart';
 import 'autorisation_repository.dart';
+import 'reinitialisation_repository.dart';
 import 'expense_repository.dart';
 import 'cash_repository.dart';
 import 'descente.dart';
@@ -82,6 +83,13 @@ final idPhotoRepositoryProvider = Provider<IdPhotoRepository>(
 );
 
 /// Le code d'un responsable, pour les annulations.
+final reinitialisationRepositoryProvider = Provider<ReinitialisationRepository>(
+  (ref) => ReinitialisationRepository(
+    ref.watch(databaseProvider),
+    ref.watch(authApiProvider),
+  ),
+);
+
 final autorisationRepositoryProvider = Provider<AutorisationRepository>(
   (ref) => AutorisationRepository(
     ref.watch(databaseProvider),

@@ -23,6 +23,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/auth_api.dart';
 import 'agent_repository.dart';
+import 'reinitialisation_repository.dart';
 
 /// Ce qui a echoue, du point de vue de l'ecran de connexion.
 enum LoginFailure {
@@ -77,6 +78,9 @@ class AuthRepository {
     required String employeeCode,
     required String secret,
   }) async {
+    // Un code reinitialise hors ligne remonte d'abord : sinon le serveur
+    // refuserait le nouveau code, et un refus du serveur n'a pas de repli.
+    await ReinitialisationRepository(db, _api).remonterEnAttente(employeeCode);
     try {
       final session = await _api.login(
         employeeCode: employeeCode,
@@ -124,6 +128,7 @@ class AuthRepository {
     required String employeeCode,
     required String secret,
   }) async {
+    await ReinitialisationRepository(db, _api).remonterEnAttente(employeeCode);
     try {
       final session = await _api.login(
         employeeCode: employeeCode,
