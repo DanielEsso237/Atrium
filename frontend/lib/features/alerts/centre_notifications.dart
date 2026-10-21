@@ -928,7 +928,16 @@ class _CarteCommandeChambreState extends ConsumerState<CarteCommandeChambre> {
           ),
           if (servir || annuler) ...[
             const SizedBox(height: 12),
-            Row(
+            // Wrap et non Row : « Annuler » et « Prendre en charge » cote a
+            // cote depassaient la largeur d'un telephone (319 px) ; le bouton
+            // principal passe alors dessous, toujours a droite.
+            Wrap(
+              alignment: annuler
+                  ? WrapAlignment.spaceBetween
+                  : WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (annuler)
                   TextButton(
@@ -939,7 +948,6 @@ class _CarteCommandeChambreState extends ConsumerState<CarteCommandeChambre> {
                     ),
                     child: const Text('Annuler'),
                   ),
-                const Spacer(),
                 if (servir)
                   PillButton(
                     label: aPrendre ? 'Prendre en charge' : 'Livrer',

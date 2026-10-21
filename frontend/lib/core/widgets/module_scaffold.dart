@@ -65,8 +65,24 @@ class ModuleScaffold extends ConsumerWidget {
         // cote du titre et de l'action, elle debordait d'une tablette en
         // portrait. Quand la place manque, elle monte au-dessus du titre,
         // comme sur le plan des chambres.
-        final barreEnLigne = contraintes.maxWidth >= 1000;
-        final barre = BarreSynchronisation(compact: etroit);
+        //
+        // La cloche la suit, sur chaque ecran (19 octobre) : une commande en
+        // chambre ou une chambre a faire se voit d'ou que l'on soit. Placee
+        // sur la ligne du titre, elle faisait deborder les en-tetes qui ont
+        // deux actions (Reception, 1 280 px) ; le seuil compte sa largeur.
+        // Avec le menu lateral, une tablette de 1 280 px la met toujours au-
+        // dessus du titre ; seul un grand ecran la garde en ligne.
+        final barreEnLigne = contraintes.maxWidth >= 1300;
+        final barre = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BarreSynchronisation(compact: etroit),
+            const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: ClocheNotifications(),
+            ),
+          ],
+        );
         final ligne = Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -107,12 +123,6 @@ class ModuleScaffold extends ConsumerWidget {
               ),
             ),
             if (barreEnLigne) barre,
-            // La cloche, sur chaque ecran (19 octobre) : une commande en
-            // chambre ou une chambre a faire se voit d'ou que l'on soit.
-            const Padding(
-              padding: EdgeInsets.only(left: 6),
-              child: ClocheNotifications(),
-            ),
             // Un metier a ecran unique ne passe jamais par le tableau de bord,
             // ou vit le bouton de deconnexion : sans celui-ci, la femme de
             // chambre etait prisonniere de sa liste. Sur une tablette que dix

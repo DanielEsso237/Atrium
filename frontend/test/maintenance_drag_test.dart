@@ -13,6 +13,9 @@ import 'package:atrium/features/maintenance/maintenance_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:atrium/data/local/database_provider.dart';
+import 'package:atrium/features/alerts/alert_signal.dart';
+import 'helpers/signal_silencieux.dart';
 
 class _TestSession extends SessionNotifier {
   _TestSession(this.session);
@@ -74,6 +77,11 @@ void main() {
           ),
           maintenanceRepositoryProvider.overrideWithValue(depot),
           pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+          // La cloche des notifications, sur chaque ecran, a sa propre base :
+          // sur celle du test, ses lectures et les gestes du test s'attendaient
+          // l'un l'autre, et le test ne finissait jamais.
+          databaseProvider.overrideWithValue(AtriumDatabase.memory()),
+          signalAlerteProvider.overrideWithValue(SignalSilencieux()),
         ],
         child: MaterialApp(
           theme: themeAtrium().copyWith(platform: platform),
@@ -125,7 +133,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -139,7 +151,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -176,7 +192,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -191,7 +211,11 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -213,7 +237,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -245,7 +273,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 
@@ -259,7 +291,11 @@ void main() {
     expect(find.text("Je m'en occupe"), findsNothing);
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
-    await tester.pump();
+    // Les lectures de la cloche se ferment par minuteries : on les
+    // laisse partir.
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   });
 
   testWidgets(
@@ -299,7 +335,11 @@ void main() {
       expect(texte.right, lessThanOrEqualTo(375));
       await tester.runAsync(db.close);
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      // Les lectures de la cloche se ferment par minuteries : on les
+      // laisse partir.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     },
   );
 }
