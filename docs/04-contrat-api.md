@@ -144,7 +144,7 @@ formes.
 |---|---|---|
 | 401 | jeton absent, invalide ou expiré | retour à l'écran de connexion |
 | 403 | droit manquant, ou compte désactivé | message, pas de redirection |
-| 423 | compte verrouillé après cinq échecs | message, relâché après 15 min |
+| 423 | compte bloqué après cinq codes faux | message ; un agent attend qu'un responsable le débloque (`POST /auth/reset-secret`), un responsable (`users.reset_secret`) quinze minutes |
 | 404 | introuvable, ou appartient à un autre hôtel | message |
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
@@ -782,6 +782,27 @@ L'écart se calcule sur la théorique du serveur. Un écart que la tablette
 n'avait pas vu (une vente faite sur un autre poste) prend un id du serveur ;
 un id de la tablette sans écart côté serveur reste inutilisé. La perte entre
 dans les pertes de `/accounting/daily-costs`, donc dans le bénéfice.
+
+## Code oublié et connexion hors ligne
+
+Décision du 21 octobre. Un agent qui a oublié son code va chercher un
+**responsable** (`users.reset_secret` : administrateur, direction), qui tape
+son propre code sur la tablette ; l'agent choisit un nouveau PIN, un nouveau
+mot de passe, ou les deux. Cinq codes faux bloquent un agent **jusqu'à ce
+qu'un responsable le débloque** ; un responsable bloqué attend quinze
+minutes, personne au-dessus de lui ne le débloquerait
+(`app/services/verrouillage.py`, recopié dans `auth_locale.dart`).
+
+| Route | Droit | Corps | Effet |
+|---|---|---|---|
+| `POST /auth/reset-secret` | **aucune session** | `{employee_code, approver_code, approver_secret, new_pin?, new_password?}` | remplace le PIN (4 à 8 chiffres) et/ou le mot de passe (8 caractères ou plus) de l'agent et le débloque ; `{user_id, approved_by}`, tracé dans `audit_logs` (`RESET_SECRET`, sans les valeurs). Le code du responsable tient lieu de session et subit le blocage à cinq échecs. 403 : code faux, droit manquant, ou son propre code ; 404 : agent inconnu ; 422 : ni PIN ni mot de passe. Rejouable |
+| `GET /auth/credentials` | agent connecté | — | les agents de son hôtel tels que `UserOut` (rôles et permissions compris), avec `pin_hash`, `password_hash` (bcrypt), `failed_login_count`, `locked_until` : ce qu'il faut à la tablette pour la connexion hors ligne |
+
+Hors ligne, la tablette vérifie le responsable avec les empreintes qu'elle
+a, écrit le nouveau code et l'enfile (`users`, action `RESET_SECRET`) **avec
+le secret du responsable**, effacé de la file dès la réponse du serveur.
+Avant toute connexion en ligne, elle fait remonter ces entrées hors de leur
+tour : sans cela, le serveur refuserait le nouveau code.
 
 ## Revenir en arrière : arrivée, départ, encaissement
 

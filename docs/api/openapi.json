@@ -1106,6 +1106,117 @@
         "title": "CheckInOut",
         "type": "object"
       },
+      "CredentialOut": {
+        "description": "Ce qu'il faut a la tablette pour reconnaitre un agent hors ligne.\n\nLa fiche entiere, roles et droits compris, et pas seulement les\nempreintes : la tablette du menage ne lit pas `/users`, et un agent\nreconnu sans ses droits n'ouvrirait aucun ecran.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "failed_login_count": {
+            "title": "Failed Login Count",
+            "type": "integer"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "locked_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked Until"
+          },
+          "must_change_password": {
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "outlet_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Outlet Ids",
+            "type": "array"
+          },
+          "password_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Hash"
+          },
+          "pin_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin Hash"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "employee_code",
+          "first_name",
+          "last_name",
+          "email",
+          "is_active",
+          "must_change_password",
+          "roles",
+          "pin_hash",
+          "password_hash",
+          "failed_login_count",
+          "locked_until"
+        ],
+        "title": "CredentialOut",
+        "type": "object"
+      },
       "DailyCostOut": {
         "description": "Ce qu'une journee hoteliere a coute en stock, en francs entiers.\n\n- `cost_of_sales` : ce que les lignes vendues ce jour-la ont fait sortir ;\n- `consumption` : ce qui est sorti sans etre vendu (cuisine, chambres,\n  spa) ;\n- `losses` : la casse et les pertes ;\n- `purchases` : ce que les livraisons ont coute. A titre indicatif : un\n  achat n'est un cout qu'une fois vendu ou utilise, ce qui reste en\n  stock garde sa valeur.",
         "properties": {
@@ -7434,6 +7545,74 @@
         "title": "ReservationUpdate",
         "type": "object"
       },
+      "ResetSecretIn": {
+        "description": "Un agent a oublie son code ; un responsable valide sur place.\n\n`approver_secret` part en clair, comme tout secret vers `/auth/login`\n(HTTPS) ; la tablette l'efface de sa file des que le serveur a repondu.",
+        "properties": {
+          "approver_code": {
+            "title": "Approver Code",
+            "type": "string"
+          },
+          "approver_secret": {
+            "title": "Approver Secret",
+            "type": "string"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "new_password": {
+            "anyOf": [
+              {
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Password"
+          },
+          "new_pin": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4,8}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Pin"
+          }
+        },
+        "required": [
+          "employee_code",
+          "approver_code",
+          "approver_secret"
+        ],
+        "title": "ResetSecretIn",
+        "type": "object"
+      },
+      "ResetSecretOut": {
+        "properties": {
+          "approved_by": {
+            "format": "uuid",
+            "title": "Approved By",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "approved_by"
+        ],
+        "title": "ResetSecretOut",
+        "type": "object"
+      },
       "ResolveIn": {
         "properties": {
           "resolution": {
@@ -10596,6 +10775,37 @@
         ]
       }
     },
+    "/api/v1/auth/credentials": {
+      "get": {
+        "description": "Les empreintes des agents de l'hotel, pour la connexion hors ligne.\n\nSans elles, un agent cree depuis l'administration ne se connectait qu'en\nligne, et un code reinitialise sur un poste restait inconnu des autres\nhors ligne. Des empreintes bcrypt, jamais les secrets.\n\nOuvert a tout agent connecte : la tablette est partagee, et c'est\nn'importe quel agent qui doit pouvoir s'y connecter pendant une coupure.\nCe que la tablette garde, elle le garde dans sa base locale -- la meme\nque les clients et les ardoises.",
+        "operationId": "credentials_api_v1_auth_credentials_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CredentialOut"
+                  },
+                  "title": "Response Credentials Api V1 Auth Credentials Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Credentials",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login_api_v1_auth_login_post",
@@ -10735,6 +10945,48 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
+    "/api/v1/auth/reset-secret": {
+      "post": {
+        "description": "Code oublie : un responsable le reinitialise sur la tablette de l'agent.\n\nDecision du 21 octobre. L'agent touche « Code oublie ? », un responsable\n(`users.reset_secret`) tape **son** code, l'agent choisit un nouveau PIN,\nun nouveau mot de passe, ou les deux. Le compte est debloque.\n\n**Sans session**, et c'est voulu : l'agent qui a oublie son code n'a pas\nde jeton, et hors ligne la tablette enfile ce geste pour plus tard. Il\nremonte alors avant meme que l'agent se reconnecte en ligne -- sinon le\nserveur refuserait le nouveau code qu'il ne connait pas encore. C'est le\ncode du responsable, verifie ici, qui tient lieu de session ; il subit le\nmeme blocage que la connexion, sans quoi la route servirait a deviner des\nPIN.\n\nRejouable : renvoyer le meme corps laisse le meme etat.",
+        "operationId": "reset_secret_api_v1_auth_reset_secret_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetSecretIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetSecretOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Secret",
         "tags": [
           "authentification"
         ]
