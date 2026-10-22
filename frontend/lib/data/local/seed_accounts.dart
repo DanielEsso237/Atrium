@@ -42,10 +42,9 @@ const _housekeeper = '01920000-0000-7000-8000-000000050003';
 
 /// Code PIN du jeu de demonstration.
 ///
-/// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite.
-/// Voir `AuthLocale.verifierSecret` — une vraie empreinte bcrypt venue du
-/// serveur ne peut pas etre validee hors ligne par ce stub, et echouera
-/// bruyamment au lieu d'accepter n'importe quoi en silence.
+/// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite,
+/// que `AuthLocale.verifierSecret` compare en clair. La premiere descente le
+/// remplace par l'empreinte bcrypt du serveur.
 const pinDemo = '1234';
 const _pinStocke = 'DEMO:$pinDemo';
 
@@ -304,6 +303,14 @@ const _permissions = <_PermissionDemo>[
     'Commander pour une chambre (room service)',
     'order',
   ),
+  // Reinitialiser le code oublie d'un agent (21 octobre). Meme identifiant
+  // que le serveur (migration 0030).
+  (
+    '01920000-0000-7000-8000-000000004145',
+    'users.reset_secret',
+    "Reinitialiser le code oublie d'un agent",
+    'users',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -340,6 +347,9 @@ const _droits = <(String role, String permission)>[
   // Autoriser une annulation : l'administrateur, comme cote serveur (la
   // direction aussi, mais elle n'a pas de compte de demonstration).
   (_roleAdmin, '01920000-0000-7000-8000-000000004143'),
+  // Reinitialiser un code : l'administrateur, comme cote serveur (la
+  // direction aussi).
+  (_roleAdmin, '01920000-0000-7000-8000-000000004145'),
   // Commander pour une chambre : administration et reception, comme cote
   // serveur (migration 0029).
   (_roleAdmin, '01920000-0000-7000-8000-000000004144'),
@@ -409,9 +419,12 @@ Future<void> seedAccounts(AtriumDatabase db) async {
 
   await db.transaction(() async {
     // --- Personnel -----------------------------------------------------
+    // Crees une fois, jamais reecrits : un code reinitialise, ou descendu
+    // du serveur, revenait sinon a 1234 au demarrage suivant.
     await db
         .into(db.users)
-        .insertOnConflictUpdate(
+        .insert(
+          mode: InsertMode.insertOrIgnore,
           UsersCompanion.insert(
             id: utilisateurDemo,
             createdAt: maintenant,
@@ -430,7 +443,8 @@ Future<void> seedAccounts(AtriumDatabase db) async {
 
     await db
         .into(db.users)
-        .insertOnConflictUpdate(
+        .insert(
+          mode: InsertMode.insertOrIgnore,
           UsersCompanion.insert(
             id: _receptionniste,
             createdAt: maintenant,
@@ -448,7 +462,8 @@ Future<void> seedAccounts(AtriumDatabase db) async {
 
     await db
         .into(db.users)
-        .insertOnConflictUpdate(
+        .insert(
+          mode: InsertMode.insertOrIgnore,
           UsersCompanion.insert(
             id: _housekeeper,
             createdAt: maintenant,

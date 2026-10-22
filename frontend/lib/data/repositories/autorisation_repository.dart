@@ -15,8 +15,6 @@
 ///    descendue sur la tablette peuvent alors autoriser.
 library;
 
-import 'package:drift/drift.dart';
-
 import '../../features/auth/auth_locale.dart';
 import '../local/database.dart';
 import '../local/queries/access_queries.dart';
@@ -77,19 +75,17 @@ class AutorisationRepository {
     String secret,
     String permission,
   ) async {
-    final agent =
-        await (db.select(db.users)
-              ..where(
-                (u) =>
-                    u.employeeCode.equals(code.trim().toUpperCase()) &
-                    u.deletedAt.isNull(),
-              )
-              ..limit(1))
-            .getSingleOrNull();
+    final agent = await agentParCode(db, code);
+    final maintenant = DateTime.now().toUtc();
+    if (agent != null && await estBloque(db, agent, maintenant)) {
+      throw StateError('Compte du responsable bloqué après cinq codes faux.');
+    }
     if (agent == null ||
         !agent.isActive ||
-        !(AuthLocale.verifierSecret(secret, agent.pinHash) ||
-            AuthLocale.verifierSecret(secret, agent.passwordHash))) {
+        !await AuthLocale.secretAccepte(secret, agent)) {
+      // Le meme compte que le serveur : sans lui, la fenetre servirait a
+      // deviner un PIN de responsable hors ligne.
+      if (agent != null) await compterEchec(db, agent, maintenant);
       throw StateError(
         'Code du responsable incorrect, ou inconnu de cette tablette hors '
         'ligne.',

@@ -28,6 +28,7 @@ import '../../core/ui/atrium_ui.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/shake.dart';
 import '../../data/repositories/auth_repository.dart';
+import 'code_oublie.dart';
 import 'session.dart';
 
 const _photoChambre = 'assets/images/chambre.jpg';
@@ -97,6 +98,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _codeOublie() async {
+    final code = await demanderCodeOublie(context, codeAgent: _codeAgent.text);
+    if (code == null || !mounted) return;
+    setState(() {
+      _codeAgent.text = code;
+      _pin = '';
+      _motDePasse.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Nouveau code enregistré : connectez-vous.'),
+      ),
+    );
+  }
+
   void _changerDeVoie(_Voie voie) {
     if (voie == _voie) return;
     setState(() {
@@ -109,8 +125,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _messageEchec(LoginFailure echec) => switch (echec) {
     LoginFailure.unknownUser => 'Code agent inconnu.',
     LoginFailure.disabledAccount => 'Ce compte est désactivé.',
+    // Un agent attend un responsable, un responsable un quart d'heure : le
+    // message couvre les deux sans promettre une attente qui ne vient pas.
     LoginFailure.locked =>
-      'Compte verrouillé après cinq échecs. Réessayez dans quinze minutes.',
+      'Compte bloqué après cinq codes faux. Un responsable le débloque : '
+          '« Code oublié ? ».',
     LoginFailure.wrongSecret =>
       _voie == _Voie.pin ? 'Code incorrect.' : 'Mot de passe incorrect.',
     // Propre au hors connexion : le serveur ne repond pas, et cet agent ne
@@ -250,6 +269,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 _Bascule(voie: _voie, onChanged: _changerDeVoie),
                 const SizedBox(height: 20),
                 _saisie(session, echecSecret),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: session.enCours ? null : _codeOublie,
+                    child: const Text('Code oublié ?'),
+                  ),
+                ),
               ],
             ),
           ),

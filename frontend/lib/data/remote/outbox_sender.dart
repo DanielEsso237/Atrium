@@ -30,6 +30,7 @@ import '../local/enums.dart';
 import '../repositories/cash_repository.dart';
 import '../repositories/folio_repository.dart';
 import '../repositories/invoice_repository.dart';
+import '../repositories/reinitialisation_repository.dart';
 import 'api_client.dart';
 
 /// La table Drift derriere un nom SQL, et le garde-fou du moteur.
@@ -254,14 +255,10 @@ class OutboxSender {
       return;
     }
     if (entree.entityTable == 'users') {
-      // Le serveur a le PIN, hache : la tablette n'en garde aucune copie,
-      // pas meme dans l'historique de sa file.
-      await db.customUpdate(
-        "UPDATE outbox_entries SET payload = json_remove(payload, '\$.pin') "
-        'WHERE id = ?',
-        variables: [Variable.withInt(entree.id)],
-        updates: {db.outboxEntries},
-      );
+      // Le serveur a le PIN, hache -- et pour un code oublie, le secret du
+      // responsable : la tablette n'en garde aucune copie, pas meme dans
+      // l'historique de sa file.
+      await ReinitialisationRepository.effacerSecrets(db, entree.id);
       return;
     }
     if (entree.entityTable == 'folio_items') {
@@ -804,6 +801,14 @@ class OutboxSender {
         // Creation : l'id de la tablette rend le renvoi sans danger, et le
         // PIN part une seule fois -- il est efface de l'entree des que le
         // serveur l'a recu (`_appliquerReponse`).
+        // Code oublie (21 octobre) : sans session, c'est le code du
+        // responsable qui la remplace. Voir `ReinitialisationRepository`.
+        if (p['action'] == actionReinitialiser) {
+          return _Envoi(
+            '/auth/reset-secret',
+            ReinitialisationRepository.corpsPourLeServeur(p),
+          );
+        }
         if (p['action'] == 'RESET_PIN') {
           return _Envoi('/users/${p['id']}/reset-pin', {'new_pin': p['pin']});
         }

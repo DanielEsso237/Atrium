@@ -215,6 +215,16 @@ class Descente {
       final agents = await _siPermis(_catalog.fetchUsers);
       final roles = await _siPermis(_catalog.fetchRoles);
       final permissions = await _siPermis(_catalog.fetchPermissions);
+      // Les empreintes de tous les agents, pour la connexion hors ligne :
+      // un agent cree ou reinitialise sur un autre poste se connecte ici.
+      // Un serveur qui ne connait pas encore la route (404) n'empeche rien.
+      List<Map<String, dynamic>> empreintes;
+      try {
+        empreintes = await _siPermis(_catalog.fetchCredentials);
+      } on ApiException catch (e) {
+        if (e.failure != ApiFailure.notFound) rethrow;
+        empreintes = const [];
+      }
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
@@ -247,6 +257,9 @@ class Descente {
       }
       for (final a in agents) {
         await depotAgents.applyServerAgent(a);
+      }
+      for (final e in empreintes) {
+        await depotAgents.applyServerCredentials(e);
       }
       final nCategories = await _ecrireCategoriesCarte(
         categoriesCarte,

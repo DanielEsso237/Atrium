@@ -27,6 +27,7 @@ class FakeCatalogApi implements CatalogApi {
     this.users = const [],
     this.roles = const [],
     this.permissions = const [],
+    this.empreintes = const [],
     this.products = const [],
     this.stockLocations = const [],
     this.stockLevels = const [],
@@ -58,6 +59,9 @@ class FakeCatalogApi implements CatalogApi {
   final List<Map<String, dynamic>> users;
   final List<Map<String, dynamic>> roles;
   final List<Map<String, dynamic>> permissions;
+
+  /// `GET /auth/credentials` : les agents avec leurs empreintes.
+  final List<Map<String, dynamic>> empreintes;
   final List<RemoteProduct> products;
   final List<RemoteStockLocation> stockLocations;
   final List<RemoteStockLevel> stockLevels;
@@ -193,6 +197,9 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<Map<String, dynamic>>> fetchPermissions() async => permissions;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchCredentials() async => empreintes;
 }
 
 /// Un serveur injoignable : tout appel echoue comme dans un couloir.
@@ -312,4 +319,7 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<Map<String, dynamic>>> fetchPermissions() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchCredentials() async => _couloir();
 }

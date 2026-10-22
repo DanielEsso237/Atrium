@@ -1318,6 +1318,13 @@ class CatalogApi {
       if (u is Map<String, dynamic>) u,
   ];
 
+  /// Les agents de l'hotel avec leurs empreintes (`GET /auth/credentials`),
+  /// pour la connexion hors ligne. Ouvert a tout agent connecte.
+  Future<List<Map<String, dynamic>>> fetchCredentials() async => [
+    for (final u in await _client.getList('/auth/credentials'))
+      if (u is Map<String, dynamic>) u,
+  ];
+
   /// Les roles avec leurs permissions, et le catalogue des permissions.
   /// Reserves a `users.read`, comme la liste des agents.
   Future<List<Map<String, dynamic>>> fetchRoles() async => [

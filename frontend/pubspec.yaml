@@ -52,6 +52,7 @@ dependencies:
   vibration: ^3.2.1
   flutter_local_notifications: ^22.3.1
   image: '>=4.3.0 <4.9.0'
+  bcrypt: ^1.2.0
 
 dev_dependencies:
   flutter_test:
