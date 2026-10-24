@@ -16,9 +16,11 @@ from sqlalchemy import (
     Sequence,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from app.db.base import Base, ServerBase, UUIDPrimaryKey
 from app.models.enums import ConflictResolution, SyncOp
@@ -29,6 +31,19 @@ from app.models.rooms import _enum
 # ordre total entre les modifications pour qu'un client puisse reprendre une
 # synchronisation interrompue sans trou ni doublon.
 SYNC_SEQUENCE = Sequence("sync_seq", metadata=Base.metadata)
+
+
+class Xid8(UserDefinedType):
+    """Identifiant de transaction PostgreSQL sur 64 bits (`xid8`).
+
+    Jamais lu par l'ORM : seules les requetes du journal le comparent a un
+    instantane (`app/services/synchro.py`).
+    """
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw) -> str:
+        return "xid8"
 
 
 class SyncChangeLog(UUIDPrimaryKey, Base):
@@ -43,6 +58,7 @@ class SyncChangeLog(UUIDPrimaryKey, Base):
     __table_args__ = (
         Index("ix_sync_change_log_table_seq", "entity_table", "seq"),
         Index("ix_sync_change_log_changed_at", "changed_at"),
+        Index("ix_sync_change_log_xid", "xid"),
     )
 
     # Alimente par le trigger `atrium_track_change`, avec la meme valeur que
@@ -55,6 +71,13 @@ class SyncChangeLog(UUIDPrimaryKey, Base):
     changed_at: Mapped[dt.datetime] = mapped_column()
     changed_by_device_id: Mapped[uuid.UUID | None] = mapped_column(default=None)
     payload: Mapped[dict | None] = mapped_column(JSONB, default=None)
+    # La transaction qui a ecrit la ligne, posee par defaut. C'est elle, et
+    # non `seq`, qui dit si une tablette a deja vu le changement : `seq` est
+    # pris a l'ecriture, et deux transactions concurrentes deviennent
+    # visibles dans le desordre (migration 0031).
+    xid: Mapped[str | None] = mapped_column(
+        Xid8, server_default=text("pg_current_xact_id()"), deferred=True
+    )
 
 
 class SyncDeviceCursor(ServerBase):

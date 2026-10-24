@@ -42,9 +42,18 @@ horloges désynchronisées entre tablettes, et surtout transactions concurrentes
 dans le désordre (une ligne écrite à T mais commitée après le pull à T+1 est perdue pour toujours).
 
 On utilise donc une **séquence PostgreSQL globale** (`sync_seq`) incrémentée par trigger
-sur chaque `INSERT`/`UPDATE`/`DELETE` logique. Le client ne retient qu'un entier par table
-(`sync_cursors.last_seq`) et demande `WHERE change_seq > :last_seq ORDER BY change_seq`.
-Monotone, sans trou observable, insensible aux horloges.
+sur chaque `INSERT`/`UPDATE`/`DELETE` logique, et le journal `sync_change_log`.
+
+**Corrigé le 23 octobre : la séquence seule ne suffit pas.** Le numéro est pris à
+l'*écriture*, pas à la validation : elle souffre du même défaut que `updated_at`. A écrit
+le n° 740, B le n° 745 et valide aussitôt ; un client qui lit à cet instant retient
+« tout jusqu'à 745 » et ne verra jamais le 740, validé une seconde plus tard.
+
+Le curseur d'une tablette est donc un **instantané PostgreSQL** (`pg_current_snapshot()`),
+et chaque ligne du journal note sa transaction (`xid`, migration 0031). Une ligne est
+nouvelle pour la tablette si sa transaction n'était pas validée dans son instantané
+(`pg_visible_in_snapshot`). Exact, insensible aux horloges comme à l'ordre des validations.
+Voir `GET /sync/changes` dans le contrat d'API.
 
 ### 0.4 Montants, quantités et taux
 

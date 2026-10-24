@@ -9509,6 +9509,47 @@
         "title": "SupplierOut",
         "type": "object"
       },
+      "SyncChangesOut": {
+        "description": "Ce qu'une tablette doit relire depuis son dernier curseur.\n\nDes noms de tables, pas les lignes : la tablette relit ces tables par\nleurs routes habituelles, qui appliquent deja les droits et le perimetre\nde l'agent (un barman ne lit que ses points de vente).",
+        "properties": {
+          "cursor": {
+            "description": "Instantane PostgreSQL a renvoyer en `since` au prochain appel",
+            "title": "Cursor",
+            "type": "string"
+          },
+          "full_resync": {
+            "description": "Le curseur ne sert pas (absent, illisible, trop ancien) : tout relire",
+            "title": "Full Resync",
+            "type": "boolean"
+          },
+          "removed": {
+            "additionalProperties": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "Lignes retirees (deleted_at), que les routes de liste ne rendent plus",
+            "title": "Removed",
+            "type": "object"
+          },
+          "tables": {
+            "description": "Tables modifiees, par ordre alphabetique",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cursor",
+          "full_resync"
+        ],
+        "title": "SyncChangesOut",
+        "type": "object"
+      },
       "TableStatus": {
         "enum": [
           "FREE",
@@ -18198,6 +18239,64 @@
         "summary": "Update Supplier",
         "tags": [
           "stock"
+        ]
+      }
+    },
+    "/api/v1/sync/changes": {
+      "get": {
+        "description": "Les tables modifiees depuis `since`, et le curseur suivant.\n\nTout agent connecte : la reponse ne contient que des noms de tables et\ndes identifiants de lignes retirees, rien qu'un droit protege. Les\nlignes elles-memes se relisent par leurs routes, sous leurs droits.",
+        "operationId": "sync_changes_api_v1_sync_changes_get",
+        "parameters": [
+          {
+            "description": "Le `cursor` du dernier appel ; absent = premiere synchronisation",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Le `cursor` du dernier appel ; absent = premiere synchronisation",
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncChangesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Sync Changes",
+        "tags": [
+          "synchronisation"
         ]
       }
     },
