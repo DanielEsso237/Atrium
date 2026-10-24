@@ -616,6 +616,53 @@ seule la tablette qui l'avait saisie savait d'où elle venait.
 La tablette relit une fenêtre glissante de 62 jours à chaque descente, de
 quoi couvrir le mois précédent en entier.
 
+## Ce qui a changé depuis la dernière synchronisation
+
+`GET /sync/changes?since=<curseur>` (tout agent connecté) dit **quelles
+tables** ont changé, pour que la tablette ne relise que leurs routes au lieu
+des vingt-neuf. Quand rien n'a changé, un seul aller-retour.
+
+```json
+{"cursor": "8292:8292:", "full_resync": false,
+ "tables": ["folio_items", "folios", "payments"],
+ "removed": {"folios": ["01a1…"]}}
+```
+
+- `cursor` : à garder tel quel et à renvoyer en `since` la fois suivante.
+  C'est un instantané PostgreSQL, pas un numéro — opaque pour la tablette.
+- `full_resync: true` : le curseur ne sert pas (premier appel sans `since`,
+  illisible, venu d'une autre base, ou plus de 5 000 changements de retard).
+  Tout relire, puis repartir du `cursor` rendu.
+- `tables` : les noms des tables du serveur, par ordre alphabétique. Ce sont
+  des noms de tables, pas de routes : `folio_items` se relit par
+  `GET /folios`, `reservation_rooms` par `GET /reservations`. Les tables sans
+  `hotel_id` (lignes d'ardoise, de séjour…) sont toujours signalées ; celles
+  qui en ont un, seulement si une ligne de l'hôtel de l'agent a changé.
+- `removed` : les lignes passées en `deleted_at` (une ardoise retirée par une
+  arrivée annulée, par exemple). Les routes de liste ne les rendent plus :
+  sans cette liste, la tablette les garderait.
+- Les liaisons sans identifiant propre sont signalées au nom de leur
+  parent : un rôle qui change de droits (`role_permissions`) apparaît comme
+  `roles`, un agent qui change de rôle ou de points de vente (`user_roles`,
+  `user_outlets`) comme `users`.
+
+**Demander le curseur avant de relire, jamais après.** Un changement validé
+entre les deux revient alors une seconde fois, sans dommage, au lieu de
+passer entre les mailles.
+
+Pourquoi un instantané : `change_seq` est pris à l'écriture, pas à la
+validation. Deux transactions concurrentes deviennent visibles dans le
+désordre, et un curseur numérique avancé jusqu'à la plus rapide sautait la
+plus lente pour toujours (migration 0031,
+`tests/test_synchro_changements.py`).
+
+## La compression
+
+Toute réponse de plus d'un kilo-octet part compressée (`gzip`) quand le
+client l'annonce (`Accept-Encoding`), ce que font le navigateur et `dart:io`
+d'eux-mêmes. Une descente complète pèse environ 180 Ko de JSON ; compressée,
+cinq fois moins — ce qui compte par ngrok ou en 4G.
+
 ## Les ardoises du comptoir
 
 Au bar, un client consomme au fil de la soirée et paie à la fin (décision du
