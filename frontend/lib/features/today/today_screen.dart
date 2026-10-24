@@ -467,7 +467,9 @@ class _Chiffres extends ConsumerWidget {
       _Chiffre(
         icone: PhosphorIconsLight.coins,
         valeur: formatAmountShort(r?.caDuJour ?? 0),
-        libelle: 'encaissé',
+        // Vendu, pas encaisse : une consommation portee a la chambre compte
+        // ici avant d'etre payee. L'encaisse se lit dans la Caisse du jour.
+        libelle: 'vendu',
         detail: "chiffre d'affaires du jour",
         onTap: () => context.go('/factures'),
       ),
