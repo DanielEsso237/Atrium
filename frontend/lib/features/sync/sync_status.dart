@@ -14,10 +14,14 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/remote/api_client.dart';
+import '../../data/remote/catalog_api.dart' show RemoteChanges;
 import '../../data/remote/file_uploader.dart';
 import '../../data/remote/outbox_sender.dart';
+import '../../data/remote/remote_providers.dart';
 import '../../data/repositories/descente.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/sync_repository.dart';
@@ -86,15 +90,29 @@ class SyncUiState {
 }
 
 class SyncNotifier extends Notifier<SyncUiState> {
+  /// Ou en est la tablette dans les changements du serveur : l'instantane
+  /// rendu par `/sync/changes`, opaque. En memoire seulement : au demarrage
+  /// et a chaque connexion, la relecture complete en fixe un neuf.
+  String? _curseur;
+
   @override
-  SyncUiState build() => const SyncUiState();
+  SyncUiState build() {
+    // Un autre agent n'a pas les memes droits : ce que le precedent ne
+    // pouvait pas lire n'est jamais descendu. Sa connexion relit tout.
+    ref.listen<String?>(
+      sessionProvider.select((s) => s.agent?.id),
+      (_, _) => _curseur = null,
+    );
+    return const SyncUiState();
+  }
 
   /// Remonte les ecritures locales, sans rien rapatrier.
   ///
   /// C'est ce que le declenchement automatique appelle. La montee peut se
   /// faire dans le dos de l'agent sans rien deranger : elle n'affecte aucun
   /// pixel de l'ecran. La descente, elle, repeint des listes qu'on est peut-
-  /// etre en train de lire, et reste donc a la demande.
+  /// etre en train de lire : automatique, elle passe par [suivre], qui ne
+  /// relit que si le serveur signale un changement.
   Future<DrainReport> push() async {
     if (state.running) {
       return const DrainReport(
@@ -150,7 +168,13 @@ class SyncNotifier extends Notifier<SyncUiState> {
     final DrainReport rapport;
     final SyncOutcome outcome;
     final PullReport descendu;
+    final String? curseur;
     try {
+      // Le curseur avant la relecture, jamais apres : ce qui change pendant
+      // qu'elle lit reviendra au tour suivant, au lieu de passer entre les
+      // mailles.
+      curseur = (await ref.read(catalogApiProvider).fetchChanges(null))?.cursor;
+
       // L'ordre n'est pas negociable : la descente ecrase, la montee non.
       // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
       // tablette sait avant qu'il ne lui reponde.
@@ -178,9 +202,89 @@ class SyncNotifier extends Notifier<SyncUiState> {
       // montee n'avait rien a envoyer et n'a donc rien appris.
       joignable: !outcome.offline,
     );
+    // Une relecture interrompue ne fixe pas de curseur : la suivante
+    // recommencera depuis l'ancien.
+    if (descendu.succeeded && !outcome.offline) _curseur = curseur;
     return outcome;
   }
+
+  /// Rapatrie ce qui a change sur le serveur, et seulement si quelque chose
+  /// a change.
+  ///
+  /// C'est ce que la descente automatique appelle (`PullScheduler`). Le plus
+  /// souvent rien n'a bouge : un seul petit aller-retour, et aucune liste ne
+  /// se repeint sous les yeux de l'agent. Sinon, les lignes retirees
+  /// partent, puis tout se relit.
+  Future<void> suivre() async {
+    if (state.running) return;
+    final depuis = _curseur;
+    if (depuis == null) {
+      await refresh();
+      return;
+    }
+    final RemoteChanges? changements;
+    try {
+      changements = await ref.read(catalogApiProvider).fetchChanges(depuis);
+    } on ApiException {
+      // Hors ligne, session expiree : le tour suivant reessaiera, et la file
+      // d'envoi dit deja ce qui ne va pas.
+      return;
+    }
+    // Un serveur sans la route : la descente reste au bouton, comme avant.
+    if (changements == null) return;
+    if (changements.rienDeNeuf) {
+      _curseur = changements.cursor;
+      return;
+    }
+    if (changements.removed.isNotEmpty) {
+      await ref.read(descenteProvider).appliquerRetraits(changements.removed);
+    }
+    await refresh();
+  }
 }
+
+/// Rapatrie tout seul ce qui a change sur le serveur (retour du 23 octobre :
+/// « implementer la synchro automatique »).
+///
+/// Toutes les trente secondes, et des que l'application revient au premier
+/// plan : une tablette posee le temps d'un menage doit voir l'etat de
+/// l'hotel en se rallumant, pas une demi-minute plus tard. Seulement pour un
+/// agent connecte en ligne : sans jeton, le serveur ne repondrait rien.
+class PullScheduler extends Notifier<void> {
+  static const periode = Duration(seconds: 30);
+
+  Timer? _minuteur;
+  AppLifecycleListener? _cycle;
+
+  @override
+  void build() {
+    ref.listen<bool>(
+      sessionProvider.select((s) => s.online && s.agent != null),
+      (_, enLigne) => enLigne ? _demarrer() : _arreter(),
+      fireImmediately: true,
+    );
+    ref.onDispose(_arreter);
+  }
+
+  void _demarrer() {
+    _arreter();
+    _minuteur = Timer.periodic(periode, (_) => _tour());
+    _cycle = AppLifecycleListener(onResume: _tour);
+  }
+
+  void _arreter() {
+    _minuteur?.cancel();
+    _minuteur = null;
+    _cycle?.dispose();
+    _cycle = null;
+  }
+
+  void _tour() => unawaited(ref.read(syncProvider.notifier).suivre());
+}
+
+final pullSchedulerProvider = NotifierProvider<PullScheduler, void>(
+  PullScheduler.new,
+);
 
 final syncProvider = NotifierProvider<SyncNotifier, SyncUiState>(
   SyncNotifier.new,

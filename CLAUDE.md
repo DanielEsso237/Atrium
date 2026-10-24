@@ -213,6 +213,21 @@ et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
 ressource que l'agent n'a pas le droit de lire (403) est sautée, pas fatale :
 la réception ne lit pas le restaurant, le ménage ne lit pas les clients.
 
+**La descente est automatique** (24 octobre). Toutes les trente secondes et
+au retour sur l'application, `SyncNotifier.suivre` demande
+`GET /sync/changes?since=<curseur>` ; si rien n'a changé, un aller-retour et
+rien ne se repeint, sinon les lignes retirées partent et tout se relit (les
+vingt-neuf lectures partent en parallèle). **Le curseur est un instantané
+PostgreSQL** (`pg_current_snapshot()`), jamais un numéro : `change_seq` est
+pris à l'écriture, et un curseur numérique sautait pour toujours une
+transaction validée en retard (migration 0031). Il vit en mémoire : chaque
+démarrage et chaque connexion relisent tout et en fixent un neuf, ce qui
+couvre aussi l'agent suivant sur une tablette partagée, qui n'a pas les
+mêmes droits. Le curseur se prend **avant** la relecture, jamais après.
+Le ménage et la maintenance redescendent aussi désormais : avant, une
+chambre terminée sur la tablette de l'agent restait « en cours » à la
+réception.
+
 ## Ce que la direction a décidé le 29 septembre
 
 Plusieurs points **rouvrent le périmètre v1** arrêté en septembre :
@@ -559,15 +574,16 @@ nouveau code, et un refus du serveur n'a pas de repli local.
 - Attribuer une chambre sans enregistrer d'arrivée n'a pas d'endpoint
   (`ReservationRoomUpdate` n'a pas de `room_id`) ; l'attribution repart avec le
   check-in, ce qui suffit aujourd'hui.
-- **Une arrivée annulée sur un poste** retire l'ardoise sur le serveur, mais
-  un second poste qui l'avait déjà descendue la garde ouverte : `GET /folios`
-  ne rend pas les ardoises retirées, la descente ne voit donc pas le retrait.
-  Même cause que `SyncOp.DELETE` ci-dessous. La tâche de ménage ouverte par
-  un départ annulé reste aussi dans la liste du ménage.
+- **La tâche de ménage ouverte par un départ annulé** reste dans la liste du
+  ménage : le serveur ne l'annule pas (`annulations.py`). L'ardoise retirée
+  par une arrivée annulée, elle, se retire désormais sur les autres postes
+  (`removed` de `GET /sync/changes`).
 - `SyncOp.DELETE` n'est ni produit ni traité, et `SyncState.conflict` n'est
   utilisé nulle part — pas d'arbitrage de conflit.
-- Aucun endpoint ne filtre sur une date de modification : chaque descente
-  relit sa fenêtre. Tenable pour dix-huit chambres, à revoir ensuite.
+- **Quand quelque chose a changé, la descente relit encore tout** : les
+  routes de liste ne filtrent pas sur un curseur. `GET /sync/changes` dit
+  quelles tables ont bougé ; ne relire que celles-là est l'étape suivante si
+  la relecture devient lourde.
 - `passlib` cherche `bcrypt.__about__` qui n'existe plus : trace d'erreur
   cosmétique à chaque démarrage. Il n'a plus de version depuis 2020 et ne sert
   qu'à deux fonctions.

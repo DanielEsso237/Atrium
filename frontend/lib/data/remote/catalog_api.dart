@@ -1048,6 +1048,47 @@ class RemoteExpense {
   }
 }
 
+/// Ce qui a change sur le serveur depuis le dernier curseur
+/// (`GET /sync/changes`).
+class RemoteChanges {
+  const RemoteChanges({
+    required this.cursor,
+    required this.fullResync,
+    this.tables = const {},
+    this.removed = const {},
+  });
+
+  /// Opaque pour la tablette : a renvoyer tel quel au prochain appel.
+  final String cursor;
+
+  /// Le curseur ne servait pas : tout relire.
+  final bool fullResync;
+
+  /// Noms des tables du serveur, pas des routes.
+  final Set<String> tables;
+
+  /// Lignes retirees (`deleted_at`) par table : les routes de liste ne les
+  /// rendent plus.
+  final Map<String, List<String>> removed;
+
+  bool get rienDeNeuf => !fullResync && tables.isEmpty && removed.isEmpty;
+
+  static RemoteChanges? fromJson(Object? raw) {
+    if (raw is! Map || raw['cursor'] == null) return null;
+    final retirees = raw['removed'];
+    return RemoteChanges(
+      cursor: '${raw['cursor']}',
+      fullResync: raw['full_resync'] == true,
+      tables: {for (final t in (raw['tables'] as List? ?? const [])) '$t'},
+      removed: {
+        if (retirees is Map)
+          for (final e in retirees.entries)
+            '${e.key}': [for (final id in (e.value as List? ?? const [])) '$id'],
+      },
+    );
+  }
+}
+
 /// Une tache de menage (`HousekeepingTaskOut`).
 class RemoteHousekeepingTask {
   const RemoteHousekeepingTask({
@@ -1629,6 +1670,23 @@ class CatalogApi {
       );
     } on ApiException catch (e) {
       if (e.failure == ApiFailure.notFound) return const [];
+      rethrow;
+    }
+  }
+
+  /// Ce qui a change depuis [since] (`null` : premiere demande, tout
+  /// relire). `null` quand le serveur ne connait pas encore la route : la
+  /// tablette relit alors tout, comme avant.
+  Future<RemoteChanges?> fetchChanges(String? since) async {
+    try {
+      return RemoteChanges.fromJson(
+        await _client.get(
+          '/sync/changes',
+          query: since == null ? null : {'since': since},
+        ),
+      );
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.notFound) return null;
       rethrow;
     }
   }

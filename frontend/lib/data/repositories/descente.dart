@@ -137,101 +137,120 @@ class Descente {
         if (e.isOffline) rethrow;
         debugPrint('[Descente] hotel ecarte : ${e.message}');
       }
-      final pointsDeVente = await _siPermis(_catalog.fetchOutlets);
-      final categoriesCarte = await _siPermis(_catalog.fetchMenuCategories);
-      final articlesCarte = await _siPermis(_catalog.fetchMenuItems);
+      // Toutes les lectures partent ensemble, puis s'attendent dans l'ordre
+      // ou elles s'ecrivent. A la file, par ngrok, vingt-neuf allers-retours
+      // prenaient une quinzaine de secondes : chacun attendait le precedent.
+      final depuis = _debutFenetreRapports();
+      final lPoints = _lance(_siPermis(_catalog.fetchOutlets));
+      final lCategories = _lance(_siPermis(_catalog.fetchMenuCategories));
+      final lArticles = _lance(_siPermis(_catalog.fetchMenuItems));
+      final lProduits = _lance(_siPermis(_catalog.fetchProducts));
+      final lMagasins = _lance(_siPermis(_catalog.fetchStockLocations));
+      final lNiveaux = _lance(_siPermis(_catalog.fetchStockLevels));
+      final lTransferts = _lance(
+        _siPermisOuRien(_catalog.fetchPendingTransfers),
+      );
+      final lClients = _lance(_siPermis(_catalog.fetchGuests));
+      final lEnCours = _lance(_siPermisOuRien(_catalog.fetchStaysInHouse));
+      final lDossiers = _lance(_siPermis(() => _catalog.fetchReservations()));
+      final lArdoises = _lance(_siPermis(_catalog.fetchOpenFolios));
+      final lArdoisesCloses = _lance(
+        _siPermis(() => _catalog.fetchClosedFolios(depuis)),
+      );
+      final lEncaissements = _lance(
+        _siPermis(() => _catalog.fetchPayments(depuis)),
+      );
+      final lDepenses = _lance(_siPermis(() => _catalog.fetchExpenses(depuis)));
+      final lTaches = _lance(
+        _siPermis(() => _catalog.fetchHousekeepingTasks(businessDateNow())),
+      );
+      final lTickets = _lance(_siPermis(_catalog.fetchMaintenanceTickets));
+      final lInventaires = _lance(
+        _siPermisOuRien<RemoteInventory>(
+          () async =>
+              await _catalog.fetchInventories(depuis) ??
+              const <RemoteInventory>[],
+        ),
+      );
+      final lCommandesChambre = _lance(
+        _siPermisOuRien<RemoteRoomOrder>(
+          () async =>
+              await _catalog.fetchRoomOrders(depuis) ??
+              const <RemoteRoomOrder>[],
+        ),
+      );
+      final lCouts = _lance(_coutsJournaliers(depuis));
+      final lCaisses = _lance(
+        _siPermis(() => _catalog.fetchCashSessions(depuis)),
+      );
+      final lActivite = _lance(_activitePointsDeVente(depuis));
+      final lRegleArrhes = _lance(_catalog.fetchDepositRule());
+      final lNiveauxAlertes = _lance(_catalog.fetchNotificationLevels());
+      final lSonneriesAlertes = _lance(_catalog.fetchNotificationSounds());
+      final lAgents = _lance(_siPermis(_catalog.fetchUsers));
+      final lRoles = _lance(_siPermis(_catalog.fetchRoles));
+      final lPermissions = _lance(_siPermis(_catalog.fetchPermissions));
+      final lEmpreintes = _lance(_empreintes());
+
+      final pointsDeVente = await lPoints;
+      final categoriesCarte = await lCategories;
+      final articlesCarte = await lArticles;
       // Les stocks : reserves a qui porte stock.read.
-      final produits = await _siPermis(_catalog.fetchProducts);
-      final magasins = await _siPermis(_catalog.fetchStockLocations);
-      final niveaux = await _siPermis(_catalog.fetchStockLevels);
+      final produits = await lProduits;
+      final magasins = await lMagasins;
+      final niveaux = await lNiveaux;
       // `null` et non vide quand l'agent n'a pas le droit : une liste vide
       // ferait retirer de la tablette tous les transferts a valider.
-      final transferts = await _siPermisOuRien(_catalog.fetchPendingTransfers);
-      final clients = await _siPermis(_catalog.fetchGuests);
+      final transferts = await lTransferts;
+      final clients = await lClients;
       // La fenetre des arrivees, plus tous les sejours en cours : un client
       // arrive avant la fenetre est encore dans sa chambre. Le meme dossier
       // peut venir des deux appels ; il ne s'ecrit qu'une fois.
-      final enCours = await _siPermisOuRien(_catalog.fetchStaysInHouse);
+      final enCours = await lEnCours;
       final dossiers = {
-        for (final d in [
-          ...await _siPermis(() => _catalog.fetchReservations()),
-          ...?enCours,
-        ])
-          d.id: d,
+        for (final d in [...await lDossiers, ...?enCours]) d.id: d,
       }.values.toList();
-      final ardoises = await _siPermis(_catalog.fetchOpenFolios);
+      final ardoises = await lArdoises;
       // Qui ne lit pas les reservations -- le comptoir -- recoit a la place
       // les chambres a qui il peut porter. `null` : rien a faire, ni a
       // retirer (la reception lit deja tout, ou l'agent ne porte pas).
       final aPorter = enCours == null ? await _sejoursAPorter() : null;
       // Les rapports : ventes closes ailleurs et encaissements de tous les
       // postes, sur une fenetre glissante.
-      final depuis = _debutFenetreRapports();
-      final ardoisesCloses = await _siPermis(
-        () => _catalog.fetchClosedFolios(depuis),
-      );
-      final encaissements = await _siPermis(
-        () => _catalog.fetchPayments(depuis),
-      );
+      final ardoisesCloses = await lArdoisesCloses;
+      final encaissements = await lEncaissements;
       // Les depenses, pour le benefice : sous `accounting.read`, un 403
       // pour le comptoir, qui saute la ressource.
-      final depenses = await _siPermis(() => _catalog.fetchExpenses(depuis));
+      final depenses = await lDepenses;
       // Le menage et la maintenance de tous les postes : sans eux, une
       // chambre terminee sur la tablette de l'agent restait « en cours » a
       // la reception, et un ticket ouvert ailleurs n'apparaissait jamais.
-      final taches = await _siPermis(
-        () => _catalog.fetchHousekeepingTasks(businessDateNow()),
-      );
-      final tickets = await _siPermis(_catalog.fetchMaintenanceTickets);
+      final taches = await lTaches;
+      final tickets = await lTickets;
       // Les inventaires des magasins : un second poste reprend celui qu'un
       // collegue a ouvert, au lieu d'en ouvrir un autre. Sous `stock.read`.
-      final inventaires = await _siPermisOuRien<RemoteInventory>(
-        () async =>
-            await _catalog.fetchInventories(depuis) ??
-            const <RemoteInventory>[],
-      );
+      final inventaires = await lInventaires;
       // Les commandes en chambre (F2.6) : la reception suit celles qu'elle a
       // passees, le point de vente voit arriver celles qu'il doit monter.
       // Sous `order.read` ; `null` aussi si le serveur ne connait pas la route.
-      final commandesChambre = await _siPermisOuRien<RemoteRoomOrder>(
-        () async =>
-            await _catalog.fetchRoomOrders(depuis) ?? const <RemoteRoomOrder>[],
-      );
-      // Et ce que chaque journee a coute en stock : les mouvements, eux, ne
-      // descendent pas. Un 403 vaut « rien a ecrire », comme un 404.
-      List<RemoteDailyCost>? couts;
-      try {
-        couts = await _catalog.fetchDailyCosts(depuis);
-      } on ApiException catch (e) {
-        if (e.failure != ApiFailure.forbidden) rethrow;
-      }
+      final commandesChambre = await lCommandesChambre;
+      final couts = await lCouts;
       // Les caisses : celles de tout l'hotel pour la caisse centrale, qui y
       // lit ce que chaque point de vente lui doit ; les siennes pour un
       // autre agent, qui y voit son versement confirme.
-      final caisses = await _siPermis(
-        () => _catalog.fetchCashSessions(depuis),
-      );
+      final caisses = await lCaisses;
       // L'activite des points de vente de l'agent, sur tous les postes. Pour
       // qui lit deja ardoises et encaissements, elle redit une partie de ce
       // qui precede ; pour l'agent d'un point de vente, c'est la seule source
       // de son tableau de bord -- il ne lit ni `/folios` ni `/payments`.
-      final activite = await _activitePointsDeVente(depuis);
-      final regleArrhes = await _catalog.fetchDepositRule();
-      final niveauxAlertes = await _catalog.fetchNotificationLevels();
-      final sonneriesAlertes = await _catalog.fetchNotificationSounds();
-      final agents = await _siPermis(_catalog.fetchUsers);
-      final roles = await _siPermis(_catalog.fetchRoles);
-      final permissions = await _siPermis(_catalog.fetchPermissions);
-      // Les empreintes de tous les agents, pour la connexion hors ligne :
-      // un agent cree ou reinitialise sur un autre poste se connecte ici.
-      // Un serveur qui ne connait pas encore la route (404) n'empeche rien.
-      List<Map<String, dynamic>> empreintes;
-      try {
-        empreintes = await _siPermis(_catalog.fetchCredentials);
-      } on ApiException catch (e) {
-        if (e.failure != ApiFailure.notFound) rethrow;
-        empreintes = const [];
-      }
+      final activite = await lActivite;
+      final regleArrhes = await lRegleArrhes;
+      final niveauxAlertes = await lNiveauxAlertes;
+      final sonneriesAlertes = await lSonneriesAlertes;
+      final agents = await lAgents;
+      final roles = await lRoles;
+      final permissions = await lPermissions;
+      final empreintes = await lEmpreintes;
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
@@ -350,6 +369,40 @@ class Descente {
       return e.isOffline
           ? const PullReport.offline()
           : PullReport.failed(e.message);
+    }
+  }
+
+  /// Lance une lecture sans l'attendre tout de suite.
+  ///
+  /// Si une lecture precedente echoue (hors ligne), `pull` s'arrete avant
+  /// d'attendre celle-ci : son erreur, jamais ecoutee, remonterait alors comme
+  /// une erreur non traitee. On la marque comme vue ; l'attendre plus tard la
+  /// rend quand meme.
+  static Future<T> _lance<T>(Future<T> lecture) {
+    lecture.ignore();
+    return lecture;
+  }
+
+  /// Ce que chaque journee a coute en stock : les mouvements, eux, ne
+  /// descendent pas. Un 403 vaut « rien a ecrire », comme un 404.
+  Future<List<RemoteDailyCost>?> _coutsJournaliers(DateTime depuis) async {
+    try {
+      return await _catalog.fetchDailyCosts(depuis);
+    } on ApiException catch (e) {
+      if (e.failure != ApiFailure.forbidden) rethrow;
+      return null;
+    }
+  }
+
+  /// Les empreintes de tous les agents, pour la connexion hors ligne : un
+  /// agent cree ou reinitialise sur un autre poste se connecte ici. Un
+  /// serveur qui ne connait pas encore la route (404) n'empeche rien.
+  Future<List<Map<String, dynamic>>> _empreintes() async {
+    try {
+      return await _siPermis(_catalog.fetchCredentials);
+    } on ApiException catch (e) {
+      if (e.failure != ApiFailure.notFound) rethrow;
+      return const [];
     }
   }
 
@@ -1640,6 +1693,46 @@ class Descente {
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
+
+  // --- Les retraits ----------------------------------------------------------
+
+  /// Retire ici les lignes que le serveur a retirees (`deleted_at`).
+  ///
+  /// Les routes de liste ne les rendent plus : sans ce signal, une ardoise
+  /// retiree par une arrivee annulee restait ouverte sur un second poste. Une
+  /// ligne qu'une ecriture locale protege garde sa version, comme partout.
+  /// Rend le nombre de lignes retirees.
+  Future<int> appliquerRetraits(Map<String, List<String>> retraits) async {
+    var retirees = 0;
+    final maintenant = DateTime.now().toUtc();
+    for (final MapEntry(key: nom, value: ids) in retraits.entries) {
+      final table = db.allTables
+          .where((t) => t.actualTableName == nom)
+          .firstOrNull;
+      // Une table que cette version ne connait pas, ou sans retrait doux.
+      if (table == null ||
+          !table.$columns.any((c) => c.name == 'deleted_at')) {
+        continue;
+      }
+      final proteges = await _sync.lignesEnAttente(table);
+      final aRetirer = [
+        for (final id in ids)
+          if (!proteges.contains(id)) id,
+      ];
+      if (aRetirer.isEmpty) continue;
+      // Le nom vient de Drift, jamais d'une donnee du serveur.
+      retirees += await db.customUpdate(
+        'UPDATE $nom SET deleted_at = ?1 WHERE deleted_at IS NULL '
+        'AND id IN (${[for (var i = 0; i < aRetirer.length; i++) '?${i + 2}'].join(', ')})',
+        variables: [
+          Variable.withDateTime(maintenant),
+          for (final id in aRetirer) Variable.withString(id),
+        ],
+        updates: {table},
+      );
+    }
+    return retirees;
+  }
 
   // --- Le menage et la maintenance ---------------------------------------
 
