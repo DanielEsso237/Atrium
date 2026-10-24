@@ -150,6 +150,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // L'ardoise de la chambre ne regarde pas le point de vente : elle se
+    // lisait comme une dette envers lui (24 octobre).
+    final soldeDeLaChambre = find.textContaining(
+      RegExp(r'^Ardoise |ardoise de la chambre'),
+    );
+    expect(soldeDeLaChambre, findsNothing);
+    expect(find.text('Client de l’hôtel'), findsOneWidget);
+
     await tester.tap(find.text('101'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
@@ -161,6 +169,7 @@ void main() {
     // Sur son ardoise du bar (il paie a la fin), ou payer tout de suite.
     expect(find.text('Sur son ardoise'), findsOneWidget);
     expect(find.text('Payer maintenant'), findsOneWidget);
+    expect(soldeDeLaChambre, findsNothing);
     // Tablette en portrait (15 octobre) : plein ecran, la liste des
     // produits sous la commande, sans debordement.
     expect(find.byType(TableauCarte), findsOneWidget);

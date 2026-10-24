@@ -644,9 +644,10 @@ class _Chambre extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => _Tuile(
     numero: chambre.roomNumber,
     titre: chambre.guestName,
-    detail: chambre.departDepasse
-        ? 'Départ dépassé, ardoise ${formatAmount(chambre.balance)}'
-        : 'Ardoise ${formatAmount(chambre.balance)}',
+    // Rien de l'ardoise de la chambre : ses nuitees ne regardent pas le
+    // point de vente, et ce montant se lisait comme une dette envers lui
+    // (essai du 24 octobre). Le plafond, lui, se verifie tout seul.
+    detail: chambre.departDepasse ? 'Départ dépassé' : 'Client de l’hôtel',
     alerte: chambre.departDepasse,
     fin: const _BoutonAjouter(),
     onTap: () => _saisir(context, ref),
@@ -834,10 +835,9 @@ class _TuileArdoise extends ConsumerWidget {
       return _Tuile(
         numero: c.roomNumber,
         titre: c.guestName,
-        // Ce qu'il doit ici d'abord : c'est ce qu'il regle en partant.
-        detail:
-            'À payer ici : ${formatAmount(a.reste)}, '
-            'chambre ${formatAmount(c.balance)}',
+        // Ce qu'il doit ici, et seulement ici : l'ardoise de la chambre ne
+        // regarde pas le point de vente.
+        detail: 'À payer ici : ${formatAmount(a.reste)}',
         alerte: c.departDepasse,
         fin: Tag('À payer', color: p.warning),
         onTap: () => _ouvrir(context, ref),
@@ -1837,16 +1837,9 @@ class _SaisieState extends ConsumerState<_Saisie> {
                 ? '${chambre.guestName} · départ dépassé'
                 : chambre.guestName,
             badge: _BadgePoint(outlet: widget.outlet),
-            valeur: ardoise != null
-                ? formatAmount(ardoise.reste)
-                : chambre == null
-                ? null
-                : formatAmount(chambre.balance),
-            legendeValeur: ardoise != null
-                ? 'à payer'
-                : chambre == null
-                ? null
-                : 'à l’ardoise de la chambre',
+            // L'ardoise ouverte ici, jamais celle de la chambre.
+            valeur: ardoise != null ? formatAmount(ardoise.reste) : null,
+            legendeValeur: ardoise != null ? 'à payer' : null,
             libelleFermer: 'Fermer sans servir',
           ),
           largeurCarte: largeurCarteFiche,
