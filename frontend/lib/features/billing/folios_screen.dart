@@ -861,14 +861,16 @@ class _Actions extends ConsumerWidget {
         ),
       ),
       // Une ardoise close avec un impaye est une creance que plus personne
-      // ne verra : la cloture attend un solde nul.
+      // ne verra : la cloture attend un solde nul. Le bouton reste actif :
+      // grise, il ne disait pas pourquoi ; touche, il propose d'encaisser
+      // (demande du 24 octobre).
       PillButton(
         label: 'Clore',
         icon: PhosphorIconsLight.lockSimple,
         tone: PillTone.quiet,
         compact: true,
         expand: true,
-        onPressed: folio.balance != 0 ? null : () => _clore(context, ref),
+        onPressed: () => _clore(context, ref),
       ),
     ];
 
@@ -917,6 +919,15 @@ class _Actions extends ConsumerWidget {
   }
 
   Future<void> _clore(BuildContext context, WidgetRef ref) async {
+    if (folio.balance > 0) {
+      montrerRefus(
+        context,
+        'Il reste ${formatAmount(folio.balance)} à payer : encaissez le '
+        'solde avant de clore.',
+        remede: Remede('Encaisser', () => _encaisser(context, ref)),
+      );
+      return;
+    }
     try {
       await ref
           .read(folioRepositoryProvider)
