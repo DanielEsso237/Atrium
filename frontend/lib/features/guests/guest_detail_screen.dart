@@ -3,6 +3,9 @@
 /// Elle s'ouvre par-dessus la navigation, sur tout l'ecran, et se referme
 /// par la croix en haut ou la touche Echap. Elle suit la base : modifiee ici
 /// ou remontee d'un autre poste, elle se redessine seule.
+///
+/// Elle s'ouvre aussi en panneau lateral ([ouvrirFicheClientLaterale]) :
+/// depuis les reservations, l'agent la consulte sans perdre sa liste.
 library;
 
 import 'package:flutter/material.dart';
@@ -21,6 +24,7 @@ import '../../data/local/enums.dart';
 import '../../data/local/queries/mouvements_queries.dart';
 import '../../data/repositories/guest_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../core/widgets/fiche_laterale.dart';
 import '../auth/session.dart';
 import '../mouvements/annuler_mouvement.dart';
 import '../mouvements/mouvements_widgets.dart';
@@ -45,15 +49,36 @@ final _sejoursProvider = StreamProvider.autoDispose
       (ref, id) => ref.watch(guestRepositoryProvider).watchStays(id),
     );
 
+/// La fiche en panneau, a droite de l'ecran ; « Page entiere » l'agrandit.
+Future<void> ouvrirFicheClientLaterale(BuildContext context, String guestId) =>
+    afficherFicheLaterale<void>(
+      context,
+      libelleFermer: 'Fermer la fiche client',
+      fiche: (panneau) => FicheSurface(
+        panneau: panneau,
+        child: GuestDetailScreen(guestId: guestId, panneau: true),
+      ),
+    );
+
 class GuestDetailScreen extends ConsumerWidget {
-  const GuestDetailScreen({super.key, required this.guestId});
+  const GuestDetailScreen({
+    super.key,
+    required this.guestId,
+    this.panneau = false,
+  });
 
   final String guestId;
+
+  /// Ouverte en panneau lateral par-dessus un autre ecran : elle se ferme
+  /// en revenant a cet ecran, et prend la mise en page etroite.
+  final bool panneau;
 
   /// Retour au fichier. Ouverte par un lien direct, la page n'a rien sous
   /// elle : on y va plutot que de fermer sur le vide.
   void _fermer(BuildContext context) {
-    if (context.canPop()) {
+    if (panneau) {
+      Navigator.of(context).pop();
+    } else if (context.canPop()) {
       context.pop();
     } else {
       context.go('/clients');
@@ -67,13 +92,21 @@ class GuestDetailScreen extends ConsumerWidget {
     final guest = fiche.value;
     final stats =
         ref.watch(guestStatsProvider).value?[guestId] ?? GuestStats.vide;
-    final etroit = MediaQuery.sizeOf(context).width < 600;
+    final etroit = panneau || MediaQuery.sizeOf(context).width < 600;
+
+    /// Quitte le panneau avant d'aller ailleurs : sinon la page s'ouvrirait
+    /// sous lui.
+    void allerA(String route, {bool empiler = false}) {
+      final routeur = GoRouter.of(context);
+      if (panneau) Navigator.of(context).pop();
+      empiler ? routeur.push(route) : routeur.go(route);
+    }
 
     void modifier() => showDialog<GuestRow>(
       context: context,
       builder: (_) => GuestFormDialog(existing: guest),
     );
-    void reserver() => context.go('/reservations/nouvelle?client=$guestId');
+    void reserver() => allerA('/reservations/nouvelle?client=$guestId');
 
     final boutonModifier = PillButton(
       label: 'Modifier',
@@ -90,7 +123,7 @@ class GuestDetailScreen extends ConsumerWidget {
       onPressed: reserver,
     );
 
-    return CallbackShortcuts(
+    final page = CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () =>
             _fermer(context),
@@ -106,9 +139,19 @@ class GuestDetailScreen extends ConsumerWidget {
               children: [
                 _BarreHaute(
                   onFermer: () => _fermer(context),
-                  actions: guest == null || etroit
-                      ? const []
-                      : [boutonModifier, boutonReserver],
+                  actions: [
+                    if (panneau)
+                      IconButton(
+                        tooltip: 'Ouvrir en page entière',
+                        icon: const Icon(PhosphorIconsLight.arrowUpRight),
+                        onPressed: () =>
+                            allerA('/clients/$guestId', empiler: true),
+                      ),
+                    if (guest != null && !etroit) ...[
+                      boutonModifier,
+                      boutonReserver,
+                    ],
+                  ],
                 ),
                 Expanded(
                   child: fiche.when(
@@ -153,6 +196,14 @@ class GuestDetailScreen extends ConsumerWidget {
               : null,
         ),
       ),
+    );
+    if (!panneau) return page;
+    // Le panneau fait 500 px : les sections lisent la largeur de l'ecran pour
+    // choisir leur mise en page, on leur donne celle du panneau.
+    final mq = MediaQuery.of(context);
+    return MediaQuery(
+      data: mq.copyWith(size: Size(500, mq.size.height)),
+      child: page,
     );
   }
 }

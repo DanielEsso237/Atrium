@@ -4,6 +4,7 @@ import 'package:atrium/core/shell/app_shell.dart';
 import 'package:atrium/core/theme.dart';
 import 'package:atrium/core/tokens.dart';
 import 'package:atrium/data/local/database.dart';
+import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/queries/dashboard_queries.dart';
@@ -117,6 +118,7 @@ void main() {
     addTearDown(() => AtriumPalette.current = AtriumPalette.light);
     container = ProviderContainer(
       overrides: [
+        databaseProvider.overrideWithValue(db),
         sessionProvider.overrideWith(
           () => _TestSession(
             AccessProfile(
@@ -385,9 +387,42 @@ void main() {
     });
   }
 
-  testWidgets('toucher le client ouvre sa fiche', (tester) async {
-    // Retour du 23 octobre : « pouvoir voir directement la fiche du client
-    // sur cet ecran ».
+  // Retour du 23 octobre : « pouvoir voir directement la fiche du client
+  // sur cet ecran », puis du 24 : un bouton, et la fiche sur le cote.
+  testWidgets('« Voir la fiche » ouvre la fiche à côté de la liste', (
+    tester,
+  ) async {
+    await open(tester, autres: {'guests.read'});
+    router.go('/reservations');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toutes').first);
+    await tester.pumpAndSettle();
+
+    final ligne = find.ancestor(
+      of: find.text('Client demain'),
+      matching: find.byWidgetPredicate(
+        (w) => w.runtimeType.toString() == 'HoverRow',
+      ),
+    );
+    await tester.tap(
+      find.descendant(of: ligne, matching: find.text('Voir la fiche')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fiche client'), findsOneWidget);
+    // La liste reste dessous : on n'a pas change de page.
+    expect(router.state.matchedLocation, '/reservations');
+    expect(find.text('Client demain'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Fermer la fiche (Échap)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fiche client'), findsNothing);
+    await close(tester);
+  });
+
+  testWidgets('toucher le nom ouvre aussi la fiche, agrandissable', (
+    tester,
+  ) async {
     await open(tester, autres: {'guests.read'});
     router.go('/reservations');
     await tester.pumpAndSettle();
@@ -396,7 +431,10 @@ void main() {
 
     await tester.tap(find.text('Client demain'));
     await tester.pumpAndSettle();
+    expect(find.text('Fiche client'), findsOneWidget);
 
+    await tester.tap(find.byTooltip('Ouvrir en page entière'));
+    await tester.pumpAndSettle();
     expect(find.text('Fiche client-${'Client demain'.hashCode.abs()}'),
         findsOneWidget);
     await close(tester);
