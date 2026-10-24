@@ -182,6 +182,10 @@ class FakeCatalogApi implements CatalogApi {
   @override
   Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => const [];
 
+  /// Par defaut, un serveur qui ne connait pas encore la route.
+  @override
+  Future<RemoteChanges?> fetchChanges(String? since) async => null;
+
   @override
   Future<List<RemoteHousekeepingTask>> fetchHousekeepingTasks(
     String businessDate,
@@ -315,6 +319,9 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => _couloir();
+
+  @override
+  Future<RemoteChanges?> fetchChanges(String? since) async => _couloir();
 
   @override
   Future<List<RemoteHousekeepingTask>> fetchHousekeepingTasks(

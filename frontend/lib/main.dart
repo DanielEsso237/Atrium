@@ -65,6 +65,8 @@ class AtriumApp extends ConsumerWidget {
     ref.watch(syncSchedulerProvider);
     // Les photos, sur leur propre file : meme raison.
     ref.watch(uploadSchedulerProvider);
+    // Et la descente automatique : meme raison.
+    ref.watch(pullSchedulerProvider);
     final mode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
