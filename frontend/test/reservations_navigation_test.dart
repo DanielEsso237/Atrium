@@ -78,6 +78,7 @@ void main() {
       lineId: name,
       reference: 'R-${name.hashCode.abs()}',
       guestName: name,
+      guestId: 'client-${name.hashCode.abs()}',
       arrival: formatIsoDate(arrival),
       departure: formatIsoDate(departure),
       status: status,
@@ -106,6 +107,7 @@ void main() {
     double textScale = 1,
     bool allowed = true,
     bool dark = false,
+    Set<String> autres = const {},
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -117,7 +119,9 @@ void main() {
       overrides: [
         sessionProvider.overrideWith(
           () => _TestSession(
-            AccessProfile(permissions: allowed ? {'reservation.read'} : {}),
+            AccessProfile(
+              permissions: {if (allowed) 'reservation.read', ...autres},
+            ),
           ),
         ),
         reservationRepositoryProvider.overrideWithValue(
@@ -143,6 +147,11 @@ void main() {
     );
     router = GoRouter(
       routes: [
+        GoRoute(
+          path: '/clients/:id',
+          builder: (_, state) =>
+              Scaffold(body: Text('Fiche ${state.pathParameters['id']}')),
+        ),
         ShellRoute(
           builder: (context, state, child) =>
               AppShell(location: state.matchedLocation, child: child),
@@ -375,4 +384,34 @@ void main() {
       await close(tester);
     });
   }
+
+  testWidgets('toucher le client ouvre sa fiche', (tester) async {
+    // Retour du 23 octobre : « pouvoir voir directement la fiche du client
+    // sur cet ecran ».
+    await open(tester, autres: {'guests.read'});
+    router.go('/reservations');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toutes').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Client demain'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fiche client-${'Client demain'.hashCode.abs()}'),
+        findsOneWidget);
+    await close(tester);
+  });
+
+  testWidgets('sans le droit de lire les fiches, le nom reste un nom', (
+    tester,
+  ) async {
+    await open(tester);
+    router.go('/reservations');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toutes').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Voir la fiche de Client demain'), findsNothing);
+    await close(tester);
+  });
 }

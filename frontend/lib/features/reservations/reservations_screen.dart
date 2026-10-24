@@ -389,28 +389,11 @@ class _LigneLarge extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
-          Monogram(r.guestName, size: 44),
-          const SizedBox(width: 14),
+          // Le monogramme y est entre : un peu plus de place qu'avant pour
+          // garder celle du nom.
           Expanded(
-            flex: 30,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  r.guestName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _styleNom,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  r.reference,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _styleDiscret,
-                ),
-              ],
-            ),
+            flex: 34,
+            child: _Identite(reservation: r, taille: 44),
           ),
           Expanded(
             flex: 30,
@@ -473,23 +456,7 @@ class _LigneEtroite extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Monogram(r.guestName, size: 42),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      r.guestName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _styleNom,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(r.reference, style: _styleDiscret),
-                  ],
-                ),
-              ),
+              Expanded(child: _Identite(reservation: r, taille: 42)),
               _Statut(label: look.label, couleur: look.color),
             ],
           ),
@@ -526,6 +493,64 @@ class _LigneEtroite extends ConsumerWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Le client et la reference du dossier. Toucher le nom ouvre sa fiche
+/// (retour du 23 octobre : « pouvoir voir directement la fiche du client sur
+/// cet ecran ») -- pour qui lit les fiches clients.
+class _Identite extends ConsumerWidget {
+  const _Identite({required this.reservation, required this.taille});
+
+  final ReservationSummary reservation;
+  final double taille;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = reservation;
+    final fiche =
+        r.guestId.isNotEmpty &&
+        ref.watch(sessionProvider).acces.peut('guests.read');
+    final contenu = Row(
+      children: [
+        Monogram(r.guestName, size: taille),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                r.guestName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: fiche
+                    ? _styleNom.copyWith(
+                        decoration: TextDecoration.underline,
+                        decorationColor: AtriumColors.textSecondary,
+                      )
+                    : _styleNom,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                r.reference,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _styleDiscret,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (!fiche) return contenu;
+    return Tooltip(
+      message: 'Voir la fiche de ${r.guestName}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AtriumRadii.md),
+        onTap: () => context.push('/clients/${r.guestId}'),
+        child: contenu,
       ),
     );
   }
