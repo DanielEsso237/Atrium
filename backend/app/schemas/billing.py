@@ -118,6 +118,13 @@ class WalkInSaleIn(BaseModel):
     items: list[WalkInItemIn] = Field(min_length=1)
     payment: PaymentIn
     notes: str | None = Field(default=None, max_length=255)
+    guest_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Le client loge qui paie sur place, quand la vente part de sa "
+            "tuile : la vente porte son nom au lieu de « Client divers »"
+        ),
+    )
 
 
 class PaymentOut(BaseModel):

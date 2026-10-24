@@ -446,6 +446,10 @@ class OrderRepository with OutboxWriter {
   /// Vend a un client de passage : il consomme au comptoir, paie le tout et
   /// s'en va, sans chambre ni fiche.
   ///
+  /// [guestId] : un client loge qui paie sur place depuis sa tuile. La vente
+  /// porte son nom ; sans lui, elle sortait en « Client divers » (essai du
+  /// 24 octobre).
+  ///
   /// Une ardoise `WALK_IN` nait, recoit les lignes, est payee et close dans
   /// la meme transaction ; une seule entree de file la remonte
   /// (`POST /folios/walk-in`). Une requete par geste aurait laisse, au
@@ -463,6 +467,7 @@ class OrderRepository with OutboxWriter {
     lines,
     required PaymentMethod method,
     required String by,
+    String? guestId,
   }) async {
     if (lines.isEmpty) throw StateError('Indiquez ce qui a été consommé.');
     for (final (label, prix, quantite, _) in lines) {
@@ -517,6 +522,7 @@ class OrderRepository with OutboxWriter {
               number: codeFromId(folioId, 'FOL'),
               type: const Value(FolioType.WALK_IN),
               status: const Value(FolioStatus.CLOSED),
+              guestId: Value(guestId),
               chargesTotal: Value(total),
               paymentsTotal: Value(total),
               balance: const Value(0),
@@ -588,6 +594,7 @@ class OrderRepository with OutboxWriter {
           'id': folioId,
           'action': 'WALK_IN',
           'outlet_id': outlet.id,
+          'guest_id': ?guestId,
           'items': [
             for (final a in articles)
               {

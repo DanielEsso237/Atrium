@@ -592,12 +592,16 @@ class OutboxSender {
         // La vente a un client de passage : ardoise, lignes, paiement et
         // cloture en une requete, que le serveur rejoue sans doublon.
         if (p['action'] == 'WALK_IN') {
-          return _Envoi('/folios/walk-in', {
-            'id': p['id'],
-            'outlet_id': p['outlet_id'],
-            'items': p['items'],
-            'payment': p['payment'],
-          });
+          return _Envoi(
+            '/folios/walk-in',
+            _sansNuls({
+              'id': p['id'],
+              'outlet_id': p['outlet_id'],
+              'items': p['items'],
+              'payment': p['payment'],
+              'guest_id': p['guest_id'],
+            }),
+          );
         }
         // Les ardoises du comptoir (decision du 12 octobre) : ouvrir, payer,
         // porter a la chambre, annuler. Chaque route est rejouable.

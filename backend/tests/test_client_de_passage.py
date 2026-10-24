@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from app.core.ids import uuid7
 from app.core.security import hash_secret
-from app.models import Permission, Role, RolePermission, User, UserRole
+from app.models import Guest, Permission, Role, RolePermission, User, UserRole
 from app.models.restaurant import Outlet
 
 pytestmark = pytest.mark.db
@@ -104,6 +104,30 @@ async def test_le_paiement_doit_couvrir_le_total(client, bar, auth_comptoir):
         "/api/v1/folios/walk-in", json=_vente(bar, montant=5_000), headers=auth_comptoir
     )
     assert r.status_code == 409
+
+
+async def test_un_client_loge_paie_sur_place_a_son_nom(
+    client, session, hotel_a, bar, auth_comptoir
+):
+    """Essai du 24 octobre : la vente payee depuis la tuile de Jean-Paul
+    Mbarga sortait en « Client divers »."""
+    hotel, _ = hotel_a
+    loge = Guest(
+        id=uuid.uuid4(), hotel_id=hotel.id, code="CLI-JPM", first_name="Jean-Paul",
+        last_name="Mbarga",
+    )
+    session.add(loge)
+    await session.commit()
+
+    vente = {**_vente(bar), "guest_id": str(loge.id)}
+    r = await client.post("/api/v1/folios/walk-in", json=vente, headers=auth_comptoir)
+    assert r.status_code == 201, r.text
+    assert r.json()["guest_id"] == str(loge.id)
+    assert r.json()["status"] == "CLOSED"
+
+    inconnu = {**_vente(bar), "guest_id": str(uuid.uuid4())}
+    r = await client.post("/api/v1/folios/walk-in", json=inconnu, headers=auth_comptoir)
+    assert r.status_code == 404, r.text
 
 
 async def test_caisse_fermee_pas_de_vente(client, session, hotel_a, login, bar):
