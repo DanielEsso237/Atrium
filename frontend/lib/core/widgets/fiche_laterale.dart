@@ -203,7 +203,9 @@ class FicheEnTete extends StatelessWidget {
             excludeFromSemantics: true,
           ),
           // La nuit monte du bas : le titre et le montant se lisent en blanc
-          // sans ombre portee.
+          // sans ombre portee. Ce blanc est `onNight`, jamais `white` : ce
+          // dernier est le papier, fonce en theme sombre, et l'en-tete
+          // devenait illisible la nuit (essai du 24 octobre).
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -230,7 +232,7 @@ class FicheEnTete extends StatelessWidget {
                       height: 5,
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: AtriumColors.white.withValues(alpha: 0.55),
+                        color: AtriumColors.onNight.withValues(alpha: 0.55),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -275,7 +277,7 @@ class FicheEnTete extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w700,
-                              color: AtriumColors.white,
+                              color: AtriumColors.onNight,
                               height: 1.1,
                             ),
                           ),
@@ -301,7 +303,7 @@ class FicheEnTete extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AtriumColors.white,
+                              color: AtriumColors.onNight,
                               fontFeatures: tabularFigures,
                             ),
                           ),
@@ -345,7 +347,7 @@ class FicheBoutonRond extends StatelessWidget {
     label: libelle,
     excludeSemantics: true,
     child: Material(
-      color: AtriumColors.white.withValues(alpha: 0.16),
+      color: AtriumColors.onNight.withValues(alpha: 0.16),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -354,7 +356,7 @@ class FicheBoutonRond extends StatelessWidget {
           message: libelle,
           child: SizedBox.square(
             dimension: 44,
-            child: Icon(icone, color: AtriumColors.white),
+            child: Icon(icone, color: AtriumColors.onNight),
           ),
         ),
       ),
