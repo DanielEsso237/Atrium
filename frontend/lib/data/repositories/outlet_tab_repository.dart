@@ -40,6 +40,25 @@ enum EtatArdoise {
   annulee,
 }
 
+/// Une ardoise du comptoir encore ouverte quand son client part.
+class ArdoiseAuDepart {
+  const ArdoiseAuDepart({
+    required this.id,
+    required this.outletId,
+    required this.pointDeVente,
+    required this.reste,
+    required this.portable,
+  });
+
+  final String id;
+  final String outletId;
+  final String pointDeVente;
+  final int reste;
+
+  /// Elle peut passer sur la chambre ; sinon elle se paie au comptoir.
+  final bool portable;
+}
+
 /// Une ardoise, telle que le comptoir la montre sur sa tuile.
 class Ardoise {
   const Ardoise({
@@ -297,6 +316,114 @@ class OutletTabRepository with OutboxWriter {
     return r?.read<String>('id');
   }
 
+  /// Le nom du client de l'ardoise s'il est parti, sinon `null`.
+  ///
+  /// Parti : un sejour termine et aucun en cours. Son ardoise se paie
+  /// encore -- il peut repasser regler --, mais ne recoit plus rien : s'il
+  /// revient consommer, c'est un client de passage (decision du 24 octobre).
+  /// Un client dont la tablette ne connait aucun sejour n'est pas tenu pour
+  /// parti : une donnee absente ne doit pas bloquer le comptoir.
+  ///
+  /// Regle de la tablette seule : le serveur, lui, accepte. Une consommation
+  /// servie hors ligne avant le depart, et remontee apres, serait refusee et
+  /// bloquerait la file du bar.
+  Future<String?> clientParti(String ardoiseId) async {
+    final r = await db
+        .customSelect(
+          '''
+      SELECT g.first_name, g.last_name,
+             SUM(CASE WHEN rr.status = 'CHECKED_IN' THEN 1 ELSE 0 END)
+               AS en_cours,
+             SUM(CASE WHEN rr.status = 'CHECKED_OUT' THEN 1 ELSE 0 END)
+               AS finis
+        FROM folios f
+        JOIN guests g ON g.id = f.guest_id
+        JOIN reservations r ON r.guest_id = f.guest_id AND r.deleted_at IS NULL
+        JOIN reservation_rooms rr ON rr.reservation_id = r.id
+                                 AND rr.deleted_at IS NULL
+       WHERE f.id = ?1
+       GROUP BY g.id
+      ''',
+          variables: [Variable.withString(ardoiseId)],
+          readsFrom: {db.folios, db.guests, db.reservations, db.reservationRooms},
+        )
+        .getSingleOrNull();
+    if (r == null) return null;
+    if (r.read<int>('en_cours') > 0 || r.read<int>('finis') == 0) return null;
+    return '${r.read<String>('first_name')} ${r.read<String>('last_name')}'
+        .trim();
+  }
+
+  /// Les ardoises du comptoir encore ouvertes au nom du client de ce sejour :
+  /// le depart les signale, et propose de les porter sur la chambre.
+  Future<List<ArdoiseAuDepart>> ouvertesAuDepart(String lineId) async {
+    final rangs = await db
+        .customSelect(
+          '''
+      SELECT f.id, f.balance, f.payments_total, o.id AS outlet_id,
+             o.label, o.allows_room_charge
+        FROM reservation_rooms rr
+        JOIN reservations r ON r.id = rr.reservation_id
+        JOIN folios f ON f.guest_id = r.guest_id
+        JOIN outlets o ON o.id = f.outlet_id
+       WHERE rr.id = ?1
+         AND f.status = 'OPEN' AND f.deleted_at IS NULL
+         AND f.balance > 0
+       ORDER BY o.label
+      ''',
+          variables: [Variable.withString(lineId)],
+          readsFrom: {db.folios, db.reservations, db.reservationRooms, db.outlets},
+        )
+        .get();
+    return [
+      for (final r in rangs)
+        ArdoiseAuDepart(
+          id: r.read<String>('id'),
+          outletId: r.read<String>('outlet_id'),
+          pointDeVente: r.read<String>('label'),
+          reste: r.read<int>('balance'),
+          // Comme porterALaChambre : un point de vente qui porte, et rien
+          // deja encaisse sur l'ardoise.
+          portable:
+              r.read<bool>('allows_room_charge') &&
+              r.read<int>('payments_total') == 0,
+        ),
+    ];
+  }
+
+  /// Porte sur la chambre du sejour toutes ses ardoises du comptoir qui
+  /// peuvent l'etre : le client reglera tout a la reception, maintenant.
+  /// Rend le nombre d'ardoises portees ; les autres se paient au comptoir.
+  Future<int> porterAuDepart(String lineId, {String? overrideBy}) async {
+    final chambre = await (db.select(db.folios)..where(
+          (f) =>
+              f.reservationRoomId.equals(lineId) &
+              f.status.equalsValue(FolioStatus.OPEN) &
+              f.deletedAt.isNull(),
+        ))
+        .getSingleOrNull();
+    if (chambre == null) {
+      throw StateError(
+        'Ce séjour n\'a pas d\'ardoise ouverte : le client est parti.',
+      );
+    }
+    var portees = 0;
+    for (final a in await ouvertesAuDepart(lineId)) {
+      if (!a.portable) continue;
+      final pointDeVente = await (db.select(
+        db.outlets,
+      )..where((o) => o.id.equals(a.outletId))).getSingle();
+      await porterALaChambre(
+        pointDeVente: pointDeVente,
+        ardoiseId: a.id,
+        ardoiseChambreId: chambre.id,
+        overrideBy: overrideBy,
+      );
+      portees++;
+    }
+    return portees;
+  }
+
   /// Le prochain numero de passage : par point de vente et par journee
   /// hoteliere. Deux tablettes du meme bar, hors ligne au meme instant,
   /// peuvent tirer le meme numero ; l'ardoise reste distincte, seul le
@@ -450,6 +577,14 @@ class OutletTabRepository with OutboxWriter {
     }
     await _caisseOuverte(pointDeVente, by);
     await _ouverte(ardoiseId);
+    final parti = await clientParti(ardoiseId);
+    if (parti != null) {
+      throw StateError(
+        '$parti est parti : son ardoise se paie, elle ne reçoit plus de '
+        'consommations. S’il consomme encore, servez-le comme un nouveau '
+        'client.',
+      );
+    }
     await FolioRepository(db, hotelId: hotelId).addCharge(
       folioId: ardoiseId,
       category: categorie,

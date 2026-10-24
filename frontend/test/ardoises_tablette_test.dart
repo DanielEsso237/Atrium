@@ -367,4 +367,68 @@ void main() {
       expect(serveur.patchs.single.$2, {'label': 'Table 4'});
     });
   });
+
+  // Essai du 24 octobre : yann Emane part avec son ardoise du Restaurant
+  // impayee, sans que le depart le dise ; puis on lui sert encore a boire.
+  group('le depart et les ardoises du comptoir', () {
+    test('le depart les trouve, et les porte sur la chambre', () async {
+      await ouvrirCaisse();
+      final (client, chambre) = await awaEn101();
+      final ligne = (await folio(chambre)).reservationRoomId!;
+      final ardoise = await ardoises.ouvrir(
+        pointDeVente: bar,
+        by: utilisateurDemo,
+        guestId: client,
+      );
+      await servir(ardoise, 1500);
+
+      final ouvertes = await ardoises.ouvertesAuDepart(ligne);
+      expect(ouvertes.single.pointDeVente, 'Bar');
+      expect(ouvertes.single.reste, 1500);
+      expect(ouvertes.single.portable, isTrue);
+
+      final avant = (await folio(chambre)).balance;
+      expect(await ardoises.porterAuDepart(ligne), 1);
+      expect((await folio(chambre)).balance, avant + 1500);
+      expect((await folio(ardoise)).status, FolioStatus.CLOSED);
+      expect(await ardoises.ouvertesAuDepart(ligne), isEmpty);
+    });
+
+    test('client parti : son ardoise se paie, elle ne recoit plus rien',
+        () async {
+      await ouvrirCaisse();
+      final (client, chambre) = await awaEn101();
+      final ligne = (await folio(chambre)).reservationRoomId!;
+      final ardoise = await ardoises.ouvrir(
+        pointDeVente: bar,
+        by: utilisateurDemo,
+        guestId: client,
+      );
+      await servir(ardoise, 1500);
+      expect(await ardoises.clientParti(ardoise), isNull);
+
+      await ReservationRepository(db).checkOut(lineId: ligne);
+
+      expect(await ardoises.clientParti(ardoise), 'Awa Diallo');
+      await expectLater(servir(ardoise, 2000), throwsStateError);
+      expect((await folio(ardoise)).chargesTotal, 1500);
+      // Payer reste possible : il repasse regler.
+      await ardoises.payer(
+        pointDeVente: bar,
+        ardoiseId: ardoise,
+        moyen: PaymentMethod.CASH,
+        by: utilisateurDemo,
+      );
+      expect((await folio(ardoise)).status, FolioStatus.CLOSED);
+    });
+
+    test('une ardoise sans client n est jamais tenue pour partie', () async {
+      await ouvrirCaisse();
+      final ardoise = await ardoises.ouvrir(
+        pointDeVente: bar,
+        by: utilisateurDemo,
+      );
+      expect(await ardoises.clientParti(ardoise), isNull);
+    });
+  });
 }

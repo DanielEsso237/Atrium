@@ -926,6 +926,24 @@ class _TuileArdoise extends ConsumerWidget {
     WidgetRef ref, {
     MenuEntry? article,
   }) async {
+    // Client parti : son ardoise se paie, elle ne recoit plus rien. Le dire
+    // avant la commande, pas apres, et proposer d'encaisser.
+    final parti = await ref
+        .read(outletTabRepositoryProvider)
+        .clientParti(ardoise.id);
+    if (parti != null) {
+      if (context.mounted) {
+        montrerRefus(
+          context,
+          '$parti est parti : son ardoise se paie, elle ne reçoit plus de '
+          'consommations. S’il consomme encore, servez-le comme un nouveau '
+          'client.',
+          remede: Remede('Encaisser l’ardoise', () => _payer(context, ref)),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
     if (!await _caisseOuverte(context, ref, outlet) || !context.mounted) {
       return;
     }

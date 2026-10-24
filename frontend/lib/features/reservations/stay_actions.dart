@@ -538,6 +538,20 @@ Future<bool> confirmCheckOut(
   }
   if (!context.mounted) return false;
 
+  // Ses ardoises du comptoir avant le solde : portees sur la chambre, elles
+  // en font partie. Le depart ne les regardait pas, et un client partait
+  // avec son ardoise du Restaurant impayee sans que personne le sache
+  // (essai du 24 octobre).
+  if (!await _ardoisesDuComptoir(
+    context,
+    ref,
+    lineId: lineId,
+    guestName: guestName,
+  )) {
+    return false;
+  }
+  if (!context.mounted) return false;
+
   // Boucle et non question unique : apres un encaissement partiel il reste
   // quelque chose a demander, et on se retrouve devant le meme choix avec un
   // montant plus petit. Le client est au comptoir, il paie en deux fois, ca
@@ -610,6 +624,92 @@ Future<bool> confirmCheckOut(
       context,
       '$guestName est parti, chambre $roomNumber à nettoyer.',
     );
+  }
+  return true;
+}
+
+/// Les ardoises du comptoir encore ouvertes au nom du client qui part.
+///
+/// On propose de les porter sur la chambre : il reglera tout ici. Partir
+/// sans les porter reste possible -- elles se paient encore au comptoir --,
+/// mais en connaissance de cause. Renvoie `false` si l'agent renonce au
+/// depart.
+Future<bool> _ardoisesDuComptoir(
+  BuildContext context,
+  WidgetRef ref, {
+  required String lineId,
+  required String guestName,
+}) async {
+  final depot = ref.read(outletTabRepositoryProvider);
+  final ardoises = await depot.ouvertesAuDepart(lineId);
+  if (ardoises.isEmpty || !context.mounted) return true;
+  // Porter, c'est porter une charge sur la chambre : le droit du serveur.
+  final peutPorter =
+      ref.read(sessionProvider).acces.peut('folio.charge') &&
+      ardoises.any((a) => a.portable);
+  final total = ardoises.fold(0, (t, a) => t + a.reste);
+  final restent = ardoises.where((a) => !a.portable || !peutPorter).toList();
+
+  final choix = await showDialog<bool>(
+    context: context,
+    builder: (dialogue) => AlertDialog(
+      icon: const Icon(PhosphorIconsLight.receipt, size: 30),
+      title: Text(
+        ardoises.length == 1
+            ? 'Une ardoise au comptoir'
+            : '${ardoises.length} ardoises au comptoir',
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$guestName n’a pas payé :'),
+          const SizedBox(height: 8),
+          for (final a in ardoises)
+            Text('• ${a.pointDeVente} : ${formatAmount(a.reste)}'),
+          const SizedBox(height: 12),
+          Text(
+            peutPorter
+                ? 'Portez-les sur la chambre : il règle tout ici, '
+                      'maintenant (${formatAmount(total)} de plus).'
+                : 'Elles se paient au comptoir.',
+          ),
+          if (peutPorter && restent.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${restent.map((a) => a.pointDeVente).join(', ')} ne porte '
+              'pas sur la chambre : à payer au comptoir.',
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogue).pop(),
+          child: const Text('Annuler'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogue).pop(false),
+          child: Text(
+            peutPorter ? 'Partir sans les porter' : 'Partir quand même',
+          ),
+        ),
+        if (peutPorter)
+          FilledButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(dialogue).pop(true),
+            child: const Text('Porter sur la chambre'),
+          ),
+      ],
+    ),
+  );
+  if (choix == null) return false;
+  if (!choix) return true;
+  try {
+    await depot.porterAuDepart(lineId);
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
   }
   return true;
 }
