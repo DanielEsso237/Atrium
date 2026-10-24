@@ -55,6 +55,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
   int _children = 0;
   int? _rateOverride;
   String? _roomId;
+
+  /// Le numero de la chambre choisie, pour le recapitulatif : il ne vaut que
+  /// tant que `_roomId` est pose (changer de dates ou de categorie l'efface).
+  String? _roomNumber;
   bool _busy = false;
 
   final _notes = TextEditingController();
@@ -318,7 +322,10 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
             roomTypeId: _roomType!.typeId,
             range: _dates!,
             selected: _roomId,
-            onSelect: (id) => setState(() => _roomId = id),
+            onSelect: (id, numero) => setState(() {
+              _roomId = id;
+              _roomNumber = numero;
+            }),
           ),
         ),
       EtapeFormulaire(
@@ -364,7 +371,7 @@ class _NewReservationScreenState extends ConsumerState<NewReservationScreen> {
       adultes: _adults,
       enfants: _children,
       categorie: _roomType?.label,
-      chambreId: _roomId,
+      chambre: _roomId == null ? null : _roomNumber,
       tarif: _rate,
       total: _total,
       peutEnregistrer: _canSave && !_busy,
@@ -545,7 +552,7 @@ class _Ticket extends ConsumerWidget {
     required this.adultes,
     required this.enfants,
     required this.categorie,
-    required this.chambreId,
+    required this.chambre,
     required this.tarif,
     required this.total,
     required this.peutEnregistrer,
@@ -559,7 +566,9 @@ class _Ticket extends ConsumerWidget {
   final int adultes;
   final int enfants;
   final String? categorie;
-  final String? chambreId;
+  /// Le numero de la chambre choisie, `null` si elle sera attribuee plus
+  /// tard.
+  final String? chambre;
   final int tarif;
   final int total;
   final bool peutEnregistrer;
@@ -643,7 +652,7 @@ class _Ticket extends ConsumerWidget {
           ligne(
             PhosphorIconsLight.door,
             'Chambre',
-            chambreId == null ? 'attribuée plus tard' : 'choisie',
+            chambre ?? 'attribuée plus tard',
           ),
           ligne(
             PhosphorIconsLight.tag,
@@ -722,7 +731,7 @@ class _AvailableRooms extends ConsumerWidget {
   final String roomTypeId;
   final DateTimeRange range;
   final String? selected;
-  final void Function(String?) onSelect;
+  final void Function(String? id, String? numero) onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -782,7 +791,9 @@ class _AvailableRooms extends ConsumerWidget {
                   RoomChoiceTile(
                     numero: room.number,
                     choisie: selected == room.id,
-                    onTap: () => onSelect(selected == room.id ? null : room.id),
+                    onTap: () => selected == room.id
+                        ? onSelect(null, null)
+                        : onSelect(room.id, room.number),
                   ),
               ],
             ),
