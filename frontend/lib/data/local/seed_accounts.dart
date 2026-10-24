@@ -87,8 +87,13 @@ const _roles = <_RoleDemo>[
   (_roleReception, 'RECEPTION', 'Reception', '/'),
   ('01920000-0000-7000-8000-000000004003', 'CAISSE', 'Caisse', null),
   (_roleRestaurant, 'RESTAURANT', 'Points de vente', '/commandes'),
-  (_roleHousekeeping, 'HOUSEKEEPING', 'Housekeeping', '/menage'),
-  ('01920000-0000-7000-8000-000000004006', 'MAINTENANCE', 'Maintenance', null),
+  (_roleHousekeeping, 'HOUSEKEEPING', 'Agent de ménage', '/menage'),
+  (
+    '01920000-0000-7000-8000-000000004006',
+    'MAINTENANCE',
+    'Agent de maintenance',
+    null,
+  ),
   (
     '01920000-0000-7000-8000-000000004007',
     'MANAGER',
@@ -311,6 +316,14 @@ const _permissions = <_PermissionDemo>[
     "Reinitialiser le code oublie d'un agent",
     'users',
   ),
+  // Signaler une panne sans la traiter (23 octobre). Meme identifiant que le
+  // serveur (migration 0032).
+  (
+    '01920000-0000-7000-8000-000000004146',
+    'maintenance.report',
+    'Signaler une panne (ouvrir un ticket)',
+    'maintenance',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -373,6 +386,11 @@ const _droits = <(String role, String permission)>[
   // tuile « a nettoyer », et c'est elle qui decide quelles chambres revendre.
   (_roleReception, '01920000-0000-7000-8000-000000004126'),
   (_roleReception, '01920000-0000-7000-8000-000000004127'),
+  // La reception signale une panne et suit ou elle en est ; le technicien
+  // la traite. Comme cote serveur (migration 0032).
+  (_roleReception, '01920000-0000-7000-8000-000000004146'),
+  (_roleReception, '01920000-0000-7000-8000-000000004128'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004146'),
   // Un seul droit metier, un seul ecran. C'est tout le travail.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004127'),

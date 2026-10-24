@@ -63,8 +63,11 @@ void main() {
     expect(acces.peut('cash.central'), isTrue);
 
     // Le coeur du 3.4 tient toujours : un receptionniste ne repare pas la
-    // plomberie.
-    expect(acces.peut('maintenance.read'), isFalse);
+    // plomberie. Mais il la signale (23 octobre) : le client decrit la panne
+    // au comptoir, la reception ouvre le ticket et suit ou il en est.
+    expect(acces.peut('maintenance.report'), isTrue);
+    expect(acces.peut('maintenance.read'), isTrue);
+    expect(acces.peut('maintenance.manage'), isFalse);
   });
 
   test('l\'administrateur a les six modules', () async {

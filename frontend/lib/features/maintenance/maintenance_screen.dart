@@ -61,6 +61,12 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
         .watch(sessionProvider)
         .acces
         .peut('maintenance.manage');
+    // Signaler n'est pas traiter : la reception ouvre le ticket que le
+    // client lui decrit, le technicien le prend en charge (23 octobre).
+    final peutSignaler = ref
+        .watch(sessionProvider)
+        .acces
+        .peutUnDe('maintenance.report|maintenance.manage');
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 18.0 : 32.0;
 
@@ -95,7 +101,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
           : '${ouverts.length + pris.length} en cours, '
                 '$bloquees chambre${bloquees > 1 ? 's' : ''} '
                 'hors service',
-      action: peutGerer
+      action: peutSignaler
           ? PillButton(
               label: 'Signaler un problème',
               icon: PhosphorIconsLight.warningDiamond,
@@ -118,7 +124,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
               message:
                   'Une ampoule, une fuite, une clim : signalez-le ici ou '
                   'depuis la fiche de la chambre.',
-              action: peutGerer
+              action: peutSignaler
                   ? PillButton(
                       label: 'Signaler un problème',
                       icon: PhosphorIconsLight.warningDiamond,

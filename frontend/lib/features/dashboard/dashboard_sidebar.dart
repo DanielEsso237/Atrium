@@ -98,12 +98,7 @@ final _entrees = <_Entree>[
     'order.read',
   ),
   const _Entree('Maintenance', Icons.build_outlined, null, 'maintenance.read'),
-  const _Entree(
-    'Housekeeping',
-    Icons.home_outlined,
-    '/menage',
-    'housekeeping.read',
-  ),
+  const _Entree('Ménage', Icons.home_outlined, '/menage', 'housekeeping.read'),
   const _Entree('Clients', Icons.people_outline, '/clients', 'guests.read'),
   const _Entree(
     'Factures',
