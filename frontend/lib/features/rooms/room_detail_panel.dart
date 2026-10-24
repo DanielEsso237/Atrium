@@ -1018,6 +1018,7 @@ class _Actions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sejour = fiche?.sejour;
     final attendu = fiche?.expected;
+    final regles = ref.watch(stayRulesProvider).value;
 
     // Le check-in n'a de sens que si un sejour attribue attend, et le
     // check-out que si quelqu'un est la. Les deux ne sont jamais proposes
@@ -1057,8 +1058,11 @@ class _Actions extends ConsumerWidget {
           },
         ),
         // Prolonger et consommer portent une ligne sur l'ardoise : il leur
-        // faut une ardoise ouverte.
-        if (ardoise != null)
+        // faut une ardoise ouverte. Prolonger, c'est payer d'avance des
+        // heures au-dela du depart : sans prix de l'heure, le depart tardif
+        // est gratuit et il n'y a rien a prolonger (essai du 24 octobre, le
+        // bouton refusait alors que l'administration disait « non facturee »).
+        if (ardoise != null && (regles?.billsExtraHours ?? false))
           _BoutonAction(
             libelle: 'Prolonger',
             icone: Icons.more_time_rounded,

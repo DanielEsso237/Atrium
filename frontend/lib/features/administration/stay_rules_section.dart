@@ -118,7 +118,8 @@ class _StayRulesSectionState extends ConsumerState<StayRulesSection> {
           heure == null || prix == null
               ? 'Saisissez une heure entre 0 et 23.'
               : prix == 0
-              ? 'Départ à $heure h. La prolongation n’est pas facturée.'
+              ? 'Départ à $heure h. Un départ tardif n’est pas facturé : '
+                    'la fiche de la chambre ne propose pas de prolonger.'
               : 'Départ à $heure h. Chaque heure entamée au-delà coûte '
                     '${formatAmount(prix)} : un client qui part à '
                     '${(heure + 2) % 24} h paie 2 h, soit '
