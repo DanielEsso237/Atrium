@@ -35,6 +35,7 @@ import '../../data/repositories/stock_repository.dart';
 import '../auth/session.dart';
 import 'mouvement_stock_screen.dart';
 import '../../core/ui/confirmation.dart';
+import '../sync/sync_status.dart' show syncProvider;
 
 class _MagasinChoisi extends Notifier<String?> {
   @override
@@ -507,8 +508,16 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         if (m.id != depart.id) m,
     ]..sort((a, b) => (b.isCentral ? 1 : 0).compareTo(a.isCentral ? 1 : 0));
     if (autres.isEmpty) {
-      montrerRefus(context, 'Aucun autre magasin connu sur cette tablette : lancez une '
-            'synchronisation.');
+      // Les magasins arrivent du serveur : on propose de les faire venir.
+      montrerRefus(
+        context,
+        'Aucun autre magasin connu sur cette tablette : lancez une '
+        'synchronisation.',
+        remede: Remede(
+          'Synchroniser',
+          () => ref.read(syncProvider.notifier).refresh(),
+        ),
+      );
       return;
     }
     await ouvrirMouvementStock(
