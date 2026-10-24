@@ -638,9 +638,11 @@ class OutletTabRepository with OutboxWriter {
       db,
     ).openSessionId(by, outletId: pointDeVente.id);
     if (caisse == null) {
-      throw StateError(
+      throw CaisseFermee(
         'Ouvrez la caisse de ${pointDeVente.label} avant de servir : le '
         'point de vente est fermé.',
+        outletId: pointDeVente.id,
+        libelle: 'de ${pointDeVente.label}',
       );
     }
     return caisse;

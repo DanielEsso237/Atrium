@@ -12,6 +12,7 @@ import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/local/seed_accounts.dart';
+import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
 import 'package:atrium/data/repositories/outlet_repository.dart';
 import 'package:atrium/data/repositories/reservation_repository.dart';
@@ -60,6 +61,11 @@ void main() {
       db.users,
     )..where((u) => u.employeeCode.equals('ADMIN01'))).getSingle();
     final bar = await OutletRepository(db).create(code: 'BAR', label: 'Bar');
+    // Rien ne se sert sans le tiroir ouvert du point de vente : ferme, c'est
+    // la proposition de l'ouvrir qui s'afficherait (23 octobre).
+    await CashRepository(
+      db,
+    ).open(userId: agent.id, openingFloat: 0, outletId: bar.id);
     final now = DateTime.now().toUtc();
     final categorie = newId();
     await db

@@ -36,7 +36,8 @@ import '../../data/repositories/outlet_repository.dart'
     show receptionOutletCode;
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
-import '../billing/cash_dialog.dart' show CashButton;
+import '../billing/cash_dialog.dart'
+    show CashButton, proposerOuvertureCaisse;
 import '../billing/charge_labels.dart';
 import '../../core/ui/confirmation.dart';
 import '../billing/invoice_pdf.dart' show partagerPdf, ticketDeComptoir;
@@ -652,6 +653,9 @@ class _Chambre extends ConsumerWidget {
   );
 
   Future<void> _saisir(BuildContext context, WidgetRef ref) async {
+    if (!await _caisseOuverte(context, ref, outlet) || !context.mounted) {
+      return;
+    }
     final commande = await afficherFichePleinEcran<_Commande>(
       context,
       fiche: (plein) => _Saisie(
@@ -767,6 +771,9 @@ class _Passage extends ConsumerWidget {
   );
 
   Future<void> _vendre(BuildContext context, WidgetRef ref) async {
+    if (!await _caisseOuverte(context, ref, outlet) || !context.mounted) {
+      return;
+    }
     final commande = await afficherFichePleinEcran<_Commande>(
       context,
       fiche: (plein) =>
@@ -918,6 +925,9 @@ class _TuileArdoise extends ConsumerWidget {
     WidgetRef ref, {
     MenuEntry? article,
   }) async {
+    if (!await _caisseOuverte(context, ref, outlet) || !context.mounted) {
+      return;
+    }
     final commande = await afficherFichePleinEcran<_Commande>(
       context,
       fiche: (plein) => _Saisie(
@@ -945,6 +955,9 @@ class _TuileArdoise extends ConsumerWidget {
   Future<void> _payer(BuildContext context, WidgetRef ref) async {
     final agent = ref.read(sessionProvider).agent?.id;
     if (agent == null) return;
+    if (!await _caisseOuverte(context, ref, outlet) || !context.mounted) {
+      return;
+    }
     final total = ardoise.reste;
     final moyen = await showDialog<PaymentMethod>(
       context: context,
@@ -2644,3 +2657,17 @@ class _Quantite extends StatelessWidget {
     );
   }
 }
+
+/// Rien ne se sert sans le tiroir ouvert du point de vente : s'il est ferme,
+/// on propose de l'ouvrir avant la commande, plutot que de refuser apres
+/// qu'elle a ete saisie (retour du 23 octobre).
+Future<bool> _caisseOuverte(
+  BuildContext context,
+  WidgetRef ref,
+  OutletRow outlet,
+) => proposerOuvertureCaisse(
+  context,
+  ref,
+  outletId: outlet.id,
+  libelle: 'de ${outlet.label}',
+);

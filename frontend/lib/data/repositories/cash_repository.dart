@@ -238,6 +238,22 @@ class TiroirAgent {
   int get nombre => parMoyen.values.fold(0, (s, v) => s + v.$1);
 }
 
+/// Refus faute de caisse ouverte : le geste demandait un tiroir.
+///
+/// Un `StateError` comme les autres refus, pour que les ecrans qui les
+/// affichent tels quels continuent de le faire ; mais l'ecran qui le
+/// reconnait propose d'ouvrir la caisse et recommence le geste, au lieu de
+/// seulement refuser (retour du 23 octobre).
+class CaisseFermee extends StateError {
+  CaisseFermee(super.message, {this.outletId, required this.libelle});
+
+  /// Le point de vente du tiroir ; nul pour la caisse centrale.
+  final String? outletId;
+
+  /// Ce qui suit « La caisse » : « de Bar / Lounge », « centrale ».
+  final String libelle;
+}
+
 class CashRepository with OutboxWriter {
   CashRepository(this.db);
 

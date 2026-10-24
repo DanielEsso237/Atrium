@@ -407,3 +407,78 @@ Future<int?> demanderMontant(
     ),
   );
 }
+
+/// Propose d'ouvrir une caisse fermee, et l'ouvre si l'agent accepte.
+///
+/// Rend vrai si la caisse est ouverte en sortant : elle l'etait deja, ou
+/// l'agent vient de l'ouvrir. Retour du 23 octobre : l'application refusait
+/// de servir ou d'encaisser caisse fermee, sans proposer de l'ouvrir.
+Future<bool> proposerOuvertureCaisse(
+  BuildContext context,
+  WidgetRef ref, {
+  String? outletId,
+  required String libelle,
+}) async {
+  final session = ref.read(sessionProvider);
+  final agent = session.agent?.id;
+  if (agent == null) return false;
+  final caisses = ref.read(cashRepositoryProvider);
+  if (await caisses.openSessionId(agent, outletId: outletId) != null) {
+    return true;
+  }
+  // Ouvrir une caisse sans le droit, c'est une ecriture que le serveur
+  // refuserait : la file d'envoi se bloquerait derriere. Le refus d'origine
+  // reste alors le bon message.
+  if (!session.acces.peut('cash.session') || !context.mounted) return false;
+  final montant = await demanderMontant(
+    context,
+    titre: 'La caisse $libelle est fermée',
+    question:
+        'Ouvrez-la pour continuer : combien y a-t-il dans le tiroir en '
+        'prenant votre poste ?',
+    champ: 'Fond de caisse (FCFA)',
+    action: 'Ouvrir et continuer',
+  );
+  if (montant == null || !context.mounted) return false;
+  try {
+    await caisses.open(
+      userId: agent,
+      openingFloat: montant,
+      by: agent,
+      outletId: outletId,
+    );
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
+  if (context.mounted) {
+    montrerSucces(context, 'Caisse ouverte à ${formatAmount(montant)}.');
+  }
+  return true;
+}
+
+/// Fait le geste ; si la caisse etait fermee, propose de l'ouvrir et le
+/// refait.
+///
+/// L'agent qui refuse d'ouvrir retrouve le refus d'origine, que l'ecran
+/// affiche comme avant : rien ne change pour les ecrans qui ne passent pas
+/// par ici.
+Future<T> avecCaisse<T>(
+  BuildContext context,
+  WidgetRef ref,
+  Future<T> Function() geste,
+) async {
+  try {
+    return await geste();
+  } on CaisseFermee catch (e) {
+    if (!context.mounted) rethrow;
+    final ouverte = await proposerOuvertureCaisse(
+      context,
+      ref,
+      outletId: e.outletId,
+      libelle: e.libelle,
+    );
+    if (!ouverte) rethrow;
+    return geste();
+  }
+}

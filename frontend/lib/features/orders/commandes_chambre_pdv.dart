@@ -24,6 +24,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/room_order_repository.dart';
 import '../auth/session.dart';
+import '../billing/cash_dialog.dart' show avecCaisse;
 import '../billing/charge_labels.dart';
 import '../billing/payment_dialog.dart' show iconePaiement;
 
@@ -106,9 +107,14 @@ class _CarteCommande extends ConsumerWidget {
     final chambre = commande.chambre ?? '—';
     await _geste(
       context,
-      () => ref
-          .read(roomOrderRepositoryProvider)
-          .livrer(orderId: commande.id, by: by, payeMaintenant: choix.moyen),
+      // Caisse fermee : on propose de l'ouvrir, puis on livre.
+      () => avecCaisse(
+        context,
+        ref,
+        () => ref
+            .read(roomOrderRepositoryProvider)
+            .livrer(orderId: commande.id, by: by, payeMaintenant: choix.moyen),
+      ),
       choix.moyen == null
           ? 'Livrée en $chambre : ${formatAmount(commande.total)} sur '
                 'l’ardoise de la chambre.'

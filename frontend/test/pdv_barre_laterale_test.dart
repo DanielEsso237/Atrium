@@ -10,6 +10,7 @@ import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/local/seed_accounts.dart';
+import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/outlet_repository.dart';
 import 'package:atrium/data/repositories/repository_providers.dart';
 import 'package:atrium/features/auth/session.dart';
@@ -43,7 +44,12 @@ void main() {
       )..where((u) => u.employeeCode.equals('ADMIN01'))).getSingle();
       acces = (await accessProfileFor(db, agent.id))!;
       final points = OutletRepository(db);
-      await points.create(code: 'BARX', label: 'Bar du test');
+      final bar = await points.create(code: 'BARX', label: 'Bar du test');
+      // Rien ne se sert sans le tiroir ouvert du point de vente : sinon
+      // « Nouveau client » propose d'abord d'ouvrir la caisse.
+      await CashRepository(
+        db,
+      ).open(userId: agent.id, openingFloat: 0, outletId: bar.id);
       restau = await points.create(code: 'RESTX', label: 'Restau du test');
     });
     AtriumPalette.current = AtriumPalette.light;

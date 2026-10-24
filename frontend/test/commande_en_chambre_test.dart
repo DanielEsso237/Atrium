@@ -410,11 +410,13 @@ void main() {
       await expectLater(
         commandes.livrer(orderId: id, by: utilisateurDemo),
         throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('Ouvrez la caisse'),
-          ),
+          isA<CaisseFermee>()
+              .having(
+                (e) => e.message,
+                'message',
+                contains('Ouvrez la caisse de ${bar.label}'),
+              )
+              .having((e) => e.libelle, 'libelle', 'de ${bar.label}'),
         ),
       );
       expect((await commande(id)).status, OrderStatus.SENT);
