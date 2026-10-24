@@ -51,6 +51,11 @@ IMPLICATIONS = [
     ("reservation.create", "guests.write"),
     # On ne nettoie pas une chambre dont on ignore le numero.
     ("housekeeping.read", "rooms.read"),
+    # Signaler une panne, c'est ouvrir un ticket que la tablette garde ensuite
+    # a l'ecran : sans la lecture, le ticket disparaitrait sous les yeux de
+    # celui qui vient de l'ouvrir. Et on designe la chambre en panne.
+    ("maintenance.report", "maintenance.read"),
+    ("maintenance.report", "rooms.read"),
     # Encaisser suppose une caisse : le paiement est rattache a la session
     # ouverte de celui qui encaisse. Sans elle, l'argent existe et n'est
     # rattache a personne, donc le rapport de shift ne tombe jamais juste.

@@ -13425,7 +13425,7 @@
         ]
       },
       "post": {
-        "description": "F2.3/F4.1 -- ouvrir un ticket bloquant sort la chambre de la vente\n\nimmediatement (`blocks_room` -> `rooms.is_out_of_order`), pas seulement\nau moment ou un technicien s'en occupe.",
+        "description": "F2.3/F4.1 -- ouvrir un ticket bloquant sort la chambre de la vente\n\nimmediatement (`blocks_room` -> `rooms.is_out_of_order`), pas seulement\nau moment ou un technicien s'en occupe.\n\n`maintenance.report` suffit : la reception signale la panne que le client\nlui decrit (retour du 23 octobre). La suite du ticket reste au technicien.",
         "operationId": "create_ticket_api_v1_maintenance_tickets_post",
         "requestBody": {
           "content": {

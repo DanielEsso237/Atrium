@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import require_any_permission, require_permission
 from app.core.ids import uuid7
 from app.db.session import get_session
 from app.models import MaintenanceIntervention, MaintenanceTicket, Room, User
@@ -106,12 +106,15 @@ async def create_ticket(
     payload: MaintenanceTicketIn,
     response: Response,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("maintenance.manage")),
+    user: User = Depends(require_any_permission("maintenance.report", "maintenance.manage")),
 ) -> MaintenanceTicket:
     """F2.3/F4.1 -- ouvrir un ticket bloquant sort la chambre de la vente
 
     immediatement (`blocks_room` -> `rooms.is_out_of_order`), pas seulement
     au moment ou un technicien s'en occupe.
+
+    `maintenance.report` suffit : la reception signale la panne que le client
+    lui decrit (retour du 23 octobre). La suite du ticket reste au technicien.
     """
     # Le ticket nait sur la tablette, souvent hors ligne : il porte son id. Un
     # renvoi rend l'etat actuel au lieu d'ouvrir un second ticket (et une
