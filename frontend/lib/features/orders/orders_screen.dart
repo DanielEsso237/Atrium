@@ -1645,10 +1645,15 @@ class _Ligne {
 ///
 /// Plusieurs articles d'un coup : de l'eau et deux plats de poulet se portent
 /// ensemble, sans rouvrir la chambre pour chacun. Le champ Consommation
-/// cherche dans la carte du point de vente, ce qui se vend le plus d'abord :
-/// chaque article choisi s'ajoute a la ligne, suivi d'une virgule, et la
-/// liste revient pour le suivant. Un plat hors carte se tape librement, avec
-/// son prix.
+/// cherche dans la carte du point de vente, ce qui se vend le plus d'abord.
+/// Une ligne par article, comme dans le tableau : un autre article choisi
+/// prend sa propre ligne, et la liste se ferme apres chaque choix. Un plat
+/// hors carte se tape librement, avec son prix.
+///
+/// Essai du 24 octobre (FOL-000004 : Supermont, Castel, 33 Export vendus
+/// « Supermont x 2 ») : la liste restait ouverte sur « Ajouter une ligne »,
+/// un appui de trop y reprenait la Supermont, et « − » retirait le dernier
+/// article d'une ligne qui en melangeait plusieurs sous un seul compteur.
 ///
 /// Sous la commande, ce que le client a deja pris ici ; en bas, toujours
 /// visible, ce que la commande coute et ou elle emmene l'ardoise.
@@ -1717,6 +1722,19 @@ class _SaisieState extends ConsumerState<_Saisie> {
   }
 
   _Ligne get _enCours => _lignes.last;
+
+  /// Un article choisi dans la recherche d'une ligne : il s'y ajoute s'il
+  /// est le sien ou si elle est vide ; sinon il rejoint sa ligne, ou en
+  /// prend une nouvelle. Une ligne ne melange jamais deux articles : son
+  /// compteur dit combien de quoi.
+  void _choisirDansLaRecherche(_Ligne l, MenuEntry e) {
+    if (l.articles.isEmpty || l.articles.first.id == e.id) {
+      _choisir(l, e);
+      return;
+    }
+    l.saisie.clear();
+    _choisirDansLeTableau(e);
+  }
 
   /// Un article de plus sur la ligne ; la recherche s'efface, la liste
   /// revient pour le suivant.
@@ -1888,7 +1906,7 @@ class _SaisieState extends ConsumerState<_Saisie> {
                           ? 'Consommation ${i + 1}'
                           : 'Consommation',
                       onTape: () => setState(() {}),
-                      onValide: (e) => _choisir(l, e),
+                      onValide: (e) => _choisirDansLaRecherche(l, e),
                       carte: _carte,
                     ),
             ),
@@ -2236,14 +2254,16 @@ class _ChampConsommationState extends State<_ChampConsommation> {
 
   void _choisir(MenuEntry e) {
     widget.onValide(e);
-    // La liste reste ouverte pour l'article suivant.
-    widget.ligne.focus.requestFocus();
+    // La liste se ferme : ouverte, elle couvrait « Ajouter une ligne », et
+    // l'appui destine au bouton reprenait l'article du dessous.
+    widget.ligne.focus.unfocus();
   }
 
   @override
   Widget build(BuildContext context) {
     final l = widget.ligne;
-    final choisis = l.articles.map((e) => e.label).join(', ');
+    // Un seul article par ligne : son nom, le compteur dit combien.
+    final choisis = l.articles.firstOrNull?.label ?? '';
     final style = Theme.of(context).textTheme.bodyLarge;
     final largeur = math.min(380.0, MediaQuery.sizeOf(context).width - 32);
 
@@ -2293,7 +2313,7 @@ class _ChampConsommationState extends State<_ChampConsommation> {
                   Flexible(
                     flex: 4,
                     child: Text(
-                      '$choisis, ',
+                      l.focus.hasFocus ? '$choisis · ' : choisis,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
