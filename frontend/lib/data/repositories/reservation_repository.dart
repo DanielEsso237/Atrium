@@ -33,9 +33,13 @@ class ReservationSummary {
     this.roomNumber,
     this.depositAmount,
     this.depositPaid = false,
+    this.guestId = '',
   });
 
   final String id;
+
+  /// Le client du dossier : sa fiche s'ouvre depuis la ligne.
+  final String guestId;
 
   /// La ligne de sejour : c'est **elle** qu'on attribue et qu'on prend en
   /// charge, pas la reservation. Une reservation de trois chambres a trois
@@ -152,7 +156,7 @@ class ReservationRepository with OutboxWriter {
     return db
         .customSelect(
           '''
-      SELECT r.id, r.reference,
+      SELECT r.id, r.reference, r.guest_id,
              r.deposit_amount,
              (r.deposit_paid_at IS NOT NULL) AS deposit_paid,
              rr.id AS line_id, rr.arrival_date, rr.departure_date,
@@ -186,6 +190,7 @@ class ReservationRepository with OutboxWriter {
               id: l.read<String>('id'),
               lineId: l.read<String>('line_id'),
               reference: l.read<String>('reference'),
+              guestId: l.read<String>('guest_id'),
               guestName:
                   '${l.read<String>('first_name')} ${l.read<String>('last_name')}',
               arrival: l.read<String>('arrival_date'),
