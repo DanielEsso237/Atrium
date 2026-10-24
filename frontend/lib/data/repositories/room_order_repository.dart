@@ -434,10 +434,19 @@ class RoomOrderRepository with OutboxWriter {
       db,
     ).openSessionId(by, outletId: commande.outletId);
     if (caisse == null) {
+      // Le nom du point de vente dans le refus et dans la proposition
+      // d'ouvrir : « La caisse du point de vente » ne disait pas laquelle
+      // ouvrir a un agent qui en tient plusieurs (essai du 24 octobre).
+      final pointDeVente = await (db.select(
+        db.outlets,
+      )..where((o) => o.id.equals(commande.outletId))).getSingleOrNull();
+      final nom = pointDeVente == null
+          ? 'du point de vente'
+          : 'de ${pointDeVente.label}';
       throw CaisseFermee(
-        'Ouvrez la caisse du point de vente avant de livrer : il est fermé.',
+        'Ouvrez la caisse $nom avant de livrer : elle est fermée.',
         outletId: commande.outletId,
-        libelle: 'du point de vente',
+        libelle: nom,
       );
     }
     final ardoise = commande.folioId == null
