@@ -310,11 +310,25 @@ class _Onglet extends ConsumerWidget {
               .toList()
         : const <ChargeableRoom>[];
     final nouveau = caisse && filtre == _Filtre.enCours;
+    // Un client loge qui a une ardoise ouverte ici n'a qu'une tuile : celle
+    // de sa chambre, qui la porte. Deux tuiles a son nom le faisaient passer
+    // pour un client de passage (retours des 23 et 24 octobre).
+    final ardoiseDe = {
+      for (final a in enCours)
+        if (a.clientId != null) a.clientId!: a,
+    };
+    final logesMontres = {for (final c in lesChambres) c.guestId};
 
     final tuiles = <Widget>[
       if (nouveau) _Passage(outlet: outlet),
-      for (final a in montrees) _TuileArdoise(outlet: outlet, ardoise: a),
-      for (final c in lesChambres) _Chambre(outlet: outlet, chambre: c),
+      for (final a in montrees)
+        if (!(a.ouverte && logesMontres.contains(a.clientId)))
+          _TuileArdoise(outlet: outlet, ardoise: a),
+      for (final c in lesChambres)
+        if (ardoiseDe[c.guestId] case final a?)
+          _TuileArdoise(outlet: outlet, ardoise: a, chambre: c)
+        else
+          _Chambre(outlet: outlet, chambre: c),
     ];
 
     return Column(
@@ -792,15 +806,36 @@ class _Passage extends ConsumerWidget {
 /// L'ardoise d'un client au comptoir : son nom ou son numero de passage, ce
 /// qu'il doit, et ou elle en est. Toucher la tuile ouvre sa fiche.
 class _TuileArdoise extends ConsumerWidget {
-  const _TuileArdoise({required this.outlet, required this.ardoise});
+  const _TuileArdoise({
+    required this.outlet,
+    required this.ardoise,
+    this.chambre,
+  });
 
   final OutletRow outlet;
   final Ardoise ardoise;
+
+  /// La chambre du client loge, quand la tuile de sa chambre porte son
+  /// ardoise : il n'en a qu'une a l'ecran.
+  final ChargeableRoom? chambre;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final a = ardoise;
+    if (chambre case final c?) {
+      return _Tuile(
+        numero: c.roomNumber,
+        titre: c.guestName,
+        // Ce qu'il doit ici d'abord : c'est ce qu'il regle en partant.
+        detail:
+            'À payer ici : ${formatAmount(a.reste)}, '
+            'chambre ${formatAmount(c.balance)}',
+        alerte: c.departDepasse,
+        fin: Tag('À payer', color: p.warning),
+        onTap: () => _ouvrir(context, ref),
+      );
+    }
     final (etat, couleur) = switch (a.etat) {
       EtatArdoise.aPayer => ('À payer', p.warning),
       EtatArdoise.payee => ('Payée', p.success),
