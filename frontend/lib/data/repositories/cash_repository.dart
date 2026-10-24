@@ -249,19 +249,34 @@ class CashRepository with OutboxWriter {
   /// La caisse ouverte de cet agent pour ce point de vente -- la caisse
   /// centrale quand [outletId] est nul --, avec son attendu recalcule en
   /// continu.
-  Stream<CashView?> watchCurrent(String userId, {String? outletId}) {
-    return (db.select(db.cashSessions)
-          ..where(
-            (c) =>
-                c.userId.equals(userId) &
-                _tiroir(c, outletId) &
-                c.status.equalsValue(CashSessionStatus.OPEN) &
-                c.deletedAt.isNull(),
-          )
-          ..orderBy([(c) => OrderingTerm.desc(c.openedAt)])
-          ..limit(1))
-        .watchSingleOrNull()
-        .asyncMap((s) async => s == null ? null : _vue(s));
+  ///
+  /// Recalcule a chaque encaissement, pas seulement quand la caisse change :
+  /// l'attendu en depend. Ne surveiller que `cash_sessions` figeait « Devrait
+  /// contenir » au fond de caisse, 105 000 FCFA encaisses plus tard (vecu le
+  /// 23 octobre).
+  Stream<CashView?> watchCurrent(String userId, {String? outletId}) async* {
+    yield await _courante(userId, outletId);
+    yield* db
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([db.cashSessions, db.payments]),
+        )
+        .asyncMap((_) => _courante(userId, outletId));
+  }
+
+  Future<CashView?> _courante(String userId, String? outletId) async {
+    final s =
+        await (db.select(db.cashSessions)
+              ..where(
+                (c) =>
+                    c.userId.equals(userId) &
+                    _tiroir(c, outletId) &
+                    c.status.equalsValue(CashSessionStatus.OPEN) &
+                    c.deletedAt.isNull(),
+              )
+              ..orderBy([(c) => OrderingTerm.desc(c.openedAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    return s == null ? null : _vue(s);
   }
 
   /// Les points de vente dont cet agent tient le tiroir ouvert.
