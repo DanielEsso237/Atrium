@@ -43,7 +43,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _codeAgent = TextEditingController(text: 'ADMIN01');
+  // Vide : pre-rempli avec ADMIN01, l'ecran montrait le code de
+  // l'administrateur a chaque agent, qui devait l'effacer avant le sien
+  // (essai du 24 octobre).
+  final _codeAgent = TextEditingController();
   final _motDePasse = TextEditingController();
   String _pin = '';
   _Voie _voie = _Voie.pin;
@@ -85,6 +88,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _valider() async {
     final secret = _voie == _Voie.pin ? _pin : _motDePasse.text;
     if (secret.isEmpty) return;
+    // Sans code agent, le PIN tape n'appartient a personne : le champ vide
+    // tremble, et le PIN repart a zero plutot que de partir au serveur.
+    if (_codeAgent.text.trim().isEmpty) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _pin = '';
+        _refusAgent++;
+      });
+      return;
+    }
     final ok = await ref
         .read(sessionProvider.notifier)
         .connecter(codeAgent: _codeAgent.text, secret: secret);
