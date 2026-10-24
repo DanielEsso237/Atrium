@@ -37,12 +37,17 @@ import '../orders/tableau_carte.dart' show largeurCarteFiche;
 /// [ravitaillement] : le point de vente demande sa marchandise -- [magasin]
 /// recoit, et l'on choisit d'ou elle vient parmi [autres]. Sinon, pour un
 /// transfert, [magasin] donne vers l'un des [autres].
+///
+/// [entrePointsDeVente] : la marchandise vient d'un autre point de vente, pas
+/// de l'economat. Le geste ne porte pas le meme nom (retour du 23 octobre) :
+/// on se reapprovisionne a l'economat, on demande a un autre point de vente.
 Future<bool?> ouvrirMouvementStock(
   BuildContext context, {
   required bool entree,
   required StockPlace magasin,
   List<StockPlace> autres = const [],
   bool ravitaillement = false,
+  bool entrePointsDeVente = false,
   String? produitId,
 }) {
   return afficherFichePleinEcran<bool>(
@@ -53,6 +58,7 @@ Future<bool?> ouvrirMouvementStock(
       magasin: magasin,
       autres: autres,
       ravitaillement: ravitaillement,
+      entrePointsDeVente: entrePointsDeVente,
       produitId: produitId,
     ),
   );
@@ -91,6 +97,7 @@ class MouvementStockScreen extends ConsumerStatefulWidget {
     required this.magasin,
     this.autres = const [],
     this.ravitaillement = false,
+    this.entrePointsDeVente = false,
     this.produitId,
   });
 
@@ -101,6 +108,7 @@ class MouvementStockScreen extends ConsumerStatefulWidget {
   final StockPlace magasin;
   final List<StockPlace> autres;
   final bool ravitaillement;
+  final bool entrePointsDeVente;
 
   /// Un produit deja choisi : on vient de sa ligne.
   final String? produitId;
@@ -113,7 +121,11 @@ class MouvementStockScreen extends ConsumerStatefulWidget {
 class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
   final _lignes = <_Ligne>[];
   final _motif = TextEditingController();
-  StockPlace? _autre;
+  // Un seul magasin possible -- l'economat, pour se reapprovisionner : il
+  // est deja choisi, et ses produits deja la.
+  late StockPlace? _autre = widget.autres.length == 1
+      ? widget.autres.first
+      : null;
   bool _initial = false;
   bool _enCours = false;
 
@@ -138,6 +150,11 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
     if (l == null) {
       l = _Ligne(p, prix: widget.entree ? p.purchasePrice : 0);
       setState(() => _lignes.add(l!));
+    } else {
+      // Toucher encore le produit en ajoute un, comme au comptoir : le
+      // toucher trois fois en demandait un seul (retour du 23 octobre).
+      final deja = l;
+      setState(() => deja.ajouter(1));
     }
     final ligne = l;
     // Le curseur dans la quantite, deja selectionnee : on tape « 100 ».
@@ -241,9 +258,11 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
 
     final titre = widget.entree
         ? 'Entrée à ${widget.magasin.label}'
+        : widget.entrePointsDeVente
+        ? 'Demander à un autre point de vente'
         : widget.ravitaillement
-        ? 'Ravitailler ${widget.magasin.label}'
-        : 'Transfert depuis ${widget.magasin.label}';
+        ? 'Réapprovisionner ${widget.magasin.label}'
+        : 'Réapprovisionner un point de vente';
     final unites = _lignes.fold(0, (n, l) => n + l.q);
     final valeur = _lignes.fold(0, (n, l) => n + l.q * l.pu);
     final produitsChoisis =
@@ -278,9 +297,9 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
               FicheCarte(
                 titre: widget.entree
                     ? 'Livraison'
-                    : widget.ravitaillement
-                    ? 'Ravitaillement'
-                    : 'Transfert',
+                    : widget.entrePointsDeVente
+                    ? 'Transfert vers ${widget.magasin.label}'
+                    : 'Réapprovisionnement',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -334,7 +353,7 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
                   decoration: InputDecoration(
                     labelText: widget.entree
                         ? 'Fournisseur, numéro du bon (facultatif)'
-                        : 'Pourquoi ce transfert (facultatif)',
+                        : 'Pourquoi (facultatif)',
                   ),
                 ),
               ),
@@ -357,9 +376,9 @@ class _MouvementStockScreenState extends ConsumerState<MouvementStockScreen> {
             format: widget.entree && valeur > 0 ? formatAmount : enUnites,
             libelle: widget.entree
                 ? 'Enregistrer l’entrée'
-                : widget.ravitaillement
-                ? 'Ravitailler'
-                : 'Demander le transfert',
+                : widget.entrePointsDeVente
+                ? 'Demander le transfert'
+                : 'Réapprovisionner',
             onValider: _pret ? _valider : null,
           ),
         ),

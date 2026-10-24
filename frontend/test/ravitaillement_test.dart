@@ -3,6 +3,10 @@
 /// Vecu le 11 octobre : connecte en agent, Stocks > Transfert ne faisait
 /// rien. L'agent ne voit que son bar ; le transfert partait de l'onglet vers
 /// les autres magasins qu'il voyait -- aucun --, et s'arretait sans un mot.
+///
+/// Retours du 23 octobre : « Transfert » perdait les testeurs. On se
+/// reapprovisionne a l'economat ; on demande a un autre point de vente. Et
+/// toucher trois fois un produit en demandait un seul.
 library;
 
 import 'package:atrium/core/ids.dart';
@@ -30,13 +34,15 @@ class _Session extends SessionNotifier {
 }
 
 void main() {
-  testWidgets('sur l onglet du bar, Transfert ouvre un ravitaillement',
+  testWidgets('sur l onglet du bar, Reapprovisionner part de l economat',
       (tester) async {
     final db = AtriumDatabase.memory();
     late UserRow barman;
     await tester.runAsync(() async {
       final now = DateTime.now().toUtc();
       final outlet = newId();
+      final economat = newId();
+      final produit = newId();
       await db
           .into(db.outlets)
           .insert(
@@ -49,8 +55,25 @@ void main() {
           .into(db.stockLocations)
           .insert(
             StockLocationsCompanion.insert(
-              id: newId(), createdAt: now, updatedAt: now, hotelId: _hotel,
+              id: economat, createdAt: now, updatedAt: now, hotelId: _hotel,
               code: 'ECONOMAT', label: 'Économat', isCentral: const Value(true),
+            ),
+          );
+      await db
+          .into(db.products)
+          .insert(
+            ProductsCompanion.insert(
+              id: produit, createdAt: now, updatedAt: now, hotelId: _hotel,
+              reference: 'MUTZIG', label: 'Mutzig 65 cl',
+            ),
+          );
+      await db
+          .into(db.stockLevels)
+          .insert(
+            StockLevelsCompanion.insert(
+              id: newId(), createdAt: now, updatedAt: now,
+              productId: produit, stockLocationId: economat,
+              quantity: const Value(48),
             ),
           );
       await db
@@ -116,14 +139,43 @@ void main() {
     // Le barman ne voit que son bar.
     expect(find.text('Stock du point de vente Bar'), findsOneWidget);
 
-    await tester.tap(find.text('Transfert'));
+    // Pas d'autre point de vente : un seul geste, se reapprovisionner.
+    expect(find.text('Transfert'), findsNothing);
+    expect(find.text('Demander à un autre point de vente'), findsNothing);
+    await tester.tap(find.text('Réapprovisionner'));
     await attendre();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Ravitailler Bar'), findsOneWidget);
+    expect(find.text('Réapprovisionner Bar'), findsOneWidget);
     expect(find.text('Depuis'), findsOneWidget);
     // Le bouton dit le geste, comme au comptoir (18 octobre).
-    expect(find.widgetWithText(FilledButton, 'Ravitailler'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Réapprovisionner'),
+      findsOneWidget,
+    );
+
+    // L'economat, seul possible, est deja choisi : ses produits sont la.
+    // Trois touches, trois bouteilles -- dans la liste, a droite.
+    Finder dansLaListe() {
+      final tous = find.text('Mutzig 65 cl').evaluate().toList()
+        ..sort(
+          (a, b) => tester
+              .getCenter(find.byWidget(b.widget))
+              .dx
+              .compareTo(tester.getCenter(find.byWidget(a.widget)).dx),
+        );
+      return find.byWidget(tous.first.widget);
+    }
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(dansLaListe());
+      await attendre();
+    }
+    final quantites = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .map((t) => t.controller?.text)
+        .toList();
+    expect(quantites, contains('3'));
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
