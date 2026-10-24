@@ -142,6 +142,21 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('Le code agent n’est pas pré-rempli, et rien ne part sans lui', (
+    tester,
+  ) async {
+    final session = await _open(tester, size: const Size(1280, 800));
+    final champ = tester.widget<TextField>(find.byType(TextField));
+    expect(champ.controller!.text, isEmpty);
+    expect(find.text('ADMIN01'), findsNothing);
+    for (final chiffre in ['1', '2', '3', '4']) {
+      await tester.tap(find.text(chiffre));
+      await tester.pumpAndSettle();
+    }
+    expect(session.attempts, isEmpty);
+    await _close(tester);
+  });
+
   testWidgets('La transition animée reste utilisable après redimensionnement', (
     tester,
   ) async {
