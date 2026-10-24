@@ -182,10 +182,32 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               stockLinesProvider((placeId: magasin.id, all: magasin.isCentral)),
             );
 
+        // D'ou un point de vente peut recevoir : l'economat (se
+        // reapprovisionner), ou un autre point de vente ou service (lui
+        // demander). Deux gestes, deux boutons : un seul « Transfert » pour
+        // les deux perdait les testeurs (retour du 23 octobre).
+        final tous = tousLesMagasins ?? liste;
+        final economats = [
+          for (final m in tous)
+            if (m.isCentral && m.id != magasin.id) m,
+        ];
+        final autresPoints = [
+          for (final m in tous)
+            if (!m.isCentral && m.id != magasin.id) m,
+        ];
+
         void ravitailler(StockLine l) => magasin.isCentral && peutGerer
             ? _entree(context, ref, magasin, produitId: l.productId)
-            : _transfert(context, ref, magasin, tousLesMagasins ?? liste,
-                produitId: l.productId);
+            : _transfert(
+                context,
+                ref,
+                magasin,
+                magasin.isCentral
+                    ? autresPoints
+                    : (economats.isNotEmpty ? economats : autresPoints),
+                produitId: l.productId,
+                entrePointsDeVente: !magasin.isCentral && economats.isEmpty,
+              );
 
         return ModuleScaffold(
           title: 'Stocks',
@@ -213,16 +235,40 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                         tone: PillTone.quiet,
                         onPressed: () => _sortie(context, ref, magasin),
                       ),
-                    if (peutDemander)
+                    // L'economat ravitaille un point de vente.
+                    if (peutDemander && magasin.isCentral)
                       PillButton(
-                        label: 'Transfert',
+                        label: 'Réapprovisionner un point de vente',
+                        icon: PhosphorIconsLight.arrowsLeftRight,
+                        tone: PillTone.quiet,
+                        onPressed: () =>
+                            _transfert(context, ref, magasin, autresPoints),
+                      ),
+                    // Un point de vente se reapprovisionne a l'economat...
+                    if (peutDemander &&
+                        !magasin.isCentral &&
+                        (economats.isNotEmpty || autresPoints.isEmpty))
+                      PillButton(
+                        label: 'Réapprovisionner',
+                        icon: PhosphorIconsLight.package,
+                        tone: PillTone.quiet,
+                        onPressed: () =>
+                            _transfert(context, ref, magasin, economats),
+                      ),
+                    // ... ou demande a un autre point de vente, ou service.
+                    if (peutDemander &&
+                        !magasin.isCentral &&
+                        autresPoints.isNotEmpty)
+                      PillButton(
+                        label: 'Demander à un autre point de vente',
                         icon: PhosphorIconsLight.arrowsLeftRight,
                         tone: PillTone.quiet,
                         onPressed: () => _transfert(
                           context,
                           ref,
                           magasin,
-                          tousLesMagasins ?? liste,
+                          autresPoints,
+                          entrePointsDeVente: true,
                         ),
                       ),
                   ],
@@ -494,6 +540,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     StockPlace depart,
     List<StockPlace> magasins, {
     String? produitId,
+    bool entrePointsDeVente = false,
   }) async {
     // Tous les magasins de l'hotel, pas seulement ceux de l'agent : le
     // barman ne voit que son bar, et ne se ravitaillait donc depuis rien --
@@ -517,6 +564,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       magasin: depart,
       autres: autres,
       ravitaillement: ravitaillement,
+      entrePointsDeVente: entrePointsDeVente,
       produitId: produitId,
     );
   }
@@ -1034,7 +1082,7 @@ class _CarteProduit extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => onRavitailler!(l),
                     icon: const Icon(PhosphorIconsLight.arrowsLeftRight, size: 16),
-                    label: const Text('Ravitailler'),
+                    label: const Text('Réapprovisionner'),
                   ),
               ],
             ),
@@ -1068,9 +1116,9 @@ class _CarteProduit extends StatelessWidget {
 
 // --- La vue en tableau -------------------------------------------------------
 
-/// Le bouton Ravitailler tient sur une ligne : sa colonne a une largeur
-/// fixe, les autres se partagent le reste.
-const _largeurAction = 136.0;
+/// Le bouton Reapprovisionner tient sur une ligne : sa colonne a une
+/// largeur fixe, les autres se partagent le reste.
+const _largeurAction = 184.0;
 
 /// Les colonnes du tableau. Les chiffres s'alignent a droite, comme dans un
 /// registre : les unites tombent sous les unites.
@@ -1427,7 +1475,7 @@ class _LigneProduit extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => onRavitailler!(l),
               icon: const Icon(PhosphorIconsLight.arrowsLeftRight, size: 16),
-              label: const Text('Ravitailler'),
+              label: const Text('Réapprovisionner'),
             ),
           );
       }
