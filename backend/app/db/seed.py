@@ -76,8 +76,8 @@ ROLES = [
     (uuid.UUID("01920000-0000-7000-8000-000000004002"), "RECEPTION", "Reception"),
     (uuid.UUID("01920000-0000-7000-8000-000000004003"), "CAISSE", "Caisse"),
     (uuid.UUID("01920000-0000-7000-8000-000000004004"), "RESTAURANT", "Points de vente"),
-    (uuid.UUID("01920000-0000-7000-8000-000000004005"), "HOUSEKEEPING", "Housekeeping"),
-    (uuid.UUID("01920000-0000-7000-8000-000000004006"), "MAINTENANCE", "Maintenance"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004005"), "HOUSEKEEPING", "Agent de ménage"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004006"), "MAINTENANCE", "Agent de maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004007"), "MANAGER", "Manager / Direction"),
     # Les trois metiers du stock. Memes identifiants que la migration 0019.
     (uuid.UUID("01920000-0000-7000-8000-000000004008"), "ECONOME", "Econome"),
@@ -140,6 +140,9 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004143"), "operations.undo", "Autoriser une annulation (arrivee, depart, encaissement)", "operations"),
     (uuid.UUID("01920000-0000-7000-8000-000000004144"), "room_order.create", "Commander pour une chambre (room service)", "order"),
     (uuid.UUID("01920000-0000-7000-8000-000000004145"), "users.reset_secret", "Reinitialiser le code oublie d'un agent", "users"),
+    # Ouvrir un ticket, sans le prendre en charge : la reception signale la
+    # panne, le technicien la traite (migration 0032).
+    (uuid.UUID("01920000-0000-7000-8000-000000004146"), "maintenance.report", "Signaler une panne (ouvrir un ticket)", "maintenance"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -178,6 +181,7 @@ STOCK_REBALANCE = PERMISSIONS[41][0]
 OPERATIONS_UNDO = PERMISSIONS[42][0]
 ROOM_ORDER_CREATE = PERMISSIONS[43][0]
 USERS_RESET_SECRET = PERMISSIONS[44][0]
+MAINTENANCE_REPORT = PERMISSIONS[45][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -229,6 +233,11 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, ROOM_ORDER_CREATE),
     (RECEPTION_ROLE, HOUSEKEEPING_READ),
     (RECEPTION_ROLE, HOUSEKEEPING_MANAGE),
+    # Le client signale une panne au comptoir : la reception ouvre le ticket
+    # et suit ou il en est. Le technicien le prend en charge et le resout
+    # (`maintenance.manage`), pas elle.
+    (RECEPTION_ROLE, MAINTENANCE_REPORT),
+    (RECEPTION_ROLE, MAINTENANCE_READ),
     (RECEPTION_ROLE, PRINT_REPRINT),
     (MANAGER_ROLE, USERS_READ),
     # Laisser une ardoise depasser le seuil du client est une decision

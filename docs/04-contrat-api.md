@@ -464,6 +464,18 @@ l'application. La tablette fait le même calcul avant d'écrire.
 Les rôles ne sont pas propres à un hôtel dans le modèle : un changement vaut
 pour tous. Le contrôle ci-dessus porte sur l'hôtel de l'appelant.
 
+### Signaler une panne
+
+`POST /maintenance-tickets` accepte **`maintenance.report`** ou
+`maintenance.manage` (migration 0032). `maintenance.report` ouvre un ticket et
+rien d'autre : prendre en charge, résoudre et clore restent à
+`maintenance.manage` (`403` sinon). La réception porte `maintenance.report` et
+`maintenance.read`, pour suivre ce qu'elle a signalé. Un ticket bloquant sort
+la chambre de la vente, qui que l'ouvre.
+
+Les rôles `HOUSEKEEPING` et `MAINTENANCE` s'affichent « Agent de ménage » et
+« Agent de maintenance » ; les codes ne changent pas.
+
 ## Les points de vente d'un agent
 
 Un agent est rattaché à ses points de vente par `user_outlets`, comme à ses
