@@ -539,9 +539,11 @@ async def walk_in_sale(
 ) -> Folio:
     """Client de passage : il consomme au bar ou au restaurant, paie et s'en va.
 
-    Une ardoise WALK_IN sans sejour ni client, ses consommations, le paiement
-    du total dans la caisse ouverte de l'agent, puis la cloture -- en une
-    seule transaction. Le paiement doit couvrir le total exactement : la
+    Une ardoise WALK_IN sans sejour, ses consommations, le paiement du total
+    dans la caisse ouverte de l'agent, puis la cloture -- en une seule
+    transaction. Sans client, sauf `guest_id` : un client loge qui paie sur
+    place garde son nom sur la vente (essai du 24 octobre, ou elle sortait
+    en « Client divers »). Le paiement doit couvrir le total exactement : la
     monnaie rendue est de la manipulation d'especes, pas une ligne d'ardoise.
     """
     if "cash.session" not in permission_codes(user):
@@ -563,6 +565,10 @@ async def walk_in_sale(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Une remise ne se fait pas au comptoir."
         )
+    if payload.guest_id is not None:
+        guest = await session.get(Guest, payload.guest_id)
+        if guest is None or guest.hotel_id != user.hotel_id or guest.deleted_at is not None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Client introuvable.")
     total = sum(i.unit_price * i.quantity for i in payload.items)
     if payload.payment.amount != total:
         raise HTTPException(
@@ -581,6 +587,7 @@ async def walk_in_sale(
         number=await next_number(session, user.hotel_id, Scope.FOLIO),
         type=FolioType.WALK_IN,
         status=FolioStatus.OPEN,
+        guest_id=payload.guest_id,
         opened_at=now,
         notes=payload.notes or f"Client de passage - {outlet.label}",
     )

@@ -680,6 +680,7 @@ class _Chambre extends ConsumerWidget {
         outlet,
         lignes,
         client: '${chambre.guestName}, chambre ${chambre.roomNumber}',
+        guestId: chambre.guestId,
       );
       return;
     }
@@ -1404,6 +1405,7 @@ Future<void> _encaisserAuComptoir(
   OutletRow outlet,
   List<(String, int, int, String?)> lignes, {
   String? client,
+  String? guestId,
 }) async {
   final session = ref.read(sessionProvider);
   final agent = session.agent?.id;
@@ -1419,7 +1421,13 @@ Future<void> _encaisserAuComptoir(
   try {
     ardoise = await ref
         .read(orderRepositoryProvider)
-        .sellWalkIn(outlet: outlet, lines: lignes, method: moyen, by: agent);
+        .sellWalkIn(
+          outlet: outlet,
+          lines: lignes,
+          method: moyen,
+          by: agent,
+          guestId: guestId,
+        );
   } on StateError catch (e) {
     if (context.mounted) {
       montrerRefus(context, e.message);

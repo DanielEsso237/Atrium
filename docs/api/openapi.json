@@ -9955,6 +9955,19 @@
       "WalkInSaleIn": {
         "description": "Vente au comptoir a un client sans chambre : tout en une requete.\n\nArdoise, consommations, encaissement et cloture arrivent ensemble. Une\nrequete par geste aurait laisse, au premier refus, une ardoise ouverte et\na moitie payee -- et une file d'envoi bloquee derriere.",
         "properties": {
+          "guest_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le client loge qui paie sur place, quand la vente part de sa tuile : la vente porte son nom au lieu de « Client divers »",
+            "title": "Guest Id"
+          },
           "id": {
             "description": "Id de l'ardoise, genere par la tablette (rejeu)",
             "format": "uuid",
@@ -11857,7 +11870,7 @@
     },
     "/api/v1/folios/walk-in": {
       "post": {
-        "description": "Client de passage : il consomme au bar ou au restaurant, paie et s'en va.\n\nUne ardoise WALK_IN sans sejour ni client, ses consommations, le paiement\ndu total dans la caisse ouverte de l'agent, puis la cloture -- en une\nseule transaction. Le paiement doit couvrir le total exactement : la\nmonnaie rendue est de la manipulation d'especes, pas une ligne d'ardoise.",
+        "description": "Client de passage : il consomme au bar ou au restaurant, paie et s'en va.\n\nUne ardoise WALK_IN sans sejour, ses consommations, le paiement du total\ndans la caisse ouverte de l'agent, puis la cloture -- en une seule\ntransaction. Sans client, sauf `guest_id` : un client loge qui paie sur\nplace garde son nom sur la vente (essai du 24 octobre, ou elle sortait\nen « Client divers »). Le paiement doit couvrir le total exactement : la\nmonnaie rendue est de la manipulation d'especes, pas une ligne d'ardoise.",
         "operationId": "walk_in_sale_api_v1_folios_walk_in_post",
         "requestBody": {
           "content": {
