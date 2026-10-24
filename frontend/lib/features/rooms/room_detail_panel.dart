@@ -159,7 +159,11 @@ class _EnTete extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final acces = ref.watch(sessionProvider).acces;
-    final peutSignaler = acces.peut('maintenance.manage');
+    // La reception signale aussi : elle n'a pas a traiter la panne pour la
+    // decrire (23 octobre).
+    final peutSignaler = acces.peutUnDe(
+      'maintenance.report|maintenance.manage',
+    );
     final peutDemanderMenage = acces.peut('housekeeping.manage');
     final lieu = [
       chambre.typeLabel,

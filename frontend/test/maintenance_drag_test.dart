@@ -52,17 +52,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  SessionState session({bool peutGerer = true}) => SessionState(
-    agent: agent,
-    acces: AccessProfile(
-      permissions: {if (peutGerer) 'maintenance.manage'},
-      roles: const ['Administrateur'],
-    ),
-  );
+  SessionState session({bool peutGerer = true, bool peutSignaler = false}) =>
+      SessionState(
+        agent: agent,
+        acces: AccessProfile(
+          permissions: {
+            if (peutGerer) 'maintenance.manage',
+            if (peutSignaler) 'maintenance.report',
+          },
+          roles: const ['Administrateur'],
+        ),
+      );
 
   Future<void> ouvrir(
     WidgetTester tester, {
     bool peutGerer = true,
+    bool peutSignaler = false,
     TargetPlatform platform = TargetPlatform.linux,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -73,7 +78,9 @@ void main() {
       ProviderScope(
         overrides: [
           sessionProvider.overrideWith(
-            () => _TestSession(session(peutGerer: peutGerer)),
+            () => _TestSession(
+              session(peutGerer: peutGerer, peutSignaler: peutSignaler),
+            ),
           ),
           maintenanceRepositoryProvider.overrideWithValue(depot),
           pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
@@ -281,6 +288,22 @@ void main() {
     },
   );
 
+  testWidgets('la reception signale une panne, sans la traiter', (
+    tester,
+  ) async {
+    // Retour du 23 octobre : le client decrit la panne au comptoir.
+    await ouvrir(tester, peutGerer: false, peutSignaler: true);
+    expect(find.text('Signaler un problème'), findsOneWidget);
+    await deplacer(tester, TicketStatus.ASSIGNED);
+    expect((await tester.runAsync(ticket))!.status, TicketStatus.OPEN);
+    expect(find.text("Je m'en occupe"), findsNothing);
+    await tester.runAsync(db.close);
+    await tester.pumpWidget(const SizedBox());
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  });
+
   testWidgets('les tickets restent en lecture seule sans le droit de gestion', (
     tester,
   ) async {
@@ -289,6 +312,7 @@ void main() {
     expect((await tester.runAsync(ticket))!.status, TicketStatus.OPEN);
     expect(await tester.runAsync(enFile), 1);
     expect(find.text("Je m'en occupe"), findsNothing);
+    expect(find.text('Signaler un problème'), findsNothing);
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
     // Les lectures de la cloche se ferment par minuteries : on les
