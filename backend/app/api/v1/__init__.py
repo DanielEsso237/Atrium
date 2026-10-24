@@ -32,6 +32,7 @@ from app.api.v1.settings import router as settings_router
 from app.api.v1.stays import router as stays_router
 from app.api.v1.stock import router as stock_router
 from app.api.v1.stock_movements import router as stock_movements_router
+from app.api.v1.sync import router as sync_router
 from app.api.v1.users import router as users_router
 
 router = APIRouter()
@@ -63,4 +64,5 @@ router.include_router(settings_router)
 router.include_router(stays_router)
 router.include_router(stock_router)
 router.include_router(stock_movements_router)
+router.include_router(sync_router)
 router.include_router(users_router)
