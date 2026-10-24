@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.v1 import router as api_v1_router
 from app.core.config import settings
@@ -20,6 +21,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Une synchronisation complete relit environ 180 Ko de JSON, sur des reseaux
+# lents (ngrok, 4G) : compresse, il en part cinq fois moins. Sous 1 Ko, le
+# gain ne paie pas l'effort. Le navigateur et `dart:io` decompressent seuls.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.get("/healthz", tags=["systeme"])
