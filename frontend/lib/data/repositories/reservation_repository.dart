@@ -1380,27 +1380,14 @@ class ReservationRepository with OutboxWriter {
     }
   }
 
-  /// Annule une arrivee enregistree par erreur (demande du 16 octobre).
-  ///
-  /// [approuvePar] est le responsable dont le code a ete saisi : le serveur
-  /// reverifie son droit (`operations.undo`). Les refus du serveur sont
-  /// repris ici, **avant** d'ecrire, sinon ils bloqueraient la file :
-  ///
-  /// - un encaissement sur l'ardoise s'annule d'abord (l'argent est dans un
-  ///   tiroir) ;
-  /// - une consommation portee empeche l'annulation (elle est sortie du
-  ///   stock).
-  ///
-  /// La ligne redevient confirmee -- annulee pour une arrivee directe, qui
-  /// n'avait pas de reservation --, la chambre libre, et l'ardoise est
-  /// retiree : ses lignes annulees, ses arrhes rendues au dossier.
-  Future<void> annulerArrivee({
-    required String lineId,
-    required String approuvePar,
-    required String motif,
-    String? by,
-  }) async {
-    final now = DateTime.now().toUtc();
+  /// Les refus de [annulerArrivee], sans rien ecrire : l'ecran les pose
+  /// **avant** de demander le code du responsable, qui n'a pas a se deplacer
+  /// pour un geste impossible.
+  Future<void> verifierAnnulationArrivee(String lineId) =>
+      _preparerAnnulationArrivee(lineId);
+
+  Future<({ReservationRoomRow line, FolioRow? ardoise, String arrhes})>
+  _preparerAnnulationArrivee(String lineId) async {
     final line = await (db.select(
       db.reservationRooms,
     )..where((rr) => rr.id.equals(lineId))).getSingle();
@@ -1441,10 +1428,7 @@ class ReservationRepository with OutboxWriter {
           )
           .getSingle();
       if (encaisse.read<int>('n') != 0) {
-        throw StateError(
-          "Des encaissements sont enregistrés sur l'ardoise : annulez-les "
-          "d'abord.",
-        );
+        throw EncaissementsAAnnuler(dossier.guestId);
       }
       final autres = await db
           .customSelect(
@@ -1464,6 +1448,33 @@ class ReservationRepository with OutboxWriter {
         );
       }
     }
+    return (line: line, ardoise: ardoise, arrhes: arrhes);
+  }
+
+  /// Annule une arrivee enregistree par erreur (demande du 16 octobre).
+  ///
+  /// [approuvePar] est le responsable dont le code a ete saisi : le serveur
+  /// reverifie son droit (`operations.undo`). Les refus du serveur sont
+  /// repris ici, **avant** d'ecrire, sinon ils bloqueraient la file :
+  ///
+  /// - un encaissement sur l'ardoise s'annule d'abord (l'argent est dans un
+  ///   tiroir) ;
+  /// - une consommation portee empeche l'annulation (elle est sortie du
+  ///   stock).
+  ///
+  /// La ligne redevient confirmee -- annulee pour une arrivee directe, qui
+  /// n'avait pas de reservation --, la chambre libre, et l'ardoise est
+  /// retiree : ses lignes annulees, ses arrhes rendues au dossier.
+  Future<void> annulerArrivee({
+    required String lineId,
+    required String approuvePar,
+    required String motif,
+    String? by,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final (:line, :ardoise, :arrhes) = await _preparerAnnulationArrivee(
+      lineId,
+    );
 
     await db.transaction(() async {
       if (ardoise != null) {
@@ -1995,3 +2006,16 @@ String depositNote(String reference) => 'Arrhes $reference';
 /// Un motif tient en 255 caracteres, comme la colonne du serveur.
 String _borne(String texte) =>
     texte.length <= 255 ? texte : texte.substring(0, 255);
+
+/// L'arrivee ne s'annule pas tant que l'ardoise porte des encaissements :
+/// l'argent est dans un tiroir. Porte le client, pour que l'ecran propose
+/// d'aller les annuler sur sa fiche (demande du 24 octobre).
+class EncaissementsAAnnuler extends StateError {
+  EncaissementsAAnnuler(this.guestId)
+    : super(
+        "Des encaissements sont enregistrés sur l'ardoise : annulez-les "
+        "d'abord.",
+      );
+
+  final String guestId;
+}

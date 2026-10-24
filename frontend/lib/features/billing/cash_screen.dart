@@ -609,13 +609,19 @@ class _LigneVersement extends ConsumerWidget {
 
     final int ecart;
     try {
-      ecart = await ref
-          .read(cashRepositoryProvider)
-          .confirmRemittance(
-            sessionId: v.sessionId,
-            receivedAmount: recu,
-            by: agent,
-          );
+      // Caisse centrale fermee : on propose de l'ouvrir, et le versement
+      // compte reprend.
+      ecart = await avecCaisse(
+        context,
+        ref,
+        () => ref
+            .read(cashRepositoryProvider)
+            .confirmRemittance(
+              sessionId: v.sessionId,
+              receivedAmount: recu,
+              by: agent,
+            ),
+      );
     } on StateError catch (e) {
       if (!context.mounted) return;
       montrerRefus(context, e.message);

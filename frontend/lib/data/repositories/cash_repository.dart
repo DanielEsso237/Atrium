@@ -721,9 +721,10 @@ class CashRepository with OutboxWriter {
     }
     final centrale = await openSessionId(by);
     if (centrale == null) {
-      throw StateError(
+      throw CaisseFermee(
         'Ouvrez votre caisse avant de recevoir un versement : '
         "l'argent doit tomber dans un tiroir.",
+        libelle: 'centrale',
       );
     }
 
