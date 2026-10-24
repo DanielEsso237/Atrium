@@ -1048,6 +1048,136 @@ class RemoteExpense {
   }
 }
 
+/// Une tache de menage (`HousekeepingTaskOut`).
+class RemoteHousekeepingTask {
+  const RemoteHousekeepingTask({
+    required this.id,
+    required this.roomId,
+    required this.type,
+    required this.status,
+    required this.priority,
+    required this.businessDate,
+    this.assignedTo,
+    this.assignedAt,
+    this.startedAt,
+    this.finishedAt,
+    this.durationMinutes,
+    this.inspectedBy,
+    this.inspectedAt,
+    this.notes,
+  });
+
+  final String id;
+  final String roomId;
+  final String type;
+  final String status;
+  final String priority;
+
+  /// Date seule, `AAAA-MM-JJ` : jamais convertie de fuseau.
+  final String businessDate;
+  final String? assignedTo;
+  final DateTime? assignedAt;
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+  final int? durationMinutes;
+  final String? inspectedBy;
+  final DateTime? inspectedAt;
+  final String? notes;
+
+  static RemoteHousekeepingTask? fromJson(Object? raw) {
+    if (raw is! Map ||
+        raw['id'] == null ||
+        raw['room_id'] == null ||
+        raw['business_date'] == null) {
+      return null;
+    }
+    return RemoteHousekeepingTask(
+      id: '${raw['id']}',
+      roomId: '${raw['room_id']}',
+      type: '${raw['type']}',
+      status: '${raw['status']}',
+      priority: '${raw['priority'] ?? 'NORMAL'}',
+      businessDate: '${raw['business_date']}',
+      assignedTo: _texte(raw['assigned_to']),
+      assignedAt: _instant(raw['assigned_at']),
+      startedAt: _instant(raw['started_at']),
+      finishedAt: _instant(raw['finished_at']),
+      durationMinutes: (raw['duration_minutes'] as num?)?.toInt(),
+      inspectedBy: _texte(raw['inspected_by']),
+      inspectedAt: _instant(raw['inspected_at']),
+      notes: _texte(raw['notes']),
+    );
+  }
+}
+
+/// Un ticket de maintenance (`MaintenanceTicketOut`).
+///
+/// Le serveur ne rend ni l'emplacement, ni la categorie, ni l'heure
+/// d'assignation : la tablette garde les siens.
+class RemoteMaintenanceTicket {
+  const RemoteMaintenanceTicket({
+    required this.id,
+    required this.number,
+    required this.title,
+    required this.priority,
+    required this.status,
+    this.roomId,
+    this.equipmentId,
+    this.description,
+    this.reportedBy,
+    this.reportedAt,
+    this.assignedTo,
+    this.resolvedAt,
+    this.closedAt,
+    this.resolution,
+    this.cost = 0,
+    this.blocksRoom = false,
+  });
+
+  final String id;
+  final String number;
+  final String title;
+  final String priority;
+  final String status;
+  final String? roomId;
+  final String? equipmentId;
+  final String? description;
+  final String? reportedBy;
+  final DateTime? reportedAt;
+  final String? assignedTo;
+  final DateTime? resolvedAt;
+  final DateTime? closedAt;
+  final String? resolution;
+
+  /// Francs CFA, entiers.
+  final int cost;
+  final bool blocksRoom;
+
+  static RemoteMaintenanceTicket? fromJson(Object? raw) {
+    if (raw is! Map || raw['id'] == null || raw['number'] == null) {
+      return null;
+    }
+    return RemoteMaintenanceTicket(
+      id: '${raw['id']}',
+      number: '${raw['number']}',
+      title: '${raw['title'] ?? ''}',
+      priority: '${raw['priority'] ?? 'NORMAL'}',
+      status: '${raw['status']}',
+      roomId: _texte(raw['room_id']),
+      equipmentId: _texte(raw['equipment_id']),
+      description: _texte(raw['description']),
+      reportedBy: _texte(raw['reported_by']),
+      reportedAt: _instant(raw['reported_at']),
+      assignedTo: _texte(raw['assigned_to']),
+      resolvedAt: _instant(raw['resolved_at']),
+      closedAt: _instant(raw['closed_at']),
+      resolution: _texte(raw['resolution']),
+      cost: _entier(raw['cost']),
+      blocksRoom: raw['blocks_room'] == true,
+    );
+  }
+}
+
 /// Ce qu'une journee a coute en stock (`DailyCostOut`).
 class RemoteDailyCost {
   const RemoteDailyCost({
@@ -1502,6 +1632,25 @@ class CatalogApi {
       rethrow;
     }
   }
+
+  /// Les taches de menage d'une journee hoteliere, sur tous les postes.
+  ///
+  /// Sans elles, chaque tablette ne voyait que ses propres taches : le
+  /// menage termine sur la tablette de l'agent restait « en cours » a la
+  /// reception (23 octobre). La journee seule suffit : la liste du menage
+  /// n'en montre pas d'autre.
+  Future<List<RemoteHousekeepingTask>> fetchHousekeepingTasks(
+    String businessDate,
+  ) => _lire(
+    '/housekeeping-tasks',
+    RemoteHousekeepingTask.fromJson,
+    query: {'business_date': businessDate},
+  );
+
+  /// Les tickets de maintenance de l'hotel, sur tous les postes. Peu
+  /// nombreux : tous, sans fenetre.
+  Future<List<RemoteMaintenanceTicket>> fetchMaintenanceTickets() =>
+      _lire('/maintenance-tickets', RemoteMaintenanceTicket.fromJson);
 
   /// Les inventaires de l'hotel : ceux encore ouverts, et ceux modifies
   /// depuis `since` -- clos ou abandonnes compris, pour qu'une tablette

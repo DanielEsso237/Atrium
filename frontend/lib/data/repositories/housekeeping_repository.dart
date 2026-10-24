@@ -142,8 +142,15 @@ class HousekeepingRepository with OutboxWriter {
                          AND latest.business_date = ?
                          AND latest.deleted_at IS NULL
                          AND latest.status <> 'CANCELLED'
-                    ORDER BY CASE WHEN latest.status IN
-                             ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+                    -- La tache qui dit la meme chose que la chambre : une
+                    -- ouverte si elle est a faire, une terminee si elle est
+                    -- propre. Deux postes hors ligne peuvent ouvrir chacun la
+                    -- leur ; une fois redescendues, celle restee ouverte
+                    -- faisait reparaitre « a faire » une chambre deja faite.
+                    ORDER BY CASE WHEN (latest.status IN
+                             ('PENDING', 'ASSIGNED', 'IN_PROGRESS'))
+                             = (r.housekeeping_status IN
+                             ('DIRTY', 'IN_PROGRESS'))
                              THEN 0 ELSE 1 END,
                              latest.created_at DESC, latest.id DESC
                        LIMIT 1
