@@ -22,6 +22,7 @@ import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/reservation_repository.dart';
 import '../auth/session.dart';
+import '../guests/guest_detail_screen.dart';
 import '../annulations/accord_responsable.dart';
 import 'assign_room_dialog.dart';
 import 'stay_actions.dart';
@@ -498,9 +499,10 @@ class _LigneEtroite extends ConsumerWidget {
   }
 }
 
-/// Le client et la reference du dossier. Toucher le nom ouvre sa fiche
-/// (retour du 23 octobre : « pouvoir voir directement la fiche du client sur
-/// cet ecran ») -- pour qui lit les fiches clients.
+/// Le client et la reference du dossier. Le bouton « Voir la fiche », ou le nom,
+/// ouvre sa fiche en panneau lateral (retour du 23 octobre : « pouvoir voir
+/// directement la fiche du client sur cet ecran ») sans quitter la liste --
+/// pour qui lit les fiches clients.
 class _Identite extends ConsumerWidget {
   const _Identite({required this.reservation, required this.taille});
 
@@ -545,13 +547,33 @@ class _Identite extends ConsumerWidget {
       ],
     );
     if (!fiche) return contenu;
-    return Tooltip(
-      message: 'Voir la fiche de ${r.guestName}',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AtriumRadii.md),
-        onTap: () => context.push('/clients/${r.guestId}'),
-        child: contenu,
-      ),
+    void ouvrir() => ouvrirFicheClientLaterale(context, r.guestId);
+    // Sous le nom plutot qu'a cote : la colonne du client n'a pas la place.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: 'Voir la fiche de ${r.guestName}',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AtriumRadii.md),
+            onTap: ouvrir,
+            child: contenu,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(left: taille + 6),
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: ouvrir,
+            icon: const Icon(PhosphorIconsLight.identificationCard, size: 18),
+            label: const Text('Voir la fiche'),
+          ),
+        ),
+      ],
     );
   }
 }
