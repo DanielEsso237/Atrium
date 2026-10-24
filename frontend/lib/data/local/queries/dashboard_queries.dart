@@ -53,7 +53,8 @@ class DashboardSummary {
   final int departsDuJour;
   final int departsRestants;
 
-  /// Chiffre d'affaires de la journee hoteliere, en francs CFA entiers.
+  /// Chiffre d'affaires de la journee hoteliere, en francs CFA entiers :
+  /// ce qui est vendu, paye ou non. Ce n'est pas l'encaisse.
   final int caDuJour;
   final int chambresANettoyer;
 
@@ -123,8 +124,11 @@ extension DashboardQueries on AtriumDatabase {
             AND $_jourDeDepart = ?1
             AND status = 'CHECKED_IN')                           AS departs_restants,
 
+        -- Les memes ventes que les Rapports : une ligne annulee n'est plus
+        -- vendue, des arrhes ne sont pas encore une vente.
         (SELECT COALESCE(SUM(amount), 0) FROM folio_items
-          WHERE deleted_at IS NULL
+          WHERE deleted_at IS NULL AND is_void = 0
+            AND category <> 'DEPOSIT'
             AND business_date = ?1)                              AS ca
       ''',
       variables: [Variable.withString(journee)],
