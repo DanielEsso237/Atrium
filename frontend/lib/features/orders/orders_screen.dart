@@ -2007,7 +2007,7 @@ class _BadgePoint extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(10, 7, 14, 7),
     decoration: BoxDecoration(
-      color: AtriumColors.white.withValues(alpha: 0.16),
+      color: AtriumColors.onNight.withValues(alpha: 0.16),
       borderRadius: BorderRadius.circular(999),
     ),
     child: Row(
@@ -2018,7 +2018,7 @@ class _BadgePoint extends StatelessWidget {
               ? PhosphorIconsLight.flowerLotus
               : PhosphorIconsLight.storefront,
           size: 18,
-          color: AtriumColors.white,
+          color: AtriumColors.onNight,
         ),
         const SizedBox(width: 8),
         Text(
@@ -2027,7 +2027,7 @@ class _BadgePoint extends StatelessWidget {
             fontFamily: atriumFontFamily,
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: AtriumColors.white,
+            color: AtriumColors.onNight,
           ),
         ),
       ],
