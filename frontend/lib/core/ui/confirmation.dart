@@ -10,6 +10,9 @@
 ///   Le carre s'en va seul apres un moment, ou des qu'on touche l'ecran.
 /// - **Refus** : une croix rouge et la raison. Le carre attend « OK » : une
 ///   raison qui disparait avant d'etre lue ne sert a rien.
+/// - **Refus avec remede** : quand le geste attend une etape (ouvrir la
+///   caisse, encaisser le solde), le carre propose de la faire plutot que de
+///   renvoyer l'agent la chercher (demande de Daniel, 24 octobre).
 ///
 /// Il s'affiche au-dessus de tout, fenetres et fiches comprises. Sans
 /// animation quand l'appareil les a coupees.
@@ -30,8 +33,23 @@ Future<void> montrerSucces(BuildContext context, String message) =>
     _montrer(context, message: message, succes: true);
 
 /// Le carre de refus : la croix, la raison, et « OK » pour le fermer.
-Future<void> montrerRefus(BuildContext context, String message) =>
-    _montrer(context, message: message, succes: false);
+///
+/// [remede] : l'etape qui manque, proposee en bouton principal (« Ouvrir la
+/// caisse »). La toucher ferme le carre puis la lance ; « Plus tard » ferme
+/// seulement.
+Future<void> montrerRefus(
+  BuildContext context,
+  String message, {
+  Remede? remede,
+}) => _montrer(context, message: message, succes: false, remede: remede);
+
+/// L'etape qui debloque un geste refuse : son libelle, et de quoi la faire.
+class Remede {
+  const Remede(this.libelle, this.faire);
+
+  final String libelle;
+  final VoidCallback faire;
+}
 
 /// Le carre est une couche de l'overlay racine, pas une page du navigateur.
 ///
@@ -43,6 +61,7 @@ Future<void> _montrer(
   BuildContext context, {
   required String message,
   required bool succes,
+  Remede? remede,
 }) {
   if (!context.mounted) return Future.value();
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
@@ -55,7 +74,12 @@ Future<void> _montrer(
   }
 
   couche = OverlayEntry(
-    builder: (_) => _Carre(message: message, succes: succes, onFermer: fermer),
+    builder: (_) => _Carre(
+      message: message,
+      succes: succes,
+      remede: remede,
+      onFermer: fermer,
+    ),
   );
   overlay.insert(couche);
   return fini.future;
@@ -66,10 +90,12 @@ class _Carre extends StatefulWidget {
     required this.message,
     required this.succes,
     required this.onFermer,
+    this.remede,
   });
 
   final String message;
   final bool succes;
+  final Remede? remede;
   final VoidCallback onFermer;
 
   @override
@@ -194,7 +220,7 @@ class _CarreState extends State<_Carre> with TickerProviderStateMixin {
                       color: p.text,
                     ),
                   ),
-                  if (!widget.succes) ...[
+                  if (!widget.succes && widget.remede == null) ...[
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -202,6 +228,28 @@ class _CarreState extends State<_Carre> with TickerProviderStateMixin {
                         autofocus: true,
                         onPressed: _fermer,
                         child: const Text('OK'),
+                      ),
+                    ),
+                  ],
+                  if (!widget.succes && widget.remede != null) ...[
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        autofocus: true,
+                        onPressed: () {
+                          _fermer();
+                          widget.remede!.faire();
+                        },
+                        child: Text(widget.remede!.libelle),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: _fermer,
+                        child: const Text('Plus tard'),
                       ),
                     ),
                   ],

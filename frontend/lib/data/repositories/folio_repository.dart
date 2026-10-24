@@ -553,9 +553,19 @@ class FolioRepository with OutboxWriter {
         db,
       ).openSessionId(by, outletId: pointDeVente);
       if (caisse == null) {
-        throw StateError(
+        // Une CaisseFermee, pour que l'ecran propose de l'ouvrir : le
+        // responsable a deja donne son code, l'agent n'a pas a tout refaire.
+        final nom = pointDeVente == null
+            ? null
+            : (await (db.select(db.outlets)
+                    ..where((o) => o.id.equals(pointDeVente!)))
+                  .getSingleOrNull())
+                ?.label;
+        throw CaisseFermee(
           "Ouvrez votre caisse avant d'annuler : l'argent rendu sort d'un "
           'tiroir.',
+          outletId: pointDeVente,
+          libelle: nom == null ? 'centrale' : 'de $nom',
         );
       }
 

@@ -19,6 +19,7 @@ import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/folio_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
 import 'package:atrium/data/repositories/reservation_repository.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
 const _reception = '01920000-0000-7000-8000-000000050002';
@@ -187,6 +188,56 @@ void main() {
       motif: 'Erreur',
     );
     expect((await chambre101()).occupancyStatus, OccupancyStatus.VACANT);
+  });
+
+  // Demande du 24 octobre : un refus qui attend une etape propose de la
+  // faire. Il faut donc savoir laquelle, avant le code du responsable.
+  test('les refus disent quelle etape manque', () async {
+    final (dossierId, ligneId) = await arriver();
+    final tiroir = await CashRepository(
+      db,
+    ).open(userId: _reception, openingFloat: 0);
+    final ardoise = (await folios.openFolioForStay(ligneId))!;
+    await folios.addPayment(
+      folioId: ardoise.id,
+      method: PaymentMethod.CASH,
+      amount: 20000,
+      receivedBy: _reception,
+    );
+    final dossier = await (db.select(
+      db.reservations,
+    )..where((r) => r.id.equals(dossierId))).getSingle();
+
+    // Verifie sans rien ecrire, et nomme le client dont la fiche annule.
+    await expectLater(
+      reservations.verifierAnnulationArrivee(ligneId),
+      throwsA(
+        isA<EncaissementsAAnnuler>().having(
+          (e) => e.guestId,
+          'guestId',
+          dossier.guestId,
+        ),
+      ),
+    );
+
+    // Caisse fermee : une CaisseFermee, que l'ecran propose d'ouvrir.
+    await (db.update(db.cashSessions)..where((c) => c.id.equals(tiroir))).write(
+      const CashSessionsCompanion(status: Value(CashSessionStatus.CLOSED)),
+    );
+    final paiement = (await db.select(db.payments).get()).single;
+    await expectLater(
+      folios.annulerEncaissement(
+        paymentId: paiement.id,
+        approuvePar: utilisateurDemo,
+        motif: 'Erreur',
+        by: _reception,
+      ),
+      throwsA(
+        isA<CaisseFermee>()
+            .having((e) => e.libelle, 'libelle', 'centrale')
+            .having((e) => e.outletId, 'outletId', null),
+      ),
+    );
   });
 
   test('annuler un depart remet le client dans sa chambre', () async {

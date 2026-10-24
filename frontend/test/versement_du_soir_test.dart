@@ -206,7 +206,10 @@ void main() {
           receivedAmount: 17000,
           by: _reception,
         ),
-        throwsStateError,
+        // Une CaisseFermee : l'ecran propose d'ouvrir la caisse centrale.
+        throwsA(
+          isA<CaisseFermee>().having((e) => e.libelle, 'libelle', 'centrale'),
+        ),
       );
       expect((await ligne(id)).receivedAmount, isNull);
     });

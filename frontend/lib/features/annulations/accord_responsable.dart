@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/formats.dart';
 import '../../core/tokens.dart';
@@ -19,8 +20,11 @@ import '../../core/ui/confirmation.dart';
 import '../../core/ui/icons.dart';
 import '../../data/repositories/autorisation_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../data/repositories/reservation_repository.dart'
+    show EncaissementsAAnnuler;
 import '../auth/pin_input.dart';
 import '../auth/session.dart';
+import '../billing/cash_dialog.dart' show avecCaisse;
 
 /// Ce que le responsable a accorde.
 class Accord {
@@ -248,6 +252,31 @@ Future<bool> annulerArrivee(
   required String guestName,
   required String? roomNumber,
 }) async {
+  // Les refus d'abord : le responsable ne vient pas taper son code pour un
+  // geste impossible. Des encaissements a annuler : on propose d'aller les
+  // annuler sur la fiche du client, ou chacun a sa fleche.
+  try {
+    await ref
+        .read(reservationRepositoryProvider)
+        .verifierAnnulationArrivee(lineId);
+  } on EncaissementsAAnnuler catch (e) {
+    if (context.mounted) {
+      final routeur = GoRouter.of(context);
+      montrerRefus(
+        context,
+        '${e.message} Ils s’annulent un par un sur la fiche du client.',
+        remede: Remede(
+          'Voir la fiche du client',
+          () => routeur.push('/clients/${e.guestId}'),
+        ),
+      );
+    }
+    return false;
+  } on StateError catch (e) {
+    if (context.mounted) montrerRefus(context, e.message);
+    return false;
+  }
+  if (!context.mounted) return false;
   final accord = await demanderAccordResponsable(
     context,
     titre: "Annuler l'arrivée",
@@ -333,14 +362,20 @@ Future<bool> annulerEncaissement(
   );
   if (accord == null || !context.mounted) return false;
   try {
-    await ref
-        .read(folioRepositoryProvider)
-        .annulerEncaissement(
-          paymentId: paymentId,
-          approuvePar: accord.responsable.id,
-          motif: accord.motif,
-          by: ref.read(sessionProvider).agent?.id,
-        );
+    // Caisse fermee : on propose de l'ouvrir, puis l'annulation repart avec
+    // l'accord deja donne.
+    await avecCaisse(
+      context,
+      ref,
+      () => ref
+          .read(folioRepositoryProvider)
+          .annulerEncaissement(
+            paymentId: paymentId,
+            approuvePar: accord.responsable.id,
+            motif: accord.motif,
+            by: ref.read(sessionProvider).agent?.id,
+          ),
+    );
   } on StateError catch (e) {
     if (context.mounted) montrerRefus(context, e.message);
     return false;

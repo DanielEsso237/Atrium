@@ -77,7 +77,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       final message = await ref
           .read(inventoryRepositoryProvider)
           .motifsManquants(sansMotif);
-      if (mounted) montrerRefus(context, message);
+      // Le remede : la vue des ecarts, ou chaque motif se note.
+      if (mounted) {
+        montrerRefus(
+          context,
+          message,
+          remede: Remede(
+            'Voir les écarts',
+            () => setState(() => _vue = _Vue.ecarts),
+          ),
+        );
+      }
       return;
     }
     final manques = ecarts.where((l) => l.ecart! < 0).length;
