@@ -17,6 +17,7 @@ import '../../core/ui/icons.dart';
 import '../../data/local/enums.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
+import 'cash_dialog.dart' show avecCaisse;
 import 'charge_labels.dart';
 import '../../core/ui/confirmation.dart';
 
@@ -84,18 +85,23 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
     // grise se lit comme une panne, et l'agent annule sans savoir si
     // l'argent a ete enregistre ou non.
     try {
-      await ref
-          .read(folioRepositoryProvider)
-          .addPayment(
-            folioId: widget.folioId,
-            method: _method,
-            amount: montant,
-            // Plus de reference saisie : le patron l'a retiree, elle
-            // ralentissait le comptoir sans rien apporter. Le depot et la
-            // colonne la gardent -- les encaissements deja saisis la portent,
-            // et le serveur l'accepte toujours.
-            receivedBy: ref.read(sessionProvider).agent?.id,
-          );
+      // Caisse fermee : on propose de l'ouvrir, puis on encaisse.
+      await avecCaisse(
+        context,
+        ref,
+        () => ref
+            .read(folioRepositoryProvider)
+            .addPayment(
+              folioId: widget.folioId,
+              method: _method,
+              amount: montant,
+              // Plus de reference saisie : le patron l'a retiree, elle
+              // ralentissait le comptoir sans rien apporter. Le depot et la
+              // colonne la gardent -- les encaissements deja saisis la
+              // portent, et le serveur l'accepte toujours.
+              receivedBy: ref.read(sessionProvider).agent?.id,
+            ),
+      );
     } on StateError catch (e) {
       // Refus attendu -- ardoise close, deja soldee, montant superieur au
       // reste du. Le message du depot est ecrit pour etre lu par un agent :

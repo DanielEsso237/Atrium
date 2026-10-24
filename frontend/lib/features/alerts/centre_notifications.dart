@@ -35,6 +35,7 @@ import '../../data/local/queries/historique_notifications_queries.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../data/repositories/room_order_repository.dart';
 import '../auth/session.dart';
+import '../billing/cash_dialog.dart' show avecCaisse;
 import 'alert_center.dart';
 import 'sonneries.dart' show iconeEvenement;
 
@@ -963,7 +964,11 @@ class _CarteCommandeChambreState extends ConsumerState<CarteCommandeChambre> {
                                     orderId: c.id,
                                     by: agent,
                                   )
-                                : repo.livrer(orderId: c.id, by: agent),
+                                : avecCaisse(
+                                    context,
+                                    ref,
+                                    () => repo.livrer(orderId: c.id, by: agent),
+                                  ),
                           ),
                   ),
               ],

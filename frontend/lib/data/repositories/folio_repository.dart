@@ -447,9 +447,10 @@ class FolioRepository with OutboxWriter {
       }
       final caisse = await CashRepository(db).openSessionId(receivedBy);
       if (caisse == null) {
-        throw StateError(
+        throw CaisseFermee(
           "Ouvrez votre caisse avant d'encaisser : l'argent doit tomber dans "
           'un tiroir.',
+          libelle: 'centrale',
         );
       }
 

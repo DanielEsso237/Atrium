@@ -434,8 +434,10 @@ class RoomOrderRepository with OutboxWriter {
       db,
     ).openSessionId(by, outletId: commande.outletId);
     if (caisse == null) {
-      throw StateError(
+      throw CaisseFermee(
         'Ouvrez la caisse du point de vente avant de livrer : il est fermé.',
+        outletId: commande.outletId,
+        libelle: 'du point de vente',
       );
     }
     final ardoise = commande.folioId == null

@@ -419,9 +419,11 @@ class OrderRepository with OutboxWriter {
     if (by == null ||
         await CashRepository(db).openSessionId(by, outletId: outlet.id) ==
             null) {
-      throw StateError(
+      throw CaisseFermee(
         'Ouvrez la caisse de ${outlet.label} avant de servir : le point de '
         'vente est fermé.',
+        outletId: outlet.id,
+        libelle: 'de ${outlet.label}',
       );
     }
 
@@ -478,9 +480,11 @@ class OrderRepository with OutboxWriter {
       db,
     ).openSessionId(by, outletId: outlet.id);
     if (caisse == null) {
-      throw StateError(
+      throw CaisseFermee(
         'Ouvrez la caisse de ${outlet.label} avant d\'encaisser : la vente '
         'doit tomber dans son tiroir.',
+        outletId: outlet.id,
+        libelle: 'de ${outlet.label}',
       );
     }
 
