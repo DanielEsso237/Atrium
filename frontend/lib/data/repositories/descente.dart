@@ -176,6 +176,13 @@ class Descente {
       // Les depenses, pour le benefice : sous `accounting.read`, un 403
       // pour le comptoir, qui saute la ressource.
       final depenses = await _siPermis(() => _catalog.fetchExpenses(depuis));
+      // Le menage et la maintenance de tous les postes : sans eux, une
+      // chambre terminee sur la tablette de l'agent restait « en cours » a
+      // la reception, et un ticket ouvert ailleurs n'apparaissait jamais.
+      final taches = await _siPermis(
+        () => _catalog.fetchHousekeepingTasks(businessDateNow()),
+      );
+      final tickets = await _siPermis(_catalog.fetchMaintenanceTickets);
       // Les inventaires des magasins : un second poste reprend celui qu'un
       // collegue a ouvert, au lieu d'en ouvrir un autre. Sous `stock.read`.
       final inventaires = await _siPermisOuRien<RemoteInventory>(
@@ -307,6 +314,8 @@ class Descente {
         maintenant,
       );
       ecartees += await _ecrireDepenses(depenses, maintenant);
+      ecartees += await _ecrireTachesMenage(taches, maintenant);
+      ecartees += await _ecrireTicketsMaintenance(tickets, maintenant);
       if (inventaires != null) {
         ecartees += await _ecrireInventaires(inventaires, maintenant);
       }
@@ -1631,6 +1640,112 @@ class Descente {
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
+
+  // --- Le menage et la maintenance ---------------------------------------
+
+  /// Rend le nombre de taches ecartees : en attente d'envoi ici (un menage
+  /// commence ou termine sur cette tablette fait foi tant qu'il n'est pas
+  /// remonte), ou d'un type, d'un etat que cette version ne connait pas.
+  Future<int> _ecrireTachesMenage(
+    List<RemoteHousekeepingTask> taches,
+    DateTime maintenant,
+  ) async {
+    final protegees = await _sync.lignesEnAttente(db.housekeepingTasks);
+    var ecartees = 0;
+    await db.transaction(() async {
+      for (final t in taches) {
+        final type = _parNom(HousekeepingTaskType.values, t.type);
+        final statut = _parNom(TaskStatus.values, t.status);
+        final priorite = _parNom(Priority.values, t.priority);
+        if (protegees.contains(t.id) ||
+            type == null ||
+            statut == null ||
+            priorite == null) {
+          ecartees++;
+          continue;
+        }
+        await db
+            .into(db.housekeepingTasks)
+            .insertOnConflictUpdate(
+              HousekeepingTasksCompanion.insert(
+                id: t.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                roomId: t.roomId,
+                type: type,
+                status: Value(statut),
+                priority: Value(priorite),
+                businessDate: t.businessDate,
+                assignedTo: Value(t.assignedTo),
+                assignedAt: Value(t.assignedAt),
+                startedAt: Value(t.startedAt),
+                finishedAt: Value(t.finishedAt),
+                durationMinutes: Value(t.durationMinutes),
+                inspectedBy: Value(t.inspectedBy),
+                inspectedAt: Value(t.inspectedAt),
+                notes: Value(t.notes),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+    return ecartees;
+  }
+
+  /// Comme les taches de menage. L'emplacement et la categorie, que le
+  /// serveur ne rend pas, restent ceux de la tablette.
+  Future<int> _ecrireTicketsMaintenance(
+    List<RemoteMaintenanceTicket> tickets,
+    DateTime maintenant,
+  ) async {
+    final proteges = await _sync.lignesEnAttente(db.maintenanceTickets);
+    var ecartes = 0;
+    await db.transaction(() async {
+      for (final t in tickets) {
+        final statut = _parNom(TicketStatus.values, t.status);
+        final priorite = _parNom(Priority.values, t.priority);
+        if (proteges.contains(t.id) || statut == null || priorite == null) {
+          ecartes++;
+          continue;
+        }
+        await db
+            .into(db.maintenanceTickets)
+            .insertOnConflictUpdate(
+              MaintenanceTicketsCompanion.insert(
+                id: t.id,
+                createdAt: maintenant,
+                updatedAt: maintenant,
+                hotelId: hotelId,
+                number: t.number,
+                title: t.title,
+                roomId: Value(t.roomId),
+                equipmentId: Value(t.equipmentId),
+                description: Value(t.description),
+                priority: Value(priorite),
+                status: Value(statut),
+                reportedBy: Value(t.reportedBy),
+                reportedAt: Value(t.reportedAt),
+                assignedTo: Value(t.assignedTo),
+                resolvedAt: Value(t.resolvedAt),
+                closedAt: Value(t.closedAt),
+                resolution: Value(t.resolution),
+                cost: Value(t.cost),
+                blocksRoom: Value(t.blocksRoom),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+    return ecartes;
+  }
+
+  static T? _parNom<T extends Enum>(List<T> valeurs, String nom) {
+    for (final v in valeurs) {
+      if (v.name == nom) return v;
+    }
+    return null;
+  }
 
   static ExpenseCategory? _rubrique(String v) {
     for (final c in ExpenseCategory.values) {

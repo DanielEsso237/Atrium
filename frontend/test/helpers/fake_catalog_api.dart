@@ -41,7 +41,12 @@ class FakeCatalogApi implements CatalogApi {
     this.chargeableStays = const [],
     this.inventories,
     this.roomOrders,
+    this.housekeepingTasks = const [],
+    this.maintenanceTickets = const [],
   });
+
+  final List<RemoteHousekeepingTask> housekeepingTasks;
+  final List<RemoteMaintenanceTicket> maintenanceTickets;
 
   final List<RemoteRoom> rooms;
   final List<RemoteGuest> guests;
@@ -178,6 +183,18 @@ class FakeCatalogApi implements CatalogApi {
   Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => const [];
 
   @override
+  Future<List<RemoteHousekeepingTask>> fetchHousekeepingTasks(
+    String businessDate,
+  ) async => [
+    for (final t in housekeepingTasks)
+      if (t.businessDate == businessDate) t,
+  ];
+
+  @override
+  Future<List<RemoteMaintenanceTicket>> fetchMaintenanceTickets() async =>
+      maintenanceTickets;
+
+  @override
   Future<List<RemoteInventory>?> fetchInventories(DateTime since) async =>
       inventories;
 
@@ -298,6 +315,15 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<RemoteExpense>> fetchExpenses(DateTime since) async => _couloir();
+
+  @override
+  Future<List<RemoteHousekeepingTask>> fetchHousekeepingTasks(
+    String businessDate,
+  ) async => _couloir();
+
+  @override
+  Future<List<RemoteMaintenanceTicket>> fetchMaintenanceTickets() async =>
+      _couloir();
 
   @override
   Future<List<RemoteInventory>?> fetchInventories(DateTime since) async =>
