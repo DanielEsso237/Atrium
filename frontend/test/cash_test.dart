@@ -93,6 +93,27 @@ void main() {
     expect(vue.expected, 50000);
   });
 
+  test('l ecran deja ouvert suit un encaissement', () async {
+    // Vecu le 23 octobre : « Devrait contenir » restait au fond de caisse.
+    // Les tests ci-dessus lisaient la caisse apres l'encaissement, jamais
+    // pendant que l'ecran etait ouvert.
+    await caisse.open(userId: agent, openingFloat: 10000);
+    final attendus = caisse
+        .watchCurrent(agent)
+        .map((v) => v!.expected)
+        .distinct();
+
+    final suivi = expectLater(attendus, emitsInOrder([10000, 40000]));
+    await Future<void>.delayed(Duration.zero);
+    await folios.addPayment(
+      folioId: folioId,
+      method: PaymentMethod.CASH,
+      amount: 30000,
+      receivedBy: agent,
+    );
+    await suivi;
+  });
+
   test('la carte ne passe pas par le tiroir', () async {
     // Les compter ferait constater un ecart enorme a chaque fermeture.
     await caisse.open(userId: agent, openingFloat: 20000);

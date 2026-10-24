@@ -14,9 +14,11 @@ import 'package:atrium/data/local/queries/access_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/local/seed_accounts.dart';
 import 'package:atrium/data/repositories/cash_repository.dart';
+import 'package:atrium/data/repositories/guest_repository.dart';
 import 'package:atrium/data/repositories/outlet_repository.dart';
 import 'package:atrium/data/repositories/outlet_tab_repository.dart';
 import 'package:atrium/data/repositories/repository_providers.dart';
+import 'package:atrium/data/repositories/reservation_repository.dart';
 import 'package:atrium/features/auth/session.dart';
 import 'package:atrium/features/orders/orders_screen.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +36,7 @@ class _TestSession extends SessionNotifier {
 void main() {
   late AtriumDatabase db;
   late UserRow agent;
+  late OutletRow bar;
 
   setUp(() async {
     db = AtriumDatabase.memory();
@@ -42,7 +45,7 @@ void main() {
     agent = await (db.select(
       db.users,
     )..where((u) => u.employeeCode.equals('ADMIN01'))).getSingle();
-    final bar = await OutletRepository(db).create(code: 'BAR', label: 'Bar');
+    bar = await OutletRepository(db).create(code: 'BAR', label: 'Bar');
     await CashRepository(
       db,
     ).open(userId: agent.id, openingFloat: 0, outletId: bar.id);
@@ -108,6 +111,82 @@ void main() {
     // Renommer : l'etiquette sur la photo, et le bouton dans les actions.
     expect(find.byTooltip('Nommer l’ardoise'), findsOneWidget);
     expect(find.text('Renommer'), findsOneWidget);
+
+    await tester.runAsync(db.close);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('le client loge n a qu une tuile, celle de sa chambre', (
+    tester,
+  ) async {
+    // Retours des 23 et 24 octobre : son ardoise du bar faisait une seconde
+    // tuile, et il passait pour un client de passage.
+    await tester.runAsync(() async {
+      final client = await GuestRepository(
+        db,
+      ).create(firstName: 'Awa', lastName: 'Diallo');
+      final chambre = await (db.select(
+        db.rooms,
+      )..where((r) => r.number.equals('101'))).getSingle();
+      final reservations = ReservationRepository(db);
+      final dossier = await reservations.create(
+        guestId: client.id,
+        roomTypeId: chambre.roomTypeId,
+        arrival: DateTime.now().subtract(const Duration(days: 1)),
+        departure: DateTime.now().add(const Duration(days: 2)),
+        nightlyRate: 25000,
+        roomId: chambre.id,
+      );
+      final ligne = await (db.select(
+        db.reservationRooms,
+      )..where((l) => l.reservationId.equals(dossier))).getSingle();
+      await reservations.checkIn(lineId: ligne.id);
+      final ardoises = OutletTabRepository(db);
+      final id = await ardoises.ouvrir(
+        pointDeVente: bar,
+        by: agent.id,
+        guestId: client.id,
+      );
+      await ardoises.servir(
+        pointDeVente: bar,
+        ardoiseId: id,
+        libelle: 'Coca',
+        prixUnitaire: 700,
+        by: agent.id,
+        categorie: ChargeCategory.FNB,
+      );
+    });
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final acces = (await tester.runAsync(() => accessProfileFor(db, agent.id)))!;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          sessionProvider.overrideWith(
+            () => _TestSession(SessionState(agent: agent, acces: acces)),
+          ),
+          pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+        ],
+        child: MaterialApp(theme: themeAtrium(), home: const OrdersScreen()),
+      ),
+    );
+    await attendre(tester);
+
+    expect(tester.takeException(), isNull);
+    // Sa chambre porte ce qu'il doit ici ; plus de tuile a part a son nom.
+    expect(find.textContaining('À payer ici : 700'), findsOneWidget);
+    expect(find.text('101 · Awa Diallo'), findsNothing);
+
+    // Toucher sa chambre ouvre son ardoise, pour la regler en partant.
+    await tester.tap(find.textContaining('À payer ici'));
+    await attendre(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.text('1 × Coca'), findsOneWidget);
+    expect(find.textContaining('Payer '), findsOneWidget);
 
     await tester.runAsync(db.close);
     await tester.pumpWidget(const SizedBox());
