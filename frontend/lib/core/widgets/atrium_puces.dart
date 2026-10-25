@@ -118,8 +118,12 @@ class PuceEcritures extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final attente = ref.watch(pendingWritesProvider).value ?? 0;
+    final autrui = ref.watch(envoisDAutruiProvider).value ?? const [];
     final sync = ref.watch(syncProvider);
-    if (attente == 0) return const SizedBox.shrink();
+    if (attente == 0) {
+      if (autrui.isEmpty) return const SizedBox.shrink();
+      return _PuceAutrui(autrui);
+    }
 
     final bloque = sync.isBlocked;
     // La raison du refus : sans elle, l'agent sait que ca bloque mais pas
@@ -146,6 +150,33 @@ class PuceEcritures extends ConsumerWidget {
         // Le nombre seul : le detail est dans l'info-bulle. Longue, la
         // pastille repoussait le sous-titre de l'accueil sur deux lignes.
         child: Text(bloque ? 'Bloqué ($attente)' : '$attente'),
+      ),
+    );
+  }
+}
+
+/// Les ecritures de collegues faites sur cette tablette : seule leur session
+/// les remonte. Rien a faire pour l'agent connecte, sinon le savoir -- et
+/// prevenir le collegue s'il ne repasse pas.
+class _PuceAutrui extends StatelessWidget {
+  const _PuceAutrui(this.autrui);
+
+  final List<({String agent, int n})> autrui;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = autrui.fold<int>(0, (s, a) => s + a.n);
+    final qui = autrui.map((a) => '${a.agent} (${a.n})').join(', ');
+    return Tooltip(
+      message:
+          '$total écriture(s) faite(s) sur cette tablette par $qui. Elles '
+          'partiront à leur prochaine connexion ici.',
+      child: AtriumPuce(
+        icone: Icons.schedule,
+        encre: AtriumDashColors.title,
+        child: Text(
+          autrui.length == 1 ? '$total · ${autrui.single.agent}' : '$total',
+        ),
       ),
     );
   }

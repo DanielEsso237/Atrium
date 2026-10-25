@@ -384,8 +384,11 @@ class SyncScheduler extends Notifier<void> {
         _planifier(_recul());
 
       // Ni un renvoi ni l'attente n'y changeront quoi que ce soit.
+      // Un collegue doit d'abord remonter les siennes : sa prochaine
+      // connexion relancera la file.
       case DrainStop.bloque:
       case DrainStop.sessionInvalide:
+      case DrainStop.attenteAutrui:
         _arrete = true;
         _annuler();
     }

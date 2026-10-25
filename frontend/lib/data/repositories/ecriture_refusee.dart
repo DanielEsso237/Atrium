@@ -16,6 +16,7 @@ import 'package:drift/drift.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'folio_repository.dart';
+import 'outbox.dart';
 
 class EcritureRefusee {
   const EcritureRefusee({
@@ -37,10 +38,20 @@ class EcritureRefusee {
       table == 'payments' && operation == SyncOp.INSERT;
 }
 
-/// La premiere ecriture refusee de la file, ou `null`.
+/// La premiere ecriture refusee que l'agent connecte peut remonter, ou
+/// `null`. Celle d'un collegue ne bloque pas sa file : ce n'est pas a lui
+/// de la retirer.
 Future<EcritureRefusee?> ecritureRefusee(AtriumDatabase db) async {
+  final auteur = await db.auteurDeLaFile();
   final e = await (db.select(db.outboxEntries)
-        ..where((o) => o.status.equalsValue(OutboxStatus.FAILED))
+        ..where(
+          (o) =>
+              o.status.equalsValue(OutboxStatus.FAILED) &
+              (o.authorId.isNull() |
+                  (auteur == null
+                      ? const Constant(false)
+                      : o.authorId.equals(auteur))),
+        )
         ..orderBy([(o) => OrderingTerm(expression: o.id)])
         ..limit(1))
       .getSingleOrNull();

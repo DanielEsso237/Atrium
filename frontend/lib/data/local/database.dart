@@ -119,7 +119,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -239,6 +239,20 @@ class AtriumDatabase extends _$AtriumDatabase {
         await m.addColumn(orders, orders.deliveredBy);
         await m.addColumn(orders, orders.cancelledBy);
         await m.addColumn(orders, orders.overrideBy);
+      }
+      // 15 -> 16 : chaque ecriture de la file connait son auteur, et seule
+      // sa session la remonte. Les entrees deja en attente le retrouvent
+      // dans leur corps quand il y figure ; sinon elles restent a tous,
+      // comme avant.
+      if (depuis < 16) {
+        await m.addColumn(outboxEntries, outboxEntries.authorId);
+        await customStatement(
+          "UPDATE outbox_entries SET author_id = COALESCE("
+          "json_extract(payload, '\$.received_by'), "
+          "json_extract(payload, '\$.posted_by'), "
+          "json_extract(payload, '\$.created_by')) "
+          "WHERE status IN ('PENDING', 'FAILED')",
+        );
       }
     },
     beforeOpen: (details) async {
