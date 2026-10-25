@@ -169,6 +169,12 @@ flèche, c'est promettre un ailleurs qui n'existe pas.
   sait pas donner : la fenêtre plante avant de s'afficher. Les cases du PIN
   (`PinCells`) en contiennent un — la fenêtre du code responsable est un
   `Dialog` (16 octobre).
+- **Un `ExpansionTile` (ou un `ListTile`) dans un `Bezel` exige un
+  `Material` entre les deux.** Le `Bezel` peint son fond dans un
+  `DecoratedBox` ; le `ListTile` peindrait le sien dessous, invisible, et
+  Flutter lève une assertion — les écrans Personnel et Comptabilité
+  échouaient ainsi leurs tests (25 octobre). `Material(type:
+  MaterialType.transparency)` suffit.
 - Hot reload refusé après un changement de champs d'une classe `const` :
   utiliser `R` (restart), pas `r`.
 - `StateProvider` n'existe plus en Riverpod 3 — utiliser un `Notifier`.

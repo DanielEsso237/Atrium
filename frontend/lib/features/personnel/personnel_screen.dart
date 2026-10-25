@@ -175,93 +175,102 @@ class _CarteAgent extends StatelessWidget {
 
     return Bezel(
       padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
-          leading: Monogram(a.nom),
-          title: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  a.nom,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                    color: a.actif ? p.text : p.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              CodeCartouche(a.code),
-              if (!a.actif) ...[const SizedBox(width: 8), const Tag('Inactif')],
-            ],
-          ),
-          // Les chiffres sous le nom, pas a droite : la ligne n'a pas la
-          // hauteur de deux lignes de texte a cote du titre.
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                [
-                  a.roles.isEmpty ? 'Sans rôle' : a.roles.join(', '),
-                  a.pointsDeVente.isEmpty
-                      ? 'Tout l’hôtel'
-                      : a.pointsDeVente.join(', '),
-                ].join(' · '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: p.textSecondary),
-              ),
-              const SizedBox(height: 10),
-              Wrap(spacing: 12, runSpacing: 8, children: chiffres),
-            ],
-          ),
-          children: [
-            if (parts.isEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Aucune vente sur la période.',
-                  style: TextStyle(fontSize: 13.5, color: p.textSecondary),
-                ),
-              )
-            else
-              for (final part in parts)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          part.libelle,
-                          style: TextStyle(fontSize: 14, color: p.text),
-                        ),
-                      ),
-                      Text(
-                        formatAmount(part.montant),
-                        style: chiffre.copyWith(fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-            if (a.derniereConnexion != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
+      // Le Bezel peint son fond dans un DecoratedBox : sans Material entre
+      // lui et l'ExpansionTile, le ListTile peindrait son fond et ses
+      // ondulations sous la carte, invisibles, et Flutter le refuse.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+            leading: Monogram(a.nom),
+            title: Row(
+              children: [
+                Flexible(
                   child: Text(
-                    'Dernière connexion : '
-                    '${formatShortDate(a.derniereConnexion!.toLocal())}',
-                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                    a.nom,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: a.actif ? p.text : p.textSecondary,
+                    ),
                   ),
                 ),
-              ),
-          ],
+                const SizedBox(width: 8),
+                CodeCartouche(a.code),
+                if (!a.actif) ...[
+                  const SizedBox(width: 8),
+                  const Tag('Inactif'),
+                ],
+              ],
+            ),
+            // Les chiffres sous le nom, pas a droite : la ligne n'a pas la
+            // hauteur de deux lignes de texte a cote du titre.
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  [
+                    a.roles.isEmpty ? 'Sans rôle' : a.roles.join(', '),
+                    a.pointsDeVente.isEmpty
+                        ? 'Tout l’hôtel'
+                        : a.pointsDeVente.join(', '),
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: p.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                Wrap(spacing: 12, runSpacing: 8, children: chiffres),
+              ],
+            ),
+            children: [
+              if (parts.isEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Aucune vente sur la période.',
+                    style: TextStyle(fontSize: 13.5, color: p.textSecondary),
+                  ),
+                )
+              else
+                for (final part in parts)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            part.libelle,
+                            style: TextStyle(fontSize: 14, color: p.text),
+                          ),
+                        ),
+                        Text(
+                          formatAmount(part.montant),
+                          style: chiffre.copyWith(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+              if (a.derniereConnexion != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Dernière connexion : '
+                      '${formatShortDate(a.derniereConnexion!.toLocal())}',
+                      style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
