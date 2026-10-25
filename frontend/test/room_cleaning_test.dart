@@ -103,22 +103,24 @@ void main() {
   );
 
   test(
-    'le lancement groupé réutilise une tâche et ne démarre que les chambres choisies',
+    'la demande groupée réutilise une tâche et ouvre « à faire » les chambres choisies',
     () async {
       final pending = await menage.openTask(roomId: rooms[0].id, by: agent.id);
-      final count = await menage.startVacantRooms([
+      final count = await menage.openVacantRooms([
         rooms[0].id,
         rooms[1].id,
         rooms[0].id,
       ], by: agent.id);
       expect(count, 2);
+      // A faire, pas en cours : la chambre reste attribuable, et c'est la
+      // femme de chambre qui commence (decision du 14 octobre).
       expect(
         (await room(rooms[0].id)).housekeepingStatus,
-        HousekeepingStatus.IN_PROGRESS,
+        HousekeepingStatus.DIRTY,
       );
       expect(
         (await room(rooms[1].id)).housekeepingStatus,
-        HousekeepingStatus.IN_PROGRESS,
+        HousekeepingStatus.DIRTY,
       );
       expect(
         (await room(rooms[2].id)).housekeepingStatus,
@@ -129,7 +131,10 @@ void main() {
       expect(tasks.map((t) => t.id), contains(pending));
       expect(
         tasks.every(
-          (t) => t.status == TaskStatus.IN_PROGRESS && t.assignedTo == agent.id,
+          (t) =>
+              t.status == TaskStatus.PENDING &&
+              t.assignedTo == null &&
+              t.startedAt == null,
         ),
         isTrue,
       );
@@ -140,7 +145,11 @@ void main() {
       final payloads = (await queued()).map(
         (e) => jsonDecode(e.payload) as Map,
       );
-      expect(payloads.where((p) => p['status'] == 'IN_PROGRESS'), hasLength(2));
+      expect(payloads.where((p) => p['status'] == 'IN_PROGRESS'), isEmpty);
+      expect(
+        (await queued()).map((e) => e.op),
+        everyElement(SyncOp.INSERT),
+      );
     },
   );
 
@@ -157,7 +166,7 @@ void main() {
         const RoomsCompanion(occupancyStatus: Value(OccupancyStatus.OCCUPIED)),
       );
       await expectLater(
-        menage.startVacantRooms(selected, by: agent.id),
+        menage.openVacantRooms(selected, by: agent.id),
         throwsStateError,
       );
       expect(
@@ -171,11 +180,11 @@ void main() {
 
   test('une sélection vide ou introuvable ne crée aucune tâche', () async {
     await expectLater(
-      menage.startVacantRooms([], by: agent.id),
+      menage.openVacantRooms([], by: agent.id),
       throwsStateError,
     );
     await expectLater(
-      menage.startVacantRooms([rooms[0].id, 'missing'], by: agent.id),
+      menage.openVacantRooms([rooms[0].id, 'missing'], by: agent.id),
       throwsStateError,
     );
     expect(await queued(), isEmpty);
@@ -184,14 +193,15 @@ void main() {
   test(
     'un second ménage le même jour garde une seule carte et conserve les tâches',
     () async {
-      await menage.startVacantRooms([rooms[0].id], by: agent.id);
+      await menage.openVacantRooms([rooms[0].id], by: agent.id);
       final previous = (await menage.watchJobs().first).single.taskId!;
+      await menage.start(previous, by: agent.id);
       await menage.finish(previous, by: agent.id);
-      await menage.startVacantRooms([rooms[0].id], by: agent.id);
+      await menage.openVacantRooms([rooms[0].id], by: agent.id);
       final jobs = await menage.watchJobs().first;
       expect(jobs, hasLength(1));
       expect(jobs.single.taskId, isNot(previous));
-      expect(jobs.single.enCours, isTrue);
+      expect(jobs.single.enCours, isFalse);
       expect(await db.select(db.housekeepingTasks).get(), hasLength(2));
     },
   );

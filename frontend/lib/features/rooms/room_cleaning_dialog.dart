@@ -11,14 +11,19 @@ import '../../data/repositories/repository_providers.dart';
 import '../auth/session.dart';
 import '../../core/ui/confirmation.dart';
 
-/// Propose les chambres libres puis lance le menage de la selection.
+/// Propose les chambres libres puis demande le menage de la selection.
 Future<void> showRoomCleaningDialog(BuildContext context) async {
   final count = await showDialog<int>(
     context: context,
     builder: (_) => const _RoomCleaningDialog(),
   );
   if (count == null || !context.mounted) return;
-  montrerSucces(context, 'Ménage lancé pour $count chambre${count > 1 ? 's' : ''}.');
+  montrerSucces(
+    context,
+    count > 1
+        ? '$count chambres à faire : elles attendent dans la liste du ménage.'
+        : '1 chambre à faire : elle attend dans la liste du ménage.',
+  );
 }
 
 class _RoomCleaningDialog extends ConsumerStatefulWidget {
@@ -47,13 +52,13 @@ class _RoomCleaningDialogState extends ConsumerState<_RoomCleaningDialog> {
     try {
       final count = await ref
           .read(housekeepingRepositoryProvider)
-          .startVacantRooms(ids, by: session.agent!.id);
+          .openVacantRooms(ids, by: session.agent!.id);
       if (mounted) Navigator.of(context).pop(count);
     } on StateError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } on Exception {
       if (mounted) {
-        setState(() => _error = 'Le ménage n’a pas pu être lancé. Réessayez.');
+        setState(() => _error = 'Le ménage n’a pas pu être demandé. Réessayez.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -215,7 +220,7 @@ class _RoomCleaningDialogState extends ConsumerState<_RoomCleaningDialog> {
                 ],
                 const SizedBox(height: 12),
                 PillButton(
-                  label: _busy ? 'Lancement du ménage…' : 'Lancer le ménage',
+                  label: _busy ? 'Demande en cours…' : 'Demander le ménage',
                   icon: PhosphorIconsLight.broom,
                   expand: true,
                   onPressed: _busy || !peutGerer || selected.isEmpty
