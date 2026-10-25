@@ -34,8 +34,22 @@ import 'outbox.dart';
 /// L'action portee par l'entree de file.
 const actionReinitialiser = 'RESET_SECRET';
 
+/// L'agent remplace lui-meme son code par un PIN de 6 chiffres (25 octobre).
+const actionChangerPin = 'CHANGE_PIN';
+
+/// Le PIN fait 6 chiffres pour tout le monde (decision du 25 octobre). Un
+/// code de 4 chiffres d'avant la regle ouvre encore la session, puis l'agent
+/// en choisit un nouveau.
+final pinValide = RegExp(r'^\d{6}$');
+
 /// Ce que le serveur ne doit pas trouver dans l'historique de la file.
-const _secretsDeLaFile = ['approver_secret', 'new_pin', 'new_password', 'pin'];
+const _secretsDeLaFile = [
+  'approver_secret',
+  'current_secret',
+  'new_pin',
+  'new_password',
+  'pin',
+];
 
 class ReinitialisationRepository with OutboxWriter {
   ReinitialisationRepository(this.db, this._api);
@@ -57,8 +71,8 @@ class ReinitialisationRepository with OutboxWriter {
     if (nouveauPin == null && nouveauMotDePasse == null) {
       throw StateError('Choisissez un nouveau code PIN ou un mot de passe.');
     }
-    if (nouveauPin != null && !RegExp(r'^\d{4,8}$').hasMatch(nouveauPin)) {
-      throw StateError('Le PIN compte de 4 à 8 chiffres.');
+    if (nouveauPin != null && !pinValide.hasMatch(nouveauPin)) {
+      throw StateError('Le PIN compte 6 chiffres.');
     }
     if (nouveauMotDePasse != null && nouveauMotDePasse.length < 8) {
       throw StateError('Le mot de passe compte au moins 8 caractères.');
@@ -106,6 +120,60 @@ class ReinitialisationRepository with OutboxWriter {
       }
     }
     await _horsLigne(agent, responsable, secretResponsable, corps);
+  }
+
+  /// L'agent passe de son ancien code a un PIN de 6 chiffres. Leve une
+  /// [StateError] dont le message se lit tel quel a l'ecran.
+  ///
+  /// L'ancien code vient d'ouvrir la session : hors ligne, la tablette l'a
+  /// donc deja verifie, et elle ecrit le nouveau sans attendre. C'est cet
+  /// ancien code qui part par la file et que le serveur reverifie.
+  Future<void> changerPin({
+    required String codeAgent,
+    required String ancien,
+    required String nouveau,
+  }) async {
+    if (!pinValide.hasMatch(nouveau)) {
+      throw StateError('Le nouveau code compte 6 chiffres.');
+    }
+    final code = codeAgent.trim().toUpperCase();
+    final corps = <String, Object?>{
+      'employee_code': code,
+      'current_secret': ancien,
+      'new_pin': nouveau,
+    };
+    final agent = await agentParCode(db, code);
+    try {
+      await _api.changePin(corps);
+      if (agent != null) {
+        await _ecrire(agent.id, nouveau, null, SyncState.synced);
+      }
+      return;
+    } on ApiException catch (e) {
+      switch (e.failure) {
+        case ApiFailure.forbidden:
+        case ApiFailure.locked:
+        case ApiFailure.invalid:
+        case ApiFailure.notFound:
+          throw StateError(e.message);
+        default:
+          break;
+      }
+    }
+    if (agent == null) {
+      throw StateError(
+        'Serveur injoignable, et cet agent est inconnu de cette tablette.',
+      );
+    }
+    final empreinte = await AuthLocale.empreinte(nouveau);
+    await writeAndEnqueue(
+      table: 'users',
+      id: agent.id,
+      operation: SyncOp.UPDATE,
+      payload: {'id': agent.id, 'action': actionChangerPin, ...corps},
+      action: () =>
+          _ecrireEmpreintes(agent.id, empreinte, null, SyncState.pending),
+    );
   }
 
   Future<void> _horsLigne(
@@ -235,11 +303,15 @@ class ReinitialisationRepository with OutboxWriter {
             .get();
     for (final entree in entrees) {
       final p = jsonDecode(entree.payload) as Map<String, dynamic>;
-      if (p['action'] != actionReinitialiser || p['employee_code'] != code) {
+      final action = p['action'];
+      if ((action != actionReinitialiser && action != actionChangerPin) ||
+          p['employee_code'] != code) {
         continue;
       }
       try {
-        await _api.resetSecret(corpsPourLeServeur(p));
+        action == actionChangerPin
+            ? await _api.changePin(corpsPourLeServeur(p))
+            : await _api.resetSecret(corpsPourLeServeur(p));
       } on ApiException {
         return;
       }
@@ -259,8 +331,16 @@ class ReinitialisationRepository with OutboxWriter {
     }
   }
 
-  /// Le corps de `POST /auth/reset-secret`, tire d'une entree de file.
-  static Map<String, Object?> corpsPourLeServeur(Map<String, dynamic> p) => {
+  /// Le corps de `POST /auth/reset-secret` ou `/auth/change-pin`, tire
+  /// d'une entree de file.
+  static Map<String, Object?> corpsPourLeServeur(Map<String, dynamic> p) =>
+      p['action'] == actionChangerPin
+      ? {
+          'employee_code': p['employee_code'],
+          'current_secret': p['current_secret'],
+          'new_pin': p['new_pin'],
+        }
+      : {
     'employee_code': p['employee_code'],
     'approver_code': p['approver_code'],
     'approver_secret': p['approver_secret'],

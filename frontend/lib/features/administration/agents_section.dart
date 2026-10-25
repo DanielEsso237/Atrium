@@ -330,14 +330,14 @@ class _AgentDialogState extends ConsumerState<_AgentDialog> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(8),
+                        LengthLimitingTextInputFormatter(6),
                       ],
                       // A la modification, le PIN ne se relit jamais : on en
                       // donne un nouveau, seulement si l'agent l'a oublie.
                       decoration: InputDecoration(
                         labelText: _creation ? 'PIN' : 'Nouveau PIN',
                         helperText: _creation
-                            ? '4 à 8 chiffres'
+                            ? '6 chiffres'
                             : 'Seulement en cas d’oubli',
                       ),
                     ),

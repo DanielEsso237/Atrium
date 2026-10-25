@@ -32,12 +32,15 @@ from app.core.security import (
     hash_secret,
     new_refresh_token,
     secret_accepte,
+    verify_secret,
 )
 from app.db.session import get_session
 from app.models import AuditLog, Device, RefreshToken, User
 from app.schemas.auth import (
     AuthorizeIn,
     AuthorizeOut,
+    ChangePinIn,
+    ChangePinOut,
     CredentialOut,
     LoginIn,
     RefreshIn,
@@ -389,6 +392,58 @@ async def reset_secret(
     )
     await session.commit()
     return ResetSecretOut(user_id=agent.id, approved_by=responsable.id)
+
+
+@router.post("/change-pin", response_model=ChangePinOut)
+async def change_pin(
+    payload: ChangePinIn, session: AsyncSession = Depends(get_session)
+) -> ChangePinOut:
+    """L'agent remplace son code par un PIN de 6 chiffres.
+
+    **Sans session** : hors ligne, la tablette a verifie l'ancien code et
+    enfile le geste ; il remonte avant la prochaine connexion en ligne de
+    l'agent, sinon le serveur refuserait le nouveau code qu'il ne connait pas
+    encore. L'ancien code subit le meme blocage que la connexion, sans quoi
+    la route servirait a deviner des PIN.
+
+    Rejouable : si le nouveau PIN est deja celui du compte, rien ne change.
+    """
+    refus = HTTPException(status.HTTP_403_FORBIDDEN, "Code actuel incorrect.")
+    agent = await session.scalar(
+        select(User).where(
+            User.employee_code == payload.employee_code.strip().upper(),
+            User.deleted_at.is_(None),
+        )
+    )
+    if agent is None:
+        raise refus
+    # Un renvoi apres une reponse perdue : l'ancien code ne marche plus,
+    # puisque le nouveau l'a remplace. Ne pas le compter comme un echec.
+    if verify_secret(payload.new_pin, agent.pin_hash):
+        return ChangePinOut(user_id=agent.id)
+    now = dt.datetime.now(dt.timezone.utc)
+    if est_verrouille(agent, now):
+        raise HTTPException(status.HTTP_423_LOCKED, "Compte bloque apres cinq codes faux.")
+    if not secret_accepte(payload.current_secret, agent.password_hash, agent.pin_hash):
+        compter_echec(agent, now)
+        await session.commit()
+        raise refus
+    if not agent.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Ce compte est desactive.")
+
+    agent.pin_hash = hash_secret(payload.new_pin)
+    debloquer(agent)
+    session.add(
+        AuditLog(
+            user_id=agent.id,
+            entity_table="users",
+            entity_id=agent.id,
+            action="CHANGE_PIN",
+            occurred_at=now,
+        )
+    )
+    await session.commit()
+    return ChangePinOut(user_id=agent.id)
 
 
 @router.get("/credentials", response_model=list[CredentialOut])

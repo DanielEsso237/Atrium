@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/tokens.dart';
 import '../../core/ui/icons.dart';
+import '../../data/repositories/reinitialisation_repository.dart';
 import '../../data/repositories/repository_providers.dart';
 import 'pin_input.dart';
 
@@ -37,9 +38,6 @@ class _FenetreCodeOublie extends ConsumerStatefulWidget {
 }
 
 class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
-  /// La longueur du pavé de connexion : un PIN plus long ne s'y taperait pas.
-  static const _longueurPin = 4;
-
   late final _codeAgent = TextEditingController(text: widget.codeAgent);
   final _pin = TextEditingController();
   final _pinBis = TextEditingController();
@@ -77,8 +75,8 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
   String? get _defautDuNouveauCode {
     if (_codeAgent.text.trim().isEmpty) return 'Votre code agent.';
     if (_pinVoulu) {
-      if (!RegExp(r'^\d{4}$').hasMatch(_pin.text)) {
-        return 'Le code PIN compte 4 chiffres.';
+      if (!pinValide.hasMatch(_pin.text)) {
+        return 'Le code PIN compte 6 chiffres.';
       }
       if (_pin.text != _pinBis.text) return 'Les deux codes PIN diffèrent.';
     }
@@ -104,7 +102,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
   Future<void> _valider() async {
     if (_verification ||
         _codeResponsable.text.trim().isEmpty ||
-        _pinResponsable.length != _longueurPin) {
+        !pinSoumettable(_pinResponsable)) {
       return;
     }
     setState(() {
@@ -218,7 +216,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
           const SizedBox(height: 16),
           _champ(
             _pin,
-            'Nouveau code PIN (4 chiffres)',
+            'Nouveau code PIN (6 chiffres)',
             pin: true,
             onChanged: effacer,
           ),
@@ -248,7 +246,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
     controller: c,
     obscureText: true,
     keyboardType: pin ? TextInputType.number : TextInputType.visiblePassword,
-    maxLength: pin ? _longueurPin : null,
+    maxLength: pin ? longueurPin : null,
     decoration: InputDecoration(labelText: libelle, counterText: ''),
     onChanged: onChanged,
   );
@@ -290,7 +288,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
         const SizedBox(height: 8),
         PinCells(
           filled: _pinResponsable.length,
-          length: _longueurPin,
+          length: longueurPin,
           error: _erreur != null,
           busy: _verification,
         ),
@@ -299,7 +297,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
           enabled: !_verification,
           keyHeight: 52,
           onDigit: (c) {
-            if (_pinResponsable.length >= _longueurPin) return;
+            if (_pinResponsable.length >= longueurPin) return;
             setState(() {
               _pinResponsable += c;
               _erreur = null;
@@ -342,7 +340,7 @@ class _FenetreCodeOublieState extends ConsumerState<_FenetreCodeOublie> {
             onPressed:
                 !_verification &&
                     _codeResponsable.text.trim().isNotEmpty &&
-                    _pinResponsable.length == _longueurPin
+                    pinSoumettable(_pinResponsable)
                 ? _valider
                 : null,
             child: Text(_verification ? 'Vérification…' : 'Valider'),

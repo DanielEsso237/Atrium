@@ -45,7 +45,7 @@ const _housekeeper = '01920000-0000-7000-8000-000000050003';
 /// Le prefixe `DEMO:` n'est pas une empreinte : c'est un marqueur explicite,
 /// que `AuthLocale.verifierSecret` compare en clair. La premiere descente le
 /// remplace par l'empreinte bcrypt du serveur.
-const pinDemo = '1234';
+const pinDemo = '123456';
 const _pinStocke = 'DEMO:$pinDemo';
 
 /// Mot de passe du jeu de demonstration, identique a celui du serveur
@@ -438,7 +438,7 @@ Future<void> seedAccounts(AtriumDatabase db) async {
   await db.transaction(() async {
     // --- Personnel -----------------------------------------------------
     // Crees une fois, jamais reecrits : un code reinitialise, ou descendu
-    // du serveur, revenait sinon a 1234 au demarrage suivant.
+    // du serveur, revenait sinon au code de demonstration au demarrage suivant.
     await db
         .into(db.users)
         .insert(

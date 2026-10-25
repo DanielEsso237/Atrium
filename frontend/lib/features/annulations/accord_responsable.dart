@@ -58,8 +58,6 @@ class _FenetreAccord extends ConsumerStatefulWidget {
 }
 
 class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
-  static const _longueurPin = 4;
-
   final _code = TextEditingController();
   final _motif = TextEditingController();
   String _pin = '';
@@ -75,7 +73,7 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
 
   bool get _complet =>
       _code.text.trim().isNotEmpty &&
-      _pin.length == _longueurPin &&
+      pinSoumettable(_pin) &&
       _motif.text.trim().isNotEmpty;
 
   Future<void> _valider() async {
@@ -175,7 +173,7 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
           const SizedBox(height: 8),
           PinCells(
             filled: _pin.length,
-            length: _longueurPin,
+            length: longueurPin,
             error: _erreur != null,
             busy: _verification,
           ),
@@ -184,7 +182,7 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
             enabled: !_verification,
             keyHeight: 52,
             onDigit: (c) {
-              if (_pin.length >= _longueurPin) return;
+              if (_pin.length >= longueurPin) return;
               setState(() {
                 _pin += c;
                 _erreur = null;

@@ -28,7 +28,7 @@ class UserIn(BaseModel):
         default=None, min_length=8, description="Mot de passe initial (hache avant stockage)"
     )
     pin: str | None = Field(
-        default=None, pattern=r"^\d{4,8}$", description="PIN de 4 a 8 chiffres (hache avant stockage)"
+        default=None, pattern=r"^\d{6}$", description="PIN de 6 chiffres (hache avant stockage)"
     )
     role_codes: list[str] = Field(
         default_factory=list, description='Codes des roles a attribuer, ex. ["RECEPTION"]'
@@ -76,7 +76,7 @@ class PermissionOut(BaseModel):
 class PinReset(BaseModel):
     """Nouveau PIN choisi par l'administration, pour un agent qui l'a oublie."""
 
-    new_pin: str = Field(pattern=r"^\d{4,8}$")
+    new_pin: str = Field(pattern=r"^\d{6}$")
 
 
 class PasswordReset(BaseModel):

@@ -122,7 +122,7 @@ lisent comme un succès.
 attrape les mêmes **erreurs** en deux minutes ; l'analyseur voit en plus les
 avertissements. Lancer l'application pour itérer, l'analyseur avant une PR.
 
-Comptes de démonstration, mot de passe `ChangeMe123!` ou PIN `1234` — les deux
+Comptes de démonstration, mot de passe `ChangeMe123!` ou PIN `123456` — les deux
 marchent en ligne comme hors ligne :
 
 | | Rôle | Ouvre sur |
@@ -554,7 +554,25 @@ nouveau code, et un refus du serveur n'a pas de repli local.
   réinitialisé sur un poste se connecte hors ligne sur les autres. La
   tablette vérifie bcrypt hors du fil de l'interface (`compute`).
 - Les comptes de démonstration ne sont plus **réécrits** au démarrage
-  (`insertOrIgnore`) : un code changé revenait à 1234.
+  (`insertOrIgnore`) : un code changé revenait au code de démonstration.
+
+## Le PIN passe à 6 chiffres (25 octobre)
+
+Décision de Daniel : **6 chiffres pour tout le monde**. Tout nouveau PIN en a
+6, des deux côtés (`pinValide`, schémas `^\d{6}$`). La saisie part toute
+seule au sixième chiffre. Un ancien code de 4 chiffres part tout seul au
+quatrième **s'il est reconnu** : la tablette le compare en silence à
+l'empreinte qu'elle connaît (`SessionNotifier.estAncienCode`), sans compter
+d'échec ; sinon l'agent continue jusqu'à six. Pas de touche de validation
+(décision de Daniel). L'agent doit alors en choisir un de 6 avant toute autre chose :
+`SessionState.pinAChanger`, le routeur n'ouvre que `/nouveau-code`.
+`POST /auth/change-pin` est **sans session**, comme le code oublié : l'ancien
+code tient lieu de session, subit le blocage à cinq échecs, et part par la
+file hors ligne (`ReinitialisationRepository.changerPin`), remonté avant la
+connexion en ligne suivante. Les responsables tapent encore leur ancien code
+pour autoriser un retour en arrière ou un code oublié (`pinSoumettable`).
+Les empreintes de tout l'hôtel restent sur chaque tablette (même décision) :
+la base locale est chiffrée (#218).
 
 ## Ce qui manque
 

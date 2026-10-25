@@ -14,8 +14,10 @@ import '../../data/local/database_provider.dart';
 import '../../data/local/queries/access_queries.dart';
 import '../../data/remote/remote_providers.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/repository_providers.dart';
 import '../sync/sync_status.dart';
 import 'auth_locale.dart';
+import 'pin_input.dart' show longueurAncienPin;
 
 final authLocaleProvider = Provider<AuthLocale>(
   (ref) => AuthLocale(ref.watch(databaseProvider)),
@@ -51,6 +53,7 @@ class SessionState {
     this.echec,
     this.online = false,
     this.acces = const AccessProfile(),
+    this.pinAChanger = false,
   });
 
   /// Agent connecte, ou `null` si personne ne l'est.
@@ -74,6 +77,11 @@ class SessionState {
   /// ligne doit le montrer au moment ou ca arrive.
   final bool online;
 
+  /// L'agent s'est connecte avec un ancien PIN de 4 chiffres : il en choisit
+  /// un de 6 avant d'aller plus loin (decision du 25 octobre). Le routeur ne
+  /// lui ouvre que cet ecran-la.
+  final bool pinAChanger;
+
   bool get estConnecte => agent != null;
 
   String get nomAffiche {
@@ -94,6 +102,10 @@ class SessionNotifier extends Notifier<SessionState> {
   /// echoue pour de bon, ou que l'agent se deconnecte.
   (String, String)? _identifiants;
 
+  /// L'ancien PIN, **en memoire seulement**, le temps que l'agent en
+  /// choisisse un nouveau : c'est lui que le serveur reverifie.
+  String? _ancienPin;
+
   /// Premier essai rapide -- a froid, le tunnel et le HTTPS depassent
   /// souvent le delai de la connexion --, puis toutes les 30 s.
   static const premiereReprise = Duration(seconds: 5);
@@ -109,6 +121,44 @@ class SessionNotifier extends Notifier<SessionState> {
     _reprise?.cancel();
     _reprise = null;
     _identifiants = null;
+  }
+
+  /// Vrai si [pin] est l'ancien code de 4 chiffres de [codeAgent], d'apres
+  /// l'empreinte que la tablette connait. Ne compte aucun echec : c'est un
+  /// essai silencieux au quatrieme chiffre, pas une connexion.
+  Future<bool> estAncienCode(String codeAgent, String pin) async {
+    if (pin.length != longueurAncienPin || codeAgent.trim().isEmpty) {
+      return false;
+    }
+    final agent = await agentParCode(ref.read(databaseProvider), codeAgent);
+    return agent != null &&
+        await AuthLocale.verifierSecret(pin, agent.pinHash);
+  }
+
+  /// Remplace l'ancien PIN de 4 chiffres par [nouveau]. Leve une
+  /// [StateError] dont le message se lit tel quel a l'ecran.
+  Future<void> changerPin(String nouveau) async {
+    final agent = state.agent;
+    final ancien = _ancienPin;
+    if (agent == null || ancien == null) return;
+    await ref
+        .read(reinitialisationRepositoryProvider)
+        .changerPin(
+          codeAgent: agent.employeeCode,
+          ancien: ancien,
+          nouveau: nouveau,
+        );
+    if (state.agent?.id != agent.id) return;
+    _ancienPin = null;
+    // La reprise en ligne se presentera avec le nouveau code : l'ancien ne
+    // marchera plus une fois le changement remonte.
+    final identifiants = _identifiants;
+    if (identifiants != null) _identifiants = (identifiants.$1, nouveau);
+    state = SessionState(
+      agent: state.agent,
+      online: state.online,
+      acces: state.acces,
+    );
   }
 
   void _planifierReprise(Duration delai) {
@@ -133,6 +183,7 @@ class SessionNotifier extends Notifier<SessionState> {
         state = SessionState(
           agent: state.agent,
           online: true,
+          pinAChanger: state.pinAChanger,
           // Les droits viennent du serveur a la connexion en ligne.
           acces: await accessProfileFor(ref.read(databaseProvider), agent.id),
         );
@@ -144,11 +195,16 @@ class SessionNotifier extends Notifier<SessionState> {
     }
   }
 
+  /// [parPin] : le secret vient du pave PIN, pas du champ mot de passe. Un
+  /// mot de passe de 4 chiffres n'existe pas (8 caracteres au moins), mais
+  /// le dire evite de le deviner a la longueur.
   Future<bool> connecter({
     required String codeAgent,
     required String secret,
+    bool parPin = false,
   }) async {
     state = const SessionState(enCours: true);
+    _ancienPin = null;
 
     final resultat = await ref
         .read(authRepositoryProvider)
@@ -159,10 +215,13 @@ class SessionNotifier extends Notifier<SessionState> {
         ref.read(databaseProvider),
         resultat.user!.id,
       );
+      final pinAChanger = parPin && secret.length == longueurAncienPin;
+      if (pinAChanger) _ancienPin = secret;
       state = SessionState(
         agent: resultat.user,
         online: resultat.online,
         acces: acces,
+        pinAChanger: pinAChanger,
       );
 
       // Connexion en ligne : on rapatrie le referentiel dans la foulee, sans
@@ -195,13 +254,19 @@ class SessionNotifier extends Notifier<SessionState> {
     if (state.agent?.id != agentId) return;
     final acces = await accessProfileFor(ref.read(databaseProvider), agentId);
     if (state.agent?.id != agentId) return;
-    state = SessionState(agent: state.agent, online: state.online, acces: acces);
+    state = SessionState(
+      agent: state.agent,
+      online: state.online,
+      acces: acces,
+      pinAChanger: state.pinAChanger,
+    );
   }
 
   /// Deconnexion : sur une tablette en mode kiosque, c'est l'operation la plus
   /// frequente de la journee — dix agents se succedent sur le meme terminal.
   Future<void> deconnecter() async {
     _oublierReprise();
+    _ancienPin = null;
     await ref.read(authRepositoryProvider).logout();
     state = const SessionState();
   }

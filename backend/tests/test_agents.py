@@ -27,7 +27,7 @@ def _agent(**extra) -> dict:
         "employee_code": "BAR01",
         "first_name": "Ines",
         "last_name": "Mbarga",
-        "pin": "4321",
+        "pin": "432100",
         **extra,
     }
 
@@ -38,7 +38,7 @@ async def test_un_agent_cree_avec_un_pin_se_connecte_au_pin(client, auth_a):
     assert resp.json()["must_change_password"] is False
 
     login = await client.post(
-        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "4321"}
+        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "432100"}
     )
 
     assert login.status_code == 200, login.text
@@ -55,7 +55,7 @@ async def test_un_renvoi_ne_cree_pas_un_second_agent(client, auth_a):
     assert second.json()["id"] == corps["id"]
 
 
-@pytest.mark.parametrize("pin", ["12", "abcd", "123456789"])
+@pytest.mark.parametrize("pin", ["12", "abcd", "1234", "123456789"])
 async def test_un_pin_mal_forme_est_refuse(client, auth_a, pin):
     resp = await client.post("/api/v1/users", json=_agent(pin=pin), headers=auth_a)
 
@@ -91,15 +91,15 @@ async def test_l_administration_redonne_un_pin(client, auth_a):
     await client.post("/api/v1/users", json=corps, headers=auth_a)
 
     resp = await client.post(
-        f"/api/v1/users/{corps['id']}/reset-pin", json={"new_pin": "9876"}, headers=auth_a
+        f"/api/v1/users/{corps['id']}/reset-pin", json={"new_pin": "987600"}, headers=auth_a
     )
 
     assert resp.status_code == 200, resp.text
     ancien = await client.post(
-        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "4321"}
+        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "432100"}
     )
     nouveau = await client.post(
-        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "9876"}
+        "/api/v1/auth/login", json={"employee_code": "BAR01", "password": "987600"}
     )
     assert ancien.status_code == 401
     assert nouveau.status_code == 200, nouveau.text

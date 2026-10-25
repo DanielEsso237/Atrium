@@ -14,6 +14,18 @@ import 'package:flutter/services.dart';
 
 import '../../core/tokens.dart';
 
+/// Le PIN fait 6 chiffres pour tout le monde (decision du 25 octobre).
+const longueurPin = 6;
+
+/// Un code d'avant la regle : il ouvre encore la session, puis l'agent en
+/// choisit un de 6 chiffres. Les responsables qui n'ont pas encore change le
+/// leur le tapent aussi pour autoriser un retour en arriere.
+const longueurAncienPin = 4;
+
+/// Un PIN qu'on peut soumettre : 6 chiffres, ou un ancien code de 4.
+bool pinSoumettable(String pin) =>
+    pin.length == longueurPin || pin.length == longueurAncienPin;
+
 /// Les cases du code : une par chiffre, un point gris tant qu'elle est vide,
 /// un point anthracite quand le chiffre est saisi.
 class PinCells extends StatelessWidget {
@@ -43,8 +55,12 @@ class PinCells extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, c) {
             // Les proportions de la maquette : chaque case prend un septieme
-            // de la largeur utile, un peu plus large que haute.
-            final largeur = (c.maxWidth * 0.148).clamp(46.0, 62.0);
+            // de la largeur utile, un peu plus large que haute -- moins quand
+            // six cases et leurs ecarts ne tiendraient plus.
+            final parCase = c.maxWidth / (length * 1.2 - 0.2);
+            final largeur = (c.maxWidth * 0.148)
+                .clamp(0.0, parCase)
+                .clamp(40.0, 62.0);
             final ecart = largeur * 0.2;
             return Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -94,7 +94,7 @@ class ResetSecretIn(BaseModel):
     employee_code: str
     approver_code: str
     approver_secret: str
-    new_pin: str | None = Field(default=None, pattern=r"^\d{4,8}$")
+    new_pin: str | None = Field(default=None, pattern=r"^\d{6}$")
     new_password: str | None = Field(default=None, min_length=8)
 
     @model_validator(mode="after")
@@ -102,6 +102,24 @@ class ResetSecretIn(BaseModel):
         if self.new_pin is None and self.new_password is None:
             raise ValueError("Un nouveau PIN, un nouveau mot de passe, ou les deux.")
         return self
+
+
+class ChangePinIn(BaseModel):
+    """Un agent passe de son ancien code a un PIN de 6 chiffres.
+
+    Decision du 25 octobre : le PIN fait 6 chiffres pour tout le monde, et
+    l'agent dont le code en a 4 en choisit un nouveau a sa connexion. Sans
+    session, comme `ResetSecretIn` : hors ligne, la tablette enfile le geste,
+    et c'est l'ancien code, reverifie ici, qui tient lieu de session.
+    """
+
+    employee_code: str
+    current_secret: str
+    new_pin: str = Field(pattern=r"^\d{6}$")
+
+
+class ChangePinOut(BaseModel):
+    user_id: uuid.UUID
 
 
 class ResetSecretOut(BaseModel):

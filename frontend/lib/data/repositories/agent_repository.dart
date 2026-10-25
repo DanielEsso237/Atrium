@@ -17,6 +17,7 @@ import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import 'outbox.dart';
+import 'reinitialisation_repository.dart';
 
 /// Le code du role des commandes -- restaurant, bar, boite de nuit (libelle
 /// « Commandes », anciennement « Restauration »). Le code ne change pas : les
@@ -112,8 +113,8 @@ class AgentRepository with OutboxWriter {
       lastName: lastName,
       roleCode: roleCode,
     );
-    if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
-      throw StateError('Le PIN compte de 4 à 8 chiffres.');
+    if (!pinValide.hasMatch(pin)) {
+      throw StateError('Le PIN compte 6 chiffres.');
     }
     final id = newId();
     final now = DateTime.now().toUtc();
@@ -205,8 +206,8 @@ class AgentRepository with OutboxWriter {
   /// Comme a la creation, le PIN part une fois vers le serveur et n'est pas
   /// garde ici : il est efface de la file des que le serveur l'a recu.
   Future<void> resetPin({required String id, required String pin}) async {
-    if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
-      throw StateError('Le PIN compte de 4 à 8 chiffres.');
+    if (!pinValide.hasMatch(pin)) {
+      throw StateError('Le PIN compte 6 chiffres.');
     }
     await writeAndEnqueue(
       table: 'users',
