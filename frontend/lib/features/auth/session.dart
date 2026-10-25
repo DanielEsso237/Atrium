@@ -211,6 +211,7 @@ class SessionNotifier extends Notifier<SessionState> {
         .login(employeeCode: codeAgent, secret: secret);
 
     if (resultat.succeeded) {
+      ref.read(syncProvider.notifier).oublierCurseur();
       final acces = await accessProfileFor(
         ref.read(databaseProvider),
         resultat.user!.id,
