@@ -778,7 +778,10 @@ class _CarteChiffre extends StatelessWidget {
                       child: Icon(icone, size: 18, color: p.accent),
                     ),
                     const Spacer(),
-                    if (e != null) _BadgeEtat(etat: e),
+                    // Une tuile etroite n'a pas la place d'un long etat : il
+                    // s'abrege au lieu de deborder.
+                    if (e != null)
+                      Flexible(flex: 6, child: _BadgeEtat(etat: e)),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -852,13 +855,17 @@ class _BadgeEtat extends StatelessWidget {
             decoration: BoxDecoration(color: c, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
-          Text(
-            etat.libelle,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: p.text,
+          Flexible(
+            child: Text(
+              etat.libelle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: p.text,
+              ),
             ),
           ),
         ],
@@ -1546,38 +1553,91 @@ class _AValider extends ConsumerWidget {
     final transferts = ref.watch(pendingTransfersProvider).value ?? const [];
     if (transferts.isEmpty) return const SizedBox.shrink();
     final p = AtriumPalette.current;
+    const cellule = EdgeInsets.symmetric(horizontal: 12, vertical: 12);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Bezel(
         radius: 20,
         padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        // Un tableau plutot qu'une liste : la colonne « En stock » s'aligne
+        // d'une demande a l'autre. L'economat voit ce qu'il a avant
+        // d'ajuster, sans ouvrir chaque demande (25 octobre).
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(),
+            1: FixedColumnWidth(120),
+            2: IntrinsicColumnWidth(),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(PhosphorIconsLight.arrowsLeftRight, size: 20, color: p.accent),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Transferts à valider',
-                      style: TextStyle(
-                        fontFamily: atriumFontFamily,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: p.text,
+            TableRow(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        PhosphorIconsLight.arrowsLeftRight,
+                        size: 20,
+                        color: p.accent,
                       ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Transferts à valider',
+                          style: TextStyle(
+                            fontFamily: atriumFontFamily,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: p.text,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Text(
+                    'En stock',
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AtriumColors.textSecondary,
                     ),
                   ),
-                  Tag('${transferts.length} en attente', color: p.warning),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Tag(
+                      '${transferts.length} en attente',
+                      color: p.warning,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            for (final t in transferts)
+              TableRow(
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: p.border)),
+                ),
+                children: [
+                  Padding(padding: cellule, child: _DemandeTransfert(t)),
+                  Padding(padding: cellule, child: _EnStock(t)),
+                  Padding(
+                    padding: cellule,
+                    child: _ActionsTransfert(
+                      transfert: t,
+                      valide: valide,
+                      ajuste: ajuste,
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 6),
-            for (final t in transferts)
-              _Transfert(transfert: t, valide: valide, ajuste: ajuste),
           ],
         ),
       ),
@@ -1585,8 +1645,83 @@ class _AValider extends ConsumerWidget {
   }
 }
 
-class _Transfert extends ConsumerWidget {
-  const _Transfert({
+/// Ce qui est demande, et par qui a qui.
+class _DemandeTransfert extends StatelessWidget {
+  const _DemandeTransfert(this.t);
+
+  final PendingTransfer t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${t.productLabel}, ${t.quantity} ${t.unit}',
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AtriumColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${t.fromLabel} → ${t.toLabel}',
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 13,
+            color: AtriumColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ce que le magasin qui donne a en stock : en orange quand il n'a pas de
+/// quoi servir la demande.
+class _EnStock extends StatelessWidget {
+  const _EnStock(this.t);
+
+  final PendingTransfer t;
+
+  @override
+  Widget build(BuildContext context) {
+    final court = t.availableAtSource < t.quantity;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${t.availableAtSource} ${t.unit}',
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: court ? AtriumColors.warning : AtriumColors.textPrimary,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+        Text(
+          court ? 'pas assez' : t.fromLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: atriumFontFamily,
+            fontSize: 12,
+            fontWeight: court ? FontWeight.w700 : FontWeight.w400,
+            color: court ? AtriumColors.warning : AtriumColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionsTransfert extends ConsumerWidget {
+  const _ActionsTransfert({
     required this.transfert,
     required this.valide,
     required this.ajuste,
@@ -1598,107 +1733,39 @@ class _Transfert extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = transfert;
     final rouge = Theme.of(context).colorScheme.error;
-    final vide = t.availableAtSource < t.quantity;
-    return HoverRow(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        alignment: WrapAlignment.spaceBetween,
-        runSpacing: 10,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${t.productLabel}, ${t.quantity} ${t.unit}',
-                style: TextStyle(
-                  fontFamily: atriumFontFamily,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AtriumColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    t.fromLabel,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 13,
-                      color: AtriumColors.textSecondary,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(
-                      PhosphorIconsLight.arrowRight,
-                      size: 14,
-                      color: AtriumColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    t.toLabel,
-                    style: TextStyle(
-                      fontFamily: atriumFontFamily,
-                      fontSize: 13,
-                      color: AtriumColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              if (vide) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '${t.fromLabel} n’en a que ${t.availableAtSource}',
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AtriumColors.warning,
-                  ),
-                ),
-              ],
-            ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        if (ajuste) ...[
+          OutlinedButton.icon(
+            onPressed: () => _ajuster(context, ref),
+            icon: const Icon(PhosphorIconsLight.pencilSimple, size: 18),
+            label: const Text('Ajuster'),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (ajuste) ...[
-                OutlinedButton.icon(
-                  onPressed: () => _ajuster(context, ref),
-                  icon: const Icon(PhosphorIconsLight.pencilSimple, size: 18),
-                  label: const Text('Ajuster'),
-                ),
-                if (valide) const SizedBox(width: 10),
-              ],
-              if (valide) ...[
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: rouge,
-                  side: BorderSide(color: rouge, width: 1.5),
-                  minimumSize: const Size(0, 40),
-                ),
-                onPressed: () => _decider(context, ref, approuve: false),
-                child: const Text('Refuser'),
-              ),
-              const SizedBox(width: 10),
-              PillButton(
-                label: 'Valider',
-                icon: PhosphorIconsLight.check,
-                tone: PillTone.accent,
-                compact: true,
-                onPressed: () => _decider(context, ref, approuve: true),
-              ),
-              ],
-            ],
+          if (valide) const SizedBox(width: 10),
+        ],
+        if (valide) ...[
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: rouge,
+              side: BorderSide(color: rouge, width: 1.5),
+              minimumSize: const Size(0, 40),
+            ),
+            onPressed: () => _decider(context, ref, approuve: false),
+            child: const Text('Refuser'),
+          ),
+          const SizedBox(width: 10),
+          PillButton(
+            label: 'Valider',
+            icon: PhosphorIconsLight.check,
+            tone: PillTone.accent,
+            compact: true,
+            onPressed: () => _decider(context, ref, approuve: true),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -1706,60 +1773,11 @@ class _Transfert extends ConsumerWidget {
   /// bieres, il n'en reste que 12, il en donne 8.
   Future<void> _ajuster(BuildContext context, WidgetRef ref) async {
     final t = transfert;
-    final quantite = TextEditingController(text: '${t.quantity}');
-    final ok = await showDialog<bool>(
+    final q = await showDialog<int>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('Ajuster la quantité'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${t.toLabel} demande ${t.quantity} ${t.unit} de '
-                '${t.productLabel} à ${t.fromLabel}.',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: quantite,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Quantité accordée',
-                  suffixText: t.unit,
-                  helperText: '${t.fromLabel} en a ${t.availableAtSource}',
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Le contrôleur ou le comptable validera ensuite.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AtriumColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(false),
-            child: const Text('Retour'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(d).pop(true),
-            child: const Text('Ajuster'),
-          ),
-        ],
-      ),
+      builder: (_) => _FenetreAjuster(t),
     );
-    final q = int.tryParse(quantite.text.trim()) ?? 0;
-    quantite.dispose();
-    if (ok != true || !context.mounted) return;
+    if (q == null || !context.mounted) return;
     await _faire(context, () async {
       await ref.read(stockRepositoryProvider).ajuster(t.id, quantite: q);
       return 'Demande ajustée : ${t.toLabel} recevra $q ${t.unit} une fois '
@@ -1796,6 +1814,80 @@ class _Transfert extends ConsumerWidget {
       await depot.reject(t.id, note: note, by: agent);
       return 'Transfert refusé.';
     });
+  }
+}
+
+/// La quantite accordee. Le controleur appartient a la fenetre : detruit
+/// juste apres `showDialog`, il l'etait pendant l'animation de sortie, et
+/// l'application levait `A TextEditingController was used after being
+/// disposed` puis `_dependents.isEmpty` (25 octobre).
+class _FenetreAjuster extends StatefulWidget {
+  const _FenetreAjuster(this.t);
+
+  final PendingTransfer t;
+
+  @override
+  State<_FenetreAjuster> createState() => _FenetreAjusterState();
+}
+
+class _FenetreAjusterState extends State<_FenetreAjuster> {
+  late final _quantite = TextEditingController(text: '${widget.t.quantity}');
+
+  @override
+  void dispose() {
+    _quantite.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return AlertDialog(
+      title: const Text('Ajuster la quantité'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${t.toLabel} demande ${t.quantity} ${t.unit} de '
+              '${t.productLabel} à ${t.fromLabel}.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _quantite,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Quantité accordée',
+                suffixText: t.unit,
+                helperText: '${t.fromLabel} en a ${t.availableAtSource}',
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Le contrôleur ou le comptable validera ensuite.',
+              style: TextStyle(fontSize: 13, color: AtriumColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Retour'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(int.tryParse(_quantite.text.trim()) ?? 0),
+          child: const Text('Ajuster'),
+        ),
+      ],
+    );
   }
 }
 

@@ -73,6 +73,12 @@ class ModuleScaffold extends ConsumerWidget {
         // Avec le menu lateral, une tablette de 1 280 px la met toujours au-
         // dessus du titre ; seul un grand ecran la garde en ligne.
         final barreEnLigne = contraintes.maxWidth >= 1300;
+        // Plusieurs actions (Entree, Sortie, Transfert, Inventaire a
+        // l'economat) ne tiennent pas a cote du titre sur une tablette en
+        // portrait : dans la ligne du titre, rien ne les faisait passer a la
+        // ligne, et l'en-tete debordait (25 octobre). Elles descendent alors
+        // sous le titre, sur toute la largeur.
+        final actionDessous = contraintes.maxWidth < 900;
         final barre = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -138,23 +144,34 @@ class ModuleScaffold extends ConsumerWidget {
                     ref.read(sessionProvider.notifier).deconnecter(),
               ),
             ],
-            if (action != null && !etroit) ...[
+            if (action != null && !etroit && !actionDessous) ...[
               const SizedBox(width: 14),
               FadeUp(index: 1, child: action!),
             ],
           ],
         );
+        final titreEtAction = action != null && !etroit && actionDessous
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ligne,
+                  const SizedBox(height: AtriumSpacing.md),
+                  FadeUp(index: 1, child: action!),
+                ],
+              )
+            : ligne;
         return Padding(
           padding: EdgeInsets.fromLTRB(marge, etroit ? 16 : 28, marge, 20),
           child: barreEnLigne
-              ? ligne
+              ? titreEtAction
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Align(alignment: Alignment.centerRight, child: barre),
                     const SizedBox(height: AtriumSpacing.sm),
-                    ligne,
+                    titreEtAction,
                   ],
                 ),
         );
