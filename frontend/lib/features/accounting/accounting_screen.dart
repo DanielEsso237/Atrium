@@ -308,54 +308,60 @@ class _PointDeVente extends StatelessWidget {
     final m = marge;
     return Bezel(
       padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: const EdgeInsets.only(bottom: 8),
-          title: Text(
-            m.libelle,
-            style: TextStyle(
-              fontFamily: atriumFontFamily,
-              fontSize: 15.5,
-              fontWeight: FontWeight.w700,
-              color: p.text,
+      // Le Bezel peint son fond dans un DecoratedBox : sans Material entre
+      // lui et l'ExpansionTile, le ListTile peindrait son fond et ses
+      // ondulations sous la carte, invisibles, et Flutter le refuse.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            title: Text(
+              m.libelle,
+              style: TextStyle(
+                fontFamily: atriumFontFamily,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                color: p.text,
+              ),
             ),
-          ),
-          subtitle: Text(
-            'Recette ${formatAmount(m.recette)} · coût ${formatAmount(m.cout)}'
-            ' · marge ${formatAmount(m.marge)}'
-            '${m.tauxBp == null ? '' : ' (${formatPointsDeBase(m.tauxBp!)})'}',
-            style: _nombre(p.textSecondary, taille: 13),
-          ),
-          children: [
-            _Ligne(
-              libelle: 'Article',
-              entete: true,
-              colonnes: [
-                if (!etroit) ('Qté', null),
-                ('Recette', null),
-                if (!etroit) ('Coût', null),
-                ('Marge', null),
-              ],
+            subtitle: Text(
+              'Recette ${formatAmount(m.recette)} · coût ${formatAmount(m.cout)}'
+              ' · marge ${formatAmount(m.marge)}'
+              '${m.tauxBp == null ? '' : ' (${formatPointsDeBase(m.tauxBp!)})'}',
+              style: _nombre(p.textSecondary, taille: 13),
             ),
-            for (final a in m.articles)
+            children: [
               _Ligne(
-                libelle: a.libelle,
+                libelle: 'Article',
+                entete: true,
                 colonnes: [
-                  if (!etroit) ('${a.quantite}', null),
-                  (formatAmount(a.recette), null),
-                  if (!etroit)
-                    (a.cout == null ? '—' : formatAmount(a.cout!), null),
-                  a.marge == null
-                      ? ('sans coût', p.textSecondary)
-                      : (
-                          formatAmount(a.marge!),
-                          a.marge! < 0 ? p.error : null,
-                        ),
+                  if (!etroit) ('Qté', null),
+                  ('Recette', null),
+                  if (!etroit) ('Coût', null),
+                  ('Marge', null),
                 ],
               ),
-          ],
+              for (final a in m.articles)
+                _Ligne(
+                  libelle: a.libelle,
+                  colonnes: [
+                    if (!etroit) ('${a.quantite}', null),
+                    (formatAmount(a.recette), null),
+                    if (!etroit)
+                      (a.cout == null ? '—' : formatAmount(a.cout!), null),
+                    a.marge == null
+                        ? ('sans coût', p.textSecondary)
+                        : (
+                            formatAmount(a.marge!),
+                            a.marge! < 0 ? p.error : null,
+                          ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -422,56 +428,69 @@ class _Magasin extends StatelessWidget {
     final m = magasin;
     return Bezel(
       padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: const EdgeInsets.only(bottom: 8),
-          leading: Icon(
-            m.central
-                ? PhosphorIconsLight.buildings
-                : PhosphorIconsLight.storefront,
-            color: p.textSecondary,
-          ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  m.libelle,
-                  style: TextStyle(
-                    fontFamily: atriumFontFamily,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                    color: p.text,
+      // Le Bezel peint son fond dans un DecoratedBox : sans Material entre
+      // lui et l'ExpansionTile, le ListTile peindrait son fond et ses
+      // ondulations sous la carte, invisibles, et Flutter le refuse.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            leading: Icon(
+              m.central
+                  ? PhosphorIconsLight.buildings
+                  : PhosphorIconsLight.storefront,
+              color: p.textSecondary,
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    m.libelle,
+                    style: TextStyle(
+                      fontFamily: atriumFontFamily,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
                   ),
                 ),
-              ),
-              Text(formatAmount(m.valeur), style: _nombre(p.text, gras: true)),
+                Text(
+                  formatAmount(m.valeur),
+                  style: _nombre(p.text, gras: true),
+                ),
+              ],
+            ),
+            subtitle: Text(
+              m.lignes.isEmpty
+                  ? 'Rien en stock'
+                  : '${m.lignes.length} produit${m.lignes.length > 1 ? 's' : ''}',
+              style: TextStyle(fontSize: 13, color: p.textSecondary),
+            ),
+            children: [
+              if (m.lignes.isNotEmpty)
+                _Ligne(
+                  libelle: 'Produit',
+                  entete: true,
+                  colonnes: const [
+                    ('Qté', null),
+                    ('Coût', null),
+                    ('Valeur', null),
+                  ],
+                ),
+              for (final l in m.lignes)
+                _Ligne(
+                  libelle: l.libelle,
+                  colonnes: [
+                    ('${l.quantite}', null),
+                    (formatAmount(l.coutUnitaire), null),
+                    (formatAmount(l.valeur), null),
+                  ],
+                ),
             ],
           ),
-          subtitle: Text(
-            m.lignes.isEmpty
-                ? 'Rien en stock'
-                : '${m.lignes.length} produit${m.lignes.length > 1 ? 's' : ''}',
-            style: TextStyle(fontSize: 13, color: p.textSecondary),
-          ),
-          children: [
-            if (m.lignes.isNotEmpty)
-              _Ligne(
-                libelle: 'Produit',
-                entete: true,
-                colonnes: const [('Qté', null), ('Coût', null), ('Valeur', null)],
-              ),
-            for (final l in m.lignes)
-              _Ligne(
-                libelle: l.libelle,
-                colonnes: [
-                  ('${l.quantite}', null),
-                  (formatAmount(l.coutUnitaire), null),
-                  (formatAmount(l.valeur), null),
-                ],
-              ),
-          ],
         ),
       ),
     );
