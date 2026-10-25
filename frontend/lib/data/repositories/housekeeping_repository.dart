@@ -355,11 +355,16 @@ class HousekeepingRepository with OutboxWriter {
     return taskId;
   }
 
-  /// Lance ensemble le menage des chambres vacantes selectionnees.
+  /// Demande ensemble le menage des chambres vacantes selectionnees.
+  ///
+  /// Ouvre les taches **a faire**, sans les demarrer, comme [demanderMenage]
+  /// (decision du 14 octobre) : c'est la femme de chambre qui commence. Les
+  /// demarrer ici passait la chambre « en cours » sur le plan, et une chambre
+  /// en cours ne s'attribue plus a personne.
   ///
   /// Revérifie toutes les chambres avant d'ecrire. Si une chambre n'est plus
   /// libre, aucune chambre du groupe ne change et aucune action n'est enfilee.
-  Future<int> startVacantRooms(
+  Future<int> openVacantRooms(
     Iterable<String> roomIds, {
     required String by,
   }) async {
@@ -384,12 +389,11 @@ class HousekeepingRepository with OutboxWriter {
         }
       }
       for (final room in rooms) {
-        final taskId = await openTask(
+        await openTask(
           roomId: room.id,
           type: HousekeepingTaskType.REFRESH,
           by: by,
         );
-        await _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
       }
       return rooms.length;
     });

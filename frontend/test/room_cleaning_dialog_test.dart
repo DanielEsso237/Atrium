@@ -140,11 +140,11 @@ void main() {
   }
 
   testWidgets(
-    'depuis Chambres on sélectionne plusieurs chambres puis on les démarre',
+    'depuis Chambres on sélectionne plusieurs chambres, qui restent à faire',
     (tester) async {
       await open(tester);
       expect(
-        tester.widget<PillButton>(button('Lancer le ménage')).onPressed,
+        tester.widget<PillButton>(button('Demander le ménage')).onPressed,
         isNull,
       );
       expect(find.text('Chambre 103'), findsNothing);
@@ -154,13 +154,16 @@ void main() {
       await tester.tap(find.byKey(ValueKey('clean-room-$second')));
       await tester.pumpAndSettle();
       expect(find.text('2 chambres sélectionnées'), findsOneWidget);
-      await tester.tap(button('Lancer le ménage'));
+      await tester.tap(button('Demander le ménage'));
       await wait(tester);
       expect(find.byType(Dialog), findsNothing);
-      expect(find.text('Ménage lancé pour 2 chambres.'), findsOneWidget);
+      expect(
+        find.text('2 chambres à faire : elles attendent dans la liste du ménage.'),
+        findsOneWidget,
+      );
       final jobs = await tester.runAsync(() => depot.watchJobs().first);
       expect(jobs, hasLength(2));
-      expect(jobs!.every((j) => j.enCours), isTrue);
+      expect(jobs!.any((j) => j.enCours), isFalse);
       expect(tester.takeException(), isNull);
       await close(tester);
     },
@@ -182,7 +185,7 @@ void main() {
       await wait(tester);
       expect(find.byKey(ValueKey('clean-room-$first')), findsNothing);
       expect(find.text('1 chambre sélectionnée'), findsOneWidget);
-      await tester.tap(button('Lancer le ménage'));
+      await tester.tap(button('Demander le ménage'));
       await wait(tester);
       final jobs = await tester.runAsync(() => depot.watchJobs().first);
       expect(jobs!.single.roomId, second);
@@ -201,7 +204,7 @@ void main() {
     await tester.tap(find.text('Tout sélectionner'));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<PillButton>(button('Lancer le ménage')).onPressed,
+      tester.widget<PillButton>(button('Demander le ménage')).onPressed,
       isNull,
     );
     await tester.tap(find.text('Annuler'));
@@ -228,7 +231,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 chambre sélectionnée'), findsOneWidget);
     expect(
-      tester.getRect(button('Lancer le ménage')).right,
+      tester.getRect(button('Demander le ménage')).right,
       lessThanOrEqualTo(375),
     );
     expect(tester.takeException(), isNull);
