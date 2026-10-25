@@ -7,9 +7,13 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
+
+import 'chiffrement.dart';
+import 'cle_base.dart';
 
 QueryExecutor ouvrirBase() {
   return LazyDatabase(() async {
@@ -22,9 +26,25 @@ QueryExecutor ouvrirBase() {
     // d'Android. C'est ce qui remplace l'ancien paquet sqlite3_flutter_libs.
     sqlite3.tempDirectory = (await getTemporaryDirectory()).path;
 
+    final (:cle, :misDeCote) = await preparerFichier(
+      file,
+      const CleBase().obtenir,
+    );
+    if (misDeCote != null) {
+      debugPrint(
+        'Atrium : la cle ne lit plus la base, mise de cote dans '
+        '${misDeCote.path}. Une base neuve la remplace ; les ecritures qui '
+        "n'etaient pas remontees sont dans l'ancienne.",
+      );
+    }
+    debugPrint('Atrium : base locale ${cle == null ? "EN CLAIR" : "chiffree"}.');
+
     return NativeDatabase.createInBackground(
       file,
       setup: (db) {
+        // La cle avant toute autre instruction : SQLite ne lit rien du
+        // fichier tant qu'il ne l'a pas.
+        if (cle != null) appliquerCle(db, cle);
         // WAL : indispensable en kiosque. Une tablette debranchee ou eteinte
         // brutalement ne doit pas corrompre la base, et la lecture reste
         // possible pendant qu'une ecriture est en cours.

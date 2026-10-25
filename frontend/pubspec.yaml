@@ -72,6 +72,13 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
+# SQLite3MultipleCiphers a la place de SQLite : la base locale est chiffree
+# sur les tablettes (lib/data/local/connection/chiffrement.dart).
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
+
 flutter:
 
   # The following line ensures that the Material Icons font is
