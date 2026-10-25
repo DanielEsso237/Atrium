@@ -51,6 +51,13 @@ IMPLICATIONS = [
     ("reservation.create", "guests.write"),
     # On ne nettoie pas une chambre dont on ignore le numero.
     ("housekeeping.read", "rooms.read"),
+    # Faire le menage (migration 0033). « Commencer » sur une chambre sale
+    # sans tache l'ouvre d'abord, puis la demarre (`startRoom` sur la
+    # tablette) : qui commence doit aussi pouvoir ouvrir. Et il travaille
+    # depuis la liste du menage, qui se lit sous `housekeeping.read`.
+    ("housekeeping.work", "housekeeping.manage"),
+    ("housekeeping.work", "housekeeping.read"),
+    ("housekeeping.work", "rooms.read"),
     # Signaler une panne, c'est ouvrir un ticket que la tablette garde ensuite
     # a l'ecran : sans la lecture, le ticket disparaitrait sous les yeux de
     # celui qui vient de l'ouvrir. Et on designe la chambre en panne.
@@ -223,3 +230,12 @@ def test_l_econome_lit_la_valeur_de_son_stock():
     l'econome le porte, avec l'administrateur."""
     assert "stock.manage" in _role("ECONOME")
     assert "accounting.read" not in _role("ECONOME")
+
+
+def test_la_reception_ouvre_le_menage_mais_ne_le_fait_pas():
+    """Le depart ouvre une tache : la reception porte `housekeeping.manage`.
+    La terminer a la place de la femme de chambre declarerait propre une
+    chambre ou personne n'est passe (migration 0033)."""
+    assert "housekeeping.manage" in _role("RECEPTION")
+    assert "housekeeping.work" not in _role("RECEPTION")
+    assert "housekeeping.work" in _role("HOUSEKEEPING")

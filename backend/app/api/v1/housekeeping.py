@@ -113,11 +113,15 @@ async def assign_task(
     return task
 
 
+# Commencer, terminer et revenir en arriere : `housekeeping.work`, le geste de
+# la femme de chambre. Ouvrir, attribuer et inspecter restent a
+# `housekeeping.manage`, que la reception porte parce que le depart ouvre une
+# tache -- sans qu'elle puisse pour autant terminer un menage (migration 0033).
 @router.post("/{task_id}/start", response_model=HousekeepingTaskOut)
 async def start_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("housekeeping.manage")),
+    user: User = Depends(require_permission("housekeeping.work")),
 ) -> HousekeepingTask:
     task = await _get_task(session, task_id, user)
     # Renvoi de la tablette : le menage est deja en cours, on rend l'etat tel
@@ -143,7 +147,7 @@ async def start_task(
 async def finish_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("housekeeping.manage")),
+    user: User = Depends(require_permission("housekeeping.work")),
 ) -> HousekeepingTask:
     """F2.1/F2.2 -- termine la tache et remet la chambre propre.
 
@@ -200,7 +204,7 @@ async def revert_task(
     task_id: uuid.UUID,
     payload: RevertIn,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_permission("housekeeping.manage")),
+    user: User = Depends(require_permission("housekeeping.work")),
 ) -> HousekeepingTask:
     """Corrige un avancement errone sans effacer la tache ni sa traçabilite."""
     task = await _get_task(session, task_id, user)
