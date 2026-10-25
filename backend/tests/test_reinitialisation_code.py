@@ -59,11 +59,11 @@ async def _connexion(client, code: str, secret: str) -> int:
 @pytest.mark.db
 async def test_un_responsable_donne_un_nouveau_pin_sans_session(client, session, agent, hotel_a):
     _, admin = hotel_a
-    r = await client.post(RESET, json=_corps(new_pin="5678"))
+    r = await client.post(RESET, json=_corps(new_pin="567890"))
 
     assert r.status_code == 200, r.text
     assert r.json() == {"user_id": str(agent.id), "approved_by": str(admin.id)}
-    assert await _connexion(client, "RECEP_A", "5678") == 200
+    assert await _connexion(client, "RECEP_A", "567890") == 200
     assert await _connexion(client, "RECEP_A", "4321") == 401
     trace = await session.scalar(select(AuditLog).where(AuditLog.action == "RESET_SECRET"))
     assert trace.user_id == admin.id
@@ -71,15 +71,15 @@ async def test_un_responsable_donne_un_nouveau_pin_sans_session(client, session,
     assert trace.after == {"approved_by": str(admin.id), "pin": True, "password": False}
 
     # Rejouable : la tablette renvoie apres une reponse perdue.
-    assert (await client.post(RESET, json=_corps(new_pin="5678"))).status_code == 200
+    assert (await client.post(RESET, json=_corps(new_pin="567890"))).status_code == 200
 
 
 @pytest.mark.db
 async def test_le_pin_et_le_mot_de_passe_ensemble(client, agent):
-    r = await client.post(RESET, json=_corps(new_pin="5678", new_password="Nouveau123"))
+    r = await client.post(RESET, json=_corps(new_pin="567890", new_password="Nouveau123"))
 
     assert r.status_code == 200, r.text
-    assert await _connexion(client, "RECEP_A", "5678") == 200
+    assert await _connexion(client, "RECEP_A", "567890") == 200
     assert await _connexion(client, "RECEP_A", "Nouveau123") == 200
 
 
@@ -93,7 +93,7 @@ async def test_il_faut_au_moins_un_nouveau_secret(client, agent):
 @pytest.mark.db
 async def test_un_code_de_responsable_faux_ne_change_rien(client, session, agent, hotel_a):
     _, admin = hotel_a
-    r = await client.post(RESET, json=_corps(approver_secret="0000", new_pin="5678"))
+    r = await client.post(RESET, json=_corps(approver_secret="0000", new_pin="567890"))
 
     assert r.status_code == 403
     assert await _connexion(client, "RECEP_A", "4321") == 200
@@ -115,7 +115,7 @@ async def test_sans_le_droit_ou_pour_soi_meme_c_est_non(client, session, agent, 
     await session.commit()
 
     sans_droit = await client.post(
-        RESET, json=_corps(approver_code="RECEP_B", approver_secret="1111", new_pin="5678")
+        RESET, json=_corps(approver_code="RECEP_B", approver_secret="1111", new_pin="567890")
     )
     assert sans_droit.status_code == 403
     soi_meme = await client.post(
@@ -123,7 +123,7 @@ async def test_sans_le_droit_ou_pour_soi_meme_c_est_non(client, session, agent, 
     )
     assert soi_meme.status_code == 403
     assert "propre code" in soi_meme.json()["detail"]
-    assert (await client.post(RESET, json=_corps(employee_code="PERSONNE", new_pin="5678"))).status_code == 404
+    assert (await client.post(RESET, json=_corps(employee_code="PERSONNE", new_pin="567890"))).status_code == 404
 
 
 @pytest.mark.db
@@ -140,8 +140,8 @@ async def test_cinq_codes_faux_bloquent_l_agent_jusqu_au_responsable(client, ses
     await session.commit()
     assert await _connexion(client, "RECEP_A", "4321") == 423
 
-    assert (await client.post(RESET, json=_corps(new_pin="5678"))).status_code == 200
-    assert await _connexion(client, "RECEP_A", "5678") == 200
+    assert (await client.post(RESET, json=_corps(new_pin="567890"))).status_code == 200
+    assert await _connexion(client, "RECEP_A", "567890") == 200
 
 
 @pytest.mark.db

@@ -750,6 +750,45 @@
         "title": "CashSessionStatus",
         "type": "string"
       },
+      "ChangePinIn": {
+        "description": "Un agent passe de son ancien code a un PIN de 6 chiffres.\n\nDecision du 25 octobre : le PIN fait 6 chiffres pour tout le monde, et\nl'agent dont le code en a 4 en choisit un nouveau a sa connexion. Sans\nsession, comme `ResetSecretIn` : hors ligne, la tablette enfile le geste,\net c'est l'ancien code, reverifie ici, qui tient lieu de session.",
+        "properties": {
+          "current_secret": {
+            "title": "Current Secret",
+            "type": "string"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "new_pin": {
+            "pattern": "^\\d{6}$",
+            "title": "New Pin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_code",
+          "current_secret",
+          "new_pin"
+        ],
+        "title": "ChangePinIn",
+        "type": "object"
+      },
+      "ChangePinOut": {
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "ChangePinOut",
+        "type": "object"
+      },
       "ChangeRoomIn": {
         "properties": {
           "room_id": {
@@ -5899,7 +5938,7 @@
         "description": "Nouveau PIN choisi par l'administration, pour un agent qui l'a oublie.",
         "properties": {
           "new_pin": {
-            "pattern": "^\\d{4,8}$",
+            "pattern": "^\\d{6}$",
             "title": "New Pin",
             "type": "string"
           }
@@ -7575,7 +7614,7 @@
           "new_pin": {
             "anyOf": [
               {
-                "pattern": "^\\d{4,8}$",
+                "pattern": "^\\d{6}$",
                 "type": "string"
               },
               {
@@ -9761,14 +9800,14 @@
           "pin": {
             "anyOf": [
               {
-                "pattern": "^\\d{4,8}$",
+                "pattern": "^\\d{6}$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "PIN de 4 a 8 chiffres (hache avant stockage)",
+            "description": "PIN de 6 chiffres (hache avant stockage)",
             "title": "Pin"
           },
           "role_codes": {
@@ -10824,6 +10863,48 @@
           }
         ],
         "summary": "Authorize",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
+    "/api/v1/auth/change-pin": {
+      "post": {
+        "description": "L'agent remplace son code par un PIN de 6 chiffres.\n\n**Sans session** : hors ligne, la tablette a verifie l'ancien code et\nenfile le geste ; il remonte avant la prochaine connexion en ligne de\nl'agent, sinon le serveur refuserait le nouveau code qu'il ne connait pas\nencore. L'ancien code subit le meme blocage que la connexion, sans quoi\nla route servirait a deviner des PIN.\n\nRejouable : si le nouveau PIN est deja celui du compte, rien ne change.",
+        "operationId": "change_pin_api_v1_auth_change_pin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePinOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Pin",
         "tags": [
           "authentification"
         ]

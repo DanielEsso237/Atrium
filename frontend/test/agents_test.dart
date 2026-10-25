@@ -113,7 +113,7 @@ void main() {
       employeeCode: 'REC02',
       firstName: 'Awa',
       lastName: 'Traore',
-      pin: '4321',
+      pin: '432100',
       roleCode: reception.code,
       outletIds: ['01920000-0000-7000-8000-00000000b001'],
     );
@@ -130,13 +130,13 @@ void main() {
           ..where((u) => u.employeeCode.equals('RECEP01')))
         .getSingle();
 
-    await agents.resetPin(id: admin.id, pin: '9876');
+    await agents.resetPin(id: admin.id, pin: '987600');
     final api = _FauxApi();
     await OutboxSender(db: db, api: api).drain();
 
     final (methode, chemin, corps) = api.appels.single;
     expect((methode, chemin), ('POST', '/users/${admin.id}/reset-pin'));
-    expect(corps, {'new_pin': '9876'});
+    expect(corps, {'new_pin': '987600'});
     final restes = await db.select(db.outboxEntries).get();
     expect(
       restes.map((e) => (jsonDecode(e.payload) as Map).containsKey('pin')),
@@ -154,7 +154,7 @@ void main() {
       employeeCode: 'bar01',
       firstName: 'Ines',
       lastName: 'Mbarga',
-      pin: '4321',
+      pin: '432100',
       roleCode: roles.first.code,
     );
     final api = _FauxApi();
@@ -163,7 +163,7 @@ void main() {
 
     final (methode, chemin, corps) = api.appels.single;
     expect((methode, chemin), ('POST', '/users'));
-    expect(corps['pin'], '4321');
+    expect(corps['pin'], '432100');
     expect(corps['employee_code'], 'BAR01');
     // Le serveur l'a : la tablette n'en garde aucune copie.
     final restes = await db.select(db.outboxEntries).get();
@@ -183,7 +183,7 @@ void main() {
       employeeCode: 'BAR01',
       firstName: 'Ines',
       lastName: 'Mbarga',
-      pin: '4321',
+      pin: '432100',
       roleCode: roles.first.code,
     );
     await agents.update(
@@ -215,7 +215,7 @@ void main() {
         employeeCode: 'RECEP01',
         firstName: 'A',
         lastName: 'B',
-        pin: '4321',
+        pin: '432100',
         roleCode: roles.first.code,
       ),
       throwsStateError,
@@ -242,7 +242,7 @@ void main() {
       employeeCode: 'BAR01',
       firstName: 'Ines',
       lastName: 'Mbarga',
-      pin: '4321',
+      pin: '432100',
       roleCode: roleCommandes,
       outletIds: [bar.id],
     );

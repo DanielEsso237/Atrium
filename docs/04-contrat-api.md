@@ -854,7 +854,8 @@ minutes, personne au-dessus de lui ne le débloquerait
 
 | Route | Droit | Corps | Effet |
 |---|---|---|---|
-| `POST /auth/reset-secret` | **aucune session** | `{employee_code, approver_code, approver_secret, new_pin?, new_password?}` | remplace le PIN (4 à 8 chiffres) et/ou le mot de passe (8 caractères ou plus) de l'agent et le débloque ; `{user_id, approved_by}`, tracé dans `audit_logs` (`RESET_SECRET`, sans les valeurs). Le code du responsable tient lieu de session et subit le blocage à cinq échecs. 403 : code faux, droit manquant, ou son propre code ; 404 : agent inconnu ; 422 : ni PIN ni mot de passe. Rejouable |
+| `POST /auth/reset-secret` | **aucune session** | `{employee_code, approver_code, approver_secret, new_pin?, new_password?}` | remplace le PIN (6 chiffres) et/ou le mot de passe (8 caractères ou plus) de l'agent et le débloque ; `{user_id, approved_by}`, tracé dans `audit_logs` (`RESET_SECRET`, sans les valeurs). Le code du responsable tient lieu de session et subit le blocage à cinq échecs. 403 : code faux, droit manquant, ou son propre code ; 404 : agent inconnu ; 422 : ni PIN ni mot de passe. Rejouable |
+| `POST /auth/change-pin` | **aucune session** | `{employee_code, current_secret, new_pin}` | l'agent remplace son code par un PIN de 6 chiffres (25 octobre) ; `{user_id}`, tracé dans `audit_logs` (`CHANGE_PIN`, sans valeur). L'ancien code tient lieu de session et subit le blocage à cinq échecs. 403 : code actuel faux ou compte désactivé ; 423 : bloqué ; 422 : nouveau PIN qui n'a pas 6 chiffres. Rejouable : si le nouveau PIN est déjà en place, 200 sans compter d'échec |
 | `GET /auth/credentials` | agent connecté | — | les agents de son hôtel tels que `UserOut` (rôles et permissions compris), avec `pin_hash`, `password_hash` (bcrypt), `failed_login_count`, `locked_until` : ce qu'il faut à la tablette pour la connexion hors ligne |
 
 Hors ligne, la tablette vérifie le responsable avec les empreintes qu'elle

@@ -152,6 +152,12 @@ class AuthApi {
   Future<Map<String, dynamic>> resetSecret(Map<String, Object?> corps) =>
       _client.post('/auth/reset-secret', body: corps);
 
+  /// L'agent passe a un PIN de 6 chiffres (`POST /auth/change-pin`). Sans
+  /// jeton, comme [resetSecret] : c'est l'ancien code qui tient lieu de
+  /// session.
+  Future<Map<String, dynamic>> changePin(Map<String, Object?> corps) =>
+      _client.post('/auth/change-pin', body: corps);
+
   /// L'agent deja connecte, si un jeton valide a survecu au redemarrage.
   ///
   /// Renvoie `null` hors ligne comme sur jeton expire : dans les deux cas

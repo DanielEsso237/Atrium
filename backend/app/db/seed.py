@@ -342,7 +342,7 @@ DEMO_HOUSEKEEPING = uuid.UUID("01920000-0000-7000-8000-000000050003")
 
 # Le PIN sert aux releves de poste ; le mot de passe reste pour une premiere
 # connexion et pour l'administration.
-DEMO_PIN = "1234"
+DEMO_PIN = "123456"
 
 DEFAULT_PRINTER = uuid.UUID("01920000-0000-7000-8000-000000006001")
 DOCUMENT_TYPES = [

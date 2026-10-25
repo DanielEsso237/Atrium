@@ -2,8 +2,10 @@
 ///
 /// Meme parcours qu'avant, entierement redessine :
 ///
-/// - le code agent, puis le **PIN a quatre chiffres** qui part tout seul au
-///   quatrieme, ou le **mot de passe** ;
+/// - le code agent, puis le **PIN a six chiffres** qui part tout seul au
+///   sixieme, ou le **mot de passe**. Un ancien code de 4 chiffres part tout
+///   seul au quatrieme s'il est reconnu, puis l'agent en choisit un de 6
+///   (`nouveau_code.dart`) ;
 /// - un refus fait trembler le champ en cause et vibrer la tablette, avec un
 ///   message precis (code inconnu, compte desactive, verrouille, serveur
 ///   injoignable et agent inconnu de cette tablette) ;
@@ -29,6 +31,7 @@ import '../../core/ui/icons.dart';
 import '../../core/widgets/shake.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'code_oublie.dart';
+import 'pin_input.dart' show longueurPin, longueurAncienPin;
 import 'session.dart';
 
 const _photoChambre = 'assets/images/chambre.jpg';
@@ -58,8 +61,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   int _refusAgent = 0;
   int _refusSecret = 0;
 
-  static const _longueurPin = 4;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -74,10 +75,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _chiffre(String c) {
-    if (_pin.length >= _longueurPin) return;
+    if (_pin.length >= longueurPin) return;
     HapticFeedback.selectionClick();
     setState(() => _pin += c);
-    if (_pin.length == _longueurPin) _valider();
+    if (_pin.length == longueurPin) _valider();
+    if (_pin.length == longueurAncienPin) unawaited(_essayerAncienCode(_pin));
+  }
+
+  /// Au quatrieme chiffre, rien ne dit si l'agent s'arrete la (ancien code)
+  /// ou continue jusqu'a six. La tablette compare en silence a l'empreinte
+  /// qu'elle connait : reconnu, le code part tout seul comme avant ; sinon
+  /// l'agent continue, et cet essai ne compte pas comme un code faux.
+  Future<void> _essayerAncienCode(String pin) async {
+    final reconnu = await ref
+        .read(sessionProvider.notifier)
+        .estAncienCode(_codeAgent.text, pin);
+    // L'agent a pu taper un cinquieme chiffre pendant la verification.
+    if (reconnu && mounted && _pin == pin) _valider();
   }
 
   void _effacer() {
@@ -100,7 +114,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     final ok = await ref
         .read(sessionProvider.notifier)
-        .connecter(codeAgent: _codeAgent.text, secret: secret);
+        .connecter(
+          codeAgent: _codeAgent.text,
+          secret: secret,
+          parPin: _voie == _Voie.pin,
+        );
     // Le secret se vide apres un echec : reessayer ne doit pas demander
     // d'effacer quatre fois.
     if (!ok && mounted) {
@@ -337,7 +355,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // nouvel agent que la saisie part toute seule.
         : (
             null,
-            'Vérifié dès le quatrième chiffre.',
+            'Vérifié dès le sixième chiffre.',
             AtriumColors.textSecondary,
           );
 
@@ -349,7 +367,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           trigger: _refusSecret,
           child: _Points(
             rempli: _pin.length,
-            longueur: _longueurPin,
+            longueur: longueurPin,
             erreur: refuse,
             attente: session.enCours,
           ),

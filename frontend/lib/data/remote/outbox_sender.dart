@@ -813,6 +813,12 @@ class OutboxSender {
             ReinitialisationRepository.corpsPourLeServeur(p),
           );
         }
+        if (p['action'] == actionChangerPin) {
+          return _Envoi(
+            '/auth/change-pin',
+            ReinitialisationRepository.corpsPourLeServeur(p),
+          );
+        }
         if (p['action'] == 'RESET_PIN') {
           return _Envoi('/users/${p['id']}/reset-pin', {'new_pin': p['pin']});
         }

@@ -13,6 +13,7 @@ import '../features/accounting/accounting_screen.dart';
 import '../features/administration/administration_screen.dart';
 import '../features/alerts/centre_notifications.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/nouveau_code.dart';
 import '../features/auth/session.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
@@ -134,10 +135,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   // `refreshListenable` redemande la redirection a chaque changement de
   // session : la connexion et la deconnexion n'ont donc pas a naviguer
   // elles-memes, elles changent l'etat et le routeur suit.
-  final session = ValueNotifier<bool>(false);
+  final session = ValueNotifier<(bool, bool)>((false, false));
   ref.listen<SessionState>(
     sessionProvider,
-    (_, suivant) => session.value = suivant.estConnecte,
+    (_, suivant) =>
+        session.value = (suivant.estConnecte, suivant.pinAChanger),
     fireImmediately: true,
   );
   ref.onDispose(session.dispose);
@@ -151,11 +153,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!session.estConnecte) return surConnexion ? null : '/connexion';
 
+      // Un ancien PIN de 4 chiffres : rien d'autre tant que l'agent n'en a
+      // pas choisi un de 6 (decision du 25 octobre).
+      final surNouveauCode = etat.matchedLocation == '/nouveau-code';
+      if (session.pinAChanger) return surNouveauCode ? null : '/nouveau-code';
+
       // Chacun ouvre sur son outil de travail : le receptionniste sur le plan
       // des chambres, l'administrateur sur le tableau de bord. On verifie
       // quand meme le droit, sinon un accueil mal parametre enverrait l'agent
       // sur un ecran qui le renvoie aussitot -- une boucle infinie.
-      if (surConnexion) {
+      if (surConnexion || surNouveauCode) {
         final accueil = session.acces.homeRoute;
         final requise = accueil == null ? null : permissionPour(accueil);
         final autorise = requise == null || session.acces.peutUnDe(requise);
@@ -184,6 +191,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/nouveau-code',
+        builder: (_, _) => const NouveauCodeScreen(),
+      ),
       // La fiche d'un client, hors de la coque : elle prend tout l'ecran et
       // se referme par sa croix (demande du 15 octobre). Elle monte du bas,
       // par-dessus le fichier qui reste dessous, a sa place.

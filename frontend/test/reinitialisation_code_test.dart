@@ -30,6 +30,18 @@ class _Serveur implements AuthApi {
     return {'user_id': 'x', 'approved_by': 'y'};
   }
 
+  /// Ce que le serveur repond a un changement de PIN, s'il refuse.
+  ApiException? refusChangement;
+  final changements = <Map<String, Object?>>[];
+
+  @override
+  Future<Map<String, dynamic>> changePin(Map<String, Object?> corps) async {
+    if (!enLigne) throw const ApiException(ApiFailure.offline, 'hors ligne');
+    if (refusChangement != null) throw refusChangement!;
+    changements.add(corps);
+    return {'user_id': 'x'};
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -110,11 +122,11 @@ void main() {
       codeAgent: 'recep01',
       codeResponsable: 'ADMIN01',
       secretResponsable: pinDemo,
-      nouveauPin: '5678',
+      nouveauPin: '567890',
       nouveauMotDePasse: 'Nouveau123',
     );
 
-    expect(await connexion('RECEP01', '5678'), isNull);
+    expect(await connexion('RECEP01', '567890'), isNull);
     expect(await connexion('RECEP01', 'Nouveau123'), isNull);
     expect(await connexion('RECEP01', pinDemo), EchecConnexion.secretInvalide);
     expect((await agent('RECEP01')).syncState, SyncState.pending);
@@ -132,7 +144,7 @@ void main() {
       String agent = 'MENAGE01',
       String responsable = 'ADMIN01',
       String secret = pinDemo,
-      String? pin = '5678',
+      String? pin = '567890',
     }) => repo.reinitialiser(
       codeAgent: agent,
       codeResponsable: responsable,
@@ -157,13 +169,13 @@ void main() {
       codeAgent: 'RECEP01',
       codeResponsable: 'ADMIN01',
       secretResponsable: pinDemo,
-      nouveauPin: '5678',
+      nouveauPin: '567890',
     );
 
-    expect(serveur.recus.single['new_pin'], '5678');
+    expect(serveur.recus.single['new_pin'], '567890');
     expect(serveur.recus.single.containsKey('new_password'), isFalse);
     expect(await db.select(db.outboxEntries).get(), isEmpty);
-    expect(await connexion('RECEP01', '5678'), isNull);
+    expect(await connexion('RECEP01', '567890'), isNull);
     expect((await agent('RECEP01')).syncState, SyncState.synced);
   });
 
@@ -177,7 +189,7 @@ void main() {
         codeAgent: 'RECEP01',
         codeResponsable: 'ADMIN01',
         secretResponsable: pinDemo,
-        nouveauPin: '5678',
+        nouveauPin: '567890',
       );
 
       // Toujours hors ligne : l'entree attend.
@@ -194,7 +206,7 @@ void main() {
         'employee_code': 'RECEP01',
         'approver_code': 'ADMIN01',
         'approver_secret': pinDemo,
-        'new_pin': '5678',
+        'new_pin': '567890',
       });
       final entree = await db.select(db.outboxEntries).getSingle();
       expect(entree.status, OutboxStatus.ACKED);
@@ -210,7 +222,7 @@ void main() {
       codeAgent: 'RECEP01',
       codeResponsable: 'ADMIN01',
       secretResponsable: pinDemo,
-      nouveauPin: '5678',
+      nouveauPin: '567890',
     );
     final recep = await agent('RECEP01');
     final depot = AgentRepository(db);
@@ -228,12 +240,93 @@ void main() {
     };
 
     await depot.applyServerCredentials(serveur(recep.id, 'RECEP01'));
-    expect(await connexion('RECEP01', '5678'), isNull);
+    expect(await connexion('RECEP01', '567890'), isNull);
 
     // Un agent sans ecriture en attente prend l'empreinte du serveur.
     final menage = await agent('MENAGE01');
     await depot.applyServerCredentials(serveur(menage.id, 'MENAGE01'));
     expect(await connexion('MENAGE01', '9999'), isNull);
     expect(await connexion('MENAGE01', pinDemo), EchecConnexion.secretInvalide);
+  });
+
+  // Le PIN passe a 6 chiffres (25 octobre) : l'agent connecte avec son
+  // ancien code en choisit un nouveau, en ligne comme hors ligne.
+  group('passer a 6 chiffres', () {
+    test('en ligne : le serveur change, la tablette recopie', () async {
+      final serveur = _Serveur(enLigne: true);
+      await ReinitialisationRepository(
+        db,
+        serveur,
+      ).changerPin(codeAgent: 'recep01', ancien: '1234', nouveau: '135790');
+
+      expect(serveur.changements.single, {
+        'employee_code': 'RECEP01',
+        'current_secret': '1234',
+        'new_pin': '135790',
+      });
+      expect(await db.select(db.outboxEntries).get(), isEmpty);
+      expect(await connexion('RECEP01', '135790'), isNull);
+      expect((await agent('RECEP01')).syncState, SyncState.synced);
+    });
+
+    test('hors ligne : le code vaut aussitot et remonte avant la connexion',
+        () async {
+      final serveur = _Serveur();
+      final repo = ReinitialisationRepository(db, serveur);
+      await repo.changerPin(
+        codeAgent: 'RECEP01',
+        ancien: '1234',
+        nouveau: '135790',
+      );
+
+      expect(await connexion('RECEP01', '135790'), isNull);
+      expect((await agent('RECEP01')).syncState, SyncState.pending);
+      var entree = await db.select(db.outboxEntries).getSingle();
+      expect(jsonDecode(entree.payload)['action'], actionChangerPin);
+
+      serveur.enLigne = true;
+      await repo.remonterEnAttente('RECEP01');
+
+      expect(serveur.changements.single['new_pin'], '135790');
+      entree = await db.select(db.outboxEntries).getSingle();
+      expect(entree.status, OutboxStatus.ACKED);
+      final p = jsonDecode(entree.payload) as Map<String, dynamic>;
+      expect(p.containsKey('current_secret'), isFalse);
+      expect(p.containsKey('new_pin'), isFalse);
+    });
+
+    test('un code qui ne fait pas 6 chiffres est refuse avant tout', () async {
+      final repo = ReinitialisationRepository(db, _Serveur(enLigne: true));
+      for (final nouveau in ['1234', '12345', '1234567', 'abcdef']) {
+        await expectLater(
+          repo.changerPin(codeAgent: 'RECEP01', ancien: '1234', nouveau: nouveau),
+          throwsStateError,
+        );
+      }
+      expect(await db.select(db.outboxEntries).get(), isEmpty);
+    });
+
+    test('un refus du serveur ne change rien', () async {
+      final serveur = _Serveur(enLigne: true)
+        ..refusChangement = const ApiException(
+          ApiFailure.forbidden,
+          'Code actuel incorrect.',
+        );
+      await expectLater(
+        ReinitialisationRepository(
+          db,
+          serveur,
+        ).changerPin(codeAgent: 'RECEP01', ancien: '0000', nouveau: '135790'),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'Code actuel incorrect.',
+          ),
+        ),
+      );
+      expect(await connexion('RECEP01', '135790'), EchecConnexion.secretInvalide);
+      expect(await db.select(db.outboxEntries).get(), isEmpty);
+    });
   });
 }

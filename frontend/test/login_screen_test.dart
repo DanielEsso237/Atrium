@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _TestSession extends SessionNotifier {
-  final attempts = <({String code, String secret})>[];
+  final attempts = <({String code, String secret, bool parPin})>[];
 
   @override
   SessionState build() => const SessionState();
@@ -18,10 +18,16 @@ class _TestSession extends SessionNotifier {
   Future<bool> connecter({
     required String codeAgent,
     required String secret,
+    bool parPin = false,
   }) async {
-    attempts.add((code: codeAgent, secret: secret));
+    attempts.add((code: codeAgent, secret: secret, parPin: parPin));
     return true;
   }
+
+  /// L'ancien code de RECEP01, tel que la tablette le connaitrait.
+  @override
+  Future<bool> estAncienCode(String codeAgent, String pin) async =>
+      codeAgent == 'RECEP01' && pin == '2580';
 }
 
 Future<_TestSession> _open(
@@ -126,19 +132,57 @@ void main() {
     });
   }
 
-  testWidgets('Le quatrième chiffre soumet le PIN et le code agent', (
+  testWidgets('Le sixième chiffre soumet le PIN et le code agent', (
     tester,
   ) async {
     final session = await _open(tester, size: const Size(1280, 800));
     await tester.enterText(find.byType(TextField), 'RECEP01');
-    for (final chiffre in ['1', '2', '3']) {
+    for (final chiffre in ['1', '2', '3', '4', '5']) {
       await tester.tap(find.text(chiffre));
       await tester.pumpAndSettle();
     }
     expect(session.attempts, isEmpty);
-    await tester.tap(find.text('4'));
+    await tester.tap(find.text('6'));
     await tester.pumpAndSettle();
-    expect(session.attempts, [(code: 'RECEP01', secret: '1234')]);
+    expect(session.attempts, [
+      (code: 'RECEP01', secret: '123456', parPin: true),
+    ]);
+    await _close(tester);
+  });
+
+  // Decision du 25 octobre : le PIN passe a 6 chiffres. Un ancien code de 4
+  // reconnu part tout seul au quatrieme chiffre, comme avant ; sinon l'agent
+  // continue jusqu'a six.
+  testWidgets('Un ancien code reconnu part tout seul au quatrième chiffre', (
+    tester,
+  ) async {
+    final session = await _open(tester, size: const Size(1280, 800));
+    await tester.enterText(find.byType(TextField), 'RECEP01');
+    for (final chiffre in ['2', '5', '8', '0']) {
+      await tester.tap(find.text(chiffre));
+      await tester.pumpAndSettle();
+    }
+    expect(session.attempts, [(code: 'RECEP01', secret: '2580', parPin: true)]);
+    await _close(tester);
+  });
+
+  testWidgets('Quatre chiffres non reconnus attendent le sixième', (
+    tester,
+  ) async {
+    final session = await _open(tester, size: const Size(1280, 800));
+    await tester.enterText(find.byType(TextField), 'RECEP01');
+    for (final chiffre in ['4', '3', '2', '1']) {
+      await tester.tap(find.text(chiffre));
+      await tester.pumpAndSettle();
+    }
+    expect(session.attempts, isEmpty);
+    for (final chiffre in ['5', '6']) {
+      await tester.tap(find.text(chiffre));
+      await tester.pumpAndSettle();
+    }
+    expect(session.attempts, [
+      (code: 'RECEP01', secret: '432156', parPin: true),
+    ]);
     await _close(tester);
   });
 
@@ -186,7 +230,9 @@ void main() {
     await tester.ensureVisible(find.text('Se connecter'));
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
-    expect(session.attempts, [(code: 'RECEP01', secret: 'mon-secret')]);
+    expect(session.attempts, [
+      (code: 'RECEP01', secret: 'mon-secret', parPin: false),
+    ]);
     expect(tester.takeException(), isNull);
     await _close(tester);
   });
