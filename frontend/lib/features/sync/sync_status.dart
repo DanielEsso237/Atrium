@@ -96,15 +96,16 @@ class SyncNotifier extends Notifier<SyncUiState> {
   String? _curseur;
 
   @override
-  SyncUiState build() {
-    // Un autre agent n'a pas les memes droits : ce que le precedent ne
-    // pouvait pas lire n'est jamais descendu. Sa connexion relit tout.
-    ref.listen<String?>(
-      sessionProvider.select((s) => s.agent?.id),
-      (_, _) => _curseur = null,
-    );
-    return const SyncUiState();
-  }
+  SyncUiState build() => const SyncUiState();
+
+  /// Un autre agent n'a pas les memes droits : ce que le precedent ne
+  /// pouvait pas lire n'est jamais descendu. Sa connexion relit tout.
+  ///
+  /// C'est la session qui l'appelle. Ecouter la session d'ici rendait ce
+  /// fournisseur dependant d'elle, alors qu'elle le lit a chaque connexion :
+  /// Riverpod levait `CircularDependencyError` et la relecture qui suit la
+  /// connexion ne partait jamais (vu sur la tablette le 25 octobre).
+  void oublierCurseur() => _curseur = null;
 
   /// Remonte les ecritures locales, sans rien rapatrier.
   ///

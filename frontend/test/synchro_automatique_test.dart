@@ -8,12 +8,15 @@ library;
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/database_provider.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/local/seed_accounts.dart';
 import 'package:atrium/data/remote/api_client.dart';
 import 'package:atrium/data/remote/catalog_api.dart';
 import 'package:atrium/data/remote/remote_providers.dart';
 import 'package:atrium/data/remote/token_store.dart';
+import 'package:atrium/data/repositories/auth_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
 import 'package:atrium/data/repositories/repository_providers.dart';
+import 'package:atrium/features/auth/session.dart';
 import 'package:atrium/features/sync/sync_status.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +63,31 @@ class _Serveur extends FakeCatalogApi {
   }
 }
 
+/// Le serveur accepte tout agent : la connexion est en ligne.
+class _AuthEnLigne implements AuthRepository {
+  _AuthEnLigne(this.db);
+
+  @override
+  final AtriumDatabase db;
+
+  @override
+  Future<LoginResult> login({
+    required String employeeCode,
+    required String secret,
+  }) async {
+    final agent = await (db.select(
+      db.users,
+    )..where((u) => u.employeeCode.equals(employeeCode))).getSingle();
+    return LoginResult.success(agent, online: true);
+  }
+
+  @override
+  Future<void> logout() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late AtriumDatabase db;
   late _Serveur serveur;
@@ -74,6 +102,7 @@ void main() {
         databaseProvider.overrideWithValue(db),
         apiClientProvider.overrideWithValue(_ApiMuette()),
         catalogApiProvider.overrideWithValue(serveur),
+        authRepositoryProvider.overrideWith((ref) => _AuthEnLigne(db)),
       ],
     );
   });
@@ -112,6 +141,26 @@ void main() {
     serveur.demandes.clear();
     await sync().suivre();
     expect(serveur.demandes, ['changes c3']);
+  });
+
+  // La session lit la synchronisation a chaque connexion : si la
+  // synchronisation ecoutait la session, Riverpod refusait la lecture et la
+  // relecture d'apres connexion ne partait jamais (25 octobre).
+  test('une connexion en ligne relit tout, avec un curseur neuf', () async {
+    await seedAccounts(db);
+    await sync().refresh();
+    serveur.curseurNeuf = 'c2';
+    serveur.demandes.clear();
+
+    await container
+        .read(sessionProvider.notifier)
+        .connecter(codeAgent: 'MENAGE01', secret: 'ChangeMe123!');
+    await pumpEventQueue();
+
+    expect(serveur.demandes, containsAllInOrder(['changes -', 'GET /guests']));
+    serveur.demandes.clear();
+    await sync().suivre();
+    expect(serveur.demandes, ['changes c2']);
   });
 
   test('sans curseur, le premier tour relit tout', () async {
