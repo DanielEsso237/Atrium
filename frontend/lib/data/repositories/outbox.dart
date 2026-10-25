@@ -20,6 +20,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:drift/drift.dart';
+
 import '../local/database.dart';
 import '../local/enums.dart';
 
@@ -49,6 +51,7 @@ mixin OutboxWriter {
             // ecritures qui l'ont precedee.
             payload: jsonEncode(payload),
             createdAt: DateTime.now().toUtc(),
+            authorId: Value(await db.auteurDeLaFile()),
           ),
         );
   }
@@ -82,11 +85,57 @@ mixin OutboxWriter {
 /// Sert a l'indicateur de connexion : un receptionniste doit pouvoir voir
 /// qu'il travaille hors ligne et combien d'operations sont en attente, plutot
 /// que de le decouvrir a la fin de son service.
+///
+/// Seulement celles que l'agent connecte peut remonter : les siennes, et
+/// celles sans auteur. Celles d'un collegue attendent sa prochaine session
+/// ([watchEnvoisDAutrui]) ; les compter ici relancerait la file en boucle
+/// sur des ecritures qu'elle ne peut pas envoyer.
 extension OutboxRead on AtriumDatabase {
   Stream<int> watchPendingCount() {
     return customSelect(
-      "SELECT COUNT(*) AS n FROM outbox_entries WHERE status IN ('PENDING','FAILED')",
-      readsFrom: {outboxEntries},
+      'SELECT COUNT(*) AS n FROM outbox_entries '
+      "WHERE status IN ('PENDING','FAILED') AND $sqlEnvoyableParLAgent",
+      readsFrom: {outboxEntries, syncStatuses},
     ).watchSingle().map((r) => r.read<int>('n'));
   }
+
+  /// Les ecritures des collegues qui attendent leur auteur sur cette
+  /// tablette, par agent : « 1 envoi attend RECEP01 ».
+  Stream<List<({String agent, int n})>> watchEnvoisDAutrui() {
+    return customSelect(
+      'SELECT COALESCE(u.employee_code, o.author_id) AS agent, '
+      'COUNT(*) AS n FROM outbox_entries o '
+      'LEFT JOIN users u ON u.id = o.author_id '
+      "WHERE o.status IN ('PENDING','FAILED') AND NOT ($sqlEnvoyableParLAgent) "
+      'GROUP BY o.author_id ORDER BY MIN(o.id)',
+      readsFrom: {outboxEntries, syncStatuses, users},
+    ).watch().map(
+      (lignes) => [
+        for (final l in lignes)
+          (agent: l.read<String>('agent'), n: l.read<int>('n')),
+      ],
+    );
+  }
+}
+
+/// Ce que la session en cours peut remonter : ses ecritures, et celles qui
+/// n'ont pas d'auteur. Sans agent connecte, ces dernieres seulement.
+const sqlEnvoyableParLAgent =
+    '(author_id IS NULL OR author_id = '
+    '(SELECT user_id FROM sync_statuses WHERE id = 1))';
+
+/// L'agent au nom duquel la tablette ecrit, celui que la session a declare.
+extension AuteurDeLaFile on AtriumDatabase {
+  Future<String?> auteurDeLaFile() async {
+    final ligne = await (select(
+      syncStatuses,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
+    return ligne?.userId;
+  }
+
+  /// A chaque connexion, et `null` a la deconnexion.
+  Future<void> declarerAuteur(String? agentId) =>
+      into(syncStatuses).insertOnConflictUpdate(
+        SyncStatusesCompanion(id: const Value(1), userId: Value(agentId)),
+      );
 }

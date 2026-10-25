@@ -14,6 +14,7 @@ import '../../data/local/database_provider.dart';
 import '../../data/local/queries/access_queries.dart';
 import '../../data/remote/remote_providers.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/outbox.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../sync/sync_status.dart';
 import 'auth_locale.dart';
@@ -212,6 +213,8 @@ class SessionNotifier extends Notifier<SessionState> {
 
     if (resultat.succeeded) {
       ref.read(syncProvider.notifier).oublierCurseur();
+      // Avant tout ecran : chaque ecriture de la session porte son auteur.
+      await ref.read(databaseProvider).declarerAuteur(resultat.user!.id);
       final acces = await accessProfileFor(
         ref.read(databaseProvider),
         resultat.user!.id,
@@ -269,6 +272,7 @@ class SessionNotifier extends Notifier<SessionState> {
     _oublierReprise();
     _ancienPin = null;
     await ref.read(authRepositoryProvider).logout();
+    await ref.read(databaseProvider).declarerAuteur(null);
     state = const SessionState();
   }
 }

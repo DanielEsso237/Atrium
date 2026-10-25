@@ -15,6 +15,11 @@
 /// etat que personne n'a jamais voulu. On s'arrete, on garde la file intacte,
 /// on reessaiera.
 ///
+/// **Chacun remonte ses ecritures.** Le serveur juge une ecriture avec les
+/// droits du jeton qui l'envoie : celles d'un collegue attendent sa
+/// prochaine session sur la tablette, sans bloquer personne
+/// (`OutboxEntries.authorId`).
+///
 /// **Le renvoi est sans danger.** C'est ce qu'Oriol a livre : les ecritures
 /// acceptent l'identifiant de la tablette et repondent `200` sur un renvoi,
 /// sans jamais `409`. Une reponse perdue dans le couloir n'est donc plus un
@@ -30,6 +35,7 @@ import '../local/enums.dart';
 import '../repositories/cash_repository.dart';
 import '../repositories/folio_repository.dart';
 import '../repositories/invoice_repository.dart';
+import '../repositories/outbox.dart';
 import '../repositories/reinitialisation_repository.dart';
 import 'api_client.dart';
 
@@ -100,6 +106,13 @@ enum DrainStop {
   /// Le serveur a refuse une entree pour de bon. Celle-ci attend une decision
   /// humaine ; la file reste bloquee derriere elle, volontairement.
   bloque,
+
+  /// Le serveur a refuse une entree alors qu'une ecriture d'un collegue,
+  /// plus ancienne, attend encore son auteur : le refus vient sans doute de
+  /// la (une consommation portee sur l'ardoise d'une arrivee pas encore
+  /// remontee). L'entree reste en attente et rien n'est bloque ; la file
+  /// repart a la prochaine connexion.
+  attenteAutrui,
 }
 
 /// Ce qu'un passage de la file a donne.
@@ -132,6 +145,7 @@ class DrainReport {
       // Un refus vient du serveur : il a donc bien repondu.
       case DrainStop.bloque:
       case DrainStop.sessionInvalide:
+      case DrainStop.attenteAutrui:
         return true;
       case DrainStop.horsLigne:
         return false;
@@ -336,6 +350,15 @@ class OutboxSender {
       case ApiFailure.notFound:
       case ApiFailure.conflict:
       case ApiFailure.invalid:
+        if (await _collegueEnAttenteAvant(entree)) {
+          await _compterTentative(entree, e.message);
+          return DrainReport(
+            envoyees: envoyees,
+            restantes: await _restantes(),
+            arret: DrainStop.attenteAutrui,
+            detail: e.message,
+          );
+        }
         await _marquerEchouee(entree, e.message);
         return DrainReport(
           envoyees: envoyees,
@@ -348,28 +371,51 @@ class OutboxSender {
 
   // --- La file ---------------------------------------------------------------
 
-  Future<OutboxEntryRow?> _prochaine() {
+  /// La plus ancienne entree que la session en cours peut remonter.
+  Future<OutboxEntryRow?> _prochaine() async {
+    final auteur = await db.auteurDeLaFile();
     return (db.select(db.outboxEntries)
           ..where(
-            (e) => e.status.isInValues([
-              OutboxStatus.PENDING,
-              OutboxStatus.FAILED,
-            ]),
+            (e) =>
+                e.status.isInValues([
+                  OutboxStatus.PENDING,
+                  OutboxStatus.FAILED,
+                ]) &
+                (e.authorId.isNull() |
+                    (auteur == null
+                        ? const Constant(false)
+                        : e.authorId.equals(auteur))),
           )
           ..orderBy([(e) => OrderingTerm(expression: e.id)])
           ..limit(1))
         .getSingleOrNull();
   }
 
+  /// Celles que la session en cours peut remonter : une file qui ne compte
+  /// que des ecritures de collegues est, pour elle, terminee.
   Future<int> _restantes() async {
     final r = await db
         .customSelect(
-          "SELECT COUNT(*) AS n FROM outbox_entries "
-          "WHERE status IN ('PENDING','FAILED')",
-          readsFrom: {db.outboxEntries},
+          'SELECT COUNT(*) AS n FROM outbox_entries '
+          "WHERE status IN ('PENDING','FAILED') AND $sqlEnvoyableParLAgent",
+          readsFrom: {db.outboxEntries, db.syncStatuses},
         )
         .getSingle();
     return r.read<int>('n');
+  }
+
+  /// Une ecriture d'un collegue, plus ancienne, attend-elle encore ?
+  Future<bool> _collegueEnAttenteAvant(OutboxEntryRow entree) async {
+    final r = await db
+        .customSelect(
+          'SELECT 1 FROM outbox_entries '
+          "WHERE status IN ('PENDING','FAILED') AND id < ? "
+          'AND NOT $sqlEnvoyableParLAgent LIMIT 1',
+          variables: [Variable.withInt(entree.id)],
+          readsFrom: {db.outboxEntries, db.syncStatuses},
+        )
+        .get();
+    return r.isNotEmpty;
   }
 
   /// Acquitte l'entree, et passe la ligne metier en `synced`.

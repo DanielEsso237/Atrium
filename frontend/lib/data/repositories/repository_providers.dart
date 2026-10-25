@@ -307,6 +307,11 @@ final pendingWritesProvider = StreamProvider<int>(
   (ref) => ref.watch(databaseProvider).watchPendingCount(),
 );
 
+/// Les ecritures des collegues qui attendent leur auteur sur cette tablette.
+final envoisDAutruiProvider = StreamProvider<List<({String agent, int n})>>(
+  (ref) => ref.watch(databaseProvider).watchEnvoisDAutrui(),
+);
+
 /// Descente des donnees du serveur vers Drift.
 final syncRepositoryProvider = Provider<SyncRepository>(
   (ref) => SyncRepository(

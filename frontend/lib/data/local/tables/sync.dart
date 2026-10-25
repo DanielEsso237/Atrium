@@ -36,6 +36,15 @@ class OutboxEntries extends Table {
   IntColumn get attempts => integer().withDefault(const Constant(0))();
   TextColumn get lastError => text().withLength(max: 512).nullable()();
   DateTimeColumn get lastAttemptAt => dateTime().nullable()();
+
+  /// L'agent qui a fait l'ecriture : seule sa session la remonte.
+  ///
+  /// Une tablette passe de main en main, et le serveur juge une ecriture
+  /// avec les droits du jeton qui l'envoie. Envoyee par le suivant,
+  /// l'encaissement du receptionniste revenait refuse a l'agent du menage
+  /// (403) et bloquait sa file (25 octobre). `null` pour les entrees sans
+  /// session (code oublie, changement de PIN) : n'importe qui les remonte.
+  TextColumn get authorId => text().nullable()();
 }
 
 /// Position de la tablette dans l'ordre total des modifications du serveur,

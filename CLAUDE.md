@@ -213,6 +213,18 @@ et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
 ressource que l'agent n'a pas le droit de lire (403) est sautée, pas fatale :
 la réception ne lit pas le restaurant, le ménage ne lit pas les clients.
 
+**Chaque agent remonte ses écritures, et seulement les siennes** (25
+octobre, schéma local 16). Une tablette passe de main en main, et le serveur
+juge une écriture avec les droits du jeton qui l'envoie : l'encaissement du
+réceptionniste partait avec la session du ménage, revenait en 403 et bloquait
+sa file. `outbox_entries.author_id` est posé par la session
+(`declarerAuteur`, dans `sync_statuses`) ; les écritures d'un collègue
+attendent sa prochaine connexion sur la tablette, et la pastille le dit
+(« 1 · RECEP01 »). Un refus derrière une écriture de collègue en attente ne
+bloque pas : il en dépend peut-être (`DrainStop.attenteAutrui`). Les entrées
+sans session (code oublié, changement de PIN) n'ont pas d'auteur et partent
+avec n'importe qui.
+
 **La descente est automatique** (24 octobre). Toutes les trente secondes et
 au retour sur l'application, `SyncNotifier.suivre` demande
 `GET /sync/changes?since=<curseur>` ; si rien n'a changé, un aller-retour et
@@ -596,6 +608,9 @@ la base locale est chiffrée (#218).
   ménage : le serveur ne l'annule pas (`annulations.py`). L'ardoise retirée
   par une arrivée annulée, elle, se retire désormais sur les autres postes
   (`removed` de `GET /sync/changes`).
+- **Une écriture dont l'auteur ne repasse jamais sur la tablette** y reste :
+  il faudra qu'un responsable puisse l'envoyer à sa place, avec son code
+  (le serveur ne sait pas encore recevoir une écriture au nom d'un autre).
 - `SyncOp.DELETE` n'est ni produit ni traité, et `SyncState.conflict` n'est
   utilisé nulle part — pas d'arbitrage de conflit.
 - **Quand quelque chose a changé, la descente relit encore tout** : les
