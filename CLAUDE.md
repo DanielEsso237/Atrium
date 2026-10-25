@@ -586,6 +586,19 @@ pour autoriser un retour en arrière ou un code oublié (`pinSoumettable`).
 Les empreintes de tout l'hôtel restent sur chaque tablette (même décision) :
 la base locale est chiffrée (#218).
 
+## Ouvrir un ménage n'est pas le faire (25 octobre)
+
+`housekeeping.manage` couvrait tout le ménage, et la réception doit le porter
+(le départ ouvre une tâche) : elle pouvait donc terminer un ménage où
+personne n'était passé. **`housekeeping.work`** (migration 0033) : commencer,
+terminer, revenir en arrière (`/start`, `/finish`, `/revert`) ;
+`housekeeping.manage` garde ouvrir, attribuer, inspecter. Tous les rôles qui
+avaient `manage` reçoivent `work`, **sauf RECEPTION**. Sur la tablette, les
+boutons de la liste du ménage suivent `work`, et le dépôt refuse avant la file
+(`_exigerTravail`) — dans `startRoom`, avant même d'ouvrir la tâche.
+`work` implique `manage` : « Commencer » sur une chambre sans tâche l'ouvre
+d'abord.
+
 ## Ce qui manque
 
 - **Impression des factures**, brique rouverte : les factures et le ticket du

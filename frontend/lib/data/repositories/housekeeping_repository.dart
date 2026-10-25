@@ -22,6 +22,7 @@ import '../../core/business_day.dart';
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../local/queries/access_queries.dart';
 import '../local/queries/rooms_queries.dart';
 import 'outbox.dart';
 
@@ -350,6 +351,9 @@ class HousekeepingRepository with OutboxWriter {
   /// avoir, et refuser de la nettoyer pour cette raison serait absurde. La
   /// tache est ouverte au besoin, puis demarree.
   Future<String> startRoom(String roomId, {String? by}) async {
+    // Avant d'ouvrir la tache : refuser apres l'avoir ouverte laisserait une
+    // ecriture dans la file pour un geste que l'agent n'a pas pu faire.
+    await _exigerTravail(by);
     final taskId = await openTask(roomId: roomId, by: by);
     await _transition(taskId, TaskStatus.IN_PROGRESS, by: by);
     return taskId;
@@ -409,6 +413,7 @@ class HousekeepingRepository with OutboxWriter {
     required HousekeepingStatus to,
     required String by,
   }) => db.transaction(() async {
+    await _exigerTravail(by);
     final room = await (db.select(
       db.rooms,
     )..where((r) => r.id.equals(roomId))).getSingleOrNull();
@@ -494,7 +499,24 @@ class HousekeepingRepository with OutboxWriter {
     );
   });
 
+  /// Le meme refus que le serveur, avant d'ecrire : commencer, terminer et
+  /// revenir en arriere exigent `housekeeping.work` (migration 0033). Un
+  /// geste refuse la-bas reviendrait en 403 et bloquerait la file d'envoi,
+  /// avec tout ce qui attend derriere.
+  ///
+  /// Sans agent (`by` nul : rejeu, donnees d'essai), rien a verifier ici --
+  /// l'ecran, lui, n'offre ces gestes qu'a un agent connecte qui a le droit.
+  Future<void> _exigerTravail(String? by) async {
+    if (by == null) return;
+    if (!(await accessProfileFor(db, by)).peut('housekeeping.work')) {
+      throw StateError(
+        'Seul le service du ménage commence, termine ou corrige un ménage.',
+      );
+    }
+  }
+
   Future<void> _transition(String taskId, TaskStatus vers, {String? by}) async {
+    await _exigerTravail(by);
     final tache = await (db.select(
       db.housekeepingTasks,
     )..where((t) => t.id.equals(taskId))).getSingleOrNull();

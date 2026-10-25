@@ -121,7 +121,7 @@ PERMISSIONS = [
     (uuid.UUID("01920000-0000-7000-8000-000000004124"), "order.create", "Prendre une commande", "order"),
     (uuid.UUID("01920000-0000-7000-8000-000000004125"), "order.manage", "Envoyer, servir ou annuler une commande", "order"),
     (uuid.UUID("01920000-0000-7000-8000-000000004126"), "housekeeping.read", "Consulter les taches de nettoyage", "housekeeping"),
-    (uuid.UUID("01920000-0000-7000-8000-000000004127"), "housekeeping.manage", "Creer, assigner, executer une tache de nettoyage", "housekeeping"),
+    (uuid.UUID("01920000-0000-7000-8000-000000004127"), "housekeeping.manage", "Ouvrir, attribuer, inspecter une tache de nettoyage", "housekeeping"),
     (uuid.UUID("01920000-0000-7000-8000-000000004128"), "maintenance.read", "Consulter les tickets de maintenance", "maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004129"), "maintenance.manage", "Creer, assigner, resoudre un ticket de maintenance", "maintenance"),
     (uuid.UUID("01920000-0000-7000-8000-000000004130"), "stock.movement", "Enregistrer un mouvement de stock", "stock"),
@@ -143,6 +143,10 @@ PERMISSIONS = [
     # Ouvrir un ticket, sans le prendre en charge : la reception signale la
     # panne, le technicien la traite (migration 0032).
     (uuid.UUID("01920000-0000-7000-8000-000000004146"), "maintenance.report", "Signaler une panne (ouvrir un ticket)", "maintenance"),
+    # Faire le menage : commencer, terminer, revenir en arriere. La reception
+    # ouvre les taches (`housekeeping.manage`), la femme de chambre les fait
+    # (migration 0033).
+    (uuid.UUID("01920000-0000-7000-8000-000000004147"), "housekeeping.work", "Commencer, terminer ou corriger un menage", "housekeeping"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -182,6 +186,7 @@ OPERATIONS_UNDO = PERMISSIONS[42][0]
 ROOM_ORDER_CREATE = PERMISSIONS[43][0]
 USERS_RESET_SECRET = PERMISSIONS[44][0]
 MAINTENANCE_REPORT = PERMISSIONS[45][0]
+HOUSEKEEPING_WORK = PERMISSIONS[46][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -288,6 +293,10 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (HOUSEKEEPING_ROLE, ROOMS_READ),
     (HOUSEKEEPING_ROLE, HOUSEKEEPING_READ),
     (HOUSEKEEPING_ROLE, HOUSEKEEPING_MANAGE),
+    # Faire le menage, c'est son metier, et pas celui de la reception : elle
+    # ouvre la tache au depart du client, elle ne la termine pas a la place
+    # de la femme de chambre (migration 0033).
+    (HOUSEKEEPING_ROLE, HOUSEKEEPING_WORK),
     (MAINTENANCE_ROLE, MAINTENANCE_READ),
     (MAINTENANCE_ROLE, MAINTENANCE_MANAGE),
     # L'econome tient l'economat : il fait entrer les livraisons, et demande

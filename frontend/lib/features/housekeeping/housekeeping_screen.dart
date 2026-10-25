@@ -78,10 +78,13 @@ class HousekeepingScreen extends ConsumerWidget {
     final jobs = ref.watch(cleaningJobsProvider);
     final liste = jobs.value ?? const <CleaningJob>[];
     final faites = liste.where((j) => j.faite).length;
-    final peutGerer = ref
+    // Commencer, terminer, revenir : le geste de la femme de chambre. La
+    // reception lit cette liste (`housekeeping.read`) et ouvre les taches,
+    // elle ne les fait pas (`housekeeping.work`, migration 0033).
+    final peutTravailler = ref
         .watch(sessionProvider)
         .acces
-        .peut('housekeeping.manage');
+        .peut('housekeeping.work');
     final etroit = MediaQuery.sizeOf(context).width < 600;
     final marge = etroit ? 18.0 : 32.0;
 
@@ -156,7 +159,7 @@ class HousekeepingScreen extends ConsumerWidget {
                               child: _Colonne(
                                 titre: 'À faire',
                                 statut: HousekeepingStatus.DIRTY,
-                                peutGerer: peutGerer,
+                                peutTravailler: peutTravailler,
                                 couleur: CouleursEtat.occupee,
                                 jobs: aFaire,
                                 vide: 'Plus rien en attente.',
@@ -167,7 +170,7 @@ class HousekeepingScreen extends ConsumerWidget {
                               child: _Colonne(
                                 titre: 'En cours',
                                 statut: HousekeepingStatus.IN_PROGRESS,
-                                peutGerer: peutGerer,
+                                peutTravailler: peutTravailler,
                                 couleur: CouleursEtat.nettoyage,
                                 jobs: enCours,
                                 vide: 'Aucune chambre commencée.',
@@ -178,7 +181,7 @@ class HousekeepingScreen extends ConsumerWidget {
                               child: _Colonne(
                                 titre: 'Fait',
                                 statut: HousekeepingStatus.CLEAN,
-                                peutGerer: peutGerer,
+                                peutTravailler: peutTravailler,
                                 couleur: CouleursEtat.disponible,
                                 jobs: faites,
                                 vide: 'Les chambres terminées arrivent ici.',
@@ -206,13 +209,13 @@ class HousekeepingScreen extends ConsumerWidget {
                         if (enCours.isEmpty && aFaire.isEmpty)
                           const _RienAFaire(),
                         for (final j in [...enCours, ...aFaire])
-                          _Carte(job: j, peutGerer: peutGerer),
+                          _Carte(job: j, peutTravailler: peutTravailler),
                         if (faites.isNotEmpty) ...[
                           const SizedBox(height: 18),
                           Eyebrow("Fait aujourd'hui (${faites.length})"),
                           const SizedBox(height: 12),
                           for (final j in faites)
-                            _Carte(job: j, peutGerer: peutGerer),
+                            _Carte(job: j, peutTravailler: peutTravailler),
                         ],
                       ],
                     ),
@@ -321,7 +324,7 @@ class _Colonne extends StatelessWidget {
   const _Colonne({
     required this.titre,
     required this.statut,
-    required this.peutGerer,
+    required this.peutTravailler,
     required this.couleur,
     required this.jobs,
     required this.vide,
@@ -329,7 +332,7 @@ class _Colonne extends StatelessWidget {
 
   final String titre;
   final HousekeepingStatus statut;
-  final bool peutGerer;
+  final bool peutTravailler;
   final Color couleur;
   final List<CleaningJob> jobs;
   final String vide;
@@ -340,7 +343,7 @@ class _Colonne extends StatelessWidget {
     return DragTarget<_CleaningDrag>(
       key: ValueKey('housekeeping-column-${statut.name}'),
       onWillAcceptWithDetails: (details) =>
-          peutGerer &&
+          peutTravailler &&
           switch ((details.data.job.roomStatus, statut)) {
             (HousekeepingStatus.DIRTY, HousekeepingStatus.IN_PROGRESS) => true,
             (HousekeepingStatus.IN_PROGRESS, HousekeepingStatus.CLEAN) => true,
@@ -417,7 +420,7 @@ class _Colonne extends StatelessWidget {
                             child: _Carte(
                               job: jobs[i],
                               compacte: true,
-                              peutGerer: peutGerer,
+                              peutTravailler: peutTravailler,
                             ),
                           ),
                       ],
@@ -451,12 +454,12 @@ class _RienAFaire extends StatelessWidget {
 class _Carte extends ConsumerStatefulWidget {
   const _Carte({
     required this.job,
-    required this.peutGerer,
+    required this.peutTravailler,
     this.compacte = false,
   });
 
   final CleaningJob job;
-  final bool peutGerer;
+  final bool peutTravailler;
 
   /// Dans une colonne du tableau : tout empile, pleine largeur.
   final bool compacte;
@@ -469,7 +472,7 @@ class _CarteState extends ConsumerState<_Carte> {
   bool _busy = false;
 
   Future<void> _agir({HousekeepingStatus? to}) async {
-    if (_busy || !mounted || !widget.peutGerer) return;
+    if (_busy || !mounted || !widget.peutTravailler) return;
     final job = widget.job;
     setState(() => _busy = true);
 
@@ -590,10 +593,10 @@ class _CarteState extends ConsumerState<_Carte> {
                 : PhosphorIconsLight.play,
             tone: job.enCours ? PillTone.accent : PillTone.primary,
             expand: widget.compacte,
-            onPressed: _busy || !widget.peutGerer ? null : _agir,
+            onPressed: _busy || !widget.peutTravailler ? null : _agir,
           );
 
-    final retour = widget.peutGerer && (job.enCours || job.faite)
+    final retour = widget.peutTravailler && (job.enCours || job.faite)
         ? TextButton.icon(
             icon: const Icon(PhosphorIconsLight.arrowLeft, size: 16),
             label: Text(job.faite ? 'Reprendre le ménage' : 'Remettre à faire'),
@@ -653,7 +656,7 @@ class _CarteState extends ConsumerState<_Carte> {
         child: contenu,
       ),
     );
-    if (!widget.compacte || !widget.peutGerer || _busy) {
+    if (!widget.compacte || !widget.peutTravailler || _busy) {
       return carte;
     }
     return KanbanDragCard<_CleaningDrag>(
