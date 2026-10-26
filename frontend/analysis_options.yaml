@@ -29,6 +29,11 @@ linter:
   rules:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Les valeurs d'enumeration recopient celles du serveur (CHECKED_IN,
+    # DEPARTURE...) : elles voyagent telles quelles dans la file d'envoi et la
+    # descente. Les ecrire en camelCase obligerait a les traduire a chaque
+    # echange, et la regle couvrait 156 des 167 remarques de l'analyseur.
+    constant_identifier_names: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

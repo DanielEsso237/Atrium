@@ -1,0 +1,109 @@
+# Verification de chaque PR vers main : les tests du serveur sur un vrai
+# PostgreSQL, les tests de la tablette et son analyseur.
+#
+# Les trois travaux portent des noms fixes : ce sont eux que la protection de
+# main exige ("Serveur", "Tablette - tests", "Tablette - analyse"). Les
+# renommer, c'est casser la regle de protection sans que rien ne le dise.
+name: Verification
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Un nouveau push sur la meme PR rend l'ancienne verification inutile.
+concurrency:
+  group: verification-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  serveur:
+    name: Serveur
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # La version de production (CLAUDE.md).
+        image: postgres:18
+        env:
+          POSTGRES_USER: atrium
+          POSTGRES_PASSWORD: atrium
+          # Le montage refuse toute base dont le nom ne finit pas par _test.
+          POSTGRES_DB: atrium_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atrium -d atrium_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://atrium:atrium@localhost:5432/atrium_test
+      # Sans defaut dans app/core/config.py ; une valeur jetable suffit ici.
+      SECRET_KEY: cle-de-ci-uniquement
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      # Les migrations aussi : les tests construisent le schema depuis les
+      # modeles, et une migration cassee ne se verrait qu'au deploiement.
+      # Sur une base a part, pour laisser atrium_test au montage des tests.
+      - name: Migrations sur une base neuve
+        env:
+          PGPASSWORD: atrium
+        run: |
+          psql -h localhost -U atrium -d atrium_test -c "CREATE DATABASE atrium_migrations"
+          DATABASE_URL=postgresql+asyncpg://atrium:atrium@localhost:5432/atrium_migrations \
+            python -m alembic upgrade head
+      # `CI` est pose par GitHub : sans base, le montage echoue au lieu de
+      # sauter les tests avec base (tests/conftest.py).
+      - run: python -m pytest -rfEs
+
+  tablette-tests:
+    name: Tablette - tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # La version du poste de developpement : un analyseur ou un moteur
+          # de test plus recent jugerait autrement le meme code.
+          flutter-version: 3.47.8
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test
+
+  tablette-analyse:
+    name: Tablette - analyse
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.8
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # Une erreur ou un avertissement bloque la PR ; une remarque (info) se
+      # lit dans le journal sans bloquer.
+      - run: flutter analyze --no-fatal-infos lib/ test/

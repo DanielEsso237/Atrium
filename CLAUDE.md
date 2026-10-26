@@ -126,6 +126,16 @@ lisent comme un succès.
 attrape les mêmes **erreurs** en deux minutes ; l'analyseur voit en plus les
 avertissements. Lancer l'application pour itérer, l'analyseur avant une PR.
 
+**Chaque PR vers `main` est vérifiée** (`.github/workflows/verification.yml`,
+25 octobre) : trois travaux, **Serveur** (migrations sur une base neuve, puis
+pytest sur un PostgreSQL 18 et sa base `atrium_test`), **Tablette - tests**
+et **Tablette - analyse**. Une erreur ou un avertissement de l'analyseur
+bloque ; une remarque (info) non. Flutter est figé à la version du poste
+(3.47.8) : la changer ici, c'est la changer là. En CI (`CI` posé), une
+`TEST_DATABASE_URL` absente **fait échouer** pytest au lieu de sauter les
+tests avec base. Les noms des trois travaux sont ceux qu'exige la protection
+de `main` : les renommer la casse sans bruit.
+
 Comptes de démonstration, mot de passe `ChangeMe123!` ou PIN `123456` — les deux
 marchent en ligne comme hors ligne :
 
@@ -626,6 +636,13 @@ ardoise `pending` que rien dans la file ne porte encore, ni elle ni le
 check-in de son séjour. Test : `test/ardoise_du_check_in_test.dart`.
 
 ## Ce qui manque
+
+- **Le droit `INTERNET` manque au manifeste principal**
+  (`android/app/src/main/AndroidManifest.xml`) : seuls `debug` et `profile`
+  le déclarent. Un APK *release* — y compris `flutter run --release` — n'a
+  aucun réseau : la tablette reste hors ligne, et le journal dit
+  `Failed host lookup … errno = 7`. À corriger à la sortie de la release
+  (décision du 26 octobre) ; d'ici là, ne pas lancer en `--release`.
 
 - **Impression des factures**, brique rouverte : les factures et le ticket du
   comptoir existent en PDF (partage), pas encore l'envoi à une imprimante.
