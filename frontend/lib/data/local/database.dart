@@ -119,7 +119,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -252,6 +252,24 @@ class AtriumDatabase extends _$AtriumDatabase {
           "json_extract(payload, '\$.posted_by'), "
           "json_extract(payload, '\$.created_by')) "
           "WHERE status IN ('PENDING', 'FAILED')",
+        );
+      }
+      // 16 -> 17 : l'ardoise d'un check-in restait en attente apres sa
+      // remontee, et la descente ne la mettait plus jamais a jour (26
+      // octobre). Celles qui sont deja coincees se debloquent ici : toute
+      // ardoise en attente que rien dans la file ne porte encore -- ni elle,
+      // ni le check-in de son sejour.
+      if (depuis < 17) {
+        await customStatement(
+          "UPDATE folios SET sync_state = 'synced' "
+          "WHERE sync_state = 'pending' "
+          'AND id NOT IN (SELECT entity_id FROM outbox_entries '
+          "WHERE entity_table = 'folios' "
+          "AND status IN ('PENDING', 'SENDING', 'FAILED')) "
+          'AND (reservation_room_id IS NULL '
+          'OR reservation_room_id NOT IN (SELECT entity_id FROM outbox_entries '
+          "WHERE entity_table = 'reservation_rooms' "
+          "AND status IN ('PENDING', 'SENDING', 'FAILED')))",
         );
       }
     },

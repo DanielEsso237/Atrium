@@ -237,7 +237,8 @@ class OutboxSender {
   ///
   /// L'**ardoise retenue** a un check-in : si le sejour etait deja arrive sur
   /// le serveur, il a garde la sienne et ignore celle de la tablette, qui
-  /// l'adopte (voir `FolioRepository.adoptServerFolio`).
+  /// l'adopte (voir `FolioRepository.adoptServerFolio`). S'il garde celle de
+  /// la tablette, elle passe « a jour » : aucune autre ecriture ne le ferait.
   ///
   /// La **nuitee deja portee** : deux tablettes ont porte la meme nuit, le
   /// serveur a garde la premiere et designe la sienne ; la tablette remplace
@@ -261,11 +262,24 @@ class OutboxSender {
       final p = jsonDecode(entree.payload) as Map<String, dynamic>;
       final local = p['folio_id'] as String?;
       final serveur = reponse['folio_id'] as String?;
-      if (p['status'] == 'CHECKED_IN' && local != null && serveur != null) {
+      if (p['status'] != 'CHECKED_IN' || local == null) return;
+      if (serveur != null && serveur != local) {
         await FolioRepository(
           db,
         ).adoptServerFolio(localId: local, serverId: serveur);
+        return;
       }
+      // Le serveur a garde l'ardoise de la tablette : elle est remontee avec
+      // le check-in, et aucune ecriture de la file ne la nomme pour la
+      // passer « a jour ». Restee en attente, la descente l'epargnait pour
+      // toujours : encaissee sur un autre poste, elle affichait encore son
+      // du ici, et l'encaissement en double bloquait la file (26 octobre).
+      await db.customUpdate(
+        "UPDATE folios SET sync_state = 'synced' "
+        "WHERE id = ? AND sync_state = 'pending'",
+        variables: [Variable.withString(local)],
+        updates: {db.folios},
+      );
       return;
     }
     if (entree.entityTable == 'users') {
