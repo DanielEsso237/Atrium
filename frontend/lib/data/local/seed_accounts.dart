@@ -333,6 +333,14 @@ const _permissions = <_PermissionDemo>[
     'Commencer, terminer ou corriger un menage',
     'housekeeping',
   ),
+  // Voir de n'importe quel poste la file bloquee d'une tablette. Meme
+  // identifiant que le serveur (migration 0034).
+  (
+    '01920000-0000-7000-8000-000000004148',
+    'sync.monitor',
+    'Suivre les tablettes et leurs files bloquees',
+    'sync',
+  ),
 ];
 
 /// Qui a droit a quoi. L'administrateur a tout ; la reception voit le plan,
@@ -401,6 +409,7 @@ const _droits = <(String role, String permission)>[
   (_roleReception, '01920000-0000-7000-8000-000000004128'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004146'),
   (_roleAdmin, '01920000-0000-7000-8000-000000004147'),
+  (_roleAdmin, '01920000-0000-7000-8000-000000004148'),
   // Un seul droit metier, un seul ecran. C'est tout le travail.
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004126'),
   (_roleHousekeeping, '01920000-0000-7000-8000-000000004127'),

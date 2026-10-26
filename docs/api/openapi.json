@@ -1406,6 +1406,119 @@
         "title": "DepositRuleOut",
         "type": "object"
       },
+      "DeviceIn": {
+        "description": "La tablette se presente. Son id est tire une fois pour toutes sur la\ntablette et ne change plus : c'est lui qui la reconnait d'un echange a\nl'autre, quel que soit l'agent connecte.",
+        "properties": {
+          "app_version": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "os_version": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Version"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "DeviceIn",
+        "type": "object"
+      },
+      "DeviceOut": {
+        "properties": {
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "os_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Version"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "app_version",
+          "os_version",
+          "is_active",
+          "last_seen_at",
+          "updated_at"
+        ],
+        "title": "DeviceOut",
+        "type": "object"
+      },
       "DocumentTemplateIn": {
         "properties": {
           "content": {
@@ -9548,6 +9661,302 @@
         "title": "SupplierOut",
         "type": "object"
       },
+      "SyncBlockIn": {
+        "description": "Le blocage tel que la tablette le voit. L'id vient d'elle : un renvoi\nmet le rapport a jour au lieu d'en creer un second.",
+        "properties": {
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "blocked_at": {
+            "format": "date-time",
+            "title": "Blocked At",
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceIn"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_table": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Entity Table",
+            "type": "string"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operation": {
+            "maxLength": 8,
+            "minLength": 1,
+            "title": "Operation",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          },
+          "pending_behind": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Pending Behind",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          }
+        },
+        "required": [
+          "id",
+          "device",
+          "entity_table",
+          "entity_id",
+          "operation",
+          "blocked_at"
+        ],
+        "title": "SyncBlockIn",
+        "type": "object"
+      },
+      "SyncBlockOut": {
+        "properties": {
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "blocked_at": {
+            "format": "date-time",
+            "title": "Blocked At",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_table": {
+            "title": "Entity Table",
+            "type": "string"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          },
+          "pending_behind": {
+            "title": "Pending Behind",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reported_at": {
+            "format": "date-time",
+            "title": "Reported At",
+            "type": "string"
+          },
+          "reported_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported By"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          }
+        },
+        "required": [
+          "id",
+          "device_id",
+          "author_id",
+          "reported_by",
+          "entity_table",
+          "entity_id",
+          "operation",
+          "payload",
+          "http_status",
+          "reason",
+          "written_at",
+          "blocked_at",
+          "reported_at",
+          "pending_behind",
+          "status",
+          "resolved_at",
+          "resolution",
+          "updated_at"
+        ],
+        "title": "SyncBlockOut",
+        "type": "object"
+      },
+      "SyncBlockResolveIn": {
+        "properties": {
+          "resolution": {
+            "enum": [
+              "SENT",
+              "REMOVED"
+            ],
+            "title": "Resolution",
+            "type": "string"
+          },
+          "resolved_at": {
+            "format": "date-time",
+            "title": "Resolved At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resolution",
+          "resolved_at"
+        ],
+        "title": "SyncBlockResolveIn",
+        "type": "object"
+      },
       "SyncChangesOut": {
         "description": "Ce qu'une tablette doit relire depuis son dernier curseur.\n\nDes noms de tables, pas les lignes : la tablette relit ces tables par\nleurs routes habituelles, qui appliquent deja les droits et le perimetre\nde l'agent (un barman ne lit que ses points de vente).",
         "properties": {
@@ -11459,6 +11868,83 @@
         "summary": "Get Summary",
         "tags": [
           "dashboard"
+        ]
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "operationId": "list_devices_api_v1_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceOut"
+                  },
+                  "title": "Response List Devices Api V1 Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Devices",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/devices/me": {
+      "put": {
+        "description": "La tablette se presente a chaque connexion en ligne.",
+        "operationId": "present_device_api_v1_devices_me_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Present Device",
+        "tags": [
+          "tablettes"
         ]
       }
     },
@@ -18333,6 +18819,142 @@
         "summary": "Update Supplier",
         "tags": [
           "stock"
+        ]
+      }
+    },
+    "/api/v1/sync-blocks": {
+      "get": {
+        "description": "Les blocages en cours, et ceux leves depuis une semaine.",
+        "operationId": "list_sync_blocks_api_v1_sync_blocks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SyncBlockOut"
+                  },
+                  "title": "Response List Sync Blocks Api V1 Sync Blocks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Sync Blocks",
+        "tags": [
+          "tablettes"
+        ]
+      },
+      "post": {
+        "operationId": "report_sync_block_api_v1_sync_blocks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBlockIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rapport deja recu (meme id), mis a jour"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBlockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Report Sync Block",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/sync-blocks/{block_id}/resolve": {
+      "post": {
+        "operationId": "resolve_sync_block_api_v1_sync_blocks__block_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "block_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Block Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBlockResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBlockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Resolve Sync Block",
+        "tags": [
+          "tablettes"
         ]
       }
     },

@@ -45,6 +45,7 @@ import '../features/stock/historique_stock_screen.dart';
 import '../features/stock/stock_dashboard_screen.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/stock/inventory_screen.dart';
+import '../features/sync/tablettes_screen.dart';
 import '../data/local/enums.dart';
 import 'ui/atrium_ui.dart' show atriumSpring;
 import '../data/local/queries/access_queries.dart' show genreDeLaZone;
@@ -116,6 +117,9 @@ const _permissionParZone = <String, String>{
   '/administration': 'users.write',
   // Le personnel et son chiffre d'affaires : qui lit les agents.
   '/personnel': 'users.read|users.write',
+  // Les tablettes et leurs files bloquees : l'administration et la
+  // direction, de n'importe quel poste (migration 0034).
+  '/tablettes': 'sync.monitor',
 };
 
 /// La permission exigee par un chemin, sous-routes comprises.
@@ -362,6 +366,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/personnel',
             builder: (_, _) => const PersonnelScreen(),
+          ),
+          GoRoute(
+            path: '/tablettes',
+            builder: (_, _) => const TablettesScreen(),
           ),
           GoRoute(
             path: '/reservations',

@@ -35,11 +35,12 @@ def _migration(nom: str):
 async def journal(session):
     """Pose les declencheurs du journal, que `create_all` ignore.
 
-    Rejoue le SQL des migrations 0002 et 0031 tel quel : les tests lisent le
+    Rejoue le SQL des migrations 0002, 0031 et 0034 tel quel : les tests lisent le
     journal que la production ecrit, pas une imitation.
     """
     m0002 = _migration("0002_sync_sequence_triggers")
     m0031 = _migration("0031_journal_par_transaction")
+    m0034 = _migration("0034_file_bloquee_a_distance")
     conn = await session.connection()
     await conn.execute(text(m0002.TRACK_FUNCTION))
     for table in m0002.SYNCED_TABLES:
@@ -51,6 +52,8 @@ async def journal(session):
             )
         )
     for instruction in m0031.instructions():
+        await conn.execute(text(instruction))
+    for instruction in m0034.declencheurs():
         await conn.execute(text(instruction))
     await session.commit()
 
@@ -112,6 +115,28 @@ async def test_une_ligne_retiree_est_nommee(client, session, hotel_a, login, jou
 
     r = await _changes(client, token, curseur)
     assert r["removed"] == {"guests": [str(fiche.id)]}
+
+
+async def test_une_file_bloquee_signale_les_rapports(client, hotel_a, login, journal):
+    """Un blocage annonce redescend vers les autres postes (migration 0034)."""
+    token = await login(client, "ADMIN_A")
+    curseur = (await _changes(client, token))["cursor"]
+
+    r = await client.post(
+        "/api/v1/sync-blocks",
+        json={
+            "id": str(uuid.uuid4()),
+            "device": {"id": str(uuid.uuid4()), "name": "Tablette AB12"},
+            "entity_table": "payments",
+            "entity_id": str(uuid.uuid4()),
+            "operation": "INSERT",
+            "blocked_at": "2026-10-26T08:00:00Z",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 201, r.text
+
+    assert set((await _changes(client, token, curseur))["tables"]) == {"devices", "sync_blocks"}
 
 
 async def test_un_autre_hotel_ne_fait_rien_relire(

@@ -68254,6 +68254,1439 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
   }
 }
 
+class $SyncBlocksTable extends SyncBlocks
+    with TableInfo<$SyncBlocksTable, SyncBlockRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncBlocksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 36,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedByMeta = const VerificationMeta(
+    'updatedBy',
+  );
+  @override
+  late final GeneratedColumn<String> updatedBy = GeneratedColumn<String>(
+    'updated_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originDeviceIdMeta = const VerificationMeta(
+    'originDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> originDeviceId = GeneratedColumn<String>(
+    'origin_device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _changeSeqMeta = const VerificationMeta(
+    'changeSeq',
+  );
+  @override
+  late final GeneratedColumn<int> changeSeq = GeneratedColumn<int>(
+    'change_seq',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SyncState, String> syncState =
+      GeneratedColumn<String>(
+        'sync_state',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('pending'),
+      ).withConverter<SyncState>($SyncBlocksTable.$convertersyncState);
+  static const VerificationMeta _hotelIdMeta = const VerificationMeta(
+    'hotelId',
+  );
+  @override
+  late final GeneratedColumn<String> hotelId = GeneratedColumn<String>(
+    'hotel_id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 36,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reportedByMeta = const VerificationMeta(
+    'reportedBy',
+  );
+  @override
+  late final GeneratedColumn<String> reportedBy = GeneratedColumn<String>(
+    'reported_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
+  );
+  @override
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'entity_table',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 64),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationMeta = const VerificationMeta(
+    'operation',
+  );
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+    'operation',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 8),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _httpStatusMeta = const VerificationMeta(
+    'httpStatus',
+  );
+  @override
+  late final GeneratedColumn<int> httpStatus = GeneratedColumn<int>(
+    'http_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _writtenAtMeta = const VerificationMeta(
+    'writtenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> writtenAt = GeneratedColumn<DateTime>(
+    'written_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _blockedAtMeta = const VerificationMeta(
+    'blockedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> blockedAt = GeneratedColumn<DateTime>(
+    'blocked_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reportedAtMeta = const VerificationMeta(
+    'reportedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reportedAt = GeneratedColumn<DateTime>(
+    'reported_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pendingBehindMeta = const VerificationMeta(
+    'pendingBehind',
+  );
+  @override
+  late final GeneratedColumn<int> pendingBehind = GeneratedColumn<int>(
+    'pending_behind',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 16),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('OPEN'),
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resolutionMeta = const VerificationMeta(
+    'resolution',
+  );
+  @override
+  late final GeneratedColumn<String> resolution = GeneratedColumn<String>(
+    'resolution',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 16),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    createdBy,
+    updatedBy,
+    originDeviceId,
+    changeSeq,
+    syncState,
+    hotelId,
+    deviceId,
+    authorId,
+    reportedBy,
+    entityTable,
+    entityId,
+    operation,
+    payload,
+    httpStatus,
+    reason,
+    writtenAt,
+    blockedAt,
+    reportedAt,
+    pendingBehind,
+    status,
+    resolvedAt,
+    resolution,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_blocks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncBlockRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    }
+    if (data.containsKey('updated_by')) {
+      context.handle(
+        _updatedByMeta,
+        updatedBy.isAcceptableOrUnknown(data['updated_by']!, _updatedByMeta),
+      );
+    }
+    if (data.containsKey('origin_device_id')) {
+      context.handle(
+        _originDeviceIdMeta,
+        originDeviceId.isAcceptableOrUnknown(
+          data['origin_device_id']!,
+          _originDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('change_seq')) {
+      context.handle(
+        _changeSeqMeta,
+        changeSeq.isAcceptableOrUnknown(data['change_seq']!, _changeSeqMeta),
+      );
+    }
+    if (data.containsKey('hotel_id')) {
+      context.handle(
+        _hotelIdMeta,
+        hotelId.isAcceptableOrUnknown(data['hotel_id']!, _hotelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hotelIdMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
+      );
+    }
+    if (data.containsKey('reported_by')) {
+      context.handle(
+        _reportedByMeta,
+        reportedBy.isAcceptableOrUnknown(data['reported_by']!, _reportedByMeta),
+      );
+    }
+    if (data.containsKey('entity_table')) {
+      context.handle(
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['entity_table']!,
+          _entityTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTableMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(
+        _operationMeta,
+        operation.isAcceptableOrUnknown(data['operation']!, _operationMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    }
+    if (data.containsKey('http_status')) {
+      context.handle(
+        _httpStatusMeta,
+        httpStatus.isAcceptableOrUnknown(data['http_status']!, _httpStatusMeta),
+      );
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    }
+    if (data.containsKey('written_at')) {
+      context.handle(
+        _writtenAtMeta,
+        writtenAt.isAcceptableOrUnknown(data['written_at']!, _writtenAtMeta),
+      );
+    }
+    if (data.containsKey('blocked_at')) {
+      context.handle(
+        _blockedAtMeta,
+        blockedAt.isAcceptableOrUnknown(data['blocked_at']!, _blockedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_blockedAtMeta);
+    }
+    if (data.containsKey('reported_at')) {
+      context.handle(
+        _reportedAtMeta,
+        reportedAt.isAcceptableOrUnknown(data['reported_at']!, _reportedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reportedAtMeta);
+    }
+    if (data.containsKey('pending_behind')) {
+      context.handle(
+        _pendingBehindMeta,
+        pendingBehind.isAcceptableOrUnknown(
+          data['pending_behind']!,
+          _pendingBehindMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    if (data.containsKey('resolution')) {
+      context.handle(
+        _resolutionMeta,
+        resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncBlockRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncBlockRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      ),
+      updatedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_by'],
+      ),
+      originDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_device_id'],
+      ),
+      changeSeq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}change_seq'],
+      ),
+      syncState: $SyncBlocksTable.$convertersyncState.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}sync_state'],
+        )!,
+      ),
+      hotelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hotel_id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      ),
+      reportedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reported_by'],
+      ),
+      entityTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_table'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      operation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
+      httpStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}http_status'],
+      ),
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      ),
+      writtenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}written_at'],
+      ),
+      blockedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}blocked_at'],
+      )!,
+      reportedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reported_at'],
+      )!,
+      pendingBehind: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pending_behind'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+      resolution: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resolution'],
+      ),
+    );
+  }
+
+  @override
+  $SyncBlocksTable createAlias(String alias) {
+    return $SyncBlocksTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<SyncState, String, String> $convertersyncState =
+      const EnumNameConverter<SyncState>(SyncState.values);
+}
+
+class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final String? createdBy;
+  final String? updatedBy;
+  final String? originDeviceId;
+  final int? changeSeq;
+  final SyncState syncState;
+  final String hotelId;
+  final String deviceId;
+  final String? authorId;
+  final String? reportedBy;
+  final String entityTable;
+  final String entityId;
+  final String operation;
+
+  /// Le contenu de l'ecriture, en JSON, secrets retires.
+  final String? payload;
+  final int? httpStatus;
+  final String? reason;
+  final DateTime? writtenAt;
+  final DateTime blockedAt;
+  final DateTime reportedAt;
+
+  /// Les ecritures qui attendaient derriere, au dernier rapport.
+  final int pendingBehind;
+
+  /// `OPEN`, puis `RESOLVED`.
+  final String status;
+  final DateTime? resolvedAt;
+
+  /// `SENT` (l'ecriture est passee) ou `REMOVED` (elle a quitte la file).
+  final String? resolution;
+  const SyncBlockRow({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.createdBy,
+    this.updatedBy,
+    this.originDeviceId,
+    this.changeSeq,
+    required this.syncState,
+    required this.hotelId,
+    required this.deviceId,
+    this.authorId,
+    this.reportedBy,
+    required this.entityTable,
+    required this.entityId,
+    required this.operation,
+    this.payload,
+    this.httpStatus,
+    this.reason,
+    this.writtenAt,
+    required this.blockedAt,
+    required this.reportedAt,
+    required this.pendingBehind,
+    required this.status,
+    this.resolvedAt,
+    this.resolution,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    if (!nullToAbsent || updatedBy != null) {
+      map['updated_by'] = Variable<String>(updatedBy);
+    }
+    if (!nullToAbsent || originDeviceId != null) {
+      map['origin_device_id'] = Variable<String>(originDeviceId);
+    }
+    if (!nullToAbsent || changeSeq != null) {
+      map['change_seq'] = Variable<int>(changeSeq);
+    }
+    {
+      map['sync_state'] = Variable<String>(
+        $SyncBlocksTable.$convertersyncState.toSql(syncState),
+      );
+    }
+    map['hotel_id'] = Variable<String>(hotelId);
+    map['device_id'] = Variable<String>(deviceId);
+    if (!nullToAbsent || authorId != null) {
+      map['author_id'] = Variable<String>(authorId);
+    }
+    if (!nullToAbsent || reportedBy != null) {
+      map['reported_by'] = Variable<String>(reportedBy);
+    }
+    map['entity_table'] = Variable<String>(entityTable);
+    map['entity_id'] = Variable<String>(entityId);
+    map['operation'] = Variable<String>(operation);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
+    if (!nullToAbsent || httpStatus != null) {
+      map['http_status'] = Variable<int>(httpStatus);
+    }
+    if (!nullToAbsent || reason != null) {
+      map['reason'] = Variable<String>(reason);
+    }
+    if (!nullToAbsent || writtenAt != null) {
+      map['written_at'] = Variable<DateTime>(writtenAt);
+    }
+    map['blocked_at'] = Variable<DateTime>(blockedAt);
+    map['reported_at'] = Variable<DateTime>(reportedAt);
+    map['pending_behind'] = Variable<int>(pendingBehind);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    if (!nullToAbsent || resolution != null) {
+      map['resolution'] = Variable<String>(resolution);
+    }
+    return map;
+  }
+
+  SyncBlocksCompanion toCompanion(bool nullToAbsent) {
+    return SyncBlocksCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+      updatedBy: updatedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedBy),
+      originDeviceId: originDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originDeviceId),
+      changeSeq: changeSeq == null && nullToAbsent
+          ? const Value.absent()
+          : Value(changeSeq),
+      syncState: Value(syncState),
+      hotelId: Value(hotelId),
+      deviceId: Value(deviceId),
+      authorId: authorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorId),
+      reportedBy: reportedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reportedBy),
+      entityTable: Value(entityTable),
+      entityId: Value(entityId),
+      operation: Value(operation),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
+      httpStatus: httpStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(httpStatus),
+      reason: reason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reason),
+      writtenAt: writtenAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(writtenAt),
+      blockedAt: Value(blockedAt),
+      reportedAt: Value(reportedAt),
+      pendingBehind: Value(pendingBehind),
+      status: Value(status),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+      resolution: resolution == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolution),
+    );
+  }
+
+  factory SyncBlockRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncBlockRow(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+      updatedBy: serializer.fromJson<String?>(json['updatedBy']),
+      originDeviceId: serializer.fromJson<String?>(json['originDeviceId']),
+      changeSeq: serializer.fromJson<int?>(json['changeSeq']),
+      syncState: $SyncBlocksTable.$convertersyncState.fromJson(
+        serializer.fromJson<String>(json['syncState']),
+      ),
+      hotelId: serializer.fromJson<String>(json['hotelId']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      authorId: serializer.fromJson<String?>(json['authorId']),
+      reportedBy: serializer.fromJson<String?>(json['reportedBy']),
+      entityTable: serializer.fromJson<String>(json['entityTable']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      operation: serializer.fromJson<String>(json['operation']),
+      payload: serializer.fromJson<String?>(json['payload']),
+      httpStatus: serializer.fromJson<int?>(json['httpStatus']),
+      reason: serializer.fromJson<String?>(json['reason']),
+      writtenAt: serializer.fromJson<DateTime?>(json['writtenAt']),
+      blockedAt: serializer.fromJson<DateTime>(json['blockedAt']),
+      reportedAt: serializer.fromJson<DateTime>(json['reportedAt']),
+      pendingBehind: serializer.fromJson<int>(json['pendingBehind']),
+      status: serializer.fromJson<String>(json['status']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+      resolution: serializer.fromJson<String?>(json['resolution']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
+      'updatedBy': serializer.toJson<String?>(updatedBy),
+      'originDeviceId': serializer.toJson<String?>(originDeviceId),
+      'changeSeq': serializer.toJson<int?>(changeSeq),
+      'syncState': serializer.toJson<String>(
+        $SyncBlocksTable.$convertersyncState.toJson(syncState),
+      ),
+      'hotelId': serializer.toJson<String>(hotelId),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'authorId': serializer.toJson<String?>(authorId),
+      'reportedBy': serializer.toJson<String?>(reportedBy),
+      'entityTable': serializer.toJson<String>(entityTable),
+      'entityId': serializer.toJson<String>(entityId),
+      'operation': serializer.toJson<String>(operation),
+      'payload': serializer.toJson<String?>(payload),
+      'httpStatus': serializer.toJson<int?>(httpStatus),
+      'reason': serializer.toJson<String?>(reason),
+      'writtenAt': serializer.toJson<DateTime?>(writtenAt),
+      'blockedAt': serializer.toJson<DateTime>(blockedAt),
+      'reportedAt': serializer.toJson<DateTime>(reportedAt),
+      'pendingBehind': serializer.toJson<int>(pendingBehind),
+      'status': serializer.toJson<String>(status),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+      'resolution': serializer.toJson<String?>(resolution),
+    };
+  }
+
+  SyncBlockRow copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> createdBy = const Value.absent(),
+    Value<String?> updatedBy = const Value.absent(),
+    Value<String?> originDeviceId = const Value.absent(),
+    Value<int?> changeSeq = const Value.absent(),
+    SyncState? syncState,
+    String? hotelId,
+    String? deviceId,
+    Value<String?> authorId = const Value.absent(),
+    Value<String?> reportedBy = const Value.absent(),
+    String? entityTable,
+    String? entityId,
+    String? operation,
+    Value<String?> payload = const Value.absent(),
+    Value<int?> httpStatus = const Value.absent(),
+    Value<String?> reason = const Value.absent(),
+    Value<DateTime?> writtenAt = const Value.absent(),
+    DateTime? blockedAt,
+    DateTime? reportedAt,
+    int? pendingBehind,
+    String? status,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+    Value<String?> resolution = const Value.absent(),
+  }) => SyncBlockRow(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdBy: createdBy.present ? createdBy.value : this.createdBy,
+    updatedBy: updatedBy.present ? updatedBy.value : this.updatedBy,
+    originDeviceId: originDeviceId.present
+        ? originDeviceId.value
+        : this.originDeviceId,
+    changeSeq: changeSeq.present ? changeSeq.value : this.changeSeq,
+    syncState: syncState ?? this.syncState,
+    hotelId: hotelId ?? this.hotelId,
+    deviceId: deviceId ?? this.deviceId,
+    authorId: authorId.present ? authorId.value : this.authorId,
+    reportedBy: reportedBy.present ? reportedBy.value : this.reportedBy,
+    entityTable: entityTable ?? this.entityTable,
+    entityId: entityId ?? this.entityId,
+    operation: operation ?? this.operation,
+    payload: payload.present ? payload.value : this.payload,
+    httpStatus: httpStatus.present ? httpStatus.value : this.httpStatus,
+    reason: reason.present ? reason.value : this.reason,
+    writtenAt: writtenAt.present ? writtenAt.value : this.writtenAt,
+    blockedAt: blockedAt ?? this.blockedAt,
+    reportedAt: reportedAt ?? this.reportedAt,
+    pendingBehind: pendingBehind ?? this.pendingBehind,
+    status: status ?? this.status,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+    resolution: resolution.present ? resolution.value : this.resolution,
+  );
+  SyncBlockRow copyWithCompanion(SyncBlocksCompanion data) {
+    return SyncBlockRow(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      updatedBy: data.updatedBy.present ? data.updatedBy.value : this.updatedBy,
+      originDeviceId: data.originDeviceId.present
+          ? data.originDeviceId.value
+          : this.originDeviceId,
+      changeSeq: data.changeSeq.present ? data.changeSeq.value : this.changeSeq,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      hotelId: data.hotelId.present ? data.hotelId.value : this.hotelId,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      reportedBy: data.reportedBy.present
+          ? data.reportedBy.value
+          : this.reportedBy,
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      httpStatus: data.httpStatus.present
+          ? data.httpStatus.value
+          : this.httpStatus,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      writtenAt: data.writtenAt.present ? data.writtenAt.value : this.writtenAt,
+      blockedAt: data.blockedAt.present ? data.blockedAt.value : this.blockedAt,
+      reportedAt: data.reportedAt.present
+          ? data.reportedAt.value
+          : this.reportedAt,
+      pendingBehind: data.pendingBehind.present
+          ? data.pendingBehind.value
+          : this.pendingBehind,
+      status: data.status.present ? data.status.value : this.status,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+      resolution: data.resolution.present
+          ? data.resolution.value
+          : this.resolution,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncBlockRow(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedBy: $updatedBy, ')
+          ..write('originDeviceId: $originDeviceId, ')
+          ..write('changeSeq: $changeSeq, ')
+          ..write('syncState: $syncState, ')
+          ..write('hotelId: $hotelId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('authorId: $authorId, ')
+          ..write('reportedBy: $reportedBy, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('httpStatus: $httpStatus, ')
+          ..write('reason: $reason, ')
+          ..write('writtenAt: $writtenAt, ')
+          ..write('blockedAt: $blockedAt, ')
+          ..write('reportedAt: $reportedAt, ')
+          ..write('pendingBehind: $pendingBehind, ')
+          ..write('status: $status, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('resolution: $resolution')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    createdBy,
+    updatedBy,
+    originDeviceId,
+    changeSeq,
+    syncState,
+    hotelId,
+    deviceId,
+    authorId,
+    reportedBy,
+    entityTable,
+    entityId,
+    operation,
+    payload,
+    httpStatus,
+    reason,
+    writtenAt,
+    blockedAt,
+    reportedAt,
+    pendingBehind,
+    status,
+    resolvedAt,
+    resolution,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncBlockRow &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.createdBy == this.createdBy &&
+          other.updatedBy == this.updatedBy &&
+          other.originDeviceId == this.originDeviceId &&
+          other.changeSeq == this.changeSeq &&
+          other.syncState == this.syncState &&
+          other.hotelId == this.hotelId &&
+          other.deviceId == this.deviceId &&
+          other.authorId == this.authorId &&
+          other.reportedBy == this.reportedBy &&
+          other.entityTable == this.entityTable &&
+          other.entityId == this.entityId &&
+          other.operation == this.operation &&
+          other.payload == this.payload &&
+          other.httpStatus == this.httpStatus &&
+          other.reason == this.reason &&
+          other.writtenAt == this.writtenAt &&
+          other.blockedAt == this.blockedAt &&
+          other.reportedAt == this.reportedAt &&
+          other.pendingBehind == this.pendingBehind &&
+          other.status == this.status &&
+          other.resolvedAt == this.resolvedAt &&
+          other.resolution == this.resolution);
+}
+
+class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> createdBy;
+  final Value<String?> updatedBy;
+  final Value<String?> originDeviceId;
+  final Value<int?> changeSeq;
+  final Value<SyncState> syncState;
+  final Value<String> hotelId;
+  final Value<String> deviceId;
+  final Value<String?> authorId;
+  final Value<String?> reportedBy;
+  final Value<String> entityTable;
+  final Value<String> entityId;
+  final Value<String> operation;
+  final Value<String?> payload;
+  final Value<int?> httpStatus;
+  final Value<String?> reason;
+  final Value<DateTime?> writtenAt;
+  final Value<DateTime> blockedAt;
+  final Value<DateTime> reportedAt;
+  final Value<int> pendingBehind;
+  final Value<String> status;
+  final Value<DateTime?> resolvedAt;
+  final Value<String?> resolution;
+  final Value<int> rowid;
+  const SyncBlocksCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedBy = const Value.absent(),
+    this.originDeviceId = const Value.absent(),
+    this.changeSeq = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.hotelId = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.authorId = const Value.absent(),
+    this.reportedBy = const Value.absent(),
+    this.entityTable = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.httpStatus = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.writtenAt = const Value.absent(),
+    this.blockedAt = const Value.absent(),
+    this.reportedAt = const Value.absent(),
+    this.pendingBehind = const Value.absent(),
+    this.status = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncBlocksCompanion.insert({
+    required String id,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.updatedBy = const Value.absent(),
+    this.originDeviceId = const Value.absent(),
+    this.changeSeq = const Value.absent(),
+    this.syncState = const Value.absent(),
+    required String hotelId,
+    required String deviceId,
+    this.authorId = const Value.absent(),
+    this.reportedBy = const Value.absent(),
+    required String entityTable,
+    required String entityId,
+    required String operation,
+    this.payload = const Value.absent(),
+    this.httpStatus = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.writtenAt = const Value.absent(),
+    required DateTime blockedAt,
+    required DateTime reportedAt,
+    this.pendingBehind = const Value.absent(),
+    this.status = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       hotelId = Value(hotelId),
+       deviceId = Value(deviceId),
+       entityTable = Value(entityTable),
+       entityId = Value(entityId),
+       operation = Value(operation),
+       blockedAt = Value(blockedAt),
+       reportedAt = Value(reportedAt);
+  static Insertable<SyncBlockRow> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? createdBy,
+    Expression<String>? updatedBy,
+    Expression<String>? originDeviceId,
+    Expression<int>? changeSeq,
+    Expression<String>? syncState,
+    Expression<String>? hotelId,
+    Expression<String>? deviceId,
+    Expression<String>? authorId,
+    Expression<String>? reportedBy,
+    Expression<String>? entityTable,
+    Expression<String>? entityId,
+    Expression<String>? operation,
+    Expression<String>? payload,
+    Expression<int>? httpStatus,
+    Expression<String>? reason,
+    Expression<DateTime>? writtenAt,
+    Expression<DateTime>? blockedAt,
+    Expression<DateTime>? reportedAt,
+    Expression<int>? pendingBehind,
+    Expression<String>? status,
+    Expression<DateTime>? resolvedAt,
+    Expression<String>? resolution,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdBy != null) 'created_by': createdBy,
+      if (updatedBy != null) 'updated_by': updatedBy,
+      if (originDeviceId != null) 'origin_device_id': originDeviceId,
+      if (changeSeq != null) 'change_seq': changeSeq,
+      if (syncState != null) 'sync_state': syncState,
+      if (hotelId != null) 'hotel_id': hotelId,
+      if (deviceId != null) 'device_id': deviceId,
+      if (authorId != null) 'author_id': authorId,
+      if (reportedBy != null) 'reported_by': reportedBy,
+      if (entityTable != null) 'entity_table': entityTable,
+      if (entityId != null) 'entity_id': entityId,
+      if (operation != null) 'operation': operation,
+      if (payload != null) 'payload': payload,
+      if (httpStatus != null) 'http_status': httpStatus,
+      if (reason != null) 'reason': reason,
+      if (writtenAt != null) 'written_at': writtenAt,
+      if (blockedAt != null) 'blocked_at': blockedAt,
+      if (reportedAt != null) 'reported_at': reportedAt,
+      if (pendingBehind != null) 'pending_behind': pendingBehind,
+      if (status != null) 'status': status,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (resolution != null) 'resolution': resolution,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncBlocksCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? createdBy,
+    Value<String?>? updatedBy,
+    Value<String?>? originDeviceId,
+    Value<int?>? changeSeq,
+    Value<SyncState>? syncState,
+    Value<String>? hotelId,
+    Value<String>? deviceId,
+    Value<String?>? authorId,
+    Value<String?>? reportedBy,
+    Value<String>? entityTable,
+    Value<String>? entityId,
+    Value<String>? operation,
+    Value<String?>? payload,
+    Value<int?>? httpStatus,
+    Value<String?>? reason,
+    Value<DateTime?>? writtenAt,
+    Value<DateTime>? blockedAt,
+    Value<DateTime>? reportedAt,
+    Value<int>? pendingBehind,
+    Value<String>? status,
+    Value<DateTime?>? resolvedAt,
+    Value<String?>? resolution,
+    Value<int>? rowid,
+  }) {
+    return SyncBlocksCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
+      originDeviceId: originDeviceId ?? this.originDeviceId,
+      changeSeq: changeSeq ?? this.changeSeq,
+      syncState: syncState ?? this.syncState,
+      hotelId: hotelId ?? this.hotelId,
+      deviceId: deviceId ?? this.deviceId,
+      authorId: authorId ?? this.authorId,
+      reportedBy: reportedBy ?? this.reportedBy,
+      entityTable: entityTable ?? this.entityTable,
+      entityId: entityId ?? this.entityId,
+      operation: operation ?? this.operation,
+      payload: payload ?? this.payload,
+      httpStatus: httpStatus ?? this.httpStatus,
+      reason: reason ?? this.reason,
+      writtenAt: writtenAt ?? this.writtenAt,
+      blockedAt: blockedAt ?? this.blockedAt,
+      reportedAt: reportedAt ?? this.reportedAt,
+      pendingBehind: pendingBehind ?? this.pendingBehind,
+      status: status ?? this.status,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      resolution: resolution ?? this.resolution,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (updatedBy.present) {
+      map['updated_by'] = Variable<String>(updatedBy.value);
+    }
+    if (originDeviceId.present) {
+      map['origin_device_id'] = Variable<String>(originDeviceId.value);
+    }
+    if (changeSeq.present) {
+      map['change_seq'] = Variable<int>(changeSeq.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(
+        $SyncBlocksTable.$convertersyncState.toSql(syncState.value),
+      );
+    }
+    if (hotelId.present) {
+      map['hotel_id'] = Variable<String>(hotelId.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
+    }
+    if (reportedBy.present) {
+      map['reported_by'] = Variable<String>(reportedBy.value);
+    }
+    if (entityTable.present) {
+      map['entity_table'] = Variable<String>(entityTable.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (httpStatus.present) {
+      map['http_status'] = Variable<int>(httpStatus.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (writtenAt.present) {
+      map['written_at'] = Variable<DateTime>(writtenAt.value);
+    }
+    if (blockedAt.present) {
+      map['blocked_at'] = Variable<DateTime>(blockedAt.value);
+    }
+    if (reportedAt.present) {
+      map['reported_at'] = Variable<DateTime>(reportedAt.value);
+    }
+    if (pendingBehind.present) {
+      map['pending_behind'] = Variable<int>(pendingBehind.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (resolution.present) {
+      map['resolution'] = Variable<String>(resolution.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncBlocksCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('updatedBy: $updatedBy, ')
+          ..write('originDeviceId: $originDeviceId, ')
+          ..write('changeSeq: $changeSeq, ')
+          ..write('syncState: $syncState, ')
+          ..write('hotelId: $hotelId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('authorId: $authorId, ')
+          ..write('reportedBy: $reportedBy, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('httpStatus: $httpStatus, ')
+          ..write('reason: $reason, ')
+          ..write('writtenAt: $writtenAt, ')
+          ..write('blockedAt: $blockedAt, ')
+          ..write('reportedAt: $reportedAt, ')
+          ..write('pendingBehind: $pendingBehind, ')
+          ..write('status: $status, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('resolution: $resolution, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OutboxEntriesTable extends OutboxEntries
     with TableInfo<$OutboxEntriesTable, OutboxEntryRow> {
   @override
@@ -70407,6 +71840,550 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
   }
 }
 
+class $BlockReportsTable extends BlockReports
+    with TableInfo<$BlockReportsTable, BlockReportRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BlockReportsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 36,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outboxEntryIdMeta = const VerificationMeta(
+    'outboxEntryId',
+  );
+  @override
+  late final GeneratedColumn<int> outboxEntryId = GeneratedColumn<int>(
+    'outbox_entry_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _blockedAtMeta = const VerificationMeta(
+    'blockedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> blockedAt = GeneratedColumn<DateTime>(
+    'blocked_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pendingBehindMeta = const VerificationMeta(
+    'pendingBehind',
+  );
+  @override
+  late final GeneratedColumn<int> pendingBehind = GeneratedColumn<int>(
+    'pending_behind',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _aEnvoyerMeta = const VerificationMeta(
+    'aEnvoyer',
+  );
+  @override
+  late final GeneratedColumn<bool> aEnvoyer = GeneratedColumn<bool>(
+    'a_envoyer',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("a_envoyer" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _reportedAtMeta = const VerificationMeta(
+    'reportedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reportedAt = GeneratedColumn<DateTime>(
+    'reported_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resolutionMeta = const VerificationMeta(
+    'resolution',
+  );
+  @override
+  late final GeneratedColumn<String> resolution = GeneratedColumn<String>(
+    'resolution',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 16),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    outboxEntryId,
+    blockedAt,
+    pendingBehind,
+    aEnvoyer,
+    reportedAt,
+    resolution,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'block_reports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BlockReportRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('outbox_entry_id')) {
+      context.handle(
+        _outboxEntryIdMeta,
+        outboxEntryId.isAcceptableOrUnknown(
+          data['outbox_entry_id']!,
+          _outboxEntryIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_outboxEntryIdMeta);
+    }
+    if (data.containsKey('blocked_at')) {
+      context.handle(
+        _blockedAtMeta,
+        blockedAt.isAcceptableOrUnknown(data['blocked_at']!, _blockedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_blockedAtMeta);
+    }
+    if (data.containsKey('pending_behind')) {
+      context.handle(
+        _pendingBehindMeta,
+        pendingBehind.isAcceptableOrUnknown(
+          data['pending_behind']!,
+          _pendingBehindMeta,
+        ),
+      );
+    }
+    if (data.containsKey('a_envoyer')) {
+      context.handle(
+        _aEnvoyerMeta,
+        aEnvoyer.isAcceptableOrUnknown(data['a_envoyer']!, _aEnvoyerMeta),
+      );
+    }
+    if (data.containsKey('reported_at')) {
+      context.handle(
+        _reportedAtMeta,
+        reportedAt.isAcceptableOrUnknown(data['reported_at']!, _reportedAtMeta),
+      );
+    }
+    if (data.containsKey('resolution')) {
+      context.handle(
+        _resolutionMeta,
+        resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
+      );
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BlockReportRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BlockReportRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      outboxEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}outbox_entry_id'],
+      )!,
+      blockedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}blocked_at'],
+      )!,
+      pendingBehind: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pending_behind'],
+      )!,
+      aEnvoyer: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}a_envoyer'],
+      )!,
+      reportedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reported_at'],
+      ),
+      resolution: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resolution'],
+      ),
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+    );
+  }
+
+  @override
+  $BlockReportsTable createAlias(String alias) {
+    return $BlockReportsTable(attachedDatabase, alias);
+  }
+}
+
+class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
+  /// L'id du rapport sur le serveur, tire ici : un renvoi ne fait pas
+  /// doublon.
+  final String id;
+  final int outboxEntryId;
+  final DateTime blockedAt;
+  final int pendingBehind;
+
+  /// Le rapport a change depuis son dernier envoi (ou n'est jamais parti).
+  final bool aEnvoyer;
+
+  /// Le dernier envoi reussi ; nul tant que le serveur n'en sait rien.
+  final DateTime? reportedAt;
+
+  /// Le blocage est leve : `SENT` ou `REMOVED`. Reste a le dire au serveur.
+  final String? resolution;
+  final DateTime? resolvedAt;
+  const BlockReportRow({
+    required this.id,
+    required this.outboxEntryId,
+    required this.blockedAt,
+    required this.pendingBehind,
+    required this.aEnvoyer,
+    this.reportedAt,
+    this.resolution,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['outbox_entry_id'] = Variable<int>(outboxEntryId);
+    map['blocked_at'] = Variable<DateTime>(blockedAt);
+    map['pending_behind'] = Variable<int>(pendingBehind);
+    map['a_envoyer'] = Variable<bool>(aEnvoyer);
+    if (!nullToAbsent || reportedAt != null) {
+      map['reported_at'] = Variable<DateTime>(reportedAt);
+    }
+    if (!nullToAbsent || resolution != null) {
+      map['resolution'] = Variable<String>(resolution);
+    }
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    return map;
+  }
+
+  BlockReportsCompanion toCompanion(bool nullToAbsent) {
+    return BlockReportsCompanion(
+      id: Value(id),
+      outboxEntryId: Value(outboxEntryId),
+      blockedAt: Value(blockedAt),
+      pendingBehind: Value(pendingBehind),
+      aEnvoyer: Value(aEnvoyer),
+      reportedAt: reportedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reportedAt),
+      resolution: resolution == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolution),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+    );
+  }
+
+  factory BlockReportRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BlockReportRow(
+      id: serializer.fromJson<String>(json['id']),
+      outboxEntryId: serializer.fromJson<int>(json['outboxEntryId']),
+      blockedAt: serializer.fromJson<DateTime>(json['blockedAt']),
+      pendingBehind: serializer.fromJson<int>(json['pendingBehind']),
+      aEnvoyer: serializer.fromJson<bool>(json['aEnvoyer']),
+      reportedAt: serializer.fromJson<DateTime?>(json['reportedAt']),
+      resolution: serializer.fromJson<String?>(json['resolution']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'outboxEntryId': serializer.toJson<int>(outboxEntryId),
+      'blockedAt': serializer.toJson<DateTime>(blockedAt),
+      'pendingBehind': serializer.toJson<int>(pendingBehind),
+      'aEnvoyer': serializer.toJson<bool>(aEnvoyer),
+      'reportedAt': serializer.toJson<DateTime?>(reportedAt),
+      'resolution': serializer.toJson<String?>(resolution),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+    };
+  }
+
+  BlockReportRow copyWith({
+    String? id,
+    int? outboxEntryId,
+    DateTime? blockedAt,
+    int? pendingBehind,
+    bool? aEnvoyer,
+    Value<DateTime?> reportedAt = const Value.absent(),
+    Value<String?> resolution = const Value.absent(),
+    Value<DateTime?> resolvedAt = const Value.absent(),
+  }) => BlockReportRow(
+    id: id ?? this.id,
+    outboxEntryId: outboxEntryId ?? this.outboxEntryId,
+    blockedAt: blockedAt ?? this.blockedAt,
+    pendingBehind: pendingBehind ?? this.pendingBehind,
+    aEnvoyer: aEnvoyer ?? this.aEnvoyer,
+    reportedAt: reportedAt.present ? reportedAt.value : this.reportedAt,
+    resolution: resolution.present ? resolution.value : this.resolution,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  BlockReportRow copyWithCompanion(BlockReportsCompanion data) {
+    return BlockReportRow(
+      id: data.id.present ? data.id.value : this.id,
+      outboxEntryId: data.outboxEntryId.present
+          ? data.outboxEntryId.value
+          : this.outboxEntryId,
+      blockedAt: data.blockedAt.present ? data.blockedAt.value : this.blockedAt,
+      pendingBehind: data.pendingBehind.present
+          ? data.pendingBehind.value
+          : this.pendingBehind,
+      aEnvoyer: data.aEnvoyer.present ? data.aEnvoyer.value : this.aEnvoyer,
+      reportedAt: data.reportedAt.present
+          ? data.reportedAt.value
+          : this.reportedAt,
+      resolution: data.resolution.present
+          ? data.resolution.value
+          : this.resolution,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlockReportRow(')
+          ..write('id: $id, ')
+          ..write('outboxEntryId: $outboxEntryId, ')
+          ..write('blockedAt: $blockedAt, ')
+          ..write('pendingBehind: $pendingBehind, ')
+          ..write('aEnvoyer: $aEnvoyer, ')
+          ..write('reportedAt: $reportedAt, ')
+          ..write('resolution: $resolution, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    outboxEntryId,
+    blockedAt,
+    pendingBehind,
+    aEnvoyer,
+    reportedAt,
+    resolution,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BlockReportRow &&
+          other.id == this.id &&
+          other.outboxEntryId == this.outboxEntryId &&
+          other.blockedAt == this.blockedAt &&
+          other.pendingBehind == this.pendingBehind &&
+          other.aEnvoyer == this.aEnvoyer &&
+          other.reportedAt == this.reportedAt &&
+          other.resolution == this.resolution &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
+  final Value<String> id;
+  final Value<int> outboxEntryId;
+  final Value<DateTime> blockedAt;
+  final Value<int> pendingBehind;
+  final Value<bool> aEnvoyer;
+  final Value<DateTime?> reportedAt;
+  final Value<String?> resolution;
+  final Value<DateTime?> resolvedAt;
+  final Value<int> rowid;
+  const BlockReportsCompanion({
+    this.id = const Value.absent(),
+    this.outboxEntryId = const Value.absent(),
+    this.blockedAt = const Value.absent(),
+    this.pendingBehind = const Value.absent(),
+    this.aEnvoyer = const Value.absent(),
+    this.reportedAt = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BlockReportsCompanion.insert({
+    required String id,
+    required int outboxEntryId,
+    required DateTime blockedAt,
+    this.pendingBehind = const Value.absent(),
+    this.aEnvoyer = const Value.absent(),
+    this.reportedAt = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       outboxEntryId = Value(outboxEntryId),
+       blockedAt = Value(blockedAt);
+  static Insertable<BlockReportRow> custom({
+    Expression<String>? id,
+    Expression<int>? outboxEntryId,
+    Expression<DateTime>? blockedAt,
+    Expression<int>? pendingBehind,
+    Expression<bool>? aEnvoyer,
+    Expression<DateTime>? reportedAt,
+    Expression<String>? resolution,
+    Expression<DateTime>? resolvedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (outboxEntryId != null) 'outbox_entry_id': outboxEntryId,
+      if (blockedAt != null) 'blocked_at': blockedAt,
+      if (pendingBehind != null) 'pending_behind': pendingBehind,
+      if (aEnvoyer != null) 'a_envoyer': aEnvoyer,
+      if (reportedAt != null) 'reported_at': reportedAt,
+      if (resolution != null) 'resolution': resolution,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BlockReportsCompanion copyWith({
+    Value<String>? id,
+    Value<int>? outboxEntryId,
+    Value<DateTime>? blockedAt,
+    Value<int>? pendingBehind,
+    Value<bool>? aEnvoyer,
+    Value<DateTime?>? reportedAt,
+    Value<String?>? resolution,
+    Value<DateTime?>? resolvedAt,
+    Value<int>? rowid,
+  }) {
+    return BlockReportsCompanion(
+      id: id ?? this.id,
+      outboxEntryId: outboxEntryId ?? this.outboxEntryId,
+      blockedAt: blockedAt ?? this.blockedAt,
+      pendingBehind: pendingBehind ?? this.pendingBehind,
+      aEnvoyer: aEnvoyer ?? this.aEnvoyer,
+      reportedAt: reportedAt ?? this.reportedAt,
+      resolution: resolution ?? this.resolution,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (outboxEntryId.present) {
+      map['outbox_entry_id'] = Variable<int>(outboxEntryId.value);
+    }
+    if (blockedAt.present) {
+      map['blocked_at'] = Variable<DateTime>(blockedAt.value);
+    }
+    if (pendingBehind.present) {
+      map['pending_behind'] = Variable<int>(pendingBehind.value);
+    }
+    if (aEnvoyer.present) {
+      map['a_envoyer'] = Variable<bool>(aEnvoyer.value);
+    }
+    if (reportedAt.present) {
+      map['reported_at'] = Variable<DateTime>(reportedAt.value);
+    }
+    if (resolution.present) {
+      map['resolution'] = Variable<String>(resolution.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlockReportsCompanion(')
+          ..write('id: $id, ')
+          ..write('outboxEntryId: $outboxEntryId, ')
+          ..write('blockedAt: $blockedAt, ')
+          ..write('pendingBehind: $pendingBehind, ')
+          ..write('aEnvoyer: $aEnvoyer, ')
+          ..write('reportedAt: $reportedAt, ')
+          ..write('resolution: $resolution, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AtriumDatabase extends GeneratedDatabase {
   _$AtriumDatabase(QueryExecutor e) : super(e);
   $AtriumDatabaseManager get managers => $AtriumDatabaseManager(this);
@@ -70490,10 +72467,12 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
   late final $SettingsTable settings = $SettingsTable(this);
   late final $BusinessDaysTable businessDays = $BusinessDaysTable(this);
   late final $NotificationsTable notifications = $NotificationsTable(this);
+  late final $SyncBlocksTable syncBlocks = $SyncBlocksTable(this);
   late final $OutboxEntriesTable outboxEntries = $OutboxEntriesTable(this);
   late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final $SyncStatusesTable syncStatuses = $SyncStatusesTable(this);
   late final $FileUploadsTable fileUploads = $FileUploadsTable(this);
+  late final $BlockReportsTable blockReports = $BlockReportsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -70561,10 +72540,12 @@ abstract class _$AtriumDatabase extends GeneratedDatabase {
     settings,
     businessDays,
     notifications,
+    syncBlocks,
     outboxEntries,
     syncCursors,
     syncStatuses,
     fileUploads,
+    blockReports,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -104863,6 +106844,622 @@ typedef $$NotificationsTableProcessedTableManager =
       NotificationRow,
       PrefetchHooks Function()
     >;
+typedef $$SyncBlocksTableCreateCompanionBuilder =
+    SyncBlocksCompanion Function({
+      required String id,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> createdBy,
+      Value<String?> updatedBy,
+      Value<String?> originDeviceId,
+      Value<int?> changeSeq,
+      Value<SyncState> syncState,
+      required String hotelId,
+      required String deviceId,
+      Value<String?> authorId,
+      Value<String?> reportedBy,
+      required String entityTable,
+      required String entityId,
+      required String operation,
+      Value<String?> payload,
+      Value<int?> httpStatus,
+      Value<String?> reason,
+      Value<DateTime?> writtenAt,
+      required DateTime blockedAt,
+      required DateTime reportedAt,
+      Value<int> pendingBehind,
+      Value<String> status,
+      Value<DateTime?> resolvedAt,
+      Value<String?> resolution,
+      Value<int> rowid,
+    });
+typedef $$SyncBlocksTableUpdateCompanionBuilder =
+    SyncBlocksCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> createdBy,
+      Value<String?> updatedBy,
+      Value<String?> originDeviceId,
+      Value<int?> changeSeq,
+      Value<SyncState> syncState,
+      Value<String> hotelId,
+      Value<String> deviceId,
+      Value<String?> authorId,
+      Value<String?> reportedBy,
+      Value<String> entityTable,
+      Value<String> entityId,
+      Value<String> operation,
+      Value<String?> payload,
+      Value<int?> httpStatus,
+      Value<String?> reason,
+      Value<DateTime?> writtenAt,
+      Value<DateTime> blockedAt,
+      Value<DateTime> reportedAt,
+      Value<int> pendingBehind,
+      Value<String> status,
+      Value<DateTime?> resolvedAt,
+      Value<String?> resolution,
+      Value<int> rowid,
+    });
+
+class $$SyncBlocksTableFilterComposer
+    extends Composer<_$AtriumDatabase, $SyncBlocksTable> {
+  $$SyncBlocksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedBy => $composableBuilder(
+    column: $table.updatedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get changeSeq => $composableBuilder(
+    column: $table.changeSeq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SyncState, SyncState, String> get syncState =>
+      $composableBuilder(
+        column: $table.syncState,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get hotelId => $composableBuilder(
+    column: $table.hotelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reportedBy => $composableBuilder(
+    column: $table.reportedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get httpStatus => $composableBuilder(
+    column: $table.httpStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get writtenAt => $composableBuilder(
+    column: $table.writtenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get blockedAt => $composableBuilder(
+    column: $table.blockedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncBlocksTableOrderingComposer
+    extends Composer<_$AtriumDatabase, $SyncBlocksTable> {
+  $$SyncBlocksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedBy => $composableBuilder(
+    column: $table.updatedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get changeSeq => $composableBuilder(
+    column: $table.changeSeq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hotelId => $composableBuilder(
+    column: $table.hotelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reportedBy => $composableBuilder(
+    column: $table.reportedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get httpStatus => $composableBuilder(
+    column: $table.httpStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get writtenAt => $composableBuilder(
+    column: $table.writtenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get blockedAt => $composableBuilder(
+    column: $table.blockedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncBlocksTableAnnotationComposer
+    extends Composer<_$AtriumDatabase, $SyncBlocksTable> {
+  $$SyncBlocksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedBy =>
+      $composableBuilder(column: $table.updatedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get originDeviceId => $composableBuilder(
+    column: $table.originDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get changeSeq =>
+      $composableBuilder(column: $table.changeSeq, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<SyncState, String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<String> get hotelId =>
+      $composableBuilder(column: $table.hotelId, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get reportedBy => $composableBuilder(
+    column: $table.reportedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<int> get httpStatus => $composableBuilder(
+    column: $table.httpStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get writtenAt =>
+      $composableBuilder(column: $table.writtenAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get blockedAt =>
+      $composableBuilder(column: $table.blockedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncBlocksTableTableManager
+    extends
+        RootTableManager<
+          _$AtriumDatabase,
+          $SyncBlocksTable,
+          SyncBlockRow,
+          $$SyncBlocksTableFilterComposer,
+          $$SyncBlocksTableOrderingComposer,
+          $$SyncBlocksTableAnnotationComposer,
+          $$SyncBlocksTableCreateCompanionBuilder,
+          $$SyncBlocksTableUpdateCompanionBuilder,
+          (
+            SyncBlockRow,
+            BaseReferences<_$AtriumDatabase, $SyncBlocksTable, SyncBlockRow>,
+          ),
+          SyncBlockRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncBlocksTableTableManager(_$AtriumDatabase db, $SyncBlocksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncBlocksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncBlocksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncBlocksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<String?> updatedBy = const Value.absent(),
+                Value<String?> originDeviceId = const Value.absent(),
+                Value<int?> changeSeq = const Value.absent(),
+                Value<SyncState> syncState = const Value.absent(),
+                Value<String> hotelId = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
+                Value<String?> reportedBy = const Value.absent(),
+                Value<String> entityTable = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> operation = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
+                Value<int?> httpStatus = const Value.absent(),
+                Value<String?> reason = const Value.absent(),
+                Value<DateTime?> writtenAt = const Value.absent(),
+                Value<DateTime> blockedAt = const Value.absent(),
+                Value<DateTime> reportedAt = const Value.absent(),
+                Value<int> pendingBehind = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncBlocksCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                createdBy: createdBy,
+                updatedBy: updatedBy,
+                originDeviceId: originDeviceId,
+                changeSeq: changeSeq,
+                syncState: syncState,
+                hotelId: hotelId,
+                deviceId: deviceId,
+                authorId: authorId,
+                reportedBy: reportedBy,
+                entityTable: entityTable,
+                entityId: entityId,
+                operation: operation,
+                payload: payload,
+                httpStatus: httpStatus,
+                reason: reason,
+                writtenAt: writtenAt,
+                blockedAt: blockedAt,
+                reportedAt: reportedAt,
+                pendingBehind: pendingBehind,
+                status: status,
+                resolvedAt: resolvedAt,
+                resolution: resolution,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<String?> updatedBy = const Value.absent(),
+                Value<String?> originDeviceId = const Value.absent(),
+                Value<int?> changeSeq = const Value.absent(),
+                Value<SyncState> syncState = const Value.absent(),
+                required String hotelId,
+                required String deviceId,
+                Value<String?> authorId = const Value.absent(),
+                Value<String?> reportedBy = const Value.absent(),
+                required String entityTable,
+                required String entityId,
+                required String operation,
+                Value<String?> payload = const Value.absent(),
+                Value<int?> httpStatus = const Value.absent(),
+                Value<String?> reason = const Value.absent(),
+                Value<DateTime?> writtenAt = const Value.absent(),
+                required DateTime blockedAt,
+                required DateTime reportedAt,
+                Value<int> pendingBehind = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncBlocksCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                createdBy: createdBy,
+                updatedBy: updatedBy,
+                originDeviceId: originDeviceId,
+                changeSeq: changeSeq,
+                syncState: syncState,
+                hotelId: hotelId,
+                deviceId: deviceId,
+                authorId: authorId,
+                reportedBy: reportedBy,
+                entityTable: entityTable,
+                entityId: entityId,
+                operation: operation,
+                payload: payload,
+                httpStatus: httpStatus,
+                reason: reason,
+                writtenAt: writtenAt,
+                blockedAt: blockedAt,
+                reportedAt: reportedAt,
+                pendingBehind: pendingBehind,
+                status: status,
+                resolvedAt: resolvedAt,
+                resolution: resolution,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncBlocksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtriumDatabase,
+      $SyncBlocksTable,
+      SyncBlockRow,
+      $$SyncBlocksTableFilterComposer,
+      $$SyncBlocksTableOrderingComposer,
+      $$SyncBlocksTableAnnotationComposer,
+      $$SyncBlocksTableCreateCompanionBuilder,
+      $$SyncBlocksTableUpdateCompanionBuilder,
+      (
+        SyncBlockRow,
+        BaseReferences<_$AtriumDatabase, $SyncBlocksTable, SyncBlockRow>,
+      ),
+      SyncBlockRow,
+      PrefetchHooks Function()
+    >;
 typedef $$OutboxEntriesTableCreateCompanionBuilder =
     OutboxEntriesCompanion Function({
       Value<int> id,
@@ -105917,6 +108514,277 @@ typedef $$FileUploadsTableProcessedTableManager =
       FileUploadRow,
       PrefetchHooks Function()
     >;
+typedef $$BlockReportsTableCreateCompanionBuilder =
+    BlockReportsCompanion Function({
+      required String id,
+      required int outboxEntryId,
+      required DateTime blockedAt,
+      Value<int> pendingBehind,
+      Value<bool> aEnvoyer,
+      Value<DateTime?> reportedAt,
+      Value<String?> resolution,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+typedef $$BlockReportsTableUpdateCompanionBuilder =
+    BlockReportsCompanion Function({
+      Value<String> id,
+      Value<int> outboxEntryId,
+      Value<DateTime> blockedAt,
+      Value<int> pendingBehind,
+      Value<bool> aEnvoyer,
+      Value<DateTime?> reportedAt,
+      Value<String?> resolution,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+
+class $$BlockReportsTableFilterComposer
+    extends Composer<_$AtriumDatabase, $BlockReportsTable> {
+  $$BlockReportsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get outboxEntryId => $composableBuilder(
+    column: $table.outboxEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get blockedAt => $composableBuilder(
+    column: $table.blockedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get aEnvoyer => $composableBuilder(
+    column: $table.aEnvoyer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BlockReportsTableOrderingComposer
+    extends Composer<_$AtriumDatabase, $BlockReportsTable> {
+  $$BlockReportsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get outboxEntryId => $composableBuilder(
+    column: $table.outboxEntryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get blockedAt => $composableBuilder(
+    column: $table.blockedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get aEnvoyer => $composableBuilder(
+    column: $table.aEnvoyer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BlockReportsTableAnnotationComposer
+    extends Composer<_$AtriumDatabase, $BlockReportsTable> {
+  $$BlockReportsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get outboxEntryId => $composableBuilder(
+    column: $table.outboxEntryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get blockedAt =>
+      $composableBuilder(column: $table.blockedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get pendingBehind => $composableBuilder(
+    column: $table.pendingBehind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get aEnvoyer =>
+      $composableBuilder(column: $table.aEnvoyer, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get reportedAt => $composableBuilder(
+    column: $table.reportedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$BlockReportsTableTableManager
+    extends
+        RootTableManager<
+          _$AtriumDatabase,
+          $BlockReportsTable,
+          BlockReportRow,
+          $$BlockReportsTableFilterComposer,
+          $$BlockReportsTableOrderingComposer,
+          $$BlockReportsTableAnnotationComposer,
+          $$BlockReportsTableCreateCompanionBuilder,
+          $$BlockReportsTableUpdateCompanionBuilder,
+          (
+            BlockReportRow,
+            BaseReferences<
+              _$AtriumDatabase,
+              $BlockReportsTable,
+              BlockReportRow
+            >,
+          ),
+          BlockReportRow,
+          PrefetchHooks Function()
+        > {
+  $$BlockReportsTableTableManager(_$AtriumDatabase db, $BlockReportsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BlockReportsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BlockReportsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BlockReportsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> outboxEntryId = const Value.absent(),
+                Value<DateTime> blockedAt = const Value.absent(),
+                Value<int> pendingBehind = const Value.absent(),
+                Value<bool> aEnvoyer = const Value.absent(),
+                Value<DateTime?> reportedAt = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BlockReportsCompanion(
+                id: id,
+                outboxEntryId: outboxEntryId,
+                blockedAt: blockedAt,
+                pendingBehind: pendingBehind,
+                aEnvoyer: aEnvoyer,
+                reportedAt: reportedAt,
+                resolution: resolution,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int outboxEntryId,
+                required DateTime blockedAt,
+                Value<int> pendingBehind = const Value.absent(),
+                Value<bool> aEnvoyer = const Value.absent(),
+                Value<DateTime?> reportedAt = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BlockReportsCompanion.insert(
+                id: id,
+                outboxEntryId: outboxEntryId,
+                blockedAt: blockedAt,
+                pendingBehind: pendingBehind,
+                aEnvoyer: aEnvoyer,
+                reportedAt: reportedAt,
+                resolution: resolution,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BlockReportsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtriumDatabase,
+      $BlockReportsTable,
+      BlockReportRow,
+      $$BlockReportsTableFilterComposer,
+      $$BlockReportsTableOrderingComposer,
+      $$BlockReportsTableAnnotationComposer,
+      $$BlockReportsTableCreateCompanionBuilder,
+      $$BlockReportsTableUpdateCompanionBuilder,
+      (
+        BlockReportRow,
+        BaseReferences<_$AtriumDatabase, $BlockReportsTable, BlockReportRow>,
+      ),
+      BlockReportRow,
+      PrefetchHooks Function()
+    >;
 
 class $AtriumDatabaseManager {
   final _$AtriumDatabase _db;
@@ -106048,6 +108916,8 @@ class $AtriumDatabaseManager {
       $$BusinessDaysTableTableManager(_db, _db.businessDays);
   $$NotificationsTableTableManager get notifications =>
       $$NotificationsTableTableManager(_db, _db.notifications);
+  $$SyncBlocksTableTableManager get syncBlocks =>
+      $$SyncBlocksTableTableManager(_db, _db.syncBlocks);
   $$OutboxEntriesTableTableManager get outboxEntries =>
       $$OutboxEntriesTableTableManager(_db, _db.outboxEntries);
   $$SyncCursorsTableTableManager get syncCursors =>
@@ -106056,4 +108926,6 @@ class $AtriumDatabaseManager {
       $$SyncStatusesTableTableManager(_db, _db.syncStatuses);
   $$FileUploadsTableTableManager get fileUploads =>
       $$FileUploadsTableTableManager(_db, _db.fileUploads);
+  $$BlockReportsTableTableManager get blockReports =>
+      $$BlockReportsTableTableManager(_db, _db.blockReports);
 }

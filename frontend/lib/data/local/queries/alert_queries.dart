@@ -98,6 +98,18 @@ enum TypeEvenement {
     'Les agents du point de vente qui reçoit la commande',
     NiveauSignal.sonoreVibration,
     Sonnerie.quiMonte,
+  ),
+  // La file bloquee d'une autre tablette : elle ne se voyait que sur la
+  // tablette elle-meme, ou personne ne la remarquait parfois d'une
+  // demi-journee.
+  tabletteBloquee(
+    'SYNC_BLOCKED_REMOTE',
+    'Tablette bloquée',
+    'Le serveur refuse une saisie d’une autre tablette : plus rien n’en '
+        'remonte.',
+    'L’administration et la direction',
+    NiveauSignal.sonore,
+    Sonnerie.aiguLeger,
   );
 
   const TypeEvenement(
@@ -135,6 +147,7 @@ enum TypeEvenement {
     transfertAValider => c.peut('stock.transfer.approve'),
     stockBas => c.peut('stock.read'),
     commandeChambre => c.peut('order.manage'),
+    tabletteBloquee => c.peut('sync.monitor'),
   };
 
   static TypeEvenement? depuisCode(String code) {
@@ -296,6 +309,8 @@ extension AlertQueries on AtriumDatabase {
       stockMovements,
       products,
       orders,
+      syncBlocks,
+      devices,
     ]),
   );
 
@@ -311,6 +326,8 @@ extension AlertQueries on AtriumDatabase {
       if (TypeEvenement.stockBas.concerne(c)) ...await _stockBas(),
       if (TypeEvenement.commandeChambre.concerne(c))
         ...await _commandesChambre(c),
+      if (TypeEvenement.tabletteBloquee.concerne(c))
+        ...await _tablettesBloquees(),
     ];
     alertes.sort((a, b) {
       final n = b.niveau.index.compareTo(a.niveau.index);
@@ -350,6 +367,49 @@ extension AlertQueries on AtriumDatabase {
             'ne remonte tant que ce refus n’est pas réglé.',
         depuis: l.readNullable<DateTime>('moment'),
       ),
+    ];
+  }
+
+  /// Les autres tablettes dont la file est bloquee. Celle-ci a deja son
+  /// alerte ([_envoiBloque]) : la sienne ne sonne pas deux fois.
+  Future<List<Alerte>> _tablettesBloquees() async {
+    final lignes = await customSelect(
+      '''
+      SELECT b.id AS id, b.reason AS raison, b.pending_behind AS derriere,
+             b.blocked_at AS moment, d.name AS tablette,
+             u.employee_code AS auteur
+        FROM sync_blocks b
+        LEFT JOIN devices d ON d.id = b.device_id
+        LEFT JOIN users u   ON u.id = b.author_id
+       WHERE b.status = 'OPEN'
+         AND b.deleted_at IS NULL
+         AND b.device_id IS NOT
+             (SELECT device_id FROM sync_statuses WHERE id = 1)
+      ''',
+      readsFrom: {syncBlocks, devices, users, syncStatuses},
+    ).get();
+    return [
+      for (final l in lignes)
+        Alerte(
+          cle: 'tablette-${l.read<String>('id')}',
+          type: TypeEvenement.tabletteBloquee,
+          niveau: NiveauAlerte.urgente,
+          titre: 'Tablette bloquée : '
+              '${l.readNullable<String>('tablette') ?? 'tablette inconnue'}',
+          corps: [
+            l.readNullable<String>('raison')?.trim().ifEmpty('Refus sans motif') ??
+                'Refus sans motif',
+            if (l.readNullable<String>('auteur') case final a?)
+              'saisie de $a',
+            switch (l.read<int>('derriere')) {
+              0 => 'rien n’attend derrière',
+              1 => '1 saisie attend derrière',
+              final n => '$n saisies attendent derrière',
+            },
+          ].join(' · '),
+          route: '/tablettes',
+          depuis: l.readNullable<DateTime>('moment'),
+        ),
     ];
   }
 

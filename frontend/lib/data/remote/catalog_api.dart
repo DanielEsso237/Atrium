@@ -1496,6 +1496,18 @@ class CatalogApi {
       if (u is Map<String, dynamic>) u,
   ];
 
+  /// Les tablettes de l'hotel, et les blocages de leur file d'envoi
+  /// (`sync.monitor`).
+  Future<List<Map<String, dynamic>>> fetchDevices() async => [
+    for (final d in await _client.getList('/devices'))
+      if (d is Map<String, dynamic>) d,
+  ];
+
+  Future<List<Map<String, dynamic>>> fetchSyncBlocks() async => [
+    for (final b in await _client.getList('/sync-blocks'))
+      if (b is Map<String, dynamic>) b,
+  ];
+
   /// Les roles avec leurs permissions, et le catalogue des permissions.
   /// Reserves a `users.read`, comme la liste des agents.
   Future<List<Map<String, dynamic>>> fetchRoles() async => [

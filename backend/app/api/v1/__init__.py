@@ -12,6 +12,7 @@ from app.api.v1.billing import router as billing_router
 from app.api.v1.cash_sessions import router as cash_sessions_router
 from app.api.v1.chargeable_stays import router as chargeable_stays_router
 from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.devices import router as devices_router
 from app.api.v1.guests import router as guests_router
 from app.api.v1.hotel import router as hotel_router
 from app.api.v1.housekeeping import router as housekeeping_router
@@ -44,6 +45,7 @@ router.include_router(billing_router)
 router.include_router(cash_sessions_router)
 router.include_router(chargeable_stays_router)
 router.include_router(dashboard_router)
+router.include_router(devices_router)
 router.include_router(guests_router)
 router.include_router(hotel_router)
 router.include_router(expenses_router)

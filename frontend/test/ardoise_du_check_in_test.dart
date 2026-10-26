@@ -212,6 +212,9 @@ void main() {
     final enAttente = (await FolioRepository(
       base,
     ).openFolioForStay(ligne.id))!;
+    // Ce qu'une base au schema 16 n'avait pas encore (schema 18).
+    await base.customStatement('DROP TABLE sync_blocks');
+    await base.customStatement('DROP TABLE block_reports');
     await base.customStatement('PRAGMA user_version = 16');
     await base.close();
 

@@ -131,6 +131,7 @@ class SyncNotifier extends Notifier<SyncUiState> {
     DrainReport rapport;
     try {
       rapport = await ref.read(outboxSenderProvider).drain();
+      await ref.read(signalementBlocagesProvider).apresPassage();
     } catch (e, pile) {
       debugPrint('Atrium : la remontee a echoue : $e\n$pile');
       rapport = DrainReport(
@@ -180,6 +181,9 @@ class SyncNotifier extends Notifier<SyncUiState> {
       // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
       // tablette sait avant qu'il ne lui reponde.
       rapport = await ref.read(outboxSenderProvider).drain();
+      // Un blocage, ou sa levee, se dit aux autres postes avant la descente :
+      // c'est elle qui leur rapporte ce que les autres tablettes ont dit.
+      await ref.read(signalementBlocagesProvider).apresPassage();
 
       // Le referentiel d'abord : les reservations s'accrochent aux
       // categories de chambres, et une categorie absente ferait ecarter la

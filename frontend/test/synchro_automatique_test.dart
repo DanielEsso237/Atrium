@@ -32,6 +32,9 @@ class _ApiMuette extends ApiClient {
     Object? body,
     Map<String, dynamic>? query,
   }) async => {};
+
+  @override
+  Future<Map<String, dynamic>> put(String path, {Object? body}) async => {};
 }
 
 /// Un serveur dont on regle la reponse a `/sync/changes`, curseur par

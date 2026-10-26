@@ -109,6 +109,7 @@ _PERMISSIONS_NEEDED = [
     "folio.override_limit",
     "hotel.write",
     "accounting.read",
+    "sync.monitor",
     "expense.write",
     "stock.inventory", "stock.rebalance",
     "operations.undo",
