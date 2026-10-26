@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from app.api.v1.devices import sans_secrets
 from app.core.security import hash_secret
-from app.models import Device, Permission, Role, RolePermission, SyncBlock, User, UserRole
+from app.models import AuditLog, Device, Permission, Role, RolePermission, SyncBlock, User, UserRole
 
 pytestmark = pytest.mark.db
 
@@ -237,3 +237,158 @@ async def test_la_tablette_se_presente_sans_perdre_son_nom(client, session, hote
 
     liste = (await client.get("/api/v1/devices", headers=_h(token))).json()
     assert [d["name"] for d in liste] == ["Reception 1"]
+
+
+# --- Correction 6 : abandonner l'ecriture d'un autre poste (migration 0035) ---
+
+
+async def test_abandonner_a_distance(client, session, hotel_a, login):
+    """Le responsable decide, la tablette bloquee lit la decision, puis leve."""
+    hotel, _ = hotel_a
+    await _agent(session, hotel, "MENAGE_AB", ["housekeeping.read"])
+    admin = await login(client, "ADMIN_A")
+    menage = await login(client, "MENAGE_AB")
+    rapport_id = uuid.uuid4()
+    await client.post(
+        "/api/v1/sync-blocks", json=_rapport(rapport_id, abandonable=True), headers=_h(menage)
+    )
+
+    # Le menage n'abandonne pas l'ecriture d'un autre.
+    r = await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/decide",
+        json={"decision": "ABANDON", "reason": "Encaisse deux fois"},
+        headers=_h(menage),
+    )
+    assert r.status_code == 403
+
+    r = await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/decide",
+        json={"decision": "ABANDON", "reason": "Encaisse deux fois"},
+        headers=_h(admin),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["decision"] == "ABANDON"
+    assert r.json()["decided_at"] is not None
+    assert r.json()["status"] == "OPEN"
+
+    trace = await session.scalar(select(AuditLog).where(AuditLog.action == "SYNC_ABANDON"))
+    assert trace is not None
+    assert trace.after["reason"] == "Encaisse deux fois"
+    assert trace.after["payload"] == {"amount": 15000, "method": "CASH"}
+
+    # La tablette bloquee lit la decision, avec la session du menage.
+    decisions = await client.get(
+        "/api/v1/sync-blocks/decisions", params={"device_id": str(TABLETTE)}, headers=_h(menage)
+    )
+    assert decisions.status_code == 200, decisions.text
+    assert [(d["id"], d["decision"]) for d in decisions.json()] == [(str(rapport_id), "ABANDON")]
+    autre = await client.get(
+        "/api/v1/sync-blocks/decisions", params={"device_id": str(uuid.uuid4())}, headers=_h(menage)
+    )
+    assert autre.json() == []
+
+    # Appliquee, la decision ne se relit plus.
+    await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/resolve",
+        json={"resolution": "REMOVED", "resolved_at": "2026-10-26T09:00:00Z"},
+        headers=_h(menage),
+    )
+    decisions = await client.get(
+        "/api/v1/sync-blocks/decisions", params={"device_id": str(TABLETTE)}, headers=_h(menage)
+    )
+    assert decisions.json() == []
+
+
+async def test_la_premiere_decision_fait_foi(client, session, hotel_a, login):
+    admin = await login(client, "ADMIN_A")
+    rapport_id = uuid.uuid4()
+    await client.post(
+        "/api/v1/sync-blocks", json=_rapport(rapport_id, abandonable=True), headers=_h(admin)
+    )
+    for motif in ("Premier motif", "Second motif"):
+        r = await client.post(
+            f"/api/v1/sync-blocks/{rapport_id}/decide",
+            json={"decision": "ABANDON", "reason": motif},
+            headers=_h(admin),
+        )
+        assert r.status_code == 200
+    assert r.json()["decision_reason"] == "Premier motif"
+    traces = (
+        await session.scalars(select(AuditLog).where(AuditLog.action == "SYNC_ABANDON"))
+    ).all()
+    assert len(traces) == 1
+
+
+async def test_ce_que_la_tablette_refuse_ne_s_abandonne_pas(client, hotel_a, login):
+    admin = await login(client, "ADMIN_A")
+    rapport_id = uuid.uuid4()
+    await client.post(
+        "/api/v1/sync-blocks",
+        json=_rapport(
+            rapport_id,
+            entity_table="reservation_rooms",
+            abandon_note="Un sejour en entraine d'autres.",
+        ),
+        headers=_h(admin),
+    )
+    r = await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/decide",
+        json={"decision": "ABANDON", "reason": "On essaie"},
+        headers=_h(admin),
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Un sejour en entraine d'autres."
+
+    # Ni un blocage deja leve, ni « Reessayer », ni un motif vide.
+    leve_id = uuid.uuid4()
+    await client.post(
+        "/api/v1/sync-blocks", json=_rapport(leve_id, abandonable=True), headers=_h(admin)
+    )
+    await client.post(
+        f"/api/v1/sync-blocks/{leve_id}/resolve",
+        json={"resolution": "SENT", "resolved_at": "2026-10-26T09:00:00Z"},
+        headers=_h(admin),
+    )
+    r = await client.post(
+        f"/api/v1/sync-blocks/{leve_id}/decide",
+        json={"decision": "ABANDON", "reason": "Trop tard"},
+        headers=_h(admin),
+    )
+    assert r.status_code == 409
+    for corps in ({"decision": "RETRY", "reason": "Encore"}, {"decision": "ABANDON", "reason": ""}):
+        r = await client.post(f"/api/v1/sync-blocks/{rapport_id}/decide", json=corps, headers=_h(admin))
+        assert r.status_code == 422
+
+
+async def test_la_tablette_qui_revient_sur_l_abandon_fait_tomber_la_decision(
+    client, hotel_a, hotel_b, login
+):
+    """Une saisie suivante depend desormais de l'ecriture : la tablette le
+    redit, et la decision ne s'appliquera pas."""
+    admin = await login(client, "ADMIN_A")
+    rapport_id = uuid.uuid4()
+    await client.post(
+        "/api/v1/sync-blocks", json=_rapport(rapport_id, abandonable=True), headers=_h(admin)
+    )
+    await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/decide",
+        json={"decision": "ABANDON", "reason": "Doublon"},
+        headers=_h(admin),
+    )
+    r = await client.post(
+        "/api/v1/sync-blocks",
+        json=_rapport(rapport_id, abandon_note="1 saisie suivante en depend."),
+        headers=_h(admin),
+    )
+    assert r.json()["decision"] is None
+    assert r.json()["abandonable"] is False
+    assert r.json()["abandon_note"] == "1 saisie suivante en depend."
+
+    # Un autre hotel ne decide pas pour celui-ci.
+    token_b = await login(client, "ADMIN_B")
+    r = await client.post(
+        f"/api/v1/sync-blocks/{rapport_id}/decide",
+        json={"decision": "ABANDON", "reason": "Intrus"},
+        headers=_h(token_b),
+    )
+    assert r.status_code == 404

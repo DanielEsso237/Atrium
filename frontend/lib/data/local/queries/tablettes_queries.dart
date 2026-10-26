@@ -24,6 +24,12 @@ class BlocageVu {
     this.montant,
     this.leveLe,
     this.resolution,
+    this.abandonnable = false,
+    this.noteAbandon,
+    this.decision,
+    this.motifDecision,
+    this.decidePar,
+    this.decideLe,
   });
 
   final String id;
@@ -45,6 +51,19 @@ class BlocageVu {
 
   /// `SENT` : l'ecriture est passee. `REMOVED` : elle a quitte la file.
   final String? resolution;
+
+  /// La tablette bloquee permet-elle l'abandon, et sinon pourquoi.
+  final bool abandonnable;
+  final String? noteAbandon;
+
+  /// `ABANDON` quand un responsable l'a decide ; la tablette bloquee
+  /// l'applique a son echange suivant.
+  final String? decision;
+  final String? motifDecision;
+
+  /// Le code du responsable qui a decide.
+  final String? decidePar;
+  final DateTime? decideLe;
 
   /// Ce que l'ecriture faisait, dit comme a la reception.
   String get quoi => switch (table) {
@@ -118,9 +137,13 @@ extension TablettesQueries on AtriumDatabase {
                b.operation AS op, b.reason AS raison, b.payload AS contenu,
                b.pending_behind AS derriere, b.blocked_at AS bloque,
                b.status AS statut, b.resolved_at AS leve,
-               b.resolution AS resolution, u.employee_code AS auteur
+               b.resolution AS resolution, u.employee_code AS auteur,
+               b.abandonable AS abandonnable, b.abandon_note AS note,
+               b.decision AS decision, b.decision_reason AS motif,
+               d.employee_code AS decide_par, b.decided_at AS decide_le
           FROM sync_blocks b
           LEFT JOIN users u ON u.id = b.author_id
+          LEFT JOIN users d ON d.id = b.decided_by
          WHERE b.deleted_at IS NULL
          ORDER BY b.status = 'OPEN' DESC, b.blocked_at DESC
         ''',
@@ -143,6 +166,12 @@ extension TablettesQueries on AtriumDatabase {
                 ouvert: b.read<String>('statut') == 'OPEN',
                 leveLe: b.readNullable<DateTime>('leve'),
                 resolution: b.readNullable<String>('resolution'),
+                abandonnable: b.read<bool>('abandonnable'),
+                noteAbandon: b.readNullable<String>('note'),
+                decision: b.readNullable<String>('decision'),
+                motifDecision: b.readNullable<String>('motif'),
+                decidePar: b.readNullable<String>('decide_par'),
+                decideLe: b.readNullable<DateTime>('decide_le'),
               ),
             );
       }

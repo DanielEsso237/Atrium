@@ -132,6 +132,12 @@ class BlockReports extends Table {
   TextColumn get resolution => text().withLength(max: 16).nullable()();
   DateTimeColumn get resolvedAt => dateTime().nullable()();
 
+  /// L'ecriture peut-elle s'abandonner a distance, et sinon pourquoi.
+  /// Recalcule a chaque passage : une saisie qui arrive derriere peut en
+  /// dependre (`abandon_ecriture.dart`).
+  BoolColumn get abandonable => boolean().withDefault(const Constant(false))();
+  TextColumn get abandonNote => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

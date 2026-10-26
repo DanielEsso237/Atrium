@@ -15,7 +15,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
-import 'folio_repository.dart';
+import 'abandon_ecriture.dart';
 import 'outbox.dart';
 
 class EcritureRefusee {
@@ -67,7 +67,10 @@ Future<EcritureRefusee?> ecritureRefusee(AtriumDatabase db) async {
 
 /// Retire un encaissement refuse : de la file, de la tablette, et de
 /// l'ardoise dont le solde se recalcule. Leve une [StateError] pour une
-/// ecriture qui ne se retire pas.
+/// ecriture qui ne se retire pas, ou dont une saisie suivante depend.
+///
+/// Le meme geste qu'un abandon decide d'un autre poste
+/// (`abandon_ecriture.dart`), fait sur place.
 Future<void> retirerEcritureRefusee(
   AtriumDatabase db,
   EcritureRefusee e,
@@ -75,17 +78,5 @@ Future<void> retirerEcritureRefusee(
   if (!e.retirable) {
     throw StateError('Cette écriture ne se retire pas depuis la tablette.');
   }
-  await db.transaction(() async {
-    final paiement = await (db.select(db.payments)
-          ..where((p) => p.id.equals(e.ligneId)))
-        .getSingleOrNull();
-    await (db.delete(db.outboxEntries)
-          ..where(
-            (o) => o.entityTable.equals('payments') & o.entityId.equals(e.ligneId),
-          ))
-        .go();
-    await (db.delete(db.payments)..where((p) => p.id.equals(e.ligneId))).go();
-    final ardoise = paiement?.folioId;
-    if (ardoise != null) await FolioRepository(db).recalculer(ardoise);
-  });
+  await abandonnerEcriture(db, e.entreeId);
 }

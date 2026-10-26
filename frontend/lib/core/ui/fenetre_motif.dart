@@ -26,6 +26,7 @@ Future<String?> demanderMotif(
   bool autofocus = false,
   double largeur = 440,
   String? valeurInitiale,
+  bool obligatoire = false,
 }) {
   return showDialog<String>(
     context: context,
@@ -41,6 +42,7 @@ Future<String?> demanderMotif(
       autofocus: autofocus,
       largeur: largeur,
       valeurInitiale: valeurInitiale,
+      obligatoire: obligatoire,
     ),
   );
 }
@@ -58,6 +60,7 @@ class _FenetreMotif extends StatefulWidget {
     required this.autofocus,
     required this.largeur,
     this.valeurInitiale,
+    this.obligatoire = false,
   });
 
   final String titre;
@@ -73,6 +76,10 @@ class _FenetreMotif extends StatefulWidget {
 
   /// Le motif deja saisi, pour le corriger plutot que le retaper.
   final String? valeurInitiale;
+
+  /// Pas de confirmation sans trois caracteres de motif : le serveur refuse
+  /// un motif plus court, et une saisie perdue a dessein doit dire pourquoi.
+  final bool obligatoire;
 
   @override
   State<_FenetreMotif> createState() => _FenetreMotifState();
@@ -120,14 +127,19 @@ class _FenetreMotifState extends State<_FenetreMotif> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(widget.libelleRenoncer),
         ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_motif.text),
-          style: widget.danger
-              ? FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                )
-              : null,
-          child: Text(widget.libelleConfirmer),
+        ValueListenableBuilder(
+          valueListenable: _motif,
+          builder: (context, valeur, _) => FilledButton(
+            onPressed: widget.obligatoire && valeur.text.trim().length < 3
+                ? null
+                : () => Navigator.of(context).pop(_motif.text),
+            style: widget.danger
+                ? FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  )
+                : null,
+            child: Text(widget.libelleConfirmer),
+          ),
         ),
       ],
     );

@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -148,3 +149,19 @@ class SyncBlock(SyncBase, HotelScoped):
     status: Mapped[str] = mapped_column(String(16), default="OPEN")
     resolved_at: Mapped[dt.datetime | None] = mapped_column(default=None)
     resolution: Mapped[str | None] = mapped_column(String(16), default=None)
+    # Ce que la tablette bloquee dit de son ecriture (migration 0035) : elle
+    # seule sait ce qui en depend. Le bouton « Abandonner » ne s'affiche
+    # qu'ici, et la tablette reverifie avant d'appliquer.
+    abandonable: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    abandon_note: Mapped[str | None] = mapped_column(Text, default=None)
+    # La decision d'un responsable (`sync.monitor`), que la tablette bloquee
+    # vient lire a chaque passage de sa file. ABANDON seulement : reessayer,
+    # la file le fait deja a chaque echange.
+    decision: Mapped[str | None] = mapped_column(String(16), default=None)
+    decision_reason: Mapped[str | None] = mapped_column(Text, default=None)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(default=None)

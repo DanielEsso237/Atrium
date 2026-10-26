@@ -12,6 +12,12 @@ porte `sync.monitor` (administration, direction), sur tous les postes.
 Annoncer et lever sont ouverts a tout agent connecte : le rapport part avec
 la session de qui tient la tablette, souvent un autre que l'auteur de
 l'ecriture refusee. Il ne dit rien qu'un droit protege a qui l'envoie.
+
+Un responsable abandonne l'ecriture d'ici (`/decide`, `sync.monitor`) ; la
+tablette bloquee lit la decision a son passage suivant
+(`/sync-blocks/decisions`), la reverifie et l'applique, puis leve le blocage
+comme d'habitude (`REMOVED`). Le serveur ne touche a aucune donnee metier :
+l'ecriture n'existe que sur la tablette.
 """
 
 from __future__ import annotations
@@ -27,13 +33,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.base import utcnow
 from app.db.session import get_session
-from app.models import Device, SyncBlock, User
+from app.models import AuditLog, Device, SyncBlock, User
 from app.schemas.devices import (
     DeviceIn,
     DeviceOut,
+    SyncBlockDecideIn,
     SyncBlockIn,
     SyncBlockOut,
     SyncBlockResolveIn,
+    SyncDecisionOut,
 )
 
 router = APIRouter(tags=["tablettes"])
@@ -141,6 +149,15 @@ async def report_sync_block(
             rapport.pending_behind = payload.pending_behind
             rapport.http_status = payload.http_status
             rapport.reason = payload.reason
+            rapport.abandonable = payload.abandonable
+            rapport.abandon_note = payload.abandon_note
+            if not payload.abandonable and rapport.decision is not None:
+                # La tablette a reverifie et refuse : une saisie suivante en
+                # depend desormais. La decision tombe, la note dit pourquoi.
+                rapport.decision = None
+                rapport.decision_reason = None
+                rapport.decided_by = None
+                rapport.decided_at = None
             rapport.reported_at = maintenant
             rapport.reported_by = user.id
             rapport.updated_by = user.id
@@ -170,6 +187,8 @@ async def report_sync_block(
         blocked_at=payload.blocked_at,
         reported_at=maintenant,
         pending_behind=payload.pending_behind,
+        abandonable=payload.abandonable,
+        abandon_note=payload.abandon_note,
         status="OPEN",
         created_by=user.id,
     )
@@ -198,6 +217,83 @@ async def resolve_sync_block(
         await session.refresh(rapport)
     # Deja leve : le renvoi ne change rien, la premiere levee fait foi.
     return rapport
+
+
+@router.post("/sync-blocks/{block_id}/decide", response_model=SyncBlockOut)
+async def decide_sync_block(
+    block_id: uuid.UUID,
+    payload: SyncBlockDecideIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("sync.monitor")),
+) -> SyncBlock:
+    """Un responsable abandonne l'ecriture qui bloque une tablette."""
+    rapport = await session.get(SyncBlock, block_id)
+    if rapport is None or rapport.hotel_id != user.hotel_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Rapport inconnu.")
+    if rapport.decision is not None:
+        # Deja decide : la premiere decision fait foi, le renvoi ne change rien.
+        return rapport
+    if rapport.status != "OPEN":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ce blocage est deja leve : il n'y a rien a abandonner."
+        )
+    if not rapport.abandonable:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            rapport.abandon_note or "La tablette dit que cette saisie ne s'abandonne pas.",
+        )
+    maintenant = utcnow()
+    rapport.decision = payload.decision
+    rapport.decision_reason = payload.reason
+    rapport.decided_by = user.id
+    rapport.decided_at = maintenant
+    rapport.updated_by = user.id
+    # Une saisie perdue a dessein : la trace dit qui, pourquoi et quoi.
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            device_id=rapport.device_id,
+            entity_table=rapport.entity_table,
+            entity_id=rapport.entity_id,
+            action="SYNC_ABANDON",
+            after={
+                "sync_block_id": str(rapport.id),
+                "reason": payload.reason,
+                "author_id": str(rapport.author_id) if rapport.author_id else None,
+                "operation": rapport.operation,
+                "payload": rapport.payload,
+            },
+            occurred_at=maintenant,
+        )
+    )
+    await session.commit()
+    await session.refresh(rapport)
+    return rapport
+
+
+@router.get("/sync-blocks/decisions", response_model=list[SyncDecisionOut])
+async def list_sync_decisions(
+    device_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> list[SyncBlock]:
+    """Les decisions qui attendent la tablette [device_id].
+
+    Ouvert a tout agent connecte, comme l'annonce : la decision part avec la
+    session de qui tient la tablette bloquee, souvent pas un responsable.
+    """
+    result = await session.scalars(
+        select(SyncBlock)
+        .where(
+            SyncBlock.hotel_id == user.hotel_id,
+            SyncBlock.device_id == device_id,
+            SyncBlock.status == "OPEN",
+            SyncBlock.decision.is_not(None),
+            SyncBlock.deleted_at.is_(None),
+        )
+        .order_by(SyncBlock.blocked_at)
+    )
+    return list(result.all())
 
 
 @router.get("/sync-blocks", response_model=list[SyncBlockOut])

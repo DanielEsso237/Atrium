@@ -9661,9 +9661,48 @@
         "title": "SupplierOut",
         "type": "object"
       },
+      "SyncBlockDecideIn": {
+        "description": "Un responsable abandonne l'ecriture refusee. Pas de « Reessayer » :\nla file renvoie deja l'ecriture a chaque echange complet.",
+        "properties": {
+          "decision": {
+            "const": "ABANDON",
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "SyncBlockDecideIn",
+        "type": "object"
+      },
       "SyncBlockIn": {
         "description": "Le blocage tel que la tablette le voit. L'id vient d'elle : un renvoi\nmet le rapport a jour au lieu d'en creer un second.",
         "properties": {
+          "abandon_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abandon Note"
+          },
+          "abandonable": {
+            "default": false,
+            "title": "Abandonable",
+            "type": "boolean"
+          },
           "author_id": {
             "anyOf": [
               {
@@ -9772,6 +9811,21 @@
       },
       "SyncBlockOut": {
         "properties": {
+          "abandon_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abandon Note"
+          },
+          "abandonable": {
+            "title": "Abandonable",
+            "type": "boolean"
+          },
           "author_id": {
             "anyOf": [
               {
@@ -9788,6 +9842,52 @@
             "format": "date-time",
             "title": "Blocked At",
             "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
           },
           "device_id": {
             "format": "uuid",
@@ -9929,6 +10029,12 @@
           "status",
           "resolved_at",
           "resolution",
+          "abandonable",
+          "abandon_note",
+          "decision",
+          "decision_reason",
+          "decided_by",
+          "decided_at",
           "updated_at"
         ],
         "title": "SyncBlockOut",
@@ -9996,6 +10102,64 @@
           "full_resync"
         ],
         "title": "SyncChangesOut",
+        "type": "object"
+      },
+      "SyncDecisionOut": {
+        "description": "Ce que la tablette bloquee vient lire : la decision, sans le reste du\nrapport.",
+        "properties": {
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "decision",
+          "decision_reason",
+          "decided_by",
+          "decided_at"
+        ],
+        "title": "SyncDecisionOut",
         "type": "object"
       },
       "TableStatus": {
@@ -18895,6 +19059,118 @@
           }
         ],
         "summary": "Report Sync Block",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/sync-blocks/decisions": {
+      "get": {
+        "description": "Les decisions qui attendent la tablette [device_id].\n\nOuvert a tout agent connecte, comme l'annonce : la decision part avec la\nsession de qui tient la tablette bloquee, souvent pas un responsable.",
+        "operationId": "list_sync_decisions_api_v1_sync_blocks_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SyncDecisionOut"
+                  },
+                  "title": "Response List Sync Decisions Api V1 Sync Blocks Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Sync Decisions",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/sync-blocks/{block_id}/decide": {
+      "post": {
+        "description": "Un responsable abandonne l'ecriture qui bloque une tablette.",
+        "operationId": "decide_sync_block_api_v1_sync_blocks__block_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "block_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Block Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBlockDecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBlockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Decide Sync Block",
         "tags": [
           "tablettes"
         ]
