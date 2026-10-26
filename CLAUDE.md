@@ -22,7 +22,11 @@ saurait qu'elle doit remonter. Voir `data/repositories/outbox.dart`.
 
 **Une ligne protégée par une écriture en attente n'est jamais écrasée** par une
 descente du serveur. Tant qu'une modification n'est pas remontée, la version
-locale fait foi — c'est le serveur qui est en retard.
+locale fait foi — c'est le serveur qui est en retard. **Le revers : une
+ligne `pending` que rien dans la file ne nomme n'en sort jamais**, et la
+descente ne la met plus jamais à jour. Toute ligne écrite `pending` doit
+passer `synced` quand l'écriture qui la porte est acquittée — même si cette
+écriture est au nom d'une autre table (voir « L'ardoise du check-in »).
 
 **L'état d'une chambre tient sur trois axes indépendants** — occupation,
 propreté, hors service. La pastille du plan se *calcule* à l'affichage
@@ -604,6 +608,22 @@ boutons de la liste du ménage suivent `work`, et le dépôt refuse avant la fil
 (`_exigerTravail`) — dans `startRoom`, avant même d'ouvrir la tâche.
 `work` implique `manage` : « Commencer » sur une chambre sans tâche l'ouvre
 d'abord.
+
+## L'ardoise du check-in restait en attente (26 octobre)
+
+Vécu sur tablette : une ardoise encaissée le 24 depuis un autre poste
+affichait encore 25 000 à payer à la réception ; l'encaissement en double est
+revenu en 409 (« Ce folio est déjà soldé ») et a bloqué la file. La tablette
+crée l'ardoise au check-in, `pending`, et la fait remonter **avec le
+check-in**, une écriture de `reservation_rooms` : à l'acquittement, seul le
+séjour passait `synced`. L'ardoise restait `pending` pour toujours, la
+descente l'épargnait, et rien ne recalculait son solde.
+
+Désormais `OutboxSender._appliquerReponse` passe l'ardoise `synced` quand le
+serveur garde celle de la tablette (il l'adoptait déjà quand il en garde une
+autre). Le schéma local 17 débloque celles qui sont déjà coincées : toute
+ardoise `pending` que rien dans la file ne porte encore, ni elle ni le
+check-in de son séjour. Test : `test/ardoise_du_check_in_test.dart`.
 
 ## Ce qui manque
 
