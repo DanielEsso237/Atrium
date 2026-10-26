@@ -8,7 +8,6 @@ library;
 import 'package:atrium/core/theme.dart';
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/database_provider.dart';
-import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/queries/rooms_queries.dart';
 import 'package:atrium/data/local/seed.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';

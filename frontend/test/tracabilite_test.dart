@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'package:atrium/data/local/database.dart';
 import 'package:atrium/data/local/enums.dart';
 import 'package:atrium/data/local/seed.dart';
+import 'package:atrium/data/local/seed_accounts.dart';
 import 'package:atrium/data/repositories/cash_repository.dart';
 import 'package:atrium/data/repositories/folio_repository.dart';
 import 'package:atrium/data/repositories/guest_repository.dart';
@@ -389,11 +390,20 @@ void main() {
     });
 
     test('startRoom puis finish : agent sur chaque transition', () async {
-      final taskId = await menage.startRoom(await uneChambre(), by: agent);
-      await menage.finish(taskId, by: agent);
+      // Un vrai agent du menage : commencer et terminer exigent
+      // `housekeeping.work` (migration 0033), que l'agent fictif n'a pas.
+      await seedAccounts(db);
+      final femmeDeChambre = (await (db.select(
+        db.users,
+      )..where((u) => u.employeeCode.equals('MENAGE01'))).getSingle()).id;
+      final taskId = await menage.startRoom(
+        await uneChambre(),
+        by: femmeDeChambre,
+      );
+      await menage.finish(taskId, by: femmeDeChambre);
 
       final tache = await db.select(db.housekeepingTasks).getSingle();
-      expect(tache.assignedTo, agent);
+      expect(tache.assignedTo, femmeDeChambre);
 
       // Le premier payload est l'INSERT ; les deux suivants sont les
       // transitions (demarrage, fin), qui portent toutes un statut.
@@ -401,7 +411,10 @@ void main() {
         'housekeeping_tasks',
       )).where((p) => p.containsKey('status')).toList();
       expect(transitions, hasLength(2));
-      expect(transitions.every((p) => p['assigned_to'] == agent), isTrue);
+      expect(
+        transitions.every((p) => p['assigned_to'] == femmeDeChambre),
+        isTrue,
+      );
     });
 
     test('startRoom sans agent : auteur nul, le menage avance', () async {

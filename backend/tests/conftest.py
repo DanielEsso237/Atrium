@@ -41,6 +41,13 @@ def pytest_collection_modifyitems(config, items):
     """Ignore les tests marques `db` quand aucune base de test n'est fournie."""
     if TEST_DATABASE_URL:
         return
+    # En integration continue, une base absente est une panne du montage, pas
+    # une machine sans PostgreSQL : sauter les tests avec base rendrait la
+    # verification verte sans avoir rien verifie. GitHub Actions pose `CI`.
+    if os.environ.get("CI"):
+        raise pytest.UsageError(
+            "CI sans TEST_DATABASE_URL : les tests avec base seraient ignores."
+        )
     saute = pytest.mark.skip(
         reason="TEST_DATABASE_URL absent : test necessitant PostgreSQL ignore."
     )
