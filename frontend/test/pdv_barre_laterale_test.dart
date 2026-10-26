@@ -42,7 +42,7 @@ void main() {
       agent = await (db.select(
         db.users,
       )..where((u) => u.employeeCode.equals('ADMIN01'))).getSingle();
-      acces = (await accessProfileFor(db, agent.id))!;
+      acces = await accessProfileFor(db, agent.id);
       final points = OutletRepository(db);
       final bar = await points.create(code: 'BARX', label: 'Bar du test');
       // Rien ne se sert sans le tiroir ouvert du point de vente : sinon

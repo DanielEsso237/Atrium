@@ -122,6 +122,16 @@ lisent comme un succès.
 attrape les mêmes **erreurs** en deux minutes ; l'analyseur voit en plus les
 avertissements. Lancer l'application pour itérer, l'analyseur avant une PR.
 
+**Chaque PR vers `main` est vérifiée** (`.github/workflows/verification.yml`,
+25 octobre) : trois travaux, **Serveur** (migrations sur une base neuve, puis
+pytest sur un PostgreSQL 18 et sa base `atrium_test`), **Tablette - tests**
+et **Tablette - analyse**. Une erreur ou un avertissement de l'analyseur
+bloque ; une remarque (info) non. Flutter est figé à la version du poste
+(3.47.8) : la changer ici, c'est la changer là. En CI (`CI` posé), une
+`TEST_DATABASE_URL` absente **fait échouer** pytest au lieu de sauter les
+tests avec base. Les noms des trois travaux sont ceux qu'exige la protection
+de `main` : les renommer la casse sans bruit.
+
 Comptes de démonstration, mot de passe `ChangeMe123!` ou PIN `123456` — les deux
 marchent en ligne comme hors ligne :
 

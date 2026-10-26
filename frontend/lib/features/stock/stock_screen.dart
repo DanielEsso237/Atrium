@@ -512,9 +512,6 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       context: context,
       builder: (_) => _SaisieDialog(
         titre: 'Sortie de ${magasin.label}',
-        entree: false,
-        sortie: true,
-        depart: magasin,
         produitId: produitId,
       ),
     );
@@ -1891,53 +1888,32 @@ class _FenetreAjusterState extends State<_FenetreAjuster> {
   }
 }
 
-// --- La saisie d'une entree ou d'un transfert ---------------------------------
+// --- La saisie d'une sortie -----------------------------------------------------
 
+/// L'entree et le transfert se saisissent en plein ecran
+/// (`ouvrirMouvementStock`) ; cette fenetre ne sert plus qu'a la sortie.
 class _Saisie {
   const _Saisie({
     required this.produit,
     required this.quantite,
-    this.prixAchat = 0,
-    this.destination,
     this.motif,
     this.perte = false,
   });
 
-  /// Une sortie : perdue (casse, perime) plutot qu'utilisee.
+  /// Perdue (casse, perime) plutot qu'utilisee.
   final bool perte;
   final StockProduct produit;
   final int quantite;
-  final int prixAchat;
-  final StockPlace? destination;
   final String? motif;
 }
 
 class _SaisieDialog extends ConsumerStatefulWidget {
-  const _SaisieDialog({
-    required this.titre,
-    required this.entree,
-    this.destinations = const [],
-    this.depart,
-    this.ravitaillement = false,
-    this.produitId,
-    this.sortie = false,
-  });
+  const _SaisieDialog({required this.titre, this.produitId});
 
-  /// Une sortie sans vente : utilisation ou perte, motif obligatoire.
-  final bool sortie;
   final String titre;
 
-  /// Le produit deja choisi : on ravitaille depuis sa ligne.
+  /// Le produit deja choisi : on sort depuis sa ligne.
   final String? produitId;
-
-  /// Le point de vente se ravitaille : la liste est celle des magasins d'ou
-  /// la marchandise peut venir, et non de ceux ou elle peut aller.
-  final bool ravitaillement;
-
-  /// Une entree (prix d'achat) ou un transfert (destination).
-  final bool entree;
-  final List<StockPlace> destinations;
-  final StockPlace? depart;
 
   @override
   ConsumerState<_SaisieDialog> createState() => _SaisieDialogState();
@@ -1945,28 +1921,21 @@ class _SaisieDialog extends ConsumerStatefulWidget {
 
 class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
   StockProduct? _produit;
-  StockPlace? _destination;
   final _quantite = TextEditingController();
-  final _prix = TextEditingController();
   final _motif = TextEditingController();
   bool _perte = false;
 
   @override
   void dispose() {
     _quantite.dispose();
-    _prix.dispose();
     _motif.dispose();
     super.dispose();
   }
 
   int get _q => int.tryParse(_quantite.text.trim()) ?? 0;
 
-  bool get _pret =>
-      _produit != null &&
-      _q > 0 &&
-      (widget.sortie
-          ? _motif.text.trim().isNotEmpty
-          : (widget.entree || _destination != null));
+  // Une sortie sans vente se justifie : le motif est obligatoire.
+  bool get _pret => _produit != null && _q > 0 && _motif.text.trim().isNotEmpty;
 
   bool _initial = false;
 
@@ -1978,9 +1947,6 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
     if (!_initial && widget.produitId != null && produits.isNotEmpty) {
       _initial = true;
       _produit = produits.where((p) => p.id == widget.produitId).firstOrNull;
-      if (widget.entree && _produit != null && _produit!.purchasePrice > 0) {
-        _prix.text = '${_produit!.purchasePrice}';
-      }
     }
     return AlertDialog(
       scrollable: true,
@@ -1999,49 +1965,24 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                 for (final p in produits)
                   DropdownMenuItem(value: p, child: Text('${p.label} (${p.unit})')),
               ],
-              onChanged: (p) => setState(() {
-                _produit = p;
-                if (widget.entree && p != null && _prix.text.isEmpty) {
-                  _prix.text = p.purchasePrice > 0 ? '${p.purchasePrice}' : '';
-                }
-              }),
+              onChanged: (p) => setState(() => _produit = p),
             ),
-            if (widget.sortie) ...[
-              const SizedBox(height: 14),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Utilisation')),
-                  ButtonSegment(value: true, label: Text('Perte / casse')),
-                ],
-                selected: {_perte},
-                onSelectionChanged: (v) => setState(() => _perte = v.first),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _perte
-                    ? 'Cassé, périmé, disparu : compté en perte.'
-                    : 'Utilisé sans être vendu : cuisine, chambres, spa.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AtriumColors.textSecondary,
-                ),
-              ),
-            ],
-            if (!widget.entree && !widget.sortie) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<StockPlace>(
-                initialValue: _destination,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: widget.ravitaillement ? 'Depuis' : 'Vers',
-                ),
-                items: [
-                  for (final m in widget.destinations)
-                    DropdownMenuItem(value: m, child: Text(m.label)),
-                ],
-                onChanged: (m) => setState(() => _destination = m),
-              ),
-            ],
+            const SizedBox(height: 14),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Utilisation')),
+                ButtonSegment(value: true, label: Text('Perte / casse')),
+              ],
+              selected: {_perte},
+              onSelectionChanged: (v) => setState(() => _perte = v.first),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _perte
+                  ? 'Cassé, périmé, disparu : compté en perte.'
+                  : 'Utilisé sans être vendu : cuisine, chambres, spa.',
+              style: TextStyle(fontSize: 13, color: AtriumColors.textSecondary),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _quantite,
@@ -2053,43 +1994,16 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                 suffixText: _produit?.unit,
               ),
             ),
-            if (widget.entree) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _prix,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Prix d’achat unitaire',
-                  suffixText: 'FCFA',
-                ),
-              ),
-            ],
-            // Ce qu'a le magasin d'ou part la marchandise : le choisi pour
-            // un ravitaillement, celui de l'onglet pour un transfert.
-            if (!widget.entree &&
-                !widget.sortie &&
-                _produit != null &&
-                (widget.ravitaillement ? _destination : widget.depart) != null)
-              _DisponibleAuDepart(
-                magasin: (widget.ravitaillement ? _destination : widget.depart)!,
-                produitId: _produit!.id,
-                demande: _q,
-              ),
             const SizedBox(height: 12),
             TextField(
               controller: _motif,
               maxLength: 255,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                labelText: widget.entree
-                    ? 'Fournisseur, bon de livraison (facultatif)'
-                    : widget.sortie
-                    ? 'Motif'
-                    : 'Motif (facultatif)',
-                hintText: widget.sortie
-                    ? (_perte ? 'Bouteille cassée au service' : 'Chambres du 2e étage')
-                    : null,
+                labelText: 'Motif',
+                hintText: _perte
+                    ? 'Bouteille cassée au service'
+                    : 'Chambres du 2e étage',
               ),
             ),
           ],
@@ -2107,63 +2021,14 @@ class _SaisieDialogState extends ConsumerState<_SaisieDialog> {
                   _Saisie(
                     produit: _produit!,
                     quantite: _q,
-                    prixAchat: int.tryParse(_prix.text.trim()) ?? 0,
-                    destination: _destination,
                     motif: _motif.text.trim().isEmpty ? null : _motif.text.trim(),
                     perte: _perte,
                   ),
                 ),
-          child: Text(
-            widget.sortie
-                ? 'Enregistrer la sortie'
-                : widget.entree
-                ? 'Enregistrer l’entrée'
-                : widget.ravitaillement
-                ? 'Demander le ravitaillement'
-                : 'Demander le transfert',
-          ),
+          child: const Text('Enregistrer la sortie'),
         ),
       ],
     );
   }
 }
 
-/// Ce que le magasin de depart a : le transfert reste possible au-dela, mais
-/// celui qui le demande le sait.
-class _DisponibleAuDepart extends ConsumerWidget {
-  const _DisponibleAuDepart({
-    required this.magasin,
-    required this.produitId,
-    required this.demande,
-  });
-
-  final StockPlace magasin;
-  final String produitId;
-  final int demande;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final lignes =
-        ref
-            .watch(stockLinesProvider((placeId: magasin.id, all: true)))
-            .value ??
-        const <StockLine>[];
-    final ligne = lignes.where((l) => l.productId == produitId).firstOrNull;
-    final dispo = ligne?.quantity ?? 0;
-    final manque = demande > dispo;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        manque
-            ? '${magasin.label} n’en a que $dispo : son stock passera sous zéro '
-                  'si le transfert est validé.'
-            : '${magasin.label} en a $dispo.',
-        style: TextStyle(
-          fontSize: 13.5,
-          fontWeight: manque ? FontWeight.w700 : FontWeight.w500,
-          color: manque ? AtriumColors.warning : AtriumColors.textSecondary,
-        ),
-      ),
-    );
-  }
-}

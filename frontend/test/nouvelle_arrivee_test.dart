@@ -37,7 +37,7 @@ void main() {
       agent = await (db.select(
         db.users,
       )..where((u) => u.employeeCode.equals('RECEP01'))).getSingle();
-      acces = (await accessProfileFor(db, agent.id))!;
+      acces = await accessProfileFor(db, agent.id);
     });
     AtriumPalette.current = AtriumPalette.light;
     tester.view.physicalSize = const Size(1280, 1000);
