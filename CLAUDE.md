@@ -617,6 +617,13 @@ d'abord.
 
 ## Ce qui manque
 
+- **Le droit `INTERNET` manque au manifeste principal**
+  (`android/app/src/main/AndroidManifest.xml`) : seuls `debug` et `profile`
+  le déclarent. Un APK *release* — y compris `flutter run --release` — n'a
+  aucun réseau : la tablette reste hors ligne, et le journal dit
+  `Failed host lookup … errno = 7`. À corriger à la sortie de la release
+  (décision du 26 octobre) ; d'ici là, ne pas lancer en `--release`.
+
 - **Impression des factures**, brique rouverte : les factures et le ticket du
   comptoir existent en PDF (partage), pas encore l'envoi à une imprimante.
 - **Photos de CNI** : prises à l'arrivée, rangées sur la tablette, remontées
