@@ -496,6 +496,16 @@ final destinations = <Destination>[
     'users.read|users.write',
     Groupe.reglages,
   ),
+  // Les tablettes dont la file est bloquee (correction 5) : un blocage ne
+  // se voyait que sur la tablette elle-meme.
+  const Destination(
+    'Tablettes',
+    PhosphorIconsLight.deviceMobile,
+    PhosphorIconsLight.deviceMobile,
+    '/tablettes',
+    'sync.monitor',
+    Groupe.reglages,
+  ),
   const Destination(
     'Administration',
     PhosphorIconsLight.lockSimple,

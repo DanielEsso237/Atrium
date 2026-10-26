@@ -102,3 +102,49 @@ class Notification(SyncBase, HotelScoped):
     read_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
+
+
+class SyncBlock(SyncBase, HotelScoped):
+    """Une tablette dont la file d'envoi est bloquee par un refus du serveur.
+
+    Le blocage ne se voyait que sur la tablette elle-meme : la reception
+    pouvait travailler une demi-journee sans que rien ne remonte, et personne
+    d'autre ne le savait. La tablette l'annonce ici, hors de sa file (qui est
+    justement bloquee), et le dit leve quand l'ecriture passe ou se retire.
+    Les rapports redescendent vers qui porte `sync.monitor` (migration 0034).
+
+    L'id est tire par la tablette : un rapport renvoye ne fait pas doublon.
+    """
+
+    __tablename__ = "sync_blocks"
+    __table_args__ = (Index("ix_sync_blocks_status", "hotel_id", "status"),)
+
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("devices.id", ondelete="CASCADE"), index=True
+    )
+    # L'agent dont l'ecriture est refusee ; nul pour une entree sans session
+    # (code oublie, changement de PIN).
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    # L'agent connecte quand le rapport part : souvent un autre.
+    reported_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    entity_table: Mapped[str] = mapped_column(String(64))
+    entity_id: Mapped[uuid.UUID]
+    operation: Mapped[str] = mapped_column(String(8))
+    # Le contenu de l'ecriture, secrets retires : l'ecran dit ce qui est
+    # bloque (« Encaissement de 15 000 FCFA »), et la correction 6 montrera
+    # ce qu'on abandonne.
+    payload: Mapped[dict | None] = mapped_column(JSONB, default=None)
+    http_status: Mapped[int | None] = mapped_column(default=None)
+    reason: Mapped[str | None] = mapped_column(Text, default=None)
+    written_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    blocked_at: Mapped[dt.datetime]
+    reported_at: Mapped[dt.datetime]
+    # Les ecritures qui attendent derriere, au dernier rapport.
+    pending_behind: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(String(16), default="OPEN")
+    resolved_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    resolution: Mapped[str | None] = mapped_column(String(16), default=None)

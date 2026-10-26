@@ -5,7 +5,7 @@ des tables dans `Base.metadata` lors de l'autogeneration des migrations.
 """
 
 from app.db.base import Base
-from app.models.admin import BusinessDay, Notification, Setting
+from app.models.admin import BusinessDay, Notification, Setting, SyncBlock
 from app.models.billing import (
     CashSession,
     Expense,
@@ -162,4 +162,5 @@ __all__ = [
     "Setting",
     "BusinessDay",
     "Notification",
+    "SyncBlock",
 ]

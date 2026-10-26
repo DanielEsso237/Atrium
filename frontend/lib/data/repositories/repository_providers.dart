@@ -15,6 +15,7 @@ import '../local/files/photo_files.dart';
 import '../remote/file_uploader.dart';
 import '../remote/outbox_sender.dart';
 import '../remote/remote_providers.dart';
+import '../remote/signalement_blocages.dart';
 import 'agent_repository.dart';
 import 'autorisation_repository.dart';
 import 'reinitialisation_repository.dart';
@@ -335,6 +336,14 @@ final descenteProvider = Provider<Descente>(
 /// Montee des ecritures locales vers le serveur.
 final outboxSenderProvider = Provider<OutboxSender>(
   (ref) => OutboxSender(
+    db: ref.watch(databaseProvider),
+    api: ref.watch(apiClientProvider),
+  ),
+);
+
+/// Le blocage de la file, dit au serveur hors de la file elle-meme.
+final signalementBlocagesProvider = Provider<SignalementBlocages>(
+  (ref) => SignalementBlocages(
     db: ref.watch(databaseProvider),
     api: ref.watch(apiClientProvider),
   ),

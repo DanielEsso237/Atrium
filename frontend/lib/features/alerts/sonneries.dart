@@ -27,6 +27,7 @@ IconData iconeEvenement(TypeEvenement t) => switch (t) {
   TypeEvenement.transfertAValider => PhosphorIconsLight.arrowsLeftRight,
   TypeEvenement.stockBas => PhosphorIconsLight.package,
   TypeEvenement.commandeChambre => PhosphorIconsLight.forkKnife,
+  TypeEvenement.tabletteBloquee => PhosphorIconsLight.deviceMobile,
 };
 
 /// Fait entendre une sonnerie, sur le flux de la vraie alerte, sans vibrer.

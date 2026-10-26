@@ -98,11 +98,13 @@ part 'database.g.dart';
     Settings,
     BusinessDays,
     Notifications,
+    SyncBlocks,
     // Synchronisation (local uniquement)
     OutboxEntries,
     SyncCursors,
     SyncStatuses,
     FileUploads,
+    BlockReports,
   ],
 )
 class AtriumDatabase extends _$AtriumDatabase {
@@ -119,7 +121,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -271,6 +273,13 @@ class AtriumDatabase extends _$AtriumDatabase {
           "WHERE entity_table = 'reservation_rooms' "
           "AND status IN ('PENDING', 'SENDING', 'FAILED')))",
         );
+      }
+      // 17 -> 18 : une file bloquee se voit d'un autre poste. Le reflet des
+      // blocages annonces par les tablettes, et ce que celle-ci a annonce des
+      // siens.
+      if (depuis < 18) {
+        await m.createTable(syncBlocks);
+        await m.createTable(blockReports);
       }
     },
     beforeOpen: (details) async {

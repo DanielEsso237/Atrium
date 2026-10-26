@@ -191,6 +191,8 @@ class Descente {
       final lRoles = _lance(_siPermis(_catalog.fetchRoles));
       final lPermissions = _lance(_siPermis(_catalog.fetchPermissions));
       final lEmpreintes = _lance(_empreintes());
+      final lTablettes = _lance(_suivi(_catalog.fetchDevices));
+      final lBlocages = _lance(_suivi(_catalog.fetchSyncBlocks));
 
       final pointsDeVente = await lPoints;
       final categoriesCarte = await lCategories;
@@ -251,6 +253,10 @@ class Descente {
       final roles = await lRoles;
       final permissions = await lPermissions;
       final empreintes = await lEmpreintes;
+      // Les tablettes bloquees, pour l'administration et la direction : un
+      // blocage ne se voyait que sur la tablette elle-meme.
+      final tablettes = await lTablettes;
+      final blocages = await lBlocages;
 
       var ecartees = 0;
       final maintenant = DateTime.now().toUtc();
@@ -345,6 +351,8 @@ class Descente {
         );
       }
       if (couts != null) await _ecrireCouts(couts, depuis, maintenant);
+      if (tablettes != null) await _ecrireTablettes(tablettes, maintenant);
+      if (blocages != null) await _ecrireBlocages(blocages, maintenant);
       ecartees += await _ecrireCaisses(
         {
           for (final c in [...caisses, ...activite.cashSessions]) c.id: c,
@@ -403,6 +411,19 @@ class Descente {
     } on ApiException catch (e) {
       if (e.failure != ApiFailure.notFound) rethrow;
       return const [];
+    }
+  }
+
+  /// Le suivi des tablettes : `null` pour qui ne porte pas `sync.monitor`,
+  /// et pour un serveur qui ne connait pas encore la route (404).
+  Future<List<Map<String, dynamic>>?> _suivi(
+    Future<List<Map<String, dynamic>>> Function() lire,
+  ) async {
+    try {
+      return await _siPermisOuRien(lire);
+    } on ApiException catch (e) {
+      if (e.failure != ApiFailure.notFound) rethrow;
+      return null;
     }
   }
 
@@ -1659,6 +1680,82 @@ class Descente {
     });
     return sautees;
   }
+
+  // --- Les tablettes et leurs blocages --------------------------------------
+
+  /// Les tablettes de l'hotel. Seul le serveur les ecrit : rien a epargner.
+  Future<void> _ecrireTablettes(
+    List<Map<String, dynamic>> tablettes,
+    DateTime maintenant,
+  ) async {
+    await db.transaction(() async {
+      for (final t in tablettes) {
+        final id = t['id'] as String;
+        await db
+            .into(db.devices)
+            .insertOnConflictUpdate(
+              DevicesCompanion.insert(
+                id: id,
+                createdAt: maintenant,
+                updatedAt: _instant(t['updated_at']) ?? maintenant,
+                hotelId: hotelId,
+                deviceUid: id,
+                name: t['name'] as String,
+                isActive: Value(t['is_active'] as bool? ?? true),
+                appVersion: Value(t['app_version'] as String?),
+                osVersion: Value(t['os_version'] as String?),
+                lastSeenAt: Value(_instant(t['last_seen_at'])),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+  }
+
+  /// Les blocages en cours et ceux leves depuis une semaine : la liste du
+  /// serveur est complete, elle remplace celle de la tablette. Un blocage
+  /// leve il y a plus d'une semaine en sort.
+  Future<void> _ecrireBlocages(
+    List<Map<String, dynamic>> blocages,
+    DateTime maintenant,
+  ) async {
+    await db.transaction(() async {
+      await db.delete(db.syncBlocks).go();
+      for (final b in blocages) {
+        final contenu = b['payload'];
+        await db
+            .into(db.syncBlocks)
+            .insert(
+              SyncBlocksCompanion.insert(
+                id: b['id'] as String,
+                createdAt: maintenant,
+                updatedAt: _instant(b['updated_at']) ?? maintenant,
+                hotelId: hotelId,
+                deviceId: b['device_id'] as String,
+                authorId: Value(b['author_id'] as String?),
+                reportedBy: Value(b['reported_by'] as String?),
+                entityTable: b['entity_table'] as String,
+                entityId: b['entity_id'] as String,
+                operation: b['operation'] as String,
+                payload: Value(contenu == null ? null : jsonEncode(contenu)),
+                httpStatus: Value(b['http_status'] as int?),
+                reason: Value(b['reason'] as String?),
+                writtenAt: Value(_instant(b['written_at'])),
+                blockedAt: _instant(b['blocked_at']) ?? maintenant,
+                reportedAt: _instant(b['reported_at']) ?? maintenant,
+                pendingBehind: Value(b['pending_behind'] as int? ?? 0),
+                status: Value(b['status'] as String? ?? 'OPEN'),
+                resolvedAt: Value(_instant(b['resolved_at'])),
+                resolution: Value(b['resolution'] as String?),
+                syncState: const Value(SyncState.synced),
+              ),
+            );
+      }
+    });
+  }
+
+  static DateTime? _instant(Object? v) =>
+      v is String ? DateTime.tryParse(v)?.toUtc() : null;
 
   /// Remplace les couts de la fenetre : un jour que le serveur ne rend plus
   /// (tout y a ete annule) ne doit pas garder son ancien total.

@@ -253,6 +253,9 @@ class SessionNotifier extends Notifier<SessionState> {
   /// vente ne descendent : le genre du bar etait inconnu, et le barman voyait
   /// l'onglet Services jusqu'a sa connexion suivante (vu le 12 octobre).
   Future<void> _synchroniserPuisRelire(String agentId) async {
+    // Elle figure a l'ecran Tablettes avant meme d'avoir ete bloquee. En
+    // parallele : se presenter ne doit jamais retarder la synchronisation.
+    unawaited(ref.read(signalementBlocagesProvider).presenter());
     await ref.read(syncProvider.notifier).refresh();
     // L'agent a pu se deconnecter, ou un autre se connecter, entre-temps.
     if (state.agent?.id != agentId) return;

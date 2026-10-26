@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
+import '../sync/tablettes_screen.dart';
 import 'agents_section.dart';
 import 'alerts_section.dart';
 import 'credit_limits_section.dart';
@@ -42,6 +43,7 @@ class AdministrationScreen extends StatelessWidget {
     ('Agents', PhosphorIconsLight.usersThree, AgentsSection()),
     ('Rôles', PhosphorIconsLight.identificationCard, RolesSection()),
     ('Plafonds clients', PhosphorIconsLight.scales, CreditLimitsSection()),
+    ('Tablettes', PhosphorIconsLight.deviceMobile, TablettesSection()),
   ];
 
   @override

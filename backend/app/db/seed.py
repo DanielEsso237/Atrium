@@ -147,6 +147,9 @@ PERMISSIONS = [
     # ouvre les taches (`housekeeping.manage`), la femme de chambre les fait
     # (migration 0033).
     (uuid.UUID("01920000-0000-7000-8000-000000004147"), "housekeeping.work", "Commencer, terminer ou corriger un menage", "housekeeping"),
+    # Voir, de n'importe quel poste, la file d'envoi bloquee d'une tablette
+    # (migration 0034). Pas l'agent : il voit deja la sienne.
+    (uuid.UUID("01920000-0000-7000-8000-000000004148"), "sync.monitor", "Suivre les tablettes et leurs files bloquees", "sync"),
 ]
 PRINT_REPRINT = PERMISSIONS[2][0]
 RESERVATION_CREATE = PERMISSIONS[0][0]
@@ -187,6 +190,7 @@ ROOM_ORDER_CREATE = PERMISSIONS[43][0]
 USERS_RESET_SECRET = PERMISSIONS[44][0]
 MAINTENANCE_REPORT = PERMISSIONS[45][0]
 HOUSEKEEPING_WORK = PERMISSIONS[46][0]
+SYNC_MONITOR = PERMISSIONS[47][0]
 
 ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     (RECEPTION_ROLE, RESERVATION_CREATE),
@@ -258,6 +262,9 @@ ROLE_PERMISSIONS = [(ADMIN_ROLE, p[0]) for p in PERMISSIONS] + [
     # s'autorise pas lui-meme.
     (MANAGER_ROLE, OPERATIONS_UNDO),
     (MANAGER_ROLE, USERS_RESET_SECRET),
+    # Une tablette bloquee se voit d'ailleurs que de son ecran : la direction
+    # est prevenue, comme l'administrateur.
+    (MANAGER_ROLE, SYNC_MONITOR),
     # Les marges et la valeur du stock : la direction, et les deux metiers
     # qui controlent les comptes. Pas le comptoir, qui compte son tiroir a
     # l'aveugle -- une marge lui donnerait sa recette --, ni l'econome, dont

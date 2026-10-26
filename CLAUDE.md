@@ -228,7 +228,8 @@ poste a ses droits sur tous les autres.
 La **synchronisation marche dans les deux sens**. La file remonte toute
 seule, dans l'ordre, sans doublon même en cas de renvoi, avec espacement des
 tentatives hors ligne ; un refus du serveur bloque la file au lieu de la
-sauter, et se voit. La descente rapatrie référentiel, clients, réservations
+sauter, et se voit — **aussi d'un autre poste** (voir « Une file bloquée se
+voit d'ailleurs »). La descente rapatrie référentiel, clients, réservations
 et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
 ressource que l'agent n'a pas le droit de lire (403) est sautée, pas fatale :
 la réception ne lit pas le restaurant, le ménage ne lit pas les clients.
@@ -634,6 +635,37 @@ serveur garde celle de la tablette (il l'adoptait déjà quand il en garde une
 autre). Le schéma local 17 débloque celles qui sont déjà coincées : toute
 ardoise `pending` que rien dans la file ne porte encore, ni elle ni le
 check-in de son séjour. Test : `test/ardoise_du_check_in_test.dart`.
+
+## Une file bloquée se voit d'ailleurs (26 octobre)
+
+Un refus du serveur bloque la file d'une tablette, avec tout ce qui attend
+derrière ; cela ne se voyait que sur la tablette elle-même. Désormais :
+
+- **La tablette l'annonce, hors de sa file** (elle est justement bloquée) :
+  après chaque passage, `SignalementBlocages.apresPassage`
+  (`data/remote/signalement_blocages.dart`) envoie chaque écriture `FAILED`
+  à `POST /sync-blocks`, puis sa levée (`/resolve`, `SENT` si elle est
+  passée, `REMOVED` si elle a quitté la file). Ce qu'elle a déjà dit vit dans
+  `block_reports`, locale. Jamais bloquant : hors ligne, le rapport attend le
+  passage suivant. Les secrets du contenu (PIN, mot de passe, jeton) sont
+  retirés des deux côtés, par **mot de la clé** (`approver_pin`), pas par
+  sous-chaîne.
+- **Une tablette a un identifiant stable**, tiré une fois dans
+  `sync_statuses.device_id`, et un nom par défaut « Tablette 3F2A » (les
+  quatre derniers caractères). Elle se présente à chaque connexion en ligne
+  (`PUT /devices/me`) ; un nom donné ensuite sur le serveur n'est jamais
+  écrasé par le nom par défaut. Le renommage et la révocation viennent avec
+  la correction 9.
+- **`sync.monitor`** (migration 0034) : administrateur et direction. Il lit
+  `GET /devices` et `GET /sync-blocks` (blocages ouverts, et levés depuis
+  sept jours) ; annoncer et lever sont ouverts à tout agent connecté — le
+  rapport part avec qui tient la tablette, souvent un autre que l'auteur.
+- La descente rapporte les deux listes (`_suivi` : 403 et 404 ne touchent
+  rien) ; celle des blocages **remplace** la locale. Alerte
+  **« Tablette bloquée »** (`SYNC_BLOCKED_REMOTE`), sauf pour la tablette
+  bloquée elle-même, qui a déjà la sienne. Écran **Tablettes**
+  (`/tablettes`, menu Réglages, et un onglet de l'administration).
+- Schéma local 18 : `sync_blocks` (le reflet) et `block_reports`.
 
 ## Ce qui manque
 

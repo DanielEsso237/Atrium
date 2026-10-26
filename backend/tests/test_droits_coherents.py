@@ -239,3 +239,14 @@ def test_la_reception_ouvre_le_menage_mais_ne_le_fait_pas():
     assert "housekeeping.manage" in _role("RECEPTION")
     assert "housekeeping.work" not in _role("RECEPTION")
     assert "housekeeping.work" in _role("HOUSEKEEPING")
+
+
+def test_seules_l_administration_et_la_direction_suivent_les_tablettes():
+    """Les rapports de blocage portent le contenu des ecritures refusees
+    (un encaissement, une charge) : la direction les lit, pas le comptoir
+    (migration 0034)."""
+    for _, code, _ in ROLES:
+        if code in ("ADMIN", "MANAGER"):
+            assert "sync.monitor" in _role(code), code
+        else:
+            assert "sync.monitor" not in _role(code), code

@@ -70,3 +70,38 @@ class Notifications extends Table with SyncedTableColumns, HotelScoped {
   DateTimeColumn get readAt => dateTime().nullable()();
   TextColumn get readBy => text().nullable()();
 }
+
+/// Une tablette dont la file d'envoi est bloquee, vue d'un autre poste.
+///
+/// Le reflet de `sync_blocks` sur le serveur : redescend vers qui porte
+/// `sync.monitor`. Le blocage ne se voyait que sur la tablette elle-meme, et
+/// la reception pouvait travailler une demi-journee sans que rien ne remonte.
+/// Celle qui est bloquee l'annonce elle-meme (`BlockReports`).
+@DataClassName('SyncBlockRow')
+class SyncBlocks extends Table with SyncedTableColumns, HotelScoped {
+  TextColumn get deviceId => text()();
+  TextColumn get authorId => text().nullable()();
+  TextColumn get reportedBy => text().nullable()();
+  TextColumn get entityTable => text().withLength(max: 64)();
+  TextColumn get entityId => text()();
+  TextColumn get operation => text().withLength(max: 8)();
+
+  /// Le contenu de l'ecriture, en JSON, secrets retires.
+  TextColumn get payload => text().nullable()();
+  IntColumn get httpStatus => integer().nullable()();
+  TextColumn get reason => text().nullable()();
+  DateTimeColumn get writtenAt => dateTime().nullable()();
+  DateTimeColumn get blockedAt => dateTime()();
+  DateTimeColumn get reportedAt => dateTime()();
+
+  /// Les ecritures qui attendaient derriere, au dernier rapport.
+  IntColumn get pendingBehind => integer().withDefault(const Constant(0))();
+
+  /// `OPEN`, puis `RESOLVED`.
+  TextColumn get status =>
+      text().withLength(max: 16).withDefault(const Constant('OPEN'))();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+
+  /// `SENT` (l'ecriture est passee) ou `REMOVED` (elle a quitte la file).
+  TextColumn get resolution => text().withLength(max: 16).nullable()();
+}

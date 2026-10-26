@@ -43,7 +43,14 @@ class FakeCatalogApi implements CatalogApi {
     this.roomOrders,
     this.housekeepingTasks = const [],
     this.maintenanceTickets = const [],
+    this.devices,
+    this.syncBlocks,
   });
+
+  /// `GET /devices` et `GET /sync-blocks` ; `null` : un refus (403), comme
+  /// pour tout agent sans `sync.monitor`.
+  final List<Map<String, dynamic>>? devices;
+  final List<Map<String, dynamic>>? syncBlocks;
 
   final List<RemoteHousekeepingTask> housekeepingTasks;
   final List<RemoteMaintenanceTicket> maintenanceTickets;
@@ -221,6 +228,15 @@ class FakeCatalogApi implements CatalogApi {
 
   @override
   Future<List<Map<String, dynamic>>> fetchCredentials() async => empreintes;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchDevices() async =>
+      devices ?? (throw const ApiException(ApiFailure.forbidden, 'interdit'));
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSyncBlocks() async =>
+      syncBlocks ??
+      (throw const ApiException(ApiFailure.forbidden, 'interdit'));
 }
 
 /// Un serveur injoignable : tout appel echoue comme dans un couloir.
@@ -355,4 +371,10 @@ class CatalogApiHorsLigne implements CatalogApi {
 
   @override
   Future<List<Map<String, dynamic>>> fetchCredentials() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchDevices() async => _couloir();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSyncBlocks() async => _couloir();
 }

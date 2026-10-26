@@ -106,3 +106,32 @@ class FileUploads extends Table {
   TextColumn get remoteUrl => text().withLength(max: 512).nullable()();
   DateTimeColumn get createdAt => dateTime()();
 }
+
+/// Ce que cette tablette a annonce de ses propres blocages.
+///
+/// Une ligne par ecriture refusee (`outbox_entries` en `FAILED`). Le rapport
+/// part hors de la file d'envoi -- elle est justement bloquee --, puis sa
+/// levee quand l'ecriture passe ou quitte la file. Locale seulement : le
+/// reflet que les autres postes lisent est `SyncBlocks`.
+@DataClassName('BlockReportRow')
+class BlockReports extends Table {
+  /// L'id du rapport sur le serveur, tire ici : un renvoi ne fait pas
+  /// doublon.
+  TextColumn get id => text().withLength(min: 36, max: 36)();
+  IntColumn get outboxEntryId => integer().unique()();
+  DateTimeColumn get blockedAt => dateTime()();
+  IntColumn get pendingBehind => integer().withDefault(const Constant(0))();
+
+  /// Le rapport a change depuis son dernier envoi (ou n'est jamais parti).
+  BoolColumn get aEnvoyer => boolean().withDefault(const Constant(true))();
+
+  /// Le dernier envoi reussi ; nul tant que le serveur n'en sait rien.
+  DateTimeColumn get reportedAt => dateTime().nullable()();
+
+  /// Le blocage est leve : `SENT` ou `REMOVED`. Reste a le dire au serveur.
+  TextColumn get resolution => text().withLength(max: 16).nullable()();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
