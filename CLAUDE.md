@@ -228,8 +228,9 @@ poste a ses droits sur tous les autres.
 La **synchronisation marche dans les deux sens**. La file remonte toute
 seule, dans l'ordre, sans doublon même en cas de renvoi, avec espacement des
 tentatives hors ligne ; un refus du serveur bloque la file au lieu de la
-sauter, et se voit — **aussi d'un autre poste** (voir « Une file bloquée se
-voit d'ailleurs »). La descente rapatrie référentiel, clients, réservations
+sauter, et se voit — **aussi d'un autre poste**, d'où un responsable peut
+abandonner l'écriture refusée (voir « Une file bloquée se voit d'ailleurs »
+et « Une écriture refusée s'abandonne d'ailleurs »). La descente rapatrie référentiel, clients, réservations
 et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
 ressource que l'agent n'a pas le droit de lire (403) est sautée, pas fatale :
 la réception ne lit pas le restaurant, le ménage ne lit pas les clients.
@@ -666,6 +667,47 @@ derrière ; cela ne se voyait que sur la tablette elle-même. Désormais :
   bloquée elle-même, qui a déjà la sienne. Écran **Tablettes**
   (`/tablettes`, menu Réglages, et un onglet de l'administration).
 - Schéma local 18 : `sync_blocks` (le reflet) et `block_reports`.
+
+## Une écriture refusée s'abandonne d'ailleurs (26 octobre)
+
+La file bloquée se voyait d'un autre poste, mais rien ne la débloquait :
+seul un encaissement se retirait, sur la tablette elle-même. Un responsable
+(`sync.monitor`) **abandonne** maintenant l'écriture depuis l'écran
+Tablettes, avec un **motif obligatoire** ; la tablette bloquée applique la
+décision à son passage suivant, et ce qui attendait derrière repart aussitôt.
+**Pas de « Réessayer »** : la file renvoie déjà l'écriture refusée à chaque
+échange complet, et tout changement sur le serveur en déclenche un en
+trente secondes.
+
+- **C'est la tablette bloquée qui dit ce qui s'abandonne**
+  (`data/repositories/abandon_ecriture.dart`) : elle seule voit ce qui
+  attend derrière. Son rapport porte `abandonable` et `abandon_note`,
+  recalculés à chaque passage ; le bouton ne s'affiche que s'il le permet.
+  Deux familles : la **modification d'une ligne que le serveur a déjà**
+  (fiche client, point de vente, dépense, nom d'une ardoise — l'entrée part,
+  la ligne n'est plus protégée, la descente remet la version du serveur) et
+  la **création isolée** (encaissement, consommation, dépense — la ligne
+  disparaît, l'ardoise et le stock du point de vente se recalculent). Le
+  reste ne s'abandonne pas : séjour, caisse, mouvement de stock, fiche client
+  neuve entraînent d'autres lignes.
+- **Rien ne s'abandonne dont une saisie suivante dépend** : même ligne,
+  saisie qui la nomme (l'annulation d'un encaissement, une réservation sur
+  un client), ou ce qui repose sur le solde de l'ardoise (un encaissement
+  après une consommation, une clôture après un encaissement). Une
+  consommation ou un encaissement de plus ne dépend de rien.
+- **La décision passe par le serveur, pas par la file** : elle n'a de sens
+  qu'en ligne, et la file du poste qui décide peut être bloquée elle aussi.
+  `POST /sync-blocks/{id}/decide` (`sync.monitor`, 409 si la tablette le
+  refuse ou si le blocage est levé, la première décision fait foi, trace
+  `SYNC_ABANDON` dans `audit_logs`) ; la tablette bloquée lit
+  `GET /sync-blocks/decisions?device_id=` avec la session de qui la tient,
+  **revérifie**, applique dans une transaction, puis lève (`REMOVED`). Si une
+  saisie en dépend entre-temps, elle le redit et le serveur fait tomber la
+  décision. `SyncNotifier._remonter` revide la file aussitôt après.
+- « Retirer cet encaissement », sur la tablette elle-même, passe par le même
+  `abandonnerEcriture` et refuse donc aussi ce dont une saisie dépend.
+- Migration 0035 ; schéma local 19 (colonnes de `sync_blocks` et
+  `block_reports`).
 
 ## Ce qui manque
 

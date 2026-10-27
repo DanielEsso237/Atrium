@@ -107,6 +107,24 @@ class SyncNotifier extends Notifier<SyncUiState> {
   /// connexion ne partait jamais (vu sur la tablette le 25 octobre).
   void oublierCurseur() => _curseur = null;
 
+  /// Vide la file, dit son blocage aux autres postes, et la vide encore si
+  /// un responsable vient d'abandonner l'ecriture qui la bloquait : ce qui
+  /// attendait derriere part tout de suite, pas a l'echange suivant.
+  Future<DrainReport> _remonter() async {
+    final envoi = ref.read(outboxSenderProvider);
+    final signalement = ref.read(signalementBlocagesProvider);
+    final premier = await envoi.drain();
+    if (!await signalement.apresPassage()) return premier;
+    final second = await envoi.drain();
+    await signalement.apresPassage();
+    return DrainReport(
+      envoyees: premier.envoyees + second.envoyees,
+      restantes: second.restantes,
+      arret: second.arret,
+      detail: second.detail,
+    );
+  }
+
   /// Remonte les ecritures locales, sans rien rapatrier.
   ///
   /// C'est ce que le declenchement automatique appelle. La montee peut se
@@ -130,8 +148,7 @@ class SyncNotifier extends Notifier<SyncUiState> {
     // cours » -- les ecritures restaient dans la file.
     DrainReport rapport;
     try {
-      rapport = await ref.read(outboxSenderProvider).drain();
-      await ref.read(signalementBlocagesProvider).apresPassage();
+      rapport = await _remonter();
     } catch (e, pile) {
       debugPrint('Atrium : la remontee a echoue : $e\n$pile');
       rapport = DrainReport(
@@ -180,10 +197,11 @@ class SyncNotifier extends Notifier<SyncUiState> {
       // L'ordre n'est pas negociable : la descente ecrase, la montee non.
       // Pousser d'abord laisse au serveur la chance d'apprendre ce que la
       // tablette sait avant qu'il ne lui reponde.
-      rapport = await ref.read(outboxSenderProvider).drain();
       // Un blocage, ou sa levee, se dit aux autres postes avant la descente :
       // c'est elle qui leur rapporte ce que les autres tablettes ont dit.
-      await ref.read(signalementBlocagesProvider).apresPassage();
+      // Une modification abandonnee sur decision retrouve aussi, par elle,
+      // la version du serveur.
+      rapport = await _remonter();
 
       // Le referentiel d'abord : les reservations s'accrochent aux
       // categories de chambres, et une categorie absente ferait ecarter la

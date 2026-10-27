@@ -68553,6 +68553,77 @@ class $SyncBlocksTable extends SyncBlocks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _abandonableMeta = const VerificationMeta(
+    'abandonable',
+  );
+  @override
+  late final GeneratedColumn<bool> abandonable = GeneratedColumn<bool>(
+    'abandonable',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("abandonable" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _abandonNoteMeta = const VerificationMeta(
+    'abandonNote',
+  );
+  @override
+  late final GeneratedColumn<String> abandonNote = GeneratedColumn<String>(
+    'abandon_note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decisionMeta = const VerificationMeta(
+    'decision',
+  );
+  @override
+  late final GeneratedColumn<String> decision = GeneratedColumn<String>(
+    'decision',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 16),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decisionReasonMeta = const VerificationMeta(
+    'decisionReason',
+  );
+  @override
+  late final GeneratedColumn<String> decisionReason = GeneratedColumn<String>(
+    'decision_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decidedByMeta = const VerificationMeta(
+    'decidedBy',
+  );
+  @override
+  late final GeneratedColumn<String> decidedBy = GeneratedColumn<String>(
+    'decided_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decidedAtMeta = const VerificationMeta(
+    'decidedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> decidedAt = GeneratedColumn<DateTime>(
+    'decided_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -68581,6 +68652,12 @@ class $SyncBlocksTable extends SyncBlocks
     status,
     resolvedAt,
     resolution,
+    abandonable,
+    abandonNote,
+    decision,
+    decisionReason,
+    decidedBy,
+    decidedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -68770,6 +68847,51 @@ class $SyncBlocksTable extends SyncBlocks
         resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
       );
     }
+    if (data.containsKey('abandonable')) {
+      context.handle(
+        _abandonableMeta,
+        abandonable.isAcceptableOrUnknown(
+          data['abandonable']!,
+          _abandonableMeta,
+        ),
+      );
+    }
+    if (data.containsKey('abandon_note')) {
+      context.handle(
+        _abandonNoteMeta,
+        abandonNote.isAcceptableOrUnknown(
+          data['abandon_note']!,
+          _abandonNoteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('decision')) {
+      context.handle(
+        _decisionMeta,
+        decision.isAcceptableOrUnknown(data['decision']!, _decisionMeta),
+      );
+    }
+    if (data.containsKey('decision_reason')) {
+      context.handle(
+        _decisionReasonMeta,
+        decisionReason.isAcceptableOrUnknown(
+          data['decision_reason']!,
+          _decisionReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('decided_by')) {
+      context.handle(
+        _decidedByMeta,
+        decidedBy.isAcceptableOrUnknown(data['decided_by']!, _decidedByMeta),
+      );
+    }
+    if (data.containsKey('decided_at')) {
+      context.handle(
+        _decidedAtMeta,
+        decidedAt.isAcceptableOrUnknown(data['decided_at']!, _decidedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -68885,6 +69007,30 @@ class $SyncBlocksTable extends SyncBlocks
         DriftSqlType.string,
         data['${effectivePrefix}resolution'],
       ),
+      abandonable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}abandonable'],
+      )!,
+      abandonNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}abandon_note'],
+      ),
+      decision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decision'],
+      ),
+      decisionReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decision_reason'],
+      ),
+      decidedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decided_by'],
+      ),
+      decidedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}decided_at'],
+      ),
     );
   }
 
@@ -68932,6 +69078,18 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
 
   /// `SENT` (l'ecriture est passee) ou `REMOVED` (elle a quitte la file).
   final String? resolution;
+
+  /// Ce que la tablette bloquee dit de son ecriture : elle seule sait ce qui
+  /// en depend. Le bouton « Abandonner » ne s'affiche que si elle le permet.
+  final bool abandonable;
+  final String? abandonNote;
+
+  /// `ABANDON`, decide par un responsable ; la tablette bloquee l'applique a
+  /// son passage suivant.
+  final String? decision;
+  final String? decisionReason;
+  final String? decidedBy;
+  final DateTime? decidedAt;
   const SyncBlockRow({
     required this.id,
     required this.createdAt,
@@ -68959,6 +69117,12 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
     required this.status,
     this.resolvedAt,
     this.resolution,
+    required this.abandonable,
+    this.abandonNote,
+    this.decision,
+    this.decisionReason,
+    this.decidedBy,
+    this.decidedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -69019,6 +69183,22 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
     if (!nullToAbsent || resolution != null) {
       map['resolution'] = Variable<String>(resolution);
     }
+    map['abandonable'] = Variable<bool>(abandonable);
+    if (!nullToAbsent || abandonNote != null) {
+      map['abandon_note'] = Variable<String>(abandonNote);
+    }
+    if (!nullToAbsent || decision != null) {
+      map['decision'] = Variable<String>(decision);
+    }
+    if (!nullToAbsent || decisionReason != null) {
+      map['decision_reason'] = Variable<String>(decisionReason);
+    }
+    if (!nullToAbsent || decidedBy != null) {
+      map['decided_by'] = Variable<String>(decidedBy);
+    }
+    if (!nullToAbsent || decidedAt != null) {
+      map['decided_at'] = Variable<DateTime>(decidedAt);
+    }
     return map;
   }
 
@@ -69076,6 +69256,22 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
       resolution: resolution == null && nullToAbsent
           ? const Value.absent()
           : Value(resolution),
+      abandonable: Value(abandonable),
+      abandonNote: abandonNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(abandonNote),
+      decision: decision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decision),
+      decisionReason: decisionReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decisionReason),
+      decidedBy: decidedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedBy),
+      decidedAt: decidedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedAt),
     );
   }
 
@@ -69113,6 +69309,12 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
       status: serializer.fromJson<String>(json['status']),
       resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
       resolution: serializer.fromJson<String?>(json['resolution']),
+      abandonable: serializer.fromJson<bool>(json['abandonable']),
+      abandonNote: serializer.fromJson<String?>(json['abandonNote']),
+      decision: serializer.fromJson<String?>(json['decision']),
+      decisionReason: serializer.fromJson<String?>(json['decisionReason']),
+      decidedBy: serializer.fromJson<String?>(json['decidedBy']),
+      decidedAt: serializer.fromJson<DateTime?>(json['decidedAt']),
     );
   }
   @override
@@ -69147,6 +69349,12 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
       'status': serializer.toJson<String>(status),
       'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
       'resolution': serializer.toJson<String?>(resolution),
+      'abandonable': serializer.toJson<bool>(abandonable),
+      'abandonNote': serializer.toJson<String?>(abandonNote),
+      'decision': serializer.toJson<String?>(decision),
+      'decisionReason': serializer.toJson<String?>(decisionReason),
+      'decidedBy': serializer.toJson<String?>(decidedBy),
+      'decidedAt': serializer.toJson<DateTime?>(decidedAt),
     };
   }
 
@@ -69177,6 +69385,12 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
     String? status,
     Value<DateTime?> resolvedAt = const Value.absent(),
     Value<String?> resolution = const Value.absent(),
+    bool? abandonable,
+    Value<String?> abandonNote = const Value.absent(),
+    Value<String?> decision = const Value.absent(),
+    Value<String?> decisionReason = const Value.absent(),
+    Value<String?> decidedBy = const Value.absent(),
+    Value<DateTime?> decidedAt = const Value.absent(),
   }) => SyncBlockRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -69206,6 +69420,14 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
     status: status ?? this.status,
     resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
     resolution: resolution.present ? resolution.value : this.resolution,
+    abandonable: abandonable ?? this.abandonable,
+    abandonNote: abandonNote.present ? abandonNote.value : this.abandonNote,
+    decision: decision.present ? decision.value : this.decision,
+    decisionReason: decisionReason.present
+        ? decisionReason.value
+        : this.decisionReason,
+    decidedBy: decidedBy.present ? decidedBy.value : this.decidedBy,
+    decidedAt: decidedAt.present ? decidedAt.value : this.decidedAt,
   );
   SyncBlockRow copyWithCompanion(SyncBlocksCompanion data) {
     return SyncBlockRow(
@@ -69251,6 +69473,18 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
       resolution: data.resolution.present
           ? data.resolution.value
           : this.resolution,
+      abandonable: data.abandonable.present
+          ? data.abandonable.value
+          : this.abandonable,
+      abandonNote: data.abandonNote.present
+          ? data.abandonNote.value
+          : this.abandonNote,
+      decision: data.decision.present ? data.decision.value : this.decision,
+      decisionReason: data.decisionReason.present
+          ? data.decisionReason.value
+          : this.decisionReason,
+      decidedBy: data.decidedBy.present ? data.decidedBy.value : this.decidedBy,
+      decidedAt: data.decidedAt.present ? data.decidedAt.value : this.decidedAt,
     );
   }
 
@@ -69282,7 +69516,13 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
           ..write('pendingBehind: $pendingBehind, ')
           ..write('status: $status, ')
           ..write('resolvedAt: $resolvedAt, ')
-          ..write('resolution: $resolution')
+          ..write('resolution: $resolution, ')
+          ..write('abandonable: $abandonable, ')
+          ..write('abandonNote: $abandonNote, ')
+          ..write('decision: $decision, ')
+          ..write('decisionReason: $decisionReason, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt')
           ..write(')'))
         .toString();
   }
@@ -69315,6 +69555,12 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
     status,
     resolvedAt,
     resolution,
+    abandonable,
+    abandonNote,
+    decision,
+    decisionReason,
+    decidedBy,
+    decidedAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -69345,7 +69591,13 @@ class SyncBlockRow extends DataClass implements Insertable<SyncBlockRow> {
           other.pendingBehind == this.pendingBehind &&
           other.status == this.status &&
           other.resolvedAt == this.resolvedAt &&
-          other.resolution == this.resolution);
+          other.resolution == this.resolution &&
+          other.abandonable == this.abandonable &&
+          other.abandonNote == this.abandonNote &&
+          other.decision == this.decision &&
+          other.decisionReason == this.decisionReason &&
+          other.decidedBy == this.decidedBy &&
+          other.decidedAt == this.decidedAt);
 }
 
 class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
@@ -69375,6 +69627,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
   final Value<String> status;
   final Value<DateTime?> resolvedAt;
   final Value<String?> resolution;
+  final Value<bool> abandonable;
+  final Value<String?> abandonNote;
+  final Value<String?> decision;
+  final Value<String?> decisionReason;
+  final Value<String?> decidedBy;
+  final Value<DateTime?> decidedAt;
   final Value<int> rowid;
   const SyncBlocksCompanion({
     this.id = const Value.absent(),
@@ -69403,6 +69661,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
     this.status = const Value.absent(),
     this.resolvedAt = const Value.absent(),
     this.resolution = const Value.absent(),
+    this.abandonable = const Value.absent(),
+    this.abandonNote = const Value.absent(),
+    this.decision = const Value.absent(),
+    this.decisionReason = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncBlocksCompanion.insert({
@@ -69432,6 +69696,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
     this.status = const Value.absent(),
     this.resolvedAt = const Value.absent(),
     this.resolution = const Value.absent(),
+    this.abandonable = const Value.absent(),
+    this.abandonNote = const Value.absent(),
+    this.decision = const Value.absent(),
+    this.decisionReason = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -69470,6 +69740,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
     Expression<String>? status,
     Expression<DateTime>? resolvedAt,
     Expression<String>? resolution,
+    Expression<bool>? abandonable,
+    Expression<String>? abandonNote,
+    Expression<String>? decision,
+    Expression<String>? decisionReason,
+    Expression<String>? decidedBy,
+    Expression<DateTime>? decidedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -69499,6 +69775,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
       if (status != null) 'status': status,
       if (resolvedAt != null) 'resolved_at': resolvedAt,
       if (resolution != null) 'resolution': resolution,
+      if (abandonable != null) 'abandonable': abandonable,
+      if (abandonNote != null) 'abandon_note': abandonNote,
+      if (decision != null) 'decision': decision,
+      if (decisionReason != null) 'decision_reason': decisionReason,
+      if (decidedBy != null) 'decided_by': decidedBy,
+      if (decidedAt != null) 'decided_at': decidedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -69530,6 +69812,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
     Value<String>? status,
     Value<DateTime?>? resolvedAt,
     Value<String?>? resolution,
+    Value<bool>? abandonable,
+    Value<String?>? abandonNote,
+    Value<String?>? decision,
+    Value<String?>? decisionReason,
+    Value<String?>? decidedBy,
+    Value<DateTime?>? decidedAt,
     Value<int>? rowid,
   }) {
     return SyncBlocksCompanion(
@@ -69559,6 +69847,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
       status: status ?? this.status,
       resolvedAt: resolvedAt ?? this.resolvedAt,
       resolution: resolution ?? this.resolution,
+      abandonable: abandonable ?? this.abandonable,
+      abandonNote: abandonNote ?? this.abandonNote,
+      decision: decision ?? this.decision,
+      decisionReason: decisionReason ?? this.decisionReason,
+      decidedBy: decidedBy ?? this.decidedBy,
+      decidedAt: decidedAt ?? this.decidedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -69646,6 +69940,24 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
     if (resolution.present) {
       map['resolution'] = Variable<String>(resolution.value);
     }
+    if (abandonable.present) {
+      map['abandonable'] = Variable<bool>(abandonable.value);
+    }
+    if (abandonNote.present) {
+      map['abandon_note'] = Variable<String>(abandonNote.value);
+    }
+    if (decision.present) {
+      map['decision'] = Variable<String>(decision.value);
+    }
+    if (decisionReason.present) {
+      map['decision_reason'] = Variable<String>(decisionReason.value);
+    }
+    if (decidedBy.present) {
+      map['decided_by'] = Variable<String>(decidedBy.value);
+    }
+    if (decidedAt.present) {
+      map['decided_at'] = Variable<DateTime>(decidedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -69681,6 +69993,12 @@ class SyncBlocksCompanion extends UpdateCompanion<SyncBlockRow> {
           ..write('status: $status, ')
           ..write('resolvedAt: $resolvedAt, ')
           ..write('resolution: $resolution, ')
+          ..write('abandonable: $abandonable, ')
+          ..write('abandonNote: $abandonNote, ')
+          ..write('decision: $decision, ')
+          ..write('decisionReason: $decisionReason, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -71943,6 +72261,32 @@ class $BlockReportsTable extends BlockReports
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _abandonableMeta = const VerificationMeta(
+    'abandonable',
+  );
+  @override
+  late final GeneratedColumn<bool> abandonable = GeneratedColumn<bool>(
+    'abandonable',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("abandonable" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _abandonNoteMeta = const VerificationMeta(
+    'abandonNote',
+  );
+  @override
+  late final GeneratedColumn<String> abandonNote = GeneratedColumn<String>(
+    'abandon_note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -71953,6 +72297,8 @@ class $BlockReportsTable extends BlockReports
     reportedAt,
     resolution,
     resolvedAt,
+    abandonable,
+    abandonNote,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -72023,6 +72369,24 @@ class $BlockReportsTable extends BlockReports
         resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
       );
     }
+    if (data.containsKey('abandonable')) {
+      context.handle(
+        _abandonableMeta,
+        abandonable.isAcceptableOrUnknown(
+          data['abandonable']!,
+          _abandonableMeta,
+        ),
+      );
+    }
+    if (data.containsKey('abandon_note')) {
+      context.handle(
+        _abandonNoteMeta,
+        abandonNote.isAcceptableOrUnknown(
+          data['abandon_note']!,
+          _abandonNoteMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -72064,6 +72428,14 @@ class $BlockReportsTable extends BlockReports
         DriftSqlType.dateTime,
         data['${effectivePrefix}resolved_at'],
       ),
+      abandonable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}abandonable'],
+      )!,
+      abandonNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}abandon_note'],
+      ),
     );
   }
 
@@ -72090,6 +72462,12 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
   /// Le blocage est leve : `SENT` ou `REMOVED`. Reste a le dire au serveur.
   final String? resolution;
   final DateTime? resolvedAt;
+
+  /// L'ecriture peut-elle s'abandonner a distance, et sinon pourquoi.
+  /// Recalcule a chaque passage : une saisie qui arrive derriere peut en
+  /// dependre (`abandon_ecriture.dart`).
+  final bool abandonable;
+  final String? abandonNote;
   const BlockReportRow({
     required this.id,
     required this.outboxEntryId,
@@ -72099,6 +72477,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
     this.reportedAt,
     this.resolution,
     this.resolvedAt,
+    required this.abandonable,
+    this.abandonNote,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -72116,6 +72496,10 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
     }
     if (!nullToAbsent || resolvedAt != null) {
       map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    map['abandonable'] = Variable<bool>(abandonable);
+    if (!nullToAbsent || abandonNote != null) {
+      map['abandon_note'] = Variable<String>(abandonNote);
     }
     return map;
   }
@@ -72136,6 +72520,10 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
       resolvedAt: resolvedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(resolvedAt),
+      abandonable: Value(abandonable),
+      abandonNote: abandonNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(abandonNote),
     );
   }
 
@@ -72153,6 +72541,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
       reportedAt: serializer.fromJson<DateTime?>(json['reportedAt']),
       resolution: serializer.fromJson<String?>(json['resolution']),
       resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+      abandonable: serializer.fromJson<bool>(json['abandonable']),
+      abandonNote: serializer.fromJson<String?>(json['abandonNote']),
     );
   }
   @override
@@ -72167,6 +72557,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
       'reportedAt': serializer.toJson<DateTime?>(reportedAt),
       'resolution': serializer.toJson<String?>(resolution),
       'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+      'abandonable': serializer.toJson<bool>(abandonable),
+      'abandonNote': serializer.toJson<String?>(abandonNote),
     };
   }
 
@@ -72179,6 +72571,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
     Value<DateTime?> reportedAt = const Value.absent(),
     Value<String?> resolution = const Value.absent(),
     Value<DateTime?> resolvedAt = const Value.absent(),
+    bool? abandonable,
+    Value<String?> abandonNote = const Value.absent(),
   }) => BlockReportRow(
     id: id ?? this.id,
     outboxEntryId: outboxEntryId ?? this.outboxEntryId,
@@ -72188,6 +72582,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
     reportedAt: reportedAt.present ? reportedAt.value : this.reportedAt,
     resolution: resolution.present ? resolution.value : this.resolution,
     resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+    abandonable: abandonable ?? this.abandonable,
+    abandonNote: abandonNote.present ? abandonNote.value : this.abandonNote,
   );
   BlockReportRow copyWithCompanion(BlockReportsCompanion data) {
     return BlockReportRow(
@@ -72209,6 +72605,12 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
       resolvedAt: data.resolvedAt.present
           ? data.resolvedAt.value
           : this.resolvedAt,
+      abandonable: data.abandonable.present
+          ? data.abandonable.value
+          : this.abandonable,
+      abandonNote: data.abandonNote.present
+          ? data.abandonNote.value
+          : this.abandonNote,
     );
   }
 
@@ -72222,7 +72624,9 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
           ..write('aEnvoyer: $aEnvoyer, ')
           ..write('reportedAt: $reportedAt, ')
           ..write('resolution: $resolution, ')
-          ..write('resolvedAt: $resolvedAt')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('abandonable: $abandonable, ')
+          ..write('abandonNote: $abandonNote')
           ..write(')'))
         .toString();
   }
@@ -72237,6 +72641,8 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
     reportedAt,
     resolution,
     resolvedAt,
+    abandonable,
+    abandonNote,
   );
   @override
   bool operator ==(Object other) =>
@@ -72249,7 +72655,9 @@ class BlockReportRow extends DataClass implements Insertable<BlockReportRow> {
           other.aEnvoyer == this.aEnvoyer &&
           other.reportedAt == this.reportedAt &&
           other.resolution == this.resolution &&
-          other.resolvedAt == this.resolvedAt);
+          other.resolvedAt == this.resolvedAt &&
+          other.abandonable == this.abandonable &&
+          other.abandonNote == this.abandonNote);
 }
 
 class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
@@ -72261,6 +72669,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
   final Value<DateTime?> reportedAt;
   final Value<String?> resolution;
   final Value<DateTime?> resolvedAt;
+  final Value<bool> abandonable;
+  final Value<String?> abandonNote;
   final Value<int> rowid;
   const BlockReportsCompanion({
     this.id = const Value.absent(),
@@ -72271,6 +72681,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
     this.reportedAt = const Value.absent(),
     this.resolution = const Value.absent(),
     this.resolvedAt = const Value.absent(),
+    this.abandonable = const Value.absent(),
+    this.abandonNote = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BlockReportsCompanion.insert({
@@ -72282,6 +72694,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
     this.reportedAt = const Value.absent(),
     this.resolution = const Value.absent(),
     this.resolvedAt = const Value.absent(),
+    this.abandonable = const Value.absent(),
+    this.abandonNote = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        outboxEntryId = Value(outboxEntryId),
@@ -72295,6 +72709,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
     Expression<DateTime>? reportedAt,
     Expression<String>? resolution,
     Expression<DateTime>? resolvedAt,
+    Expression<bool>? abandonable,
+    Expression<String>? abandonNote,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -72306,6 +72722,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
       if (reportedAt != null) 'reported_at': reportedAt,
       if (resolution != null) 'resolution': resolution,
       if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (abandonable != null) 'abandonable': abandonable,
+      if (abandonNote != null) 'abandon_note': abandonNote,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -72319,6 +72737,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
     Value<DateTime?>? reportedAt,
     Value<String?>? resolution,
     Value<DateTime?>? resolvedAt,
+    Value<bool>? abandonable,
+    Value<String?>? abandonNote,
     Value<int>? rowid,
   }) {
     return BlockReportsCompanion(
@@ -72330,6 +72750,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
       reportedAt: reportedAt ?? this.reportedAt,
       resolution: resolution ?? this.resolution,
       resolvedAt: resolvedAt ?? this.resolvedAt,
+      abandonable: abandonable ?? this.abandonable,
+      abandonNote: abandonNote ?? this.abandonNote,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -72361,6 +72783,12 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
     if (resolvedAt.present) {
       map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
     }
+    if (abandonable.present) {
+      map['abandonable'] = Variable<bool>(abandonable.value);
+    }
+    if (abandonNote.present) {
+      map['abandon_note'] = Variable<String>(abandonNote.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -72378,6 +72806,8 @@ class BlockReportsCompanion extends UpdateCompanion<BlockReportRow> {
           ..write('reportedAt: $reportedAt, ')
           ..write('resolution: $resolution, ')
           ..write('resolvedAt: $resolvedAt, ')
+          ..write('abandonable: $abandonable, ')
+          ..write('abandonNote: $abandonNote, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -106872,6 +107302,12 @@ typedef $$SyncBlocksTableCreateCompanionBuilder =
       Value<String> status,
       Value<DateTime?> resolvedAt,
       Value<String?> resolution,
+      Value<bool> abandonable,
+      Value<String?> abandonNote,
+      Value<String?> decision,
+      Value<String?> decisionReason,
+      Value<String?> decidedBy,
+      Value<DateTime?> decidedAt,
       Value<int> rowid,
     });
 typedef $$SyncBlocksTableUpdateCompanionBuilder =
@@ -106902,6 +107338,12 @@ typedef $$SyncBlocksTableUpdateCompanionBuilder =
       Value<String> status,
       Value<DateTime?> resolvedAt,
       Value<String?> resolution,
+      Value<bool> abandonable,
+      Value<String?> abandonNote,
+      Value<String?> decision,
+      Value<String?> decisionReason,
+      Value<String?> decidedBy,
+      Value<DateTime?> decidedAt,
       Value<int> rowid,
     });
 
@@ -107044,6 +107486,36 @@ class $$SyncBlocksTableFilterComposer
     column: $table.resolution,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decision => $composableBuilder(
+    column: $table.decision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decisionReason => $composableBuilder(
+    column: $table.decisionReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$SyncBlocksTableOrderingComposer
@@ -107184,6 +107656,36 @@ class $$SyncBlocksTableOrderingComposer
     column: $table.resolution,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decision => $composableBuilder(
+    column: $table.decision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decisionReason => $composableBuilder(
+    column: $table.decisionReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncBlocksTableAnnotationComposer
@@ -107288,6 +107790,30 @@ class $$SyncBlocksTableAnnotationComposer
     column: $table.resolution,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get decision =>
+      $composableBuilder(column: $table.decision, builder: (column) => column);
+
+  GeneratedColumn<String> get decisionReason => $composableBuilder(
+    column: $table.decisionReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get decidedBy =>
+      $composableBuilder(column: $table.decidedBy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get decidedAt =>
+      $composableBuilder(column: $table.decidedAt, builder: (column) => column);
 }
 
 class $$SyncBlocksTableTableManager
@@ -107347,6 +107873,12 @@ class $$SyncBlocksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> resolvedAt = const Value.absent(),
                 Value<String?> resolution = const Value.absent(),
+                Value<bool> abandonable = const Value.absent(),
+                Value<String?> abandonNote = const Value.absent(),
+                Value<String?> decision = const Value.absent(),
+                Value<String?> decisionReason = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<DateTime?> decidedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncBlocksCompanion(
                 id: id,
@@ -107375,6 +107907,12 @@ class $$SyncBlocksTableTableManager
                 status: status,
                 resolvedAt: resolvedAt,
                 resolution: resolution,
+                abandonable: abandonable,
+                abandonNote: abandonNote,
+                decision: decision,
+                decisionReason: decisionReason,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -107405,6 +107943,12 @@ class $$SyncBlocksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> resolvedAt = const Value.absent(),
                 Value<String?> resolution = const Value.absent(),
+                Value<bool> abandonable = const Value.absent(),
+                Value<String?> abandonNote = const Value.absent(),
+                Value<String?> decision = const Value.absent(),
+                Value<String?> decisionReason = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<DateTime?> decidedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncBlocksCompanion.insert(
                 id: id,
@@ -107433,6 +107977,12 @@ class $$SyncBlocksTableTableManager
                 status: status,
                 resolvedAt: resolvedAt,
                 resolution: resolution,
+                abandonable: abandonable,
+                abandonNote: abandonNote,
+                decision: decision,
+                decisionReason: decisionReason,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -108524,6 +109074,8 @@ typedef $$BlockReportsTableCreateCompanionBuilder =
       Value<DateTime?> reportedAt,
       Value<String?> resolution,
       Value<DateTime?> resolvedAt,
+      Value<bool> abandonable,
+      Value<String?> abandonNote,
       Value<int> rowid,
     });
 typedef $$BlockReportsTableUpdateCompanionBuilder =
@@ -108536,6 +109088,8 @@ typedef $$BlockReportsTableUpdateCompanionBuilder =
       Value<DateTime?> reportedAt,
       Value<String?> resolution,
       Value<DateTime?> resolvedAt,
+      Value<bool> abandonable,
+      Value<String?> abandonNote,
       Value<int> rowid,
     });
 
@@ -108585,6 +109139,16 @@ class $$BlockReportsTableFilterComposer
 
   ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
     column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -108637,6 +109201,16 @@ class $$BlockReportsTableOrderingComposer
     column: $table.resolvedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BlockReportsTableAnnotationComposer
@@ -108679,6 +109253,16 @@ class $$BlockReportsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
     column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get abandonable => $composableBuilder(
+    column: $table.abandonable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get abandonNote => $composableBuilder(
+    column: $table.abandonNote,
     builder: (column) => column,
   );
 }
@@ -108726,6 +109310,8 @@ class $$BlockReportsTableTableManager
                 Value<DateTime?> reportedAt = const Value.absent(),
                 Value<String?> resolution = const Value.absent(),
                 Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<bool> abandonable = const Value.absent(),
+                Value<String?> abandonNote = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BlockReportsCompanion(
                 id: id,
@@ -108736,6 +109322,8 @@ class $$BlockReportsTableTableManager
                 reportedAt: reportedAt,
                 resolution: resolution,
                 resolvedAt: resolvedAt,
+                abandonable: abandonable,
+                abandonNote: abandonNote,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -108748,6 +109336,8 @@ class $$BlockReportsTableTableManager
                 Value<DateTime?> reportedAt = const Value.absent(),
                 Value<String?> resolution = const Value.absent(),
                 Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<bool> abandonable = const Value.absent(),
+                Value<String?> abandonNote = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BlockReportsCompanion.insert(
                 id: id,
@@ -108758,6 +109348,8 @@ class $$BlockReportsTableTableManager
                 reportedAt: reportedAt,
                 resolution: resolution,
                 resolvedAt: resolvedAt,
+                abandonable: abandonable,
+                abandonNote: abandonNote,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

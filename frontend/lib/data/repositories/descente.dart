@@ -34,6 +34,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
+import 'blocages_repository.dart' show blocageDuServeur;
 import 'cash_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'hotel_repository.dart';
@@ -1722,34 +1723,9 @@ class Descente {
     await db.transaction(() async {
       await db.delete(db.syncBlocks).go();
       for (final b in blocages) {
-        final contenu = b['payload'];
         await db
             .into(db.syncBlocks)
-            .insert(
-              SyncBlocksCompanion.insert(
-                id: b['id'] as String,
-                createdAt: maintenant,
-                updatedAt: _instant(b['updated_at']) ?? maintenant,
-                hotelId: hotelId,
-                deviceId: b['device_id'] as String,
-                authorId: Value(b['author_id'] as String?),
-                reportedBy: Value(b['reported_by'] as String?),
-                entityTable: b['entity_table'] as String,
-                entityId: b['entity_id'] as String,
-                operation: b['operation'] as String,
-                payload: Value(contenu == null ? null : jsonEncode(contenu)),
-                httpStatus: Value(b['http_status'] as int?),
-                reason: Value(b['reason'] as String?),
-                writtenAt: Value(_instant(b['written_at'])),
-                blockedAt: _instant(b['blocked_at']) ?? maintenant,
-                reportedAt: _instant(b['reported_at']) ?? maintenant,
-                pendingBehind: Value(b['pending_behind'] as int? ?? 0),
-                status: Value(b['status'] as String? ?? 'OPEN'),
-                resolvedAt: Value(_instant(b['resolved_at'])),
-                resolution: Value(b['resolution'] as String?),
-                syncState: const Value(SyncState.synced),
-              ),
-            );
+            .insert(blocageDuServeur(b, hotelId: hotelId, maintenant: maintenant));
       }
     });
   }

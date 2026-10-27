@@ -13,6 +13,10 @@
 ///
 /// Jamais bloquant : un rapport qui ne part pas repartira au passage suivant,
 /// et rien ici ne leve d'exception vers la file.
+///
+/// Le rapport dit aussi si l'ecriture peut s'abandonner (correction 6) : un
+/// responsable en decide de l'ecran Tablettes, et c'est ici que la tablette
+/// bloquee lit sa decision et l'applique (`abandon_ecriture.dart`).
 library;
 
 import 'dart:convert';
@@ -23,6 +27,7 @@ import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform;
 import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
+import '../repositories/abandon_ecriture.dart';
 import 'api_client.dart';
 
 /// La version de l'application, donnee a la compilation
@@ -97,14 +102,62 @@ class SignalementBlocages {
     }
   }
 
-  /// Ce que le passage de la file vient de changer, dit au serveur.
-  Future<void> apresPassage() async {
+  /// Ce que le passage de la file vient de changer, dit au serveur ; puis
+  /// les abandons decides d'ailleurs, appliques.
+  ///
+  /// Vrai si une ecriture vient d'etre abandonnee : la file peut repartir,
+  /// et l'appelant la relance sans attendre l'echange suivant.
+  Future<bool> apresPassage() async {
     try {
       await _noter();
       await _envoyer();
+      if (!await _appliquerDecisions()) return false;
+      // L'ecriture a quitte la file : le blocage se leve (`REMOVED`).
+      await _noter();
+      await _envoyer();
+      return true;
     } catch (e, pile) {
       debugPrint('Atrium : signalement du blocage : $e\n$pile');
+      return false;
     }
+  }
+
+  /// Les decisions qui attendent cette tablette, appliquees. Une ecriture
+  /// qui ne s'abandonne plus (une saisie en depend depuis) reste : le
+  /// rapport suivant le dit, et le serveur fait tomber la decision.
+  Future<bool> _appliquerDecisions() async {
+    final rapports = await (db.select(
+      db.blockReports,
+    )..where((b) => b.resolution.isNull())).get();
+    if (rapports.isEmpty) return false;
+    final List<dynamic> decisions;
+    try {
+      decisions = await api.getList(
+        '/sync-blocks/decisions',
+        query: {'device_id': await db.identifiantTablette()},
+      );
+    } on ApiException catch (e) {
+      debugPrint('Atrium : decisions de la tablette illisibles : $e');
+      return false;
+    }
+    final parId = {for (final r in rapports) r.id: r};
+    var applique = false;
+    for (final d in decisions) {
+      if (d is! Map || d['decision'] != 'ABANDON') continue;
+      final r = parId[d['id']];
+      if (r == null) continue;
+      try {
+        await abandonnerEcriture(db, r.outboxEntryId);
+        applique = true;
+        debugPrint(
+          'Atrium : ecriture ${r.outboxEntryId} abandonnee sur decision : '
+          '${d['decision_reason']}',
+        );
+      } on StateError catch (e) {
+        debugPrint('Atrium : abandon refuse par la tablette : ${e.message}');
+      }
+    }
+    return applique;
   }
 
   /// Un rapport par ecriture refusee, et la levee de ceux dont l'ecriture
@@ -119,6 +172,9 @@ class SignalementBlocages {
 
     for (final e in refusees) {
       final derriere = await _derriere(e.id);
+      // Recalcule a chaque passage : une saisie arrivee derriere peut
+      // dependre de celle-ci.
+      final verdict = await abandonnabilite(db, e);
       final r = parEntree[e.id];
       if (r == null) {
         await db
@@ -129,14 +185,21 @@ class SignalementBlocages {
                 outboxEntryId: e.id,
                 blockedAt: e.lastAttemptAt ?? maintenant,
                 pendingBehind: Value(derriere),
+                abandonable: Value(verdict.possible),
+                abandonNote: Value(verdict.note),
               ),
             );
-      } else if (r.resolution == null && r.pendingBehind != derriere) {
+      } else if (r.resolution == null &&
+          (r.pendingBehind != derriere ||
+              r.abandonable != verdict.possible ||
+              r.abandonNote != verdict.note)) {
         await (db.update(
           db.blockReports,
         )..where((b) => b.id.equals(r.id))).write(
           BlockReportsCompanion(
             pendingBehind: Value(derriere),
+            abandonable: Value(verdict.possible),
+            abandonNote: Value(verdict.note),
             aEnvoyer: const Value(true),
           ),
         );
@@ -226,6 +289,8 @@ class SignalementBlocages {
         'written_at': e.createdAt.toUtc().toIso8601String(),
         'blocked_at': r.blockedAt.toUtc().toIso8601String(),
         'pending_behind': r.pendingBehind,
+        'abandonable': r.abandonable,
+        'abandon_note': r.abandonNote,
       },
     );
     await (db.update(

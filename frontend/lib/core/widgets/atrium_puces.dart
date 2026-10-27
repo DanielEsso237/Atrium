@@ -400,7 +400,18 @@ Future<void> montrerEcritureRefusee(BuildContext context, WidgetRef ref) async {
       ],
     ),
   );
-  if (choix == 'retirer') await retirerEcritureRefusee(db, ecriture);
+  if (choix == 'retirer') {
+    try {
+      await retirerEcritureRefusee(db, ecriture);
+    } on StateError catch (e) {
+      // Une saisie suivante en depend : la retirer la laisserait sans objet.
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
   if (choix != null) {
     await ref.read(syncSchedulerProvider.notifier).maintenant();
   }

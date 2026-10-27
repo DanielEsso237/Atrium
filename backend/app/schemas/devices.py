@@ -50,6 +50,31 @@ class SyncBlockIn(BaseModel):
     written_at: dt.datetime | None = None
     blocked_at: dt.datetime
     pending_behind: int = Field(default=0, ge=0)
+    # La tablette dit si l'ecriture peut s'abandonner sans laisser d'autre
+    # saisie sans objet, et sinon pourquoi.
+    abandonable: bool = False
+    abandon_note: str | None = Field(default=None, max_length=500)
+
+
+class SyncBlockDecideIn(BaseModel):
+    """Un responsable abandonne l'ecriture refusee. Pas de « Reessayer » :
+    la file renvoie deja l'ecriture a chaque echange complet."""
+
+    decision: Literal["ABANDON"]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class SyncDecisionOut(BaseModel):
+    """Ce que la tablette bloquee vient lire : la decision, sans le reste du
+    rapport."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    decision: str
+    decision_reason: str | None
+    decided_by: uuid.UUID | None
+    decided_at: dt.datetime | None
 
 
 class SyncBlockResolveIn(BaseModel):
@@ -79,4 +104,10 @@ class SyncBlockOut(BaseModel):
     status: str
     resolved_at: dt.datetime | None
     resolution: str | None
+    abandonable: bool
+    abandon_note: str | None
+    decision: str | None
+    decision_reason: str | None
+    decided_by: uuid.UUID | None
+    decided_at: dt.datetime | None
     updated_at: dt.datetime

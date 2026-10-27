@@ -104,4 +104,16 @@ class SyncBlocks extends Table with SyncedTableColumns, HotelScoped {
 
   /// `SENT` (l'ecriture est passee) ou `REMOVED` (elle a quitte la file).
   TextColumn get resolution => text().withLength(max: 16).nullable()();
+
+  /// Ce que la tablette bloquee dit de son ecriture : elle seule sait ce qui
+  /// en depend. Le bouton « Abandonner » ne s'affiche que si elle le permet.
+  BoolColumn get abandonable => boolean().withDefault(const Constant(false))();
+  TextColumn get abandonNote => text().nullable()();
+
+  /// `ABANDON`, decide par un responsable ; la tablette bloquee l'applique a
+  /// son passage suivant.
+  TextColumn get decision => text().withLength(max: 16).nullable()();
+  TextColumn get decisionReason => text().nullable()();
+  TextColumn get decidedBy => text().nullable()();
+  DateTimeColumn get decidedAt => dateTime().nullable()();
 }

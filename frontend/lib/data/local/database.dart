@@ -121,7 +121,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -280,6 +280,18 @@ class AtriumDatabase extends _$AtriumDatabase {
       if (depuis < 18) {
         await m.createTable(syncBlocks);
         await m.createTable(blockReports);
+      }
+      // L'abandon a distance (correction 6). Avant 18, l'etape precedente
+      // vient de creer les tables avec ces colonnes.
+      if (depuis >= 18 && depuis < 19) {
+        await m.addColumn(syncBlocks, syncBlocks.abandonable);
+        await m.addColumn(syncBlocks, syncBlocks.abandonNote);
+        await m.addColumn(syncBlocks, syncBlocks.decision);
+        await m.addColumn(syncBlocks, syncBlocks.decisionReason);
+        await m.addColumn(syncBlocks, syncBlocks.decidedBy);
+        await m.addColumn(syncBlocks, syncBlocks.decidedAt);
+        await m.addColumn(blockReports, blockReports.abandonable);
+        await m.addColumn(blockReports, blockReports.abandonNote);
       }
     },
     beforeOpen: (details) async {

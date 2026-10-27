@@ -6,6 +6,11 @@
 /// quel poste quelle tablette est bloquee, sur quelle saisie, de quel agent,
 /// et combien d'ecritures attendent derriere. Le meme contenu forme l'onglet
 /// Tablettes de l'administration.
+///
+/// Et ils peuvent l'**abandonner** (correction 6), quand la tablette bloquee
+/// le permet : la decision part au serveur, la tablette l'applique a son
+/// echange suivant. Pas de « Reessayer » : la file renvoie deja l'ecriture a
+/// chaque echange.
 library;
 
 import 'package:flutter/material.dart';
@@ -14,10 +19,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formats.dart';
 import '../../core/tokens.dart';
 import '../../core/ui/atrium_ui.dart';
+import '../../core/ui/fenetre_motif.dart';
 import '../../core/ui/icons.dart';
 import '../../core/widgets/module_scaffold.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/queries/tablettes_queries.dart';
+import '../../data/repositories/repository_providers.dart';
 
 final tablettesProvider = StreamProvider<List<TabletteSuivie>>(
   (ref) => ref.watch(databaseProvider).watchTablettes(),
@@ -126,14 +133,14 @@ class _CarteTablette extends StatelessWidget {
           ),
           for (final b in ouverts) ...[
             const SizedBox(height: 12),
-            _LigneBlocage(blocage: b),
+            _LigneBlocage(blocage: b, tablette: t.nom),
           ],
           if (leves.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Eyebrow('Levés cette semaine'),
             for (final b in leves) ...[
               const SizedBox(height: 6),
-              _LigneBlocage(blocage: b),
+              _LigneBlocage(blocage: b, tablette: t.nom),
             ],
           ],
         ],
@@ -142,15 +149,54 @@ class _CarteTablette extends StatelessWidget {
   }
 }
 
-class _LigneBlocage extends StatelessWidget {
-  const _LigneBlocage({required this.blocage});
+class _LigneBlocage extends ConsumerStatefulWidget {
+  const _LigneBlocage({required this.blocage, required this.tablette});
 
   final BlocageVu blocage;
+  final String tablette;
+
+  @override
+  ConsumerState<_LigneBlocage> createState() => _LigneBlocageState();
+}
+
+class _LigneBlocageState extends ConsumerState<_LigneBlocage> {
+  bool _enCours = false;
+
+  Future<void> _abandonner(String titre) async {
+    final motif = await demanderMotif(
+      context,
+      titre: 'Abandonner cette saisie ?',
+      icone: PhosphorIconsLight.trash,
+      contenu: Text(
+        '« $titre » quitte la file de ${widget.tablette} à son prochain '
+        'échange, et ce qui attend derrière repart. La saisie est perdue : '
+        'un encaissement ou une consommation disparaît de l’ardoise, une '
+        'modification revient à la version du serveur.',
+      ),
+      libelleMotif: 'Motif (obligatoire)',
+      libelleConfirmer: 'Abandonner',
+      libelleRenoncer: 'Garder',
+      danger: true,
+      obligatoire: true,
+    );
+    if (motif == null || !mounted) return;
+    setState(() => _enCours = true);
+    final refus = await ref
+        .read(blocagesRepositoryProvider)
+        .abandonner(widget.blocage.id, motif);
+    if (!mounted) return;
+    setState(() => _enCours = false);
+    if (refus != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(refus)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = AtriumPalette.current;
-    final b = blocage;
+    final b = widget.blocage;
     final titre = [
       b.quoi,
       if (b.montant case final m?) formatAmount(m),
@@ -167,9 +213,21 @@ class _LigneBlocage extends StatelessWidget {
             },
           ]
         : [
-            b.resolution == 'SENT' ? 'Passée' : 'Retirée de la file',
+            switch ((b.resolution, b.decision)) {
+              ('SENT', _) => 'Passée',
+              (_, 'ABANDON') => 'Abandonnée sur décision${_par(b)}',
+              _ => 'Retirée de la file',
+            },
             if (b.leveLe case final l?) 'le ${_moment(l)}',
+            if (b.decision != null && b.motifDecision != null)
+              '« ${b.motifDecision} »',
           ];
+    final decision = b.ouvert && b.decision == 'ABANDON'
+        ? 'Abandon demandé${_par(b)}'
+              '${b.decideLe == null ? '' : ' le ${_moment(b.decideLe!)}'}'
+              '${b.motifDecision == null ? '' : ' : « ${b.motifDecision} »'}. '
+              'La tablette l’appliquera à son prochain échange.'
+        : null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -189,11 +247,45 @@ class _LigneBlocage extends StatelessWidget {
             details.join(' · '),
             style: TextStyle(fontSize: 13, color: p.textSecondary),
           ),
+          if (decision != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              decision,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: p.text,
+              ),
+            ),
+          ] else if (b.ouvert && b.abandonnable) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: _enCours ? null : () => _abandonner(titre),
+                icon: const Icon(PhosphorIconsLight.trash, size: 18),
+                label: const Text('Abandonner cette saisie'),
+                style: OutlinedButton.styleFrom(foregroundColor: p.error),
+              ),
+            ),
+          ] else if (b.ouvert && b.noteAbandon != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              b.noteAbandon!,
+              style: TextStyle(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: p.textSecondary,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
+
+String _par(BlocageVu b) => b.decidePar == null ? '' : ' par ${b.decidePar}';
 
 extension on String {
   String ifEmpty(String autre) => isEmpty ? autre : this;

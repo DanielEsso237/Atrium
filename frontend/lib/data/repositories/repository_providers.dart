@@ -18,6 +18,7 @@ import '../remote/remote_providers.dart';
 import '../remote/signalement_blocages.dart';
 import 'agent_repository.dart';
 import 'autorisation_repository.dart';
+import 'blocages_repository.dart';
 import 'reinitialisation_repository.dart';
 import 'expense_repository.dart';
 import 'cash_repository.dart';
@@ -344,6 +345,14 @@ final outboxSenderProvider = Provider<OutboxSender>(
 /// Le blocage de la file, dit au serveur hors de la file elle-meme.
 final signalementBlocagesProvider = Provider<SignalementBlocages>(
   (ref) => SignalementBlocages(
+    db: ref.watch(databaseProvider),
+    api: ref.watch(apiClientProvider),
+  ),
+);
+
+/// L'abandon d'une ecriture refusee, decide d'un autre poste.
+final blocagesRepositoryProvider = Provider<BlocagesRepository>(
+  (ref) => BlocagesRepository(
     db: ref.watch(databaseProvider),
     api: ref.watch(apiClientProvider),
   ),
