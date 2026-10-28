@@ -45,6 +45,14 @@ class OutboxEntries extends Table {
   /// (403) et bloquait sa file (25 octobre). `null` pour les entrees sans
   /// session (code oublie, changement de PIN) : n'importe qui les remonte.
   TextColumn get authorId => text().nullable()();
+
+  /// Ce que l'entree retient si le serveur la refuse, et ce qui la retient :
+  /// son dossier, sa caisse, sa chambre… (`groupes_de_la_file.dart`).
+  ///
+  /// Un refus n'arrete plus toute la file, seulement ce qui partage une cle
+  /// avec lui. `null` : on ne sait pas -- l'entree attend des que quoi que
+  /// ce soit attend, comme avant le schema 20.
+  TextColumn get groupKeys => text().nullable()();
 }
 
 /// Position de la tablette dans l'ordre total des modifications du serveur,

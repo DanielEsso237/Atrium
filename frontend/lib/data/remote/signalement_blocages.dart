@@ -28,6 +28,7 @@ import '../../core/ids.dart';
 import '../local/database.dart';
 import '../local/enums.dart';
 import '../repositories/abandon_ecriture.dart';
+import '../repositories/groupes_de_la_file.dart';
 import 'api_client.dart';
 
 /// La version de l'application, donnee a la compilation
@@ -170,8 +171,20 @@ class SignalementBlocages {
     final parEntree = {for (final r in rapports) r.outboxEntryId: r};
     final maintenant = DateTime.now().toUtc();
 
+    final file =
+        await (db.select(db.outboxEntries)
+              ..where(
+                (o) => o.status.isInValues([
+                  OutboxStatus.PENDING,
+                  OutboxStatus.FAILED,
+                ]),
+              )
+              ..orderBy([(o) => OrderingTerm(expression: o.id)]))
+            .get();
     for (final e in refusees) {
-      final derriere = await _derriere(e.id);
+      // Ce qui attend a cause d'elle, pas toute la file : le reste part
+      // (correction 7).
+      final derriere = retenuesDerriere(file, e);
       // Recalcule a chaque passage : une saisie arrivee derriere peut
       // dependre de celle-ci.
       final verdict = await abandonnabilite(db, e);
@@ -233,19 +246,6 @@ class SignalementBlocages {
       );
     }
   });
-
-  /// Les ecritures qui attendent derriere [entreeId], tous auteurs confondus.
-  Future<int> _derriere(int entreeId) async {
-    final r = await db
-        .customSelect(
-          'SELECT COUNT(*) AS n FROM outbox_entries '
-          "WHERE status IN ('PENDING','FAILED') AND id > ?",
-          variables: [Variable.withInt(entreeId)],
-          readsFrom: {db.outboxEntries},
-        )
-        .getSingle();
-    return r.read<int>('n');
-  }
 
   Future<void> _envoyer() async {
     final rapports = await db.select(db.blockReports).get();

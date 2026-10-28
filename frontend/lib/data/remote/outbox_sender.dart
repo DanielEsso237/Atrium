@@ -9,11 +9,13 @@
 /// qu'elle designe. La file *est* l'ordre des evenements ; la respecter suffit
 /// a ce que le serveur voie la meme histoire que la tablette.
 ///
-/// **Un echec arrete tout.** Pas de « on saute celle-la et on continue » : si
-/// l'entree 12 echoue, l'entree 13 parle probablement de la meme reservation
-/// et echouerait aussi, ou pire, reussirait et laisserait le serveur dans un
-/// etat que personne n'a jamais voulu. On s'arrete, on garde la file intacte,
-/// on reessaiera.
+/// **Un echec retient son groupe, pas toute la file.** Si l'entree 12 echoue,
+/// l'entree 13 qui parle de la meme reservation echouerait aussi, ou pire,
+/// reussirait et laisserait le serveur dans un etat que personne n'a jamais
+/// voulu : elle attend. Mais l'entree 14, qui parle d'une autre chambre,
+/// n'a aucune raison d'attendre une decision sur la 12 (correction 7). Ce
+/// qui attend avec quoi : `groupes_de_la_file.dart`. Une entree sans cle
+/// garde l'ancienne regle et arrete tout ce qui la suit.
 ///
 /// **Chacun remonte ses ecritures.** Le serveur juge une ecriture avec les
 /// droits du jeton qui l'envoie : celles d'un collegue attendent sa
@@ -34,6 +36,7 @@ import '../local/database.dart';
 import '../local/enums.dart';
 import '../repositories/cash_repository.dart';
 import '../repositories/folio_repository.dart';
+import '../repositories/groupes_de_la_file.dart';
 import '../repositories/invoice_repository.dart';
 import '../repositories/outbox.dart';
 import '../repositories/reinitialisation_repository.dart';
@@ -104,7 +107,7 @@ enum DrainStop {
   sessionInvalide,
 
   /// Le serveur a refuse une entree pour de bon. Celle-ci attend une decision
-  /// humaine ; la file reste bloquee derriere elle, volontairement.
+  /// humaine, et son groupe avec elle ; le reste de la file est parti.
   bloque,
 
   /// Le serveur a refuse une entree alors qu'une ecriture d'un collegue,
@@ -167,22 +170,47 @@ class OutboxSender {
   final AtriumDatabase db;
   final ApiClient api;
 
-  /// Remonte les ecritures en attente, dans l'ordre, jusqu'au premier echec.
+  /// Remonte les ecritures en attente, dans l'ordre, sauf ce qu'un refus
+  /// retient.
   ///
   /// `max` borne un passage pour qu'une file longue -- une tablette restee
   /// hors ligne tout un week-end -- ne monopolise pas l'application. Le
   /// passage suivant reprendra ou celui-ci s'est arrete.
+  ///
+  /// Un passage hors ligne ou sans session s'arrete net : rien de ce qui
+  /// suit ne passerait mieux. Un refus, lui, ne retient que son groupe ; le
+  /// passage dit `bloque` s'il y en a eu un, meme si le reste est parti.
   Future<DrainReport> drain({int max = 200}) async {
     var envoyees = 0;
+    var tentatives = 0;
+    var dernier = 0;
+    final retenue = Retenue();
+    String? refus;
+    var attenteAutrui = false;
+    final auteur = await db.auteurDeLaFile();
 
-    while (envoyees < max) {
-      final entree = await _prochaine();
-      if (entree == null) {
-        return DrainReport(
-          envoyees: envoyees,
-          restantes: 0,
-          arret: DrainStop.termine,
-        );
+    while (tentatives < max) {
+      final entree = await _suivante(dernier);
+      if (entree == null) break;
+      dernier = entree.id;
+
+      // Une ecriture de collegue attend son auteur : ce qui partage son
+      // groupe l'attend avec elle, sans meme partir. Sans cle (d'avant le
+      // schema 20), elle ne retient rien, comme avant : un refus derriere
+      // elle reste une attente (`_collegueEnAttenteAvant`).
+      if (entree.authorId != null && entree.authorId != auteur) {
+        if (entree.groupKeys != null) retenue.retenir(entree.groupKeys);
+        continue;
+      }
+      if (retenue.retient(entree.groupKeys)) {
+        retenue.retenir(entree.groupKeys);
+        // Deja refusee a un passage precedent : la file reste bloquee sur
+        // elle, meme si elle ne repart pas cette fois.
+        if (entree.status == OutboxStatus.FAILED) {
+          refus ??= entree.lastError;
+        }
+        attenteAutrui = true;
+        continue;
       }
 
       final _Envoi? envoi;
@@ -190,12 +218,9 @@ class OutboxSender {
         envoi = await _envoiPour(entree);
       } catch (e) {
         await _marquerEchouee(entree, 'Entree illisible : $e');
-        return DrainReport(
-          envoyees: envoyees,
-          restantes: await _restantes(),
-          arret: DrainStop.bloque,
-          detail: 'Entree illisible : $e',
-        );
+        retenue.retenir(entree.groupKeys);
+        refus ??= 'Entree illisible : $e';
+        continue;
       }
 
       // Rien a envoyer pour cette entree : elle est notee et on passe. Le seul
@@ -206,6 +231,7 @@ class OutboxSender {
         continue;
       }
 
+      tentatives++;
       final Map<String, dynamic> reponse;
       try {
         reponse = switch (envoi.methode) {
@@ -215,7 +241,23 @@ class OutboxSender {
           _Methode.delete => await api.delete(envoi.chemin),
         };
       } on ApiException catch (e) {
-        return _apresEchec(entree, e, envoyees);
+        final arret = await _apresEchec(entree, e);
+        if (arret == DrainStop.horsLigne ||
+            arret == DrainStop.sessionInvalide) {
+          return DrainReport(
+            envoyees: envoyees,
+            restantes: await _restantes(),
+            arret: arret,
+            detail: e.message,
+          );
+        }
+        retenue.retenir(entree.groupKeys);
+        if (arret == DrainStop.bloque) {
+          refus ??= e.message;
+        } else {
+          attenteAutrui = true;
+        }
+        continue;
       }
 
       // Certaines reponses portent une information que la tablette ne
@@ -229,7 +271,14 @@ class OutboxSender {
     return DrainReport(
       envoyees: envoyees,
       restantes: await _restantes(),
-      arret: DrainStop.termine,
+      // Un refus prime : il attend une decision. Une attente de collegue
+      // ensuite : sa prochaine connexion relancera la file.
+      arret: refus != null
+          ? DrainStop.bloque
+          : attenteAutrui
+          ? DrainStop.attenteAutrui
+          : DrainStop.termine,
+      detail: refus,
     );
   }
 
@@ -327,67 +376,44 @@ class OutboxSender {
   }
 
   /// Traduit l'echec en decision : reessayer plus tard, ou bloquer.
-  Future<DrainReport> _apresEchec(
-    OutboxEntryRow entree,
-    ApiException e,
-    int envoyees,
-  ) async {
+  Future<DrainStop> _apresEchec(OutboxEntryRow entree, ApiException e) async {
     switch (e.failure) {
       // Pannes passageres : la file reste intacte et PENDING. On ne compte
       // meme pas ca comme une erreur de l'entree -- elle n'a rien fait de mal.
       case ApiFailure.offline:
       case ApiFailure.server:
         await _compterTentative(entree, e.message);
-        return DrainReport(
-          envoyees: envoyees,
-          restantes: await _restantes(),
-          arret: DrainStop.horsLigne,
-          detail: e.message,
-        );
+        return DrainStop.horsLigne;
 
       // Se reconnecter peut debloquer ; le client HTTP a deja tente de
       // rafraichir le jeton avant d'en arriver la.
       case ApiFailure.unauthorized:
       case ApiFailure.locked:
         await _compterTentative(entree, e.message);
-        return DrainReport(
-          envoyees: envoyees,
-          restantes: await _restantes(),
-          arret: DrainStop.sessionInvalide,
-          detail: e.message,
-        );
+        return DrainStop.sessionInvalide;
 
       // Refus de fond. Renvoyer ne changerait rien : l'entree est marquee et
-      // la file s'arrete derriere elle. Un `conflict` est ici un vrai conflit
-      // d'etat, puisque le contrat garantit qu'un renvoi ne recoit pas 409.
+      // son groupe attend derriere elle. Un `conflict` est ici un vrai
+      // conflit d'etat, puisque le contrat garantit qu'un renvoi ne recoit
+      // pas 409.
       case ApiFailure.forbidden:
       case ApiFailure.notFound:
       case ApiFailure.conflict:
       case ApiFailure.invalid:
         if (await _collegueEnAttenteAvant(entree)) {
           await _compterTentative(entree, e.message);
-          return DrainReport(
-            envoyees: envoyees,
-            restantes: await _restantes(),
-            arret: DrainStop.attenteAutrui,
-            detail: e.message,
-          );
+          return DrainStop.attenteAutrui;
         }
         await _marquerEchouee(entree, e.message);
-        return DrainReport(
-          envoyees: envoyees,
-          restantes: await _restantes(),
-          arret: DrainStop.bloque,
-          detail: e.message,
-        );
+        return DrainStop.bloque;
     }
   }
 
   // --- La file ---------------------------------------------------------------
 
-  /// La plus ancienne entree que la session en cours peut remonter.
-  Future<OutboxEntryRow?> _prochaine() async {
-    final auteur = await db.auteurDeLaFile();
+  /// L'entree en attente qui suit [apres], de qui qu'elle soit : celles des
+  /// collegues ne partent pas, mais retiennent leur groupe.
+  Future<OutboxEntryRow?> _suivante(int apres) {
     return (db.select(db.outboxEntries)
           ..where(
             (e) =>
@@ -395,10 +421,7 @@ class OutboxSender {
                   OutboxStatus.PENDING,
                   OutboxStatus.FAILED,
                 ]) &
-                (e.authorId.isNull() |
-                    (auteur == null
-                        ? const Constant(false)
-                        : e.authorId.equals(auteur))),
+                e.id.isBiggerThanValue(apres),
           )
           ..orderBy([(e) => OrderingTerm(expression: e.id)])
           ..limit(1))

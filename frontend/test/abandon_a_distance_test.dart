@@ -511,6 +511,10 @@ void main() {
     await base.customStatement(
       'ALTER TABLE block_reports DROP COLUMN abandon_note',
     );
+    // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
+    await base.customStatement(
+      'ALTER TABLE outbox_entries DROP COLUMN group_keys',
+    );
     await base.customStatement('PRAGMA user_version = 18');
     await base.close();
 

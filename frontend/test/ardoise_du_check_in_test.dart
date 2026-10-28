@@ -215,6 +215,10 @@ void main() {
     // Ce qu'une base au schema 16 n'avait pas encore (schema 18).
     await base.customStatement('DROP TABLE sync_blocks');
     await base.customStatement('DROP TABLE block_reports');
+    // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
+    await base.customStatement(
+      'ALTER TABLE outbox_entries DROP COLUMN group_keys',
+    );
     await base.customStatement('PRAGMA user_version = 16');
     await base.close();
 

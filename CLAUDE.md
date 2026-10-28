@@ -227,8 +227,9 @@ poste a ses droits sur tous les autres.
 
 La **synchronisation marche dans les deux sens**. La file remonte toute
 seule, dans l'ordre, sans doublon même en cas de renvoi, avec espacement des
-tentatives hors ligne ; un refus du serveur bloque la file au lieu de la
-sauter, et se voit — **aussi d'un autre poste**, d'où un responsable peut
+tentatives hors ligne ; un refus du serveur bloque **son dossier** au lieu
+de le sauter (le reste part, voir « Un refus ne retient que son dossier »),
+et se voit — **aussi d'un autre poste**, d'où un responsable peut
 abandonner l'écriture refusée (voir « Une file bloquée se voit d'ailleurs »
 et « Une écriture refusée s'abandonne d'ailleurs »). La descente rapatrie référentiel, clients, réservations
 et ardoises ouvertes, sans jamais écraser une écriture en attente. Une
@@ -708,6 +709,43 @@ trente secondes.
   `abandonnerEcriture` et refuse donc aussi ce dont une saisie dépend.
 - Migration 0035 ; schéma local 19 (colonnes de `sync_blocks` et
   `block_reports`).
+
+## Un refus ne retient que son dossier (27 octobre)
+
+Un refus du serveur arrêtait **toute** la file : l'encaissement en double
+d'une chambre retenait le ménage, les stocks et les autres dossiers jusqu'à
+la décision d'un responsable. Chaque entrée porte maintenant ses **clés de
+regroupement** (`outbox_entries.group_keys`, schéma local 20), posées par
+`enqueue` dans la transaction de l'écriture
+(`data/repositories/groupes_de_la_file.dart`). Sur un refus, le passage
+continue : n'attendent que les entrées qui partagent une clé avec elle, et
+de proche en proche celles qui en partagent une avec une entrée qui attend.
+
+- **Les clés** : `dossier:<réservation>` pour le séjour, ses lignes, son
+  ardoise, ses consommations, encaissements et factures ; `ardoise:<id>` au
+  comptoir ; `client:`, `chambre:` (arrivée, départ, ménage, maintenance),
+  `caisse:<agent>`, `produit:`, `inventaire:`, et une clé par ligne pour le
+  référentiel.
+- **Trois sortes.** `k` : l'entrée appartient au groupe. `>caisse:U` :
+  elle le **nourrit** sans en dépendre — un encaissement refusé retient la
+  clôture de la caisse (son attendu serait faux), pas les autres
+  encaissements. `<pdv:O` : elle le **suppose** sans le nourrir — une
+  ardoise attend le point de vente qu'on crée, mais n'en retient pas
+  d'autres.
+- **Sans clé, l'ancienne règle** : une entrée dont on ne sait rien (table
+  nouvelle, ardoise introuvable, entrée d'avant le schéma 20) attend dès
+  que quoi que ce soit attend, et retient tout ce qui la suit. **Une
+  nouvelle table qui entre dans la file doit avoir ses clés** dans
+  `_cles`, sinon elle bloque comme avant.
+- Une écriture de **collègue** retient son groupe sans partir : la
+  modification d'une fiche qu'il a créée attend sa connexion au lieu de
+  partir en 404. Le refus derrière une écriture de collègue reste une
+  attente (`DrainStop.attenteAutrui`).
+- Le passage dit `bloque` s'il y a eu un refus, même si le reste est parti.
+  Après un refus, l'automatisme s'arrête, mais une **nouvelle** écriture le
+  relance (`SyncScheduler._relancable`) — pas après une session invalide.
+  Le « N saisies attendent derrière » du rapport de blocage ne compte plus
+  que ce que le refus retient (`retenuesDerriere`).
 
 ## Ce qui manque
 
