@@ -19,9 +19,11 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../local/database.dart';
+import '../local/effacement.dart';
 import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/auth_api.dart';
+import '../remote/signalement_blocages.dart' show IdentiteTablette;
 import 'agent_repository.dart';
 import 'reinitialisation_repository.dart';
 
@@ -38,6 +40,9 @@ enum LoginFailure {
 
   /// Serveur injoignable **et** aucune empreinte locale utilisable.
   offlineAndUnknown,
+
+  /// Cette tablette a ete revoquee : sa base vient d'etre effacee.
+  revokedDevice,
 }
 
 class LoginResult {
@@ -63,10 +68,21 @@ enum Reprise {
 
   /// Le serveur refuse ce secret : on cesse de retenter.
   refusee,
+
+  /// Cette tablette a ete revoquee : sa base vient d'etre effacee.
+  revoquee,
 }
 
 class AuthRepository {
-  const AuthRepository(this.db, this._api, this._localVerify);
+  const AuthRepository(
+    this.db,
+    this._api,
+    this._localVerify, [
+    this._effacerBase = effacerLaBase,
+  ]);
+
+  /// L'effacement, injectable : en test, le magasin de la cle n'existe pas.
+  final Future<void> Function(AtriumDatabase db) _effacerBase;
 
   final AtriumDatabase db;
   final AuthApi _api;
@@ -85,6 +101,7 @@ class AuthRepository {
       final session = await _api.login(
         employeeCode: employeeCode,
         secret: secret,
+        tablette: await db.identifiantTablette(),
       );
       final user = await _upsertFromServer(
         session.userId,
@@ -96,6 +113,9 @@ class AuthRepository {
       // Seuls ces trois-la sont un jugement du serveur sur l'agent. On ne
       // repasse pas derriere lui.
       switch (e.failure) {
+        case ApiFailure.revoked:
+          await effacerLaTablette();
+          return const LoginResult.failed(LoginFailure.revokedDevice);
         case ApiFailure.unauthorized:
           return const LoginResult.failed(LoginFailure.wrongSecret);
         case ApiFailure.locked:
@@ -117,6 +137,15 @@ class AuthRepository {
     }
   }
 
+  /// Le serveur a revoque cette tablette (410) : ses jetons, sa base et la
+  /// cle de sa base disparaissent (correction 9). Ce qui n'etait pas remonte
+  /// est perdu -- c'est le prix d'une base qui ne doit plus se lire.
+  Future<void> effacerLaTablette() async {
+    debugPrint('Atrium : tablette revoquee, effacement de la base.');
+    await _api.oublierJetons();
+    await _effacerBase(db);
+  }
+
   /// Retente le serveur pour un agent deja connecte hors ligne.
   ///
   /// La deconnexion efface les jetons : un agent reconnecte hors ligne n'en
@@ -133,6 +162,7 @@ class AuthRepository {
       final session = await _api.login(
         employeeCode: employeeCode,
         secret: secret,
+        tablette: await db.identifiantTablette(),
       );
       final user = await _upsertFromServer(
         session.userId,
@@ -141,6 +171,10 @@ class AuthRepository {
       );
       return user == null ? Reprise.injoignable : Reprise.enLigne;
     } on ApiException catch (e) {
+      if (e.failure == ApiFailure.revoked) {
+        await effacerLaTablette();
+        return Reprise.revoquee;
+      }
       return switch (e.failure) {
         // Le serveur refuse ce secret (change ailleurs, compte desactive ou
         // verrouille) : insister ferait verrouiller le compte.

@@ -47,6 +47,18 @@ class _DepotAccepte extends BlocagesRepository {
         );
     return null;
   }
+
+  @override
+  Future<String?> revoquer(String tabletteId, String motif) async {
+    motifs.add(motif);
+    await (db.update(db.devices)..where((d) => d.id.equals(tabletteId))).write(
+      DevicesCompanion(
+        revokedAt: Value(DateTime.utc(2026, 10, 28, 9)),
+        revocationReason: Value(motif),
+      ),
+    );
+    return null;
+  }
 }
 
 class _TestSession extends SessionNotifier {
@@ -208,6 +220,34 @@ void main() {
 
     expect(find.text('Abandonner cette saisie'), findsNothing);
     expect(find.text('Une saisie suivante en dépend.'), findsOneWidget);
+
+    await demonter(tester);
+  });
+
+  testWidgets('revoquer : motif obligatoire, puis la tablette le dit', (
+    tester,
+  ) async {
+    final depot = _DepotAccepte(db);
+    await afficher(tester, depot: depot);
+
+    await tester.tap(find.byTooltip('Gérer la tablette'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Révoquer la tablette'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('efface toutes ses données'), findsOneWidget);
+    final confirmer = find.widgetWithText(FilledButton, 'Révoquer');
+    expect(tester.widget<FilledButton>(confirmer).onPressed, isNull);
+
+    await tester.enterText(find.byType(TextField), 'Volée au bar');
+    await tester.pump();
+    await tester.tap(confirmer);
+    await tester.pumpAndSettle();
+    await laisserLire(tester);
+
+    expect(depot.motifs, ['Volée au bar']);
+    expect(find.text('Révoquée'), findsOneWidget);
+    expect(find.textContaining('« Volée au bar »'), findsOneWidget);
+    expect(find.byTooltip('Gérer la tablette'), findsNothing);
 
     await demonter(tester);
   });

@@ -27,16 +27,18 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.base import utcnow
 from app.db.session import get_session
-from app.models import AuditLog, Device, SyncBlock, User
+from app.models import AuditLog, Device, RefreshToken, SyncBlock, User
 from app.schemas.devices import (
     DeviceIn,
     DeviceOut,
+    DeviceRenameIn,
+    DeviceRevokeIn,
     SyncBlockDecideIn,
     SyncBlockIn,
     SyncBlockOut,
@@ -72,10 +74,19 @@ def sans_secrets(valeur: Any) -> Any:
     return valeur
 
 
+def refuser_si_revoquee(tablette: Device | None) -> None:
+    """Le refus dedie d'une tablette revoquee : 410, que la tablette lit
+    comme l'ordre d'effacer sa base et sa cle. Jamais un 401 ou un 403, qui
+    se lisent comme un code faux ou un droit manquant."""
+    if tablette is not None and tablette.revoked_at is not None:
+        raise HTTPException(status.HTTP_410_GONE, "Cette tablette a ete revoquee.")
+
+
 async def _presenter(session: AsyncSession, user: User, payload: DeviceIn) -> Device:
     tablette = await session.get(Device, payload.id)
     if tablette is not None and tablette.hotel_id != user.hotel_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tablette inconnue.")
+    refuser_si_revoquee(tablette)
     maintenant = utcnow()
     if tablette is None:
         tablette = Device(
@@ -104,6 +115,72 @@ async def present_device(
 ) -> Device:
     """La tablette se presente a chaque connexion en ligne."""
     tablette = await _presenter(session, user, payload)
+    await session.commit()
+    await session.refresh(tablette)
+    return tablette
+
+
+async def _tablette_de_l_hotel(session: AsyncSession, user: User, device_id) -> Device:
+    tablette = await session.get(Device, device_id)
+    if tablette is None or tablette.hotel_id != user.hotel_id or tablette.deleted_at:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tablette inconnue.")
+    return tablette
+
+
+@router.patch("/devices/{device_id}", response_model=DeviceOut)
+async def rename_device(
+    device_id: uuid.UUID,
+    payload: DeviceRenameIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("sync.monitor")),
+) -> Device:
+    """Donner un nom parlant (« Reception 1 ») a la place de « Tablette 3F2A ».
+    La tablette ne l'ecrase jamais : elle ne donne son nom par defaut qu'a sa
+    premiere presentation."""
+    tablette = await _tablette_de_l_hotel(session, user, device_id)
+    tablette.name = payload.name.strip()
+    tablette.updated_by = user.id
+    await session.commit()
+    await session.refresh(tablette)
+    return tablette
+
+
+@router.post("/devices/{device_id}/revoke", response_model=DeviceOut)
+async def revoke_device(
+    device_id: uuid.UUID,
+    payload: DeviceRevokeIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission("sync.monitor")),
+) -> Device:
+    """Retirer une tablette perdue ou volee.
+
+    Ses sessions tombent tout de suite (jetons de rafraichissement retires) ;
+    a son prochain contact -- connexion, presentation --, elle recoit un 410
+    et efface sa base et sa cle. Ce qu'elle n'avait pas remonte est perdu :
+    c'est le prix d'une base qui ne doit plus etre lue. La premiere
+    revocation fait foi.
+    """
+    tablette = await _tablette_de_l_hotel(session, user, device_id)
+    if tablette.revoked_at is not None:
+        return tablette
+    maintenant = utcnow()
+    tablette.revoked_at = maintenant
+    tablette.revoked_by = user.id
+    tablette.revocation_reason = payload.reason
+    tablette.is_active = False
+    tablette.updated_by = user.id
+    await session.execute(delete(RefreshToken).where(RefreshToken.device_id == tablette.id))
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            device_id=tablette.id,
+            entity_table="devices",
+            entity_id=tablette.id,
+            action="DEVICE_REVOKE",
+            after={"name": tablette.name, "reason": payload.reason},
+            occurred_at=maintenant,
+        )
+    )
     await session.commit()
     await session.refresh(tablette)
     return tablette

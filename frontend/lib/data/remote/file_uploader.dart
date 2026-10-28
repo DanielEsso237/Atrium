@@ -108,6 +108,8 @@ class FileUploader {
             );
           case ApiFailure.unauthorized:
           case ApiFailure.locked:
+          // Revoquee : la connexion suivante l'effacera, rien a reessayer.
+          case ApiFailure.revoked:
             await _compterTentative(envoi, e.message);
             return UploadReport(
               envoyees: envoyees,

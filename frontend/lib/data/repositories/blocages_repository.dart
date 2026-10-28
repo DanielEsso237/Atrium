@@ -54,6 +54,32 @@ SyncBlocksCompanion blocageDuServeur(
   );
 }
 
+/// Une ligne de `devices` telle que le serveur la rend. Seul le serveur les
+/// ecrit : rien a epargner.
+DevicesCompanion tabletteDuServeur(
+  Map<String, dynamic> t, {
+  required String hotelId,
+  required DateTime maintenant,
+}) {
+  final id = t['id'] as String;
+  return DevicesCompanion.insert(
+    id: id,
+    createdAt: maintenant,
+    updatedAt: _instant(t['updated_at']) ?? maintenant,
+    hotelId: hotelId,
+    deviceUid: id,
+    name: t['name'] as String,
+    isActive: Value(t['is_active'] as bool? ?? true),
+    appVersion: Value(t['app_version'] as String?),
+    osVersion: Value(t['os_version'] as String?),
+    lastSeenAt: Value(_instant(t['last_seen_at'])),
+    revokedAt: Value(_instant(t['revoked_at'])),
+    revokedBy: Value(t['revoked_by'] as String?),
+    revocationReason: Value(t['revocation_reason'] as String?),
+    syncState: const Value(SyncState.synced),
+  );
+}
+
 DateTime? _instant(Object? v) =>
     v is String ? DateTime.tryParse(v)?.toUtc() : null;
 
@@ -87,6 +113,48 @@ class BlocagesRepository {
         .into(db.syncBlocks)
         .insertOnConflictUpdate(
           blocageDuServeur(
+            reponse,
+            hotelId: local.hotelId,
+            maintenant: DateTime.now().toUtc(),
+          ),
+        );
+    return null;
+  }
+
+  /// Donne un nom parlant a une tablette (« Réception 1 »). Comme
+  /// [abandonner] : `null` si le serveur l'a enregistre, sinon quoi dire.
+  Future<String?> renommer(String tabletteId, String nom) => _tablette(
+    () => api.patch('/devices/$tabletteId', body: {'name': nom.trim()}),
+  );
+
+  /// Revoque une tablette perdue ou volee : a son prochain contact avec le
+  /// serveur, elle efface sa base et sa cle (correction 9).
+  Future<String?> revoquer(String tabletteId, String motif) => _tablette(
+    () => api.post(
+      '/devices/$tabletteId/revoke',
+      body: {'reason': motif.trim()},
+    ),
+  );
+
+  Future<String?> _tablette(
+    Future<Map<String, dynamic>> Function() requete,
+  ) async {
+    final Map<String, dynamic> reponse;
+    try {
+      reponse = await requete();
+    } on ApiException catch (e) {
+      return e.isOffline
+          ? 'Serveur injoignable : cela se fait en ligne.'
+          : e.message;
+    }
+    final local = await (db.select(
+      db.devices,
+    )..where((d) => d.id.equals(reponse['id'] as String))).getSingleOrNull();
+    if (local == null) return null;
+    await db
+        .into(db.devices)
+        .insertOnConflictUpdate(
+          tabletteDuServeur(
             reponse,
             hotelId: local.hotelId,
             maintenant: DateTime.now().toUtc(),

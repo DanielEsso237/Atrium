@@ -51,6 +51,10 @@ enum ApiFailure {
 
   /// Le serveur a echoue.
   server,
+
+  /// Cette tablette a ete revoquee d'un autre poste (410) : elle efface sa
+  /// base et sa cle (correction 9). Jamais un code faux ni un droit manquant.
+  revoked,
 }
 
 class ApiException implements Exception {
@@ -302,6 +306,7 @@ class ApiClient {
       423 => ApiFailure.locked,
       404 => ApiFailure.notFound,
       409 => ApiFailure.conflict,
+      410 => ApiFailure.revoked,
       // Fichier trop lourd : le renvoyer tel quel n'y changera rien.
       413 || 422 => ApiFailure.invalid,
       _ => ApiFailure.server,

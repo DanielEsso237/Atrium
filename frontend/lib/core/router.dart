@@ -15,6 +15,7 @@ import '../features/alerts/centre_notifications.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/nouveau_code.dart';
 import '../features/auth/session.dart';
+import '../features/auth/tablette_revoquee.dart';
 import '../features/billing/folios_screen.dart';
 import '../features/entretien/entretien_screen.dart';
 import '../features/entretien/historique_entretien_screen.dart';
@@ -139,11 +140,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   // `refreshListenable` redemande la redirection a chaque changement de
   // session : la connexion et la deconnexion n'ont donc pas a naviguer
   // elles-memes, elles changent l'etat et le routeur suit.
-  final session = ValueNotifier<(bool, bool)>((false, false));
+  final session = ValueNotifier<(bool, bool, bool)>((false, false, false));
   ref.listen<SessionState>(
     sessionProvider,
-    (_, suivant) =>
-        session.value = (suivant.estConnecte, suivant.pinAChanger),
+    (_, suivant) => session.value = (
+      suivant.estConnecte,
+      suivant.pinAChanger,
+      suivant.revoquee,
+    ),
     fireImmediately: true,
   );
   ref.onDispose(session.dispose);
@@ -154,6 +158,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, etat) {
       final session = ref.read(sessionProvider);
       final surConnexion = etat.matchedLocation == '/connexion';
+
+      // Revoquee, la tablette vient d'etre videe : aucun ecran n'a plus de
+      // quoi s'afficher (correction 9).
+      final surRevoquee = etat.matchedLocation == '/revoquee';
+      if (session.revoquee) return surRevoquee ? null : '/revoquee';
+      if (surRevoquee) return '/connexion';
 
       if (!session.estConnecte) return surConnexion ? null : '/connexion';
 
@@ -195,6 +205,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/revoquee',
+        builder: (_, _) => const TabletteRevoqueeScreen(),
+      ),
       GoRoute(
         path: '/nouveau-code',
         builder: (_, _) => const NouveauCodeScreen(),

@@ -28,6 +28,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/fake_catalog_api.dart';
+import 'helpers/schema_ancien.dart';
 
 const _encaissementAilleurs = '01920000-0000-7000-8000-00000000c001';
 const _admin = '01920000-0000-7000-8000-000000050001';
@@ -215,10 +216,7 @@ void main() {
     // Ce qu'une base au schema 16 n'avait pas encore (schema 18).
     await base.customStatement('DROP TABLE sync_blocks');
     await base.customStatement('DROP TABLE block_reports');
-    // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
-    await base.customStatement(
-      'ALTER TABLE outbox_entries DROP COLUMN group_keys',
-    );
+    await retirerColonnesApres(base, 16);
     await base.customStatement('PRAGMA user_version = 16');
     await base.close();
 

@@ -55,6 +55,7 @@ class SessionState {
     this.online = false,
     this.acces = const AccessProfile(),
     this.pinAChanger = false,
+    this.revoquee = false,
   });
 
   /// Agent connecte, ou `null` si personne ne l'est.
@@ -82,6 +83,11 @@ class SessionState {
   /// un de 6 avant d'aller plus loin (decision du 25 octobre). Le routeur ne
   /// lui ouvre que cet ecran-la.
   final bool pinAChanger;
+
+  /// Le serveur a revoque cette tablette et sa base vient d'etre effacee
+  /// (correction 9). Plus rien ne s'ouvre : le routeur ne montre que l'ecran
+  /// qui le dit.
+  final bool revoquee;
 
   bool get estConnecte => agent != null;
 
@@ -193,6 +199,8 @@ class SessionNotifier extends Notifier<SessionState> {
         _planifierReprise(intervalleReprise);
       case Reprise.refusee:
         _oublierReprise();
+      case Reprise.revoquee:
+        _revoquee();
     }
   }
 
@@ -243,8 +251,19 @@ class SessionNotifier extends Notifier<SessionState> {
       return true;
     }
 
+    if (resultat.failure == LoginFailure.revokedDevice) {
+      _revoquee();
+      return false;
+    }
     state = SessionState(echec: resultat.failure);
     return false;
+  }
+
+  /// La tablette vient d'etre effacee : plus de session, plus d'ecran.
+  void _revoquee() {
+    _oublierReprise();
+    _ancienPin = null;
+    state = const SessionState(revoquee: true);
   }
 
   /// Synchronise, puis relit les droits de l'agent.
@@ -255,7 +274,7 @@ class SessionNotifier extends Notifier<SessionState> {
   Future<void> _synchroniserPuisRelire(String agentId) async {
     // Elle figure a l'ecran Tablettes avant meme d'avoir ete bloquee. En
     // parallele : se presenter ne doit jamais retarder la synchronisation.
-    unawaited(ref.read(signalementBlocagesProvider).presenter());
+    unawaited(_presenter());
     await ref.read(syncProvider.notifier).refresh();
     // L'agent a pu se deconnecter, ou un autre se connecter, entre-temps.
     if (state.agent?.id != agentId) return;
@@ -267,6 +286,13 @@ class SessionNotifier extends Notifier<SessionState> {
       acces: acces,
       pinAChanger: state.pinAChanger,
     );
+  }
+
+  /// La tablette se presente ; revoquee, elle s'efface.
+  Future<void> _presenter() async {
+    if (!await ref.read(signalementBlocagesProvider).presenter()) return;
+    await ref.read(authRepositoryProvider).effacerLaTablette();
+    _revoquee();
   }
 
   /// Deconnexion : sur une tablette en mode kiosque, c'est l'operation la plus

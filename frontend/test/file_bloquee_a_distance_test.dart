@@ -24,6 +24,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/fake_catalog_api.dart';
+import 'helpers/schema_ancien.dart';
 
 const _recep = '01920000-0000-7000-8000-000000050002';
 const _paiement = '01920000-0000-7000-8000-00000000b001';
@@ -344,10 +345,7 @@ void main() {
     await base.customSelect('SELECT 1').get();
     await base.customStatement('DROP TABLE sync_blocks');
     await base.customStatement('DROP TABLE block_reports');
-    // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
-    await base.customStatement(
-      'ALTER TABLE outbox_entries DROP COLUMN group_keys',
-    );
+    await retirerColonnesApres(base, 17);
     await base.customStatement('PRAGMA user_version = 17');
     await base.close();
 

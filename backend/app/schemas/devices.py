@@ -32,6 +32,17 @@ class DeviceOut(BaseModel):
     is_active: bool
     last_seen_at: dt.datetime | None
     updated_at: dt.datetime
+    revoked_at: dt.datetime | None = None
+    revoked_by: uuid.UUID | None = None
+    revocation_reason: str | None = None
+
+
+class DeviceRenameIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class DeviceRevokeIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class SyncBlockIn(BaseModel):

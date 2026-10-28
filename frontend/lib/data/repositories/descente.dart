@@ -34,7 +34,7 @@ import '../local/enums.dart';
 import '../remote/api_client.dart';
 import '../remote/catalog_api.dart';
 import 'agent_repository.dart';
-import 'blocages_repository.dart' show blocageDuServeur;
+import 'blocages_repository.dart' show blocageDuServeur, tabletteDuServeur;
 import 'cash_repository.dart';
 import 'guest_repository.dart' show codeFromId;
 import 'hotel_repository.dart';
@@ -1691,23 +1691,10 @@ class Descente {
   ) async {
     await db.transaction(() async {
       for (final t in tablettes) {
-        final id = t['id'] as String;
         await db
             .into(db.devices)
             .insertOnConflictUpdate(
-              DevicesCompanion.insert(
-                id: id,
-                createdAt: maintenant,
-                updatedAt: _instant(t['updated_at']) ?? maintenant,
-                hotelId: hotelId,
-                deviceUid: id,
-                name: t['name'] as String,
-                isActive: Value(t['is_active'] as bool? ?? true),
-                appVersion: Value(t['app_version'] as String?),
-                osVersion: Value(t['os_version'] as String?),
-                lastSeenAt: Value(_instant(t['last_seen_at'])),
-                syncState: const Value(SyncState.synced),
-              ),
+              tabletteDuServeur(t, hotelId: hotelId, maintenant: maintenant),
             );
       }
     });
@@ -1729,9 +1716,6 @@ class Descente {
       }
     });
   }
-
-  static DateTime? _instant(Object? v) =>
-      v is String ? DateTime.tryParse(v)?.toUtc() : null;
 
   /// Remplace les couts de la fenetre : un jour que le serveur ne rend plus
   /// (tout y a ete annule) ne doit pas garder son ancien total.

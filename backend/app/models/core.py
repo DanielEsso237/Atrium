@@ -226,6 +226,13 @@ class Device(SyncBase, HotelScoped):
     last_sync_at: Mapped[dt.datetime | None] = mapped_column(default=None)
     # Verrouillage automatique apres inactivite (exigence 6.2).
     auto_lock_seconds: Mapped[int] = mapped_column(default=300)
+    # Revoquee (perdue, volee) : a son prochain contact, elle recoit un 410
+    # et efface sa base et sa cle (migration 0036).
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(default=None)
+    revoked_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    revocation_reason: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class RefreshToken(ServerBase):

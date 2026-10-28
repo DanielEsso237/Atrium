@@ -55,6 +55,16 @@ class CleBase {
     }
     return null;
   }
+
+  /// La tablette est revoquee : sans sa cle, ce qui reste du fichier ne se
+  /// lit plus. Le lancement suivant en tire une neuve.
+  Future<void> effacer() async {
+    try {
+      await _storage.delete(key: _cle);
+    } catch (e) {
+      debugPrint('Atrium : la cle de la base ne s\'efface pas : $e');
+    }
+  }
 }
 
 class MagasinIndisponible implements Exception {

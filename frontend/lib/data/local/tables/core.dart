@@ -168,4 +168,10 @@ class Devices extends Table with SyncedTableColumns, HotelScoped {
   /// Verrouillage automatique apres inactivite (exigence 6.2). Une tablette
   /// posee sur le comptoir de la reception ne doit pas rester ouverte.
   IntColumn get autoLockSeconds => integer().withDefault(const Constant(300))();
+
+  /// Revoquee d'un autre poste (perdue, volee) : elle s'efface a son
+  /// prochain contact avec le serveur (correction 9, schema 21).
+  DateTimeColumn get revokedAt => dateTime().nullable()();
+  TextColumn get revokedBy => text().nullable()();
+  TextColumn get revocationReason => text().nullable()();
 }

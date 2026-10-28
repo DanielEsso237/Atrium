@@ -121,7 +121,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -298,6 +298,12 @@ class AtriumDatabase extends _$AtriumDatabase {
       // strict d'avant, jusqu'a leur depart.
       if (depuis < 20) {
         await m.addColumn(outboxEntries, outboxEntries.groupKeys);
+      }
+      // 20 -> 21 : une tablette se revoque a distance (correction 9).
+      if (depuis < 21) {
+        await m.addColumn(devices, devices.revokedAt);
+        await m.addColumn(devices, devices.revokedBy);
+        await m.addColumn(devices, devices.revocationReason);
       }
     },
     beforeOpen: (details) async {

@@ -59,3 +59,6 @@ QueryExecutor ouvrirBase() {
 /// Base en memoire, jetee a la fin : utilisee par les tests, qui tournent sur
 /// la machine de developpement et jamais dans un navigateur.
 QueryExecutor ouvrirBaseMemoire() => NativeDatabase.memory();
+
+/// La tablette est revoquee : la cle de la base disparait du magasin.
+Future<void> oublierCleDeLaBase() => const CleBase().effacer();

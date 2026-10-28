@@ -397,6 +397,8 @@ class OutboxSender {
       // rafraichir le jeton avant d'en arriver la.
       case ApiFailure.unauthorized:
       case ApiFailure.locked:
+      // Revoquee : la connexion suivante l'effacera, rien a reessayer.
+      case ApiFailure.revoked:
         await _compterTentative(entree, e.message);
         return DrainStop.sessionInvalide;
 
