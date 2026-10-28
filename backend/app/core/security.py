@@ -54,6 +54,32 @@ def create_access_token(user_id: uuid.UUID) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
+# Assez pour vider une file, pas pour s'en servir de session.
+DUREE_DELEGATION = dt.timedelta(minutes=10)
+
+
+def create_delegated_token(
+    author_id: uuid.UUID, approver_id: uuid.UUID, device_id: uuid.UUID | None
+) -> str:
+    """Un jeton au nom d'un agent absent, delivre sur le code d'un responsable.
+
+    L'ecriture d'un collegue restee sur une tablette se juge avec **ses**
+    droits : un encaissement tombe dans sa caisse, pas dans celle du
+    responsable. `act` dit qui l'a permis (RFC 8693) ; chaque ecriture faite
+    avec ce jeton se trace a son nom (`app/api/deps.py`). Court, et sans
+    jeton de rafraichissement.
+    """
+    payload = {
+        "sub": str(author_id),
+        "act": str(approver_id),
+        "exp": dt.datetime.now(dt.timezone.utc) + DUREE_DELEGATION,
+        "type": "access",
+    }
+    if device_id is not None:
+        payload["dev"] = str(device_id)
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
 def new_refresh_token() -> tuple[str, str]:
     """Jeton de rafraichissement opaque : (valeur a remettre au client, hachage).
 
@@ -70,16 +96,25 @@ def hash_refresh_token(plain: str) -> str:
 
 
 def decode_access_token(token: str) -> uuid.UUID | None:
+    claims = decode_access_claims(token)
+    return None if claims is None else claims[0]
+
+
+def decode_access_claims(
+    token: str,
+) -> tuple[uuid.UUID, uuid.UUID | None, uuid.UUID | None] | None:
+    """(agent, responsable qui a delegue, tablette) ; les deux derniers ne
+    sont poses que sur un jeton delegue."""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except JWTError:
         return None
     if payload.get("type") != "access":
         return None
-    sub = payload.get("sub")
-    if sub is None:
-        return None
     try:
-        return uuid.UUID(sub)
-    except ValueError:
+        sub = uuid.UUID(payload["sub"])
+        act = uuid.UUID(payload["act"]) if payload.get("act") else None
+        dev = uuid.UUID(payload["dev"]) if payload.get("dev") else None
+    except (KeyError, TypeError, ValueError):
         return None
+    return sub, act, dev

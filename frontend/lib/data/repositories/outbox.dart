@@ -111,9 +111,10 @@ extension OutboxRead on AtriumDatabase {
 
   /// Les ecritures des collegues qui attendent leur auteur sur cette
   /// tablette, par agent : « 1 envoi attend RECEP01 ».
-  Stream<List<({String agent, int n})>> watchEnvoisDAutrui() {
+  Stream<List<({String id, String agent, int n})>> watchEnvoisDAutrui() {
     return customSelect(
-      'SELECT COALESCE(u.employee_code, o.author_id) AS agent, '
+      'SELECT o.author_id AS id, '
+      'COALESCE(u.employee_code, o.author_id) AS agent, '
       'COUNT(*) AS n FROM outbox_entries o '
       'LEFT JOIN users u ON u.id = o.author_id '
       "WHERE o.status IN ('PENDING','FAILED') AND NOT ($sqlEnvoyableParLAgent) "
@@ -122,7 +123,11 @@ extension OutboxRead on AtriumDatabase {
     ).watch().map(
       (lignes) => [
         for (final l in lignes)
-          (agent: l.read<String>('agent'), n: l.read<int>('n')),
+          (
+            id: l.read<String>('id'),
+            agent: l.read<String>('agent'),
+            n: l.read<int>('n'),
+          ),
       ],
     );
   }

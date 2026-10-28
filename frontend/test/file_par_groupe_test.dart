@@ -452,7 +452,7 @@ class _Envoi extends OutboxSender {
   var passages = 0;
 
   @override
-  Future<DrainReport> drain({int max = 200}) async {
+  Future<DrainReport> drain({int max = 200, String? pour}) async {
     passages++;
     return DrainReport(envoyees: 0, restantes: 1, arret: arret);
   }

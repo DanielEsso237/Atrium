@@ -143,6 +143,31 @@ class AuthApi {
     );
   }
 
+  /// Un responsable permet de remonter les ecritures d'un agent absent
+  /// (`POST /auth/delegate`) : le serveur rend un jeton court a son nom.
+  /// Avec la session de qui tient la tablette, comme [authorize].
+  Future<Map<String, dynamic>> deleguer({
+    required String auteurId,
+    required String employeeCode,
+    required String secret,
+    required String motif,
+    String? tablette,
+  }) async {
+    if (await _tokens.readAccess() == null) {
+      throw const ApiException(ApiFailure.offline, 'Aucune session en ligne.');
+    }
+    return _client.post(
+      '/auth/delegate',
+      body: {
+        'author_id': auteurId,
+        'employee_code': employeeCode.trim().toUpperCase(),
+        'secret': secret,
+        'reason': motif,
+        'device_id': ?tablette,
+      },
+    );
+  }
+
   /// Code oublie : un responsable valide sur place, l'agent choisit son
   /// nouveau code (`POST /auth/reset-secret`).
   ///

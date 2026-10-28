@@ -23,6 +23,7 @@ import 'reinitialisation_repository.dart';
 import 'expense_repository.dart';
 import 'cash_repository.dart';
 import 'descente.dart';
+import 'envoi_pour_autrui.dart';
 import 'folio_repository.dart';
 import 'guest_repository.dart';
 import 'hotel_repository.dart';
@@ -89,6 +90,15 @@ final reinitialisationRepositoryProvider = Provider<ReinitialisationRepository>(
   (ref) => ReinitialisationRepository(
     ref.watch(databaseProvider),
     ref.watch(authApiProvider),
+  ),
+);
+
+/// Les ecritures d'un agent absent, sur le code d'un responsable.
+final envoiPourAutruiProvider = Provider<EnvoiPourAutrui>(
+  (ref) => EnvoiPourAutrui(
+    db: ref.watch(databaseProvider),
+    auth: ref.watch(authApiProvider),
+    baseUrl: apiBaseUrl,
   ),
 );
 
@@ -310,7 +320,8 @@ final pendingWritesProvider = StreamProvider<int>(
 );
 
 /// Les ecritures des collegues qui attendent leur auteur sur cette tablette.
-final envoisDAutruiProvider = StreamProvider<List<({String agent, int n})>>(
+final envoisDAutruiProvider =
+    StreamProvider<List<({String id, String agent, int n})>>(
   (ref) => ref.watch(databaseProvider).watchEnvoisDAutrui(),
 );
 

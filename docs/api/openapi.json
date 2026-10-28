@@ -1342,6 +1342,72 @@
         "title": "DashboardSummary",
         "type": "object"
       },
+      "DelegateIn": {
+        "description": "Le code d'un responsable, pour remonter les ecritures d'un agent\nabsent restees sur la tablette.",
+        "properties": {
+          "author_id": {
+            "format": "uuid",
+            "title": "Author Id",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "author_id",
+          "employee_code",
+          "secret",
+          "reason"
+        ],
+        "title": "DelegateIn",
+        "type": "object"
+      },
+      "DelegateOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/AuthorizeOut"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "approver"
+        ],
+        "title": "DelegateOut",
+        "type": "object"
+      },
       "DepositRule": {
         "properties": {
           "amount": {
@@ -11509,6 +11575,53 @@
           }
         ],
         "summary": "Credentials",
+        "tags": [
+          "authentification"
+        ]
+      }
+    },
+    "/api/v1/auth/delegate": {
+      "post": {
+        "description": "Remonter les ecritures d'un agent absent, sur le code d'un responsable.\n\nUne tablette passe de main en main, et chacun n'y remonte que ses\necritures : celles d'un agent qui ne repasse pas restaient pour toujours.\nLe responsable (`sync.monitor`) tape son code ; le serveur rend un jeton\ncourt **au nom de l'agent absent** -- ses ecritures se jugent avec ses\ndroits et tombent dans sa caisse --, qui ne sert qu'a ecrire, et chaque\necriture faite avec lui se trace au nom du responsable.",
+        "operationId": "delegate_api_v1_auth_delegate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DelegateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DelegateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delegate",
         "tags": [
           "authentification"
         ]

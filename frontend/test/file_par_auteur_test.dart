@@ -91,7 +91,9 @@ void main() {
     // Pour le menage, la file est vide : rien ne doit la relancer en boucle.
     expect(rapport.restantes, 0);
     expect(await db.watchPendingCount().first, 0);
-    expect(await db.watchEnvoisDAutrui().first, [(agent: 'RECEP01', n: 1)]);
+    expect(await db.watchEnvoisDAutrui().first, [
+      (id: recep, agent: 'RECEP01', n: 1),
+    ]);
 
     // Le receptionniste revient : la sienne part.
     await db.declarerAuteur(recep);
