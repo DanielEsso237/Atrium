@@ -145,6 +145,7 @@ formes.
 | 401 | jeton absent, invalide ou expiré | retour à l'écran de connexion |
 | 403 | droit manquant, ou compte désactivé | message, pas de redirection |
 | 423 | compte bloqué après cinq codes faux | message ; un agent attend qu'un responsable le débloque (`POST /auth/reset-secret`), un responsable (`users.reset_secret`) quinze minutes |
+| 410 | tablette révoquée | la tablette efface sa base, sa clé et ses jetons (correction 9) |
 | 404 | introuvable, ou appartient à un autre hôtel | message |
 | 409 | conflit d'état (arrivée déjà enregistrée…) | message, recharger la ligne |
 | 422 | corps invalide | c'est un défaut de l'application, à journaliser |
@@ -876,6 +877,8 @@ tablette même quand c'est lui qui est connecté. Chaque annulation porte
 |---|---|---|---|
 | `POST /auth/authorize` | agent connecté | `{employee_code, secret, permission}` | vérifie le code d'un responsable **sans ouvrir de session** ; `{user_id, first_name, last_name}`. Code faux : **403** (pas 401, qui déconnecterait l'agent), verrouillage à cinq échecs comme la connexion |
 | `POST /auth/delegate` | agent connecté | `{author_id, employee_code, secret, reason, device_id?}` | un responsable (`sync.monitor`) permet de remonter les écritures d'un agent absent : `{access_token, expires_in, approver}`, un jeton de **dix minutes au nom de l'absent** (même désactivé), sans rafraîchissement, qui ne sert qu'à écrire (`GET` et `/auth/*` : 403). Tracé `SYNC_DELEGATE`, puis `SYNC_DELEGATED_WRITE` à chaque écriture, au nom du responsable. 403 : code faux ou droit manquant ; 404 : agent d'un autre hôtel |
+| `PATCH /devices/{id}` | `sync.monitor` | `{name}` | renomme une tablette ; elle ne l'écrase jamais par son nom par défaut |
+| `POST /devices/{id}/revoke` | `sync.monitor` | `{reason}` | révoque une tablette perdue ou volée : ses jetons de rafraîchissement tombent, et à son prochain contact (`/auth/login` avec `device_id`, `PUT /devices/me`, `POST /sync-blocks`) elle reçoit **410**, l'ordre d'effacer sa base et sa clé. Tracé `DEVICE_REVOKE` ; la première révocation fait foi |
 | `POST /reservations/{id}/rooms/{line}/undo-check-in` | `reservation.manage` | `{approved_by, reason}` | la ligne redevient `CONFIRMED` (`CANCELLED` pour une arrivée directe), la chambre libre, l'ardoise **retirée** (`deleted_at`, lignes annulées, arrhes rendues au dossier, nuits dé-portées). 409 tant que l'ardoise porte un encaissement non annulé ou une consommation hors chambre |
 | `POST /reservations/{id}/rooms/{line}/undo-check-out` | `reservation.manage` | `{approved_by, reason}` | la ligne redevient `CHECKED_IN`, la chambre occupée, l'ardoise rouverte. 409 si la chambre est déjà réoccupée |
 | `POST /payments/{id}/reverse` | `folio.write` ou `cash.session` | `{id, approved_by, reason}` | un **remboursement** du même montant et du même moyen (`is_refund`, `reverses_payment_id`), dans le tiroir ouvert de l'agent pour le point de vente de l'encaissement ; l'ardoise se rouvre si elle était close. Une seule fois par encaissement (409) ; les arrhes encore sur le dossier ne s'annulent pas ici |

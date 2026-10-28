@@ -57,15 +57,20 @@ class AuthApi {
   /// Leve une `ApiException` : `offline` si le serveur est injoignable — ce
   /// qui n'est pas une erreur pour une tablette dans un couloir, mais un cas
   /// que l'appelant doit distinguer d'un mauvais mot de passe.
+  ///
+  /// [tablette] : l'identifiant stable de la tablette. Le serveur y rattache
+  /// la session, et refuse d'un 410 une tablette revoquee (correction 9).
   Future<AuthSession> login({
     required String employeeCode,
     required String secret,
+    String? tablette,
   }) async {
     final data = await _client.post(
       '/auth/login',
       body: {
         'employee_code': employeeCode.trim().toUpperCase(),
         'password': secret,
+        'device_id': ?tablette,
       },
     );
 
@@ -118,6 +123,10 @@ class AuthApi {
     }
     await _tokens.clear();
   }
+
+  /// La tablette est revoquee : ses jetons disparaissent, sans rien dire au
+  /// serveur -- il les a deja retires.
+  Future<void> oublierJetons() => _tokens.clear();
 
   /// Le code d'un responsable, verifie par le serveur sans ouvrir de
   /// session : il autorise un geste, il ne remplace pas l'agent connecte.

@@ -1567,6 +1567,41 @@
             ],
             "title": "Os Version"
           },
+          "revocation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revocation Reason"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -1583,6 +1618,36 @@
           "updated_at"
         ],
         "title": "DeviceOut",
+        "type": "object"
+      },
+      "DeviceRenameIn": {
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DeviceRenameIn",
+        "type": "object"
+      },
+      "DeviceRevokeIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DeviceRevokeIn",
         "type": "object"
       },
       "DocumentTemplateIn": {
@@ -12220,6 +12285,124 @@
           }
         ],
         "summary": "Present Device",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}": {
+      "patch": {
+        "description": "Donner un nom parlant (« Reception 1 ») a la place de « Tablette 3F2A ».\nLa tablette ne l'ecrase jamais : elle ne donne son nom par defaut qu'a sa\npremiere presentation.",
+        "operationId": "rename_device_api_v1_devices__device_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRenameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Rename Device",
+        "tags": [
+          "tablettes"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/revoke": {
+      "post": {
+        "description": "Retirer une tablette perdue ou volee.\n\nSes sessions tombent tout de suite (jetons de rafraichissement retires) ;\na son prochain contact -- connexion, presentation --, elle recoit un 410\net efface sa base et sa cle. Ce qu'elle n'avait pas remonte est perdu :\nc'est le prix d'une base qui ne doit plus etre lue. La premiere\nrevocation fait foi.",
+        "operationId": "revoke_device_api_v1_devices__device_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRevokeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Revoke Device",
         "tags": [
           "tablettes"
         ]

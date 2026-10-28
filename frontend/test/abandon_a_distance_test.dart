@@ -26,6 +26,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/fake_catalog_api.dart';
+import 'helpers/schema_ancien.dart';
 
 const _hotel = '01920000-0000-7000-8000-000000000001';
 const _agent = '01920000-0000-7000-8000-000000050002';
@@ -511,10 +512,7 @@ void main() {
     await base.customStatement(
       'ALTER TABLE block_reports DROP COLUMN abandon_note',
     );
-    // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
-    await base.customStatement(
-      'ALTER TABLE outbox_entries DROP COLUMN group_keys',
-    );
+    await retirerColonnesApres(base, 18);
     await base.customStatement('PRAGMA user_version = 18');
     await base.close();
 

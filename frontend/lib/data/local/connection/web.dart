@@ -59,3 +59,6 @@ QueryExecutor ouvrirBase() {
 QueryExecutor ouvrirBaseMemoire() => throw UnsupportedError(
   "AtriumDatabase.memory() n'est pas disponible sur le web.",
 );
+
+/// Le navigateur n'a pas de cle : sa base n'est pas chiffree.
+Future<void> oublierCleDeLaBase() async {}

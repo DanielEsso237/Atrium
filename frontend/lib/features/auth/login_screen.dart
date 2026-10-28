@@ -168,6 +168,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // laisser croire a un mauvais secret.
     LoginFailure.offlineAndUnknown =>
       'Serveur injoignable, et cet agent est inconnu de cette tablette.',
+    LoginFailure.revokedDevice => 'Cette tablette a été révoquée.',
   };
 
   @override

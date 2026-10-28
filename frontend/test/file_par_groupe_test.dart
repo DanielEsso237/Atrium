@@ -29,6 +29,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/schema_ancien.dart';
+
 /// Un serveur qui note ce qu'il recoit, et refuse les noms qu'on lui designe.
 class _Serveur extends ApiClient {
   _Serveur() : super(baseUrl: 'http://localhost', tokens: const TokenStore());
@@ -415,9 +417,7 @@ void main() {
 
       var base = AtriumDatabase(NativeDatabase(fichier));
       await base.customSelect('SELECT 1').get();
-      await base.customStatement(
-        'ALTER TABLE outbox_entries DROP COLUMN group_keys',
-      );
+      await retirerColonnesApres(base, 19);
       await base.customStatement(
         "INSERT INTO outbox_entries (entity_table, entity_id, op, payload, "
         "created_at, status) VALUES ('guests', "

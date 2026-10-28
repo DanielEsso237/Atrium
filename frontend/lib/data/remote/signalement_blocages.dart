@@ -95,12 +95,18 @@ class SignalementBlocages {
 
   /// La tablette se presente au serveur, a chaque connexion en ligne : elle
   /// figure ainsi a l'ecran Tablettes avant meme d'avoir ete bloquee.
-  Future<void> presenter() async {
+  ///
+  /// Vrai si le serveur l'a revoquee (410) : a l'appelant de l'effacer.
+  Future<bool> presenter() async {
     try {
       await api.put('/devices/me', body: await _tablette());
+    } on ApiException catch (e) {
+      if (e.failure == ApiFailure.revoked) return true;
+      debugPrint('Atrium : la tablette ne s\'est pas presentee : $e');
     } catch (e) {
       debugPrint('Atrium : la tablette ne s\'est pas presentee : $e');
     }
+    return false;
   }
 
   /// Ce que le passage de la file vient de changer, dit au serveur ; puis

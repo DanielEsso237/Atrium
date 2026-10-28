@@ -82,13 +82,60 @@ String _moment(DateTime instant) {
   return '${formatShortDate(l).substring(0, 5)} à ${l.hour} h $mm';
 }
 
-class _CarteTablette extends StatelessWidget {
+class _CarteTablette extends ConsumerWidget {
   const _CarteTablette({required this.tablette});
 
   final TabletteSuivie tablette;
 
+  Future<void> _renommer(BuildContext context, WidgetRef ref) async {
+    final nom = await demanderMotif(
+      context,
+      titre: 'Renommer la tablette',
+      icone: PhosphorIconsLight.pencilSimple,
+      libelleMotif: 'Nom',
+      indice: 'Ex. : Réception 1, Bar',
+      valeurInitiale: tablette.nom,
+      libelleConfirmer: 'Renommer',
+      libelleRenoncer: 'Annuler',
+      autofocus: true,
+    );
+    if (nom == null || nom.trim().isEmpty || !context.mounted) return;
+    final refus = await ref.read(blocagesRepositoryProvider).renommer(tablette.id, nom);
+    if (context.mounted) _dire(context, refus);
+  }
+
+  Future<void> _revoquer(BuildContext context, WidgetRef ref) async {
+    final motif = await demanderMotif(
+      context,
+      titre: 'Révoquer ${tablette.nom} ?',
+      icone: PhosphorIconsLight.xCircle,
+      contenu: Text(
+        '${tablette.estCelleCi ? 'C’est la tablette sur laquelle vous êtes. ' : ''}'
+        'À son prochain contact avec le serveur, elle efface toutes ses '
+        'données : clients, ardoises, codes des agents. Ce qu’elle n’a pas '
+        'encore remonté est perdu. Ses sessions s’arrêtent tout de suite. '
+        'Pour une tablette perdue ou volée.',
+      ),
+      libelleMotif: 'Motif (obligatoire)',
+      libelleConfirmer: 'Révoquer',
+      libelleRenoncer: 'Garder',
+      danger: true,
+      obligatoire: true,
+    );
+    if (motif == null || !context.mounted) return;
+    final refus = await ref.read(blocagesRepositoryProvider).revoquer(tablette.id, motif);
+    if (context.mounted) _dire(context, refus);
+  }
+
+  void _dire(BuildContext context, String? refus) {
+    if (refus == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(refus)));
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = AtriumPalette.current;
     final t = tablette;
     final ouverts = t.blocages.where((b) => b.ouvert).toList();
@@ -115,12 +162,31 @@ class _CarteTablette extends StatelessWidget {
                 ),
               ),
               Text(
-                t.bloquee ? 'Bloquée' : 'Rien de bloqué',
+                t.revoquee
+                    ? 'Révoquée'
+                    : t.bloquee
+                    ? 'Bloquée'
+                    : 'Rien de bloqué',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: t.bloquee ? p.error : p.success,
+                  color: t.revoquee || t.bloquee ? p.error : p.success,
                 ),
               ),
+              if (t.connue && !t.revoquee)
+                PopupMenuButton<String>(
+                  tooltip: 'Gérer la tablette',
+                  icon: const Icon(PhosphorIconsLight.dotsThree),
+                  onSelected: (choix) => choix == 'renommer'
+                      ? _renommer(context, ref)
+                      : _revoquer(context, ref),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'renommer', child: Text('Renommer')),
+                    PopupMenuItem(
+                      value: 'revoquer',
+                      child: Text('Révoquer la tablette'),
+                    ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 4),
@@ -131,6 +197,17 @@ class _CarteTablette extends StatelessWidget {
             ].join(' · ').ifEmpty('Pas encore vue en ligne'),
             style: TextStyle(fontSize: 13, color: p.textSecondary),
           ),
+          if (t.revoqueeLe case final le?) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Révoquée le ${_moment(le)}'
+              '${t.revoqueePar == null ? '' : ' par ${t.revoqueePar}'}'
+              '${t.motifRevocation == null ? '' : ' : « ${t.motifRevocation} »'}'
+              '. Elle efface ses données à son prochain contact avec le '
+              'serveur.',
+              style: TextStyle(fontSize: 14, color: p.error),
+            ),
+          ],
           for (final b in ouverts) ...[
             const SizedBox(height: 12),
             _LigneBlocage(blocage: b, tablette: t.nom),

@@ -27,6 +27,7 @@ class _ServeurQuiEchoue extends AuthApi {
   Future<AuthSession> login({
     required String employeeCode,
     required String secret,
+    String? tablette,
   }) async => throw ApiException(echec, 'echec simule');
 }
 
@@ -42,6 +43,7 @@ class _ServeurRevenu extends AuthApi {
   Future<AuthSession> login({
     required String employeeCode,
     required String secret,
+    String? tablette,
   }) async => const AuthSession(
     accessToken: 'a',
     refreshToken: 'r',

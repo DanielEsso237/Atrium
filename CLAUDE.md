@@ -657,8 +657,8 @@ derrière ; cela ne se voyait que sur la tablette elle-même. Désormais :
   `sync_statuses.device_id`, et un nom par défaut « Tablette 3F2A » (les
   quatre derniers caractères). Elle se présente à chaque connexion en ligne
   (`PUT /devices/me`) ; un nom donné ensuite sur le serveur n'est jamais
-  écrasé par le nom par défaut. Le renommage et la révocation viennent avec
-  la correction 9.
+  écrasé par le nom par défaut. Elle se renomme et se révoque de l'écran
+  Tablettes (voir « Révoquer une tablette »).
 - **`sync.monitor`** (migration 0034) : administrateur et direction. Il lit
   `GET /devices` et `GET /sync-blocks` (blocages ouverts, et levés depuis
   sept jours) ; annoncer et lever sont ouverts à tout agent connecté — le
@@ -771,6 +771,36 @@ pour toujours. Désormais la pastille « 1 · RECEP01 » s'appuie : un
   avec un `TokenStore` qui ne connaît que ce jeton : la session de l'agent
   connecté n'est pas touchée. Les écritures de l'agent connecté ne partent
   pas dans ce passage.
+
+## Révoquer une tablette (28 octobre)
+
+Une tablette perdue ou volée gardait sa base : clients, ardoises,
+empreintes des codes. Un responsable (`sync.monitor`) la **révoque** de
+l'écran Tablettes, avec un motif obligatoire, ou la **renomme**
+(« Réception 1 » au lieu de « Tablette 3F2A ») — menu « ⋯ » de sa carte.
+
+- Serveur (migration 0036) : `POST /devices/{id}/revoke` pose
+  `revoked_at`, `revoked_by`, `revocation_reason`, retire **tout de suite**
+  les jetons de rafraîchissement de la tablette et trace `DEVICE_REVOKE`. La
+  première révocation fait foi. `PATCH /devices/{id}` renomme.
+- **Le refus dédié est un 410** (`refuser_si_revoquee`), jamais 401 ni 403
+  qui se liraient comme un code faux ou un droit manquant. Il tombe à la
+  **connexion** — avant même de vérifier le code : celui qui l'a trouvée
+  n'a pas besoin d'un PIN pour qu'elle s'efface — et à la **présentation**
+  (`PUT /devices/me`, rapports de blocage). La connexion porte désormais
+  `device_id` ; une tablette pas encore présentée se connecte quand même.
+- Tablette (schéma local 21) : `ApiFailure.revoked`. La connexion, la
+  reprise en ligne et la présentation déclenchent
+  `AuthRepository.effacerLaTablette` : jetons oubliés, **toutes les tables
+  vidées** puis `VACUUM`, clé de la base retirée du magasin
+  (`data/local/effacement.dart`). Le routeur n'ouvre plus que
+  `/revoquee`, qui ferme l'application. Au lancement suivant, elle repart
+  comme une tablette neuve, sous un autre identifiant. **Ce qu'elle n'avait
+  pas remonté est perdu** : c'est voulu.
+- Les tests de migration retirent les colonnes postérieures à leur schéma
+  par `test/helpers/schema_ancien.dart` : **toute colonne ajoutée à une
+  table locale s'y inscrit**, sinon ces tests échouent sur « duplicate
+  column name ».
 
 ## Ce qui manque
 

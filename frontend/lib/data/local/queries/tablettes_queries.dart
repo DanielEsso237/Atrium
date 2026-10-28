@@ -95,6 +95,10 @@ class TabletteSuivie {
     required this.blocages,
     this.version,
     this.vueLe,
+    this.connue = true,
+    this.revoqueeLe,
+    this.revoqueePar,
+    this.motifRevocation,
   });
 
   final String id;
@@ -108,6 +112,18 @@ class TabletteSuivie {
   /// Les blocages en cours d'abord, puis ceux leves depuis une semaine.
   final List<BlocageVu> blocages;
 
+  /// Sa fiche est descendue du serveur : elle se renomme et se revoque.
+  /// Une tablette connue par son seul blocage, pas encore.
+  final bool connue;
+
+  /// Revoquee d'un poste (correction 9) : elle s'efface a son prochain
+  /// contact avec le serveur.
+  final DateTime? revoqueeLe;
+  final String? revoqueePar;
+  final String? motifRevocation;
+
+  bool get revoquee => revoqueeLe != null;
+
   bool get bloquee => blocages.any((b) => b.ouvert);
 }
 
@@ -118,18 +134,22 @@ extension TablettesQueries on AtriumDatabase {
       '''
       SELECT d.id AS id, d.name AS nom, d.app_version AS version,
              d.last_seen_at AS vue,
-             d.id = (SELECT device_id FROM sync_statuses WHERE id = 1) AS ici
+             d.id = (SELECT device_id FROM sync_statuses WHERE id = 1) AS ici,
+             d.revoked_at AS revoquee, r.employee_code AS revoquee_par,
+             d.revocation_reason AS motif_revocation
         FROM devices d
+        LEFT JOIN users r ON r.id = d.revoked_by
        WHERE d.deleted_at IS NULL
       UNION
       -- Une tablette annoncee par son blocage seulement : sa fiche n'est pas
       -- encore descendue, son blocage doit se voir quand meme.
       SELECT b.device_id, NULL, NULL, NULL,
-             b.device_id = (SELECT device_id FROM sync_statuses WHERE id = 1)
+             b.device_id = (SELECT device_id FROM sync_statuses WHERE id = 1),
+             NULL, NULL, NULL
         FROM sync_blocks b
        WHERE b.device_id NOT IN (SELECT id FROM devices)
       ''',
-      readsFrom: {devices, syncBlocks, syncStatuses},
+      readsFrom: {devices, syncBlocks, syncStatuses, users},
     ).watch().asyncMap((tablettes) async {
       final blocages = await customSelect(
         '''
@@ -186,6 +206,10 @@ extension TablettesQueries on AtriumDatabase {
             version: t.readNullable<String>('version'),
             vueLe: t.readNullable<DateTime>('vue'),
             blocages: parTablette[t.read<String>('id')] ?? const [],
+            connue: t.readNullable<String>('nom') != null,
+            revoqueeLe: t.readNullable<DateTime>('revoquee'),
+            revoqueePar: t.readNullable<String>('revoquee_par'),
+            motifRevocation: t.readNullable<String>('motif_revocation'),
           ),
       ];
       liste.sort((a, b) {

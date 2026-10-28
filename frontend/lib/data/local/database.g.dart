@@ -5117,6 +5117,39 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, DeviceRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(300),
   );
+  static const VerificationMeta _revokedAtMeta = const VerificationMeta(
+    'revokedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> revokedAt = GeneratedColumn<DateTime>(
+    'revoked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedByMeta = const VerificationMeta(
+    'revokedBy',
+  );
+  @override
+  late final GeneratedColumn<String> revokedBy = GeneratedColumn<String>(
+    'revoked_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revocationReasonMeta = const VerificationMeta(
+    'revocationReason',
+  );
+  @override
+  late final GeneratedColumn<String> revocationReason = GeneratedColumn<String>(
+    'revocation_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5142,6 +5175,9 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, DeviceRow> {
     lastSeenAt,
     lastSyncAt,
     autoLockSeconds,
+    revokedAt,
+    revokedBy,
+    revocationReason,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5317,6 +5353,27 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, DeviceRow> {
         ),
       );
     }
+    if (data.containsKey('revoked_at')) {
+      context.handle(
+        _revokedAtMeta,
+        revokedAt.isAcceptableOrUnknown(data['revoked_at']!, _revokedAtMeta),
+      );
+    }
+    if (data.containsKey('revoked_by')) {
+      context.handle(
+        _revokedByMeta,
+        revokedBy.isAcceptableOrUnknown(data['revoked_by']!, _revokedByMeta),
+      );
+    }
+    if (data.containsKey('revocation_reason')) {
+      context.handle(
+        _revocationReasonMeta,
+        revocationReason.isAcceptableOrUnknown(
+          data['revocation_reason']!,
+          _revocationReasonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5420,6 +5477,18 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, DeviceRow> {
         DriftSqlType.int,
         data['${effectivePrefix}auto_lock_seconds'],
       )!,
+      revokedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}revoked_at'],
+      ),
+      revokedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}revoked_by'],
+      ),
+      revocationReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}revocation_reason'],
+      ),
     );
   }
 
@@ -5462,6 +5531,12 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
   /// Verrouillage automatique apres inactivite (exigence 6.2). Une tablette
   /// posee sur le comptoir de la reception ne doit pas rester ouverte.
   final int autoLockSeconds;
+
+  /// Revoquee d'un autre poste (perdue, volee) : elle s'efface a son
+  /// prochain contact avec le serveur (correction 9, schema 21).
+  final DateTime? revokedAt;
+  final String? revokedBy;
+  final String? revocationReason;
   const DeviceRow({
     required this.id,
     required this.createdAt,
@@ -5486,6 +5561,9 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
     this.lastSeenAt,
     this.lastSyncAt,
     required this.autoLockSeconds,
+    this.revokedAt,
+    this.revokedBy,
+    this.revocationReason,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5543,6 +5621,15 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
       map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
     }
     map['auto_lock_seconds'] = Variable<int>(autoLockSeconds);
+    if (!nullToAbsent || revokedAt != null) {
+      map['revoked_at'] = Variable<DateTime>(revokedAt);
+    }
+    if (!nullToAbsent || revokedBy != null) {
+      map['revoked_by'] = Variable<String>(revokedBy);
+    }
+    if (!nullToAbsent || revocationReason != null) {
+      map['revocation_reason'] = Variable<String>(revocationReason);
+    }
     return map;
   }
 
@@ -5597,6 +5684,15 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
           ? const Value.absent()
           : Value(lastSyncAt),
       autoLockSeconds: Value(autoLockSeconds),
+      revokedAt: revokedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(revokedAt),
+      revokedBy: revokedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(revokedBy),
+      revocationReason: revocationReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(revocationReason),
     );
   }
 
@@ -5631,6 +5727,9 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
       lastSeenAt: serializer.fromJson<DateTime?>(json['lastSeenAt']),
       lastSyncAt: serializer.fromJson<DateTime?>(json['lastSyncAt']),
       autoLockSeconds: serializer.fromJson<int>(json['autoLockSeconds']),
+      revokedAt: serializer.fromJson<DateTime?>(json['revokedAt']),
+      revokedBy: serializer.fromJson<String?>(json['revokedBy']),
+      revocationReason: serializer.fromJson<String?>(json['revocationReason']),
     );
   }
   @override
@@ -5662,6 +5761,9 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
       'lastSeenAt': serializer.toJson<DateTime?>(lastSeenAt),
       'lastSyncAt': serializer.toJson<DateTime?>(lastSyncAt),
       'autoLockSeconds': serializer.toJson<int>(autoLockSeconds),
+      'revokedAt': serializer.toJson<DateTime?>(revokedAt),
+      'revokedBy': serializer.toJson<String?>(revokedBy),
+      'revocationReason': serializer.toJson<String?>(revocationReason),
     };
   }
 
@@ -5689,6 +5791,9 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
     Value<DateTime?> lastSeenAt = const Value.absent(),
     Value<DateTime?> lastSyncAt = const Value.absent(),
     int? autoLockSeconds,
+    Value<DateTime?> revokedAt = const Value.absent(),
+    Value<String?> revokedBy = const Value.absent(),
+    Value<String?> revocationReason = const Value.absent(),
   }) => DeviceRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -5721,6 +5826,11 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
     lastSeenAt: lastSeenAt.present ? lastSeenAt.value : this.lastSeenAt,
     lastSyncAt: lastSyncAt.present ? lastSyncAt.value : this.lastSyncAt,
     autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
+    revokedAt: revokedAt.present ? revokedAt.value : this.revokedAt,
+    revokedBy: revokedBy.present ? revokedBy.value : this.revokedBy,
+    revocationReason: revocationReason.present
+        ? revocationReason.value
+        : this.revocationReason,
   );
   DeviceRow copyWithCompanion(DevicesCompanion data) {
     return DeviceRow(
@@ -5763,6 +5873,11 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
       autoLockSeconds: data.autoLockSeconds.present
           ? data.autoLockSeconds.value
           : this.autoLockSeconds,
+      revokedAt: data.revokedAt.present ? data.revokedAt.value : this.revokedAt,
+      revokedBy: data.revokedBy.present ? data.revokedBy.value : this.revokedBy,
+      revocationReason: data.revocationReason.present
+          ? data.revocationReason.value
+          : this.revocationReason,
     );
   }
 
@@ -5791,7 +5906,10 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
           ..write('appVersion: $appVersion, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
-          ..write('autoLockSeconds: $autoLockSeconds')
+          ..write('autoLockSeconds: $autoLockSeconds, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedBy: $revokedBy, ')
+          ..write('revocationReason: $revocationReason')
           ..write(')'))
         .toString();
   }
@@ -5821,6 +5939,9 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
     lastSeenAt,
     lastSyncAt,
     autoLockSeconds,
+    revokedAt,
+    revokedBy,
+    revocationReason,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5848,7 +5969,10 @@ class DeviceRow extends DataClass implements Insertable<DeviceRow> {
           other.appVersion == this.appVersion &&
           other.lastSeenAt == this.lastSeenAt &&
           other.lastSyncAt == this.lastSyncAt &&
-          other.autoLockSeconds == this.autoLockSeconds);
+          other.autoLockSeconds == this.autoLockSeconds &&
+          other.revokedAt == this.revokedAt &&
+          other.revokedBy == this.revokedBy &&
+          other.revocationReason == this.revocationReason);
 }
 
 class DevicesCompanion extends UpdateCompanion<DeviceRow> {
@@ -5875,6 +5999,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
   final Value<DateTime?> lastSeenAt;
   final Value<DateTime?> lastSyncAt;
   final Value<int> autoLockSeconds;
+  final Value<DateTime?> revokedAt;
+  final Value<String?> revokedBy;
+  final Value<String?> revocationReason;
   final Value<int> rowid;
   const DevicesCompanion({
     this.id = const Value.absent(),
@@ -5900,6 +6027,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
     this.lastSeenAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.autoLockSeconds = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedBy = const Value.absent(),
+    this.revocationReason = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DevicesCompanion.insert({
@@ -5926,6 +6056,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
     this.lastSeenAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.autoLockSeconds = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedBy = const Value.absent(),
+    this.revocationReason = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -5957,6 +6090,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
     Expression<DateTime>? lastSeenAt,
     Expression<DateTime>? lastSyncAt,
     Expression<int>? autoLockSeconds,
+    Expression<DateTime>? revokedAt,
+    Expression<String>? revokedBy,
+    Expression<String>? revocationReason,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5983,6 +6119,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
       if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
       if (autoLockSeconds != null) 'auto_lock_seconds': autoLockSeconds,
+      if (revokedAt != null) 'revoked_at': revokedAt,
+      if (revokedBy != null) 'revoked_by': revokedBy,
+      if (revocationReason != null) 'revocation_reason': revocationReason,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6011,6 +6150,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
     Value<DateTime?>? lastSeenAt,
     Value<DateTime?>? lastSyncAt,
     Value<int>? autoLockSeconds,
+    Value<DateTime?>? revokedAt,
+    Value<String?>? revokedBy,
+    Value<String?>? revocationReason,
     Value<int>? rowid,
   }) {
     return DevicesCompanion(
@@ -6037,6 +6179,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
       autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
+      revokedAt: revokedAt ?? this.revokedAt,
+      revokedBy: revokedBy ?? this.revokedBy,
+      revocationReason: revocationReason ?? this.revocationReason,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6115,6 +6260,15 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
     if (autoLockSeconds.present) {
       map['auto_lock_seconds'] = Variable<int>(autoLockSeconds.value);
     }
+    if (revokedAt.present) {
+      map['revoked_at'] = Variable<DateTime>(revokedAt.value);
+    }
+    if (revokedBy.present) {
+      map['revoked_by'] = Variable<String>(revokedBy.value);
+    }
+    if (revocationReason.present) {
+      map['revocation_reason'] = Variable<String>(revocationReason.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6147,6 +6301,9 @@ class DevicesCompanion extends UpdateCompanion<DeviceRow> {
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('autoLockSeconds: $autoLockSeconds, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedBy: $revokedBy, ')
+          ..write('revocationReason: $revocationReason, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -76495,6 +76652,9 @@ typedef $$DevicesTableCreateCompanionBuilder =
       Value<DateTime?> lastSeenAt,
       Value<DateTime?> lastSyncAt,
       Value<int> autoLockSeconds,
+      Value<DateTime?> revokedAt,
+      Value<String?> revokedBy,
+      Value<String?> revocationReason,
       Value<int> rowid,
     });
 typedef $$DevicesTableUpdateCompanionBuilder =
@@ -76522,6 +76682,9 @@ typedef $$DevicesTableUpdateCompanionBuilder =
       Value<DateTime?> lastSeenAt,
       Value<DateTime?> lastSyncAt,
       Value<int> autoLockSeconds,
+      Value<DateTime?> revokedAt,
+      Value<String?> revokedBy,
+      Value<String?> revocationReason,
       Value<int> rowid,
     });
 
@@ -76649,6 +76812,21 @@ class $$DevicesTableFilterComposer
     column: $table.autoLockSeconds,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<DateTime> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get revokedBy => $composableBuilder(
+    column: $table.revokedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get revocationReason => $composableBuilder(
+    column: $table.revocationReason,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$DevicesTableOrderingComposer
@@ -76774,6 +76952,21 @@ class $$DevicesTableOrderingComposer
     column: $table.autoLockSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get revokedBy => $composableBuilder(
+    column: $table.revokedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get revocationReason => $composableBuilder(
+    column: $table.revocationReason,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DevicesTableAnnotationComposer
@@ -76869,6 +77062,17 @@ class $$DevicesTableAnnotationComposer
     column: $table.autoLockSeconds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get revokedAt =>
+      $composableBuilder(column: $table.revokedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get revokedBy =>
+      $composableBuilder(column: $table.revokedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get revocationReason => $composableBuilder(
+    column: $table.revocationReason,
+    builder: (column) => column,
+  );
 }
 
 class $$DevicesTableTableManager
@@ -76925,6 +77129,9 @@ class $$DevicesTableTableManager
                 Value<DateTime?> lastSeenAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<int> autoLockSeconds = const Value.absent(),
+                Value<DateTime?> revokedAt = const Value.absent(),
+                Value<String?> revokedBy = const Value.absent(),
+                Value<String?> revocationReason = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DevicesCompanion(
                 id: id,
@@ -76950,6 +77157,9 @@ class $$DevicesTableTableManager
                 lastSeenAt: lastSeenAt,
                 lastSyncAt: lastSyncAt,
                 autoLockSeconds: autoLockSeconds,
+                revokedAt: revokedAt,
+                revokedBy: revokedBy,
+                revocationReason: revocationReason,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -76977,6 +77187,9 @@ class $$DevicesTableTableManager
                 Value<DateTime?> lastSeenAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<int> autoLockSeconds = const Value.absent(),
+                Value<DateTime?> revokedAt = const Value.absent(),
+                Value<String?> revokedBy = const Value.absent(),
+                Value<String?> revocationReason = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DevicesCompanion.insert(
                 id: id,
@@ -77002,6 +77215,9 @@ class $$DevicesTableTableManager
                 lastSeenAt: lastSeenAt,
                 lastSyncAt: lastSyncAt,
                 autoLockSeconds: autoLockSeconds,
+                revokedAt: revokedAt,
+                revokedBy: revokedBy,
+                revocationReason: revocationReason,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

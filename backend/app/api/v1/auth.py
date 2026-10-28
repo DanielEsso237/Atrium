@@ -25,6 +25,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, permission_codes
+from app.api.v1.devices import refuser_si_revoquee
 from app.core.config import settings
 from app.core.security import (
     DUREE_DELEGATION,
@@ -107,6 +108,12 @@ async def login(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Identifiant ou mot de passe incorrect.",
     )
+    # La tablette revoquee d'abord, quel que soit le code : celui qui l'a
+    # trouvee n'a pas besoin d'un PIN pour qu'elle s'efface.
+    device = None
+    if payload.device_id is not None:
+        device = await session.get(Device, payload.device_id)
+        refuser_si_revoquee(device)
     if user is None:
         raise invalid
 
@@ -137,15 +144,15 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN, detail="Compte desactive."
         )
 
-    if payload.device_id is not None:
-        device = await session.get(Device, payload.device_id)
-        if device is None or device.hotel_id != user.hotel_id or device.deleted_at is not None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Appareil inconnu.")
+    # Une tablette pas encore presentee (`PUT /devices/me` suit la connexion)
+    # se connecte quand meme : sa session ne lui est simplement pas rattachee.
+    if device is not None and (device.hotel_id != user.hotel_id or device.deleted_at):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Appareil inconnu.")
 
     debloquer(user)
     user.last_login_at = now
     tokens = await _issue_tokens(
-        session, user, payload.device_id, request.headers.get("user-agent"), now
+        session, user, device.id if device else None, request.headers.get("user-agent"), now
     )
     await session.commit()
     return tokens
