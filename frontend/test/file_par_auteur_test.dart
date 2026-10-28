@@ -175,6 +175,10 @@ void main() {
         "'01a1692b-ac12-70ef-b38e-c807dc4f3505', 'INSERT', "
         "'{\"received_by\": \"$recep\"}', '2026-10-25T10:00:00Z', 'FAILED')",
       );
+      // Une tablette d'avant le schema 20 n'a pas les cles de regroupement.
+      await base.customStatement(
+        'ALTER TABLE outbox_entries DROP COLUMN group_keys',
+      );
       await base.customStatement('PRAGMA user_version = 15');
       await base.close();
 

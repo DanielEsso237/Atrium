@@ -13,9 +13,8 @@
 /// mettre dans une seule transaction garantit qu'on n'a jamais l'un sans
 /// l'autre, meme si la tablette s'eteint entre les deux.
 ///
-/// Le moteur qui vide cette file n'existe pas encore — c'est le ticket
-/// « moteur de synchronisation ». Les entrees s'accumulent en attendant, ce
-/// qui est exactement le comportement attendu d'une tablette hors ligne.
+/// Chaque entree porte aussi ses cles de regroupement : ce qu'un refus du
+/// serveur retient avec elle, et rien d'autre (`groupes_de_la_file.dart`).
 library;
 
 import 'dart:convert';
@@ -24,6 +23,7 @@ import 'package:drift/drift.dart';
 
 import '../local/database.dart';
 import '../local/enums.dart';
+import 'groupes_de_la_file.dart';
 
 /// Ce que tout depot d'ecriture partage.
 mixin OutboxWriter {
@@ -39,6 +39,7 @@ mixin OutboxWriter {
     required SyncOp operation,
     required Map<String, Object?> payload,
   }) async {
+    final auteur = await db.auteurDeLaFile();
     await db
         .into(db.outboxEntries)
         .insert(
@@ -51,7 +52,16 @@ mixin OutboxWriter {
             // ecritures qui l'ont precedee.
             payload: jsonEncode(payload),
             createdAt: DateTime.now().toUtc(),
-            authorId: Value(await db.auteurDeLaFile()),
+            authorId: Value(auteur),
+            groupKeys: Value(
+              await clesDeGroupe(
+                db,
+                table: table,
+                id: id,
+                payload: payload,
+                auteur: auteur,
+              ),
+            ),
           ),
         );
   }

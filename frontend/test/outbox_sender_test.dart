@@ -196,9 +196,9 @@ void main() {
     expect(e.attempts, 1);
   });
 
-  test('un refus de fond bloque la file au lieu de la sauter', () async {
-    await creerClient();
-    await creerClient();
+  test('un refus de fond bloque son dossier au lieu de le sauter', () async {
+    final id = await creerClient();
+    await guests.update(id: id, firstName: 'Amadou', lastName: 'Kone Sr');
 
     final api = _FauxApi(
       echec: const ApiException(ApiFailure.invalid, 'champ manquant'),
@@ -208,8 +208,10 @@ void main() {
     expect(rapport.arret, DrainStop.bloque);
     expect(rapport.detail, 'champ manquant');
 
-    // Une seule tentative : la seconde entree n'a pas ete essayee. Sauter
-    // l'entree fautive enverrait la suite dans un etat que personne n'a voulu.
+    // Une seule tentative : la modification du meme client n'a pas ete
+    // essayee. Sauter l'entree fautive enverrait la suite dans un etat que
+    // personne n'a voulu. Un autre dossier, lui, serait parti
+    // (`file_par_groupe_test.dart`).
     expect(api.appels.length, 1);
     expect(await enAttente(), 2);
 

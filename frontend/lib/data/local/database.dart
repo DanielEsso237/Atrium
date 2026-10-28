@@ -121,7 +121,7 @@ class AtriumDatabase extends _$AtriumDatabase {
   /// une colonne qu'elles ne connaissent pas, alors qu'une base neuve
   /// fonctionne â€” le pire cas, parce qu'il ne se voit pas en developpement.
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   /// Horodatages stockes en texte ISO-8601 plutot qu'en entier Unix.
   ///
@@ -292,6 +292,12 @@ class AtriumDatabase extends _$AtriumDatabase {
         await m.addColumn(syncBlocks, syncBlocks.decidedAt);
         await m.addColumn(blockReports, blockReports.abandonable);
         await m.addColumn(blockReports, blockReports.abandonNote);
+      }
+      // 19 -> 20 : un refus ne retient plus que son groupe (correction 7).
+      // Les entrees deja en file restent sans cle : elles gardent l'ordre
+      // strict d'avant, jusqu'a leur depart.
+      if (depuis < 20) {
+        await m.addColumn(outboxEntries, outboxEntries.groupKeys);
       }
     },
     beforeOpen: (details) async {

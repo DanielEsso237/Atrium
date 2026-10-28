@@ -324,13 +324,19 @@ final syncProvider = NotifierProvider<SyncNotifier, SyncUiState>(
 /// deux heures a reessayer toutes les secondes, ni vider sa batterie pour
 /// rien.
 ///
-/// Un **blocage** arrete l'automatisme net. Renvoyer en boucle une ecriture
+/// Un **blocage** arrete l'automatisme. Renvoyer en boucle une ecriture
 /// que le serveur refuse ne la fera pas passer ; elle attend une decision
-/// humaine, et le compteur du bandeau est la pour la reclamer.
+/// humaine, et le compteur du bandeau est la pour la reclamer. Mais un refus
+/// ne retient plus que son groupe (correction 7) : une **nouvelle** ecriture
+/// relance la file, elle ne parle peut-etre pas du meme dossier.
 class SyncScheduler extends Notifier<void> {
   Timer? _minuteur;
   int _echecs = 0;
   bool _arrete = false;
+
+  /// L'arret vient d'un refus ou d'une attente de collegue, pas de la
+  /// session : une ecriture neuve peut partir quand meme.
+  bool _relancable = false;
 
   static const _premierDelai = Duration(milliseconds: 500);
   static const _delaiMax = Duration(seconds: 60);
@@ -351,13 +357,16 @@ class SyncScheduler extends Notifier<void> {
       }
     });
 
-    ref.listen<AsyncValue<int>>(pendingWritesProvider, (_, suivant) {
+    ref.listen<AsyncValue<int>>(pendingWritesProvider, (avant, suivant) {
       final enAttente = suivant.value ?? 0;
       if (enAttente == 0) {
         _annuler();
         _echecs = 0;
         _arrete = false;
         return;
+      }
+      if (_arrete && _relancable && enAttente > (avant?.value ?? 0)) {
+        _arrete = false;
       }
       // Une ecriture vient d'arriver alors que rien n'echouait : on repart
       // sans delai d'attente accumule.
@@ -412,6 +421,7 @@ class SyncScheduler extends Notifier<void> {
       case DrainStop.sessionInvalide:
       case DrainStop.attenteAutrui:
         _arrete = true;
+        _relancable = rapport.arret != DrainStop.sessionInvalide;
         _annuler();
     }
 

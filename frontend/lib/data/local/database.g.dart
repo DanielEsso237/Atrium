@@ -70139,6 +70139,17 @@ class $OutboxEntriesTable extends OutboxEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _groupKeysMeta = const VerificationMeta(
+    'groupKeys',
+  );
+  @override
+  late final GeneratedColumn<String> groupKeys = GeneratedColumn<String>(
+    'group_keys',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -70152,6 +70163,7 @@ class $OutboxEntriesTable extends OutboxEntries
     lastError,
     lastAttemptAt,
     authorId,
+    groupKeys,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -70230,6 +70242,12 @@ class $OutboxEntriesTable extends OutboxEntries
         authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
       );
     }
+    if (data.containsKey('group_keys')) {
+      context.handle(
+        _groupKeysMeta,
+        groupKeys.isAcceptableOrUnknown(data['group_keys']!, _groupKeysMeta),
+      );
+    }
     return context;
   }
 
@@ -70287,6 +70305,10 @@ class $OutboxEntriesTable extends OutboxEntries
         DriftSqlType.string,
         data['${effectivePrefix}author_id'],
       ),
+      groupKeys: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_keys'],
+      ),
     );
   }
 
@@ -70323,6 +70345,14 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
   /// (403) et bloquait sa file (25 octobre). `null` pour les entrees sans
   /// session (code oublie, changement de PIN) : n'importe qui les remonte.
   final String? authorId;
+
+  /// Ce que l'entree retient si le serveur la refuse, et ce qui la retient :
+  /// son dossier, sa caisse, sa chambre… (`groupes_de_la_file.dart`).
+  ///
+  /// Un refus n'arrete plus toute la file, seulement ce qui partage une cle
+  /// avec lui. `null` : on ne sait pas -- l'entree attend des que quoi que
+  /// ce soit attend, comme avant le schema 20.
+  final String? groupKeys;
   const OutboxEntryRow({
     required this.id,
     required this.entityTable,
@@ -70335,6 +70365,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
     this.lastError,
     this.lastAttemptAt,
     this.authorId,
+    this.groupKeys,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -70362,6 +70393,9 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
     if (!nullToAbsent || authorId != null) {
       map['author_id'] = Variable<String>(authorId);
     }
+    if (!nullToAbsent || groupKeys != null) {
+      map['group_keys'] = Variable<String>(groupKeys);
+    }
     return map;
   }
 
@@ -70384,6 +70418,9 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
       authorId: authorId == null && nullToAbsent
           ? const Value.absent()
           : Value(authorId),
+      groupKeys: groupKeys == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupKeys),
     );
   }
 
@@ -70408,6 +70445,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
       lastError: serializer.fromJson<String?>(json['lastError']),
       lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
       authorId: serializer.fromJson<String?>(json['authorId']),
+      groupKeys: serializer.fromJson<String?>(json['groupKeys']),
     );
   }
   @override
@@ -70429,6 +70467,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
       'lastError': serializer.toJson<String?>(lastError),
       'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
       'authorId': serializer.toJson<String?>(authorId),
+      'groupKeys': serializer.toJson<String?>(groupKeys),
     };
   }
 
@@ -70444,6 +70483,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
     Value<String?> lastError = const Value.absent(),
     Value<DateTime?> lastAttemptAt = const Value.absent(),
     Value<String?> authorId = const Value.absent(),
+    Value<String?> groupKeys = const Value.absent(),
   }) => OutboxEntryRow(
     id: id ?? this.id,
     entityTable: entityTable ?? this.entityTable,
@@ -70458,6 +70498,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
         ? lastAttemptAt.value
         : this.lastAttemptAt,
     authorId: authorId.present ? authorId.value : this.authorId,
+    groupKeys: groupKeys.present ? groupKeys.value : this.groupKeys,
   );
   OutboxEntryRow copyWithCompanion(OutboxEntriesCompanion data) {
     return OutboxEntryRow(
@@ -70476,6 +70517,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
           ? data.lastAttemptAt.value
           : this.lastAttemptAt,
       authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      groupKeys: data.groupKeys.present ? data.groupKeys.value : this.groupKeys,
     );
   }
 
@@ -70492,7 +70534,8 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
-          ..write('authorId: $authorId')
+          ..write('authorId: $authorId, ')
+          ..write('groupKeys: $groupKeys')
           ..write(')'))
         .toString();
   }
@@ -70510,6 +70553,7 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
     lastError,
     lastAttemptAt,
     authorId,
+    groupKeys,
   );
   @override
   bool operator ==(Object other) =>
@@ -70525,7 +70569,8 @@ class OutboxEntryRow extends DataClass implements Insertable<OutboxEntryRow> {
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
           other.lastAttemptAt == this.lastAttemptAt &&
-          other.authorId == this.authorId);
+          other.authorId == this.authorId &&
+          other.groupKeys == this.groupKeys);
 }
 
 class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
@@ -70540,6 +70585,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
   final Value<String?> lastError;
   final Value<DateTime?> lastAttemptAt;
   final Value<String?> authorId;
+  final Value<String?> groupKeys;
   const OutboxEntriesCompanion({
     this.id = const Value.absent(),
     this.entityTable = const Value.absent(),
@@ -70552,6 +70598,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
     this.lastError = const Value.absent(),
     this.lastAttemptAt = const Value.absent(),
     this.authorId = const Value.absent(),
+    this.groupKeys = const Value.absent(),
   });
   OutboxEntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -70565,6 +70612,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
     this.lastError = const Value.absent(),
     this.lastAttemptAt = const Value.absent(),
     this.authorId = const Value.absent(),
+    this.groupKeys = const Value.absent(),
   }) : entityTable = Value(entityTable),
        entityId = Value(entityId),
        op = Value(op),
@@ -70582,6 +70630,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
     Expression<String>? lastError,
     Expression<DateTime>? lastAttemptAt,
     Expression<String>? authorId,
+    Expression<String>? groupKeys,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -70595,6 +70644,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
       if (lastError != null) 'last_error': lastError,
       if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
       if (authorId != null) 'author_id': authorId,
+      if (groupKeys != null) 'group_keys': groupKeys,
     });
   }
 
@@ -70610,6 +70660,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
     Value<String?>? lastError,
     Value<DateTime?>? lastAttemptAt,
     Value<String?>? authorId,
+    Value<String?>? groupKeys,
   }) {
     return OutboxEntriesCompanion(
       id: id ?? this.id,
@@ -70623,6 +70674,7 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
       lastError: lastError ?? this.lastError,
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
       authorId: authorId ?? this.authorId,
+      groupKeys: groupKeys ?? this.groupKeys,
     );
   }
 
@@ -70666,6 +70718,9 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
     if (authorId.present) {
       map['author_id'] = Variable<String>(authorId.value);
     }
+    if (groupKeys.present) {
+      map['group_keys'] = Variable<String>(groupKeys.value);
+    }
     return map;
   }
 
@@ -70682,7 +70737,8 @@ class OutboxEntriesCompanion extends UpdateCompanion<OutboxEntryRow> {
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
-          ..write('authorId: $authorId')
+          ..write('authorId: $authorId, ')
+          ..write('groupKeys: $groupKeys')
           ..write(')'))
         .toString();
   }
@@ -108023,6 +108079,7 @@ typedef $$OutboxEntriesTableCreateCompanionBuilder =
       Value<String?> lastError,
       Value<DateTime?> lastAttemptAt,
       Value<String?> authorId,
+      Value<String?> groupKeys,
     });
 typedef $$OutboxEntriesTableUpdateCompanionBuilder =
     OutboxEntriesCompanion Function({
@@ -108037,6 +108094,7 @@ typedef $$OutboxEntriesTableUpdateCompanionBuilder =
       Value<String?> lastError,
       Value<DateTime?> lastAttemptAt,
       Value<String?> authorId,
+      Value<String?> groupKeys,
     });
 
 class $$OutboxEntriesTableFilterComposer
@@ -108104,6 +108162,11 @@ class $$OutboxEntriesTableFilterComposer
     column: $table.authorId,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get groupKeys => $composableBuilder(
+    column: $table.groupKeys,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$OutboxEntriesTableOrderingComposer
@@ -108169,6 +108232,11 @@ class $$OutboxEntriesTableOrderingComposer
     column: $table.authorId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get groupKeys => $composableBuilder(
+    column: $table.groupKeys,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$OutboxEntriesTableAnnotationComposer
@@ -108216,6 +108284,9 @@ class $$OutboxEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get authorId =>
       $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get groupKeys =>
+      $composableBuilder(column: $table.groupKeys, builder: (column) => column);
 }
 
 class $$OutboxEntriesTableTableManager
@@ -108266,6 +108337,7 @@ class $$OutboxEntriesTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<DateTime?> lastAttemptAt = const Value.absent(),
                 Value<String?> authorId = const Value.absent(),
+                Value<String?> groupKeys = const Value.absent(),
               }) => OutboxEntriesCompanion(
                 id: id,
                 entityTable: entityTable,
@@ -108278,6 +108350,7 @@ class $$OutboxEntriesTableTableManager
                 lastError: lastError,
                 lastAttemptAt: lastAttemptAt,
                 authorId: authorId,
+                groupKeys: groupKeys,
               ),
           createCompanionCallback:
               ({
@@ -108292,6 +108365,7 @@ class $$OutboxEntriesTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<DateTime?> lastAttemptAt = const Value.absent(),
                 Value<String?> authorId = const Value.absent(),
+                Value<String?> groupKeys = const Value.absent(),
               }) => OutboxEntriesCompanion.insert(
                 id: id,
                 entityTable: entityTable,
@@ -108304,6 +108378,7 @@ class $$OutboxEntriesTableTableManager
                 lastError: lastError,
                 lastAttemptAt: lastAttemptAt,
                 authorId: authorId,
+                groupKeys: groupKeys,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
