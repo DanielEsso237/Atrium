@@ -6,15 +6,17 @@ et le controle de role concernent tous les domaines metier, pas un seul.
 
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
+import datetime as dt
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import decode_access_token
+from app.core.security import decode_access_claims
 from app.db.session import get_session
-from app.models import User
+from app.models import AuditLog, User
 
 # tokenUrl ne sert qu'a la doc Swagger (bouton "Authorize") ; le endpoint reel
 # est POST {api_prefix}/auth/login, qui prend du JSON et pas un formulaire.
@@ -22,6 +24,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_prefix}/auth/login
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> User:
@@ -30,9 +33,10 @@ async def get_current_user(
         detail="Identifiants invalides ou expires.",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    user_id = decode_access_token(token)
-    if user_id is None:
+    claims = decode_access_claims(token)
+    if claims is None:
         raise unauthorized
+    user_id, approver_id, device_id = claims
 
     # User.roles et Role.permissions sont deja lazy="selectin" sur le modele :
     # une seule requete supplementaire charge tout l'arbre role -> permissions.
@@ -40,9 +44,49 @@ async def get_current_user(
         select(User).where(User.id == user_id, User.deleted_at.is_(None))
     )
     user = result.scalar_one_or_none()
-    if user is None or not user.is_active:
+    # Un jeton delegue sert justement a l'agent qui ne repasse pas -- parti,
+    # parfois desactive : ses ecritures restent a remonter.
+    if user is None or (not user.is_active and approver_id is None):
         raise unauthorized
+    if approver_id is not None:
+        _tracer_delegation(request, session, user, approver_id, device_id)
     return user
+
+
+def _tracer_delegation(
+    request: Request,
+    session: AsyncSession,
+    user: User,
+    approver_id,
+    device_id,
+) -> None:
+    """Un jeton delegue ne sert qu'a remonter des ecritures, et chacune se
+    trace au nom du responsable qui l'a permis.
+
+    La trace part avec l'ecriture, dans la meme session : une ecriture
+    refusee n'en laisse pas.
+    """
+    if request.method == "GET" or request.url.path.startswith(
+        f"{settings.api_prefix}/auth"
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Un envoi pour un collegue ne sert qu'a remonter ses ecritures.",
+        )
+    session.add(
+        AuditLog(
+            user_id=approver_id,
+            device_id=device_id,
+            entity_table="outbox_entries",
+            action="SYNC_DELEGATED_WRITE",
+            after={
+                "on_behalf_of": str(user.id),
+                "method": request.method,
+                "path": request.url.path,
+            },
+            occurred_at=dt.datetime.now(dt.timezone.utc),
+        )
+    )
 
 
 def permission_codes(user: User) -> set[str]:

@@ -14,6 +14,7 @@ import '../../data/remote/outbox_sender.dart';
 import '../../data/repositories/ecriture_refusee.dart';
 import '../../data/repositories/repository_providers.dart';
 import '../../features/auth/session.dart';
+import '../../features/sync/envoi_pour_un_absent.dart';
 import '../../features/sync/sync_status.dart';
 import '../tokens.dart';
 
@@ -156,24 +157,26 @@ class PuceEcritures extends ConsumerWidget {
 }
 
 /// Les ecritures de collegues faites sur cette tablette : seule leur session
-/// les remonte. Rien a faire pour l'agent connecte, sinon le savoir -- et
-/// prevenir le collegue s'il ne repasse pas.
-class _PuceAutrui extends StatelessWidget {
+/// les remonte. L'agent connecte le sait ; et si le collegue ne repasse pas,
+/// un responsable les envoie a sa place, d'un appui (correction 8).
+class _PuceAutrui extends ConsumerWidget {
   const _PuceAutrui(this.autrui);
 
-  final List<({String agent, int n})> autrui;
+  final List<({String id, String agent, int n})> autrui;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final total = autrui.fold<int>(0, (s, a) => s + a.n);
     final qui = autrui.map((a) => '${a.agent} (${a.n})').join(', ');
     return Tooltip(
       message:
           '$total écriture(s) faite(s) sur cette tablette par $qui. Elles '
-          'partiront à leur prochaine connexion ici.',
+          'partiront à leur prochaine connexion ici, ou appuyer pour qu’un '
+          'responsable les envoie à sa place.',
       child: AtriumPuce(
         icone: Icons.schedule,
         encre: AtriumDashColors.title,
+        onTap: () => envoyerPourUnAbsent(context, ref, autrui),
         child: Text(
           autrui.length == 1 ? '$total · ${autrui.single.agent}' : '$total',
         ),

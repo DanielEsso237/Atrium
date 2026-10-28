@@ -34,24 +34,47 @@ class Accord {
   final String motif;
 }
 
+/// Ce qui verifie le code, a la place de la verification d'une annulation.
+/// Leve une [StateError] dont le message s'affiche dans la fenetre.
+typedef VerifierResponsable =
+    Future<Responsable> Function(String code, String secret, String motif);
+
 /// Demande le code d'un responsable. `null` si l'agent renonce.
+///
+/// [verifier] remplace la verification d'une annulation : l'envoi pour un
+/// collegue absent fait verifier le code par le serveur, et envoie dans la
+/// foulee (`envoi_pour_un_absent.dart`).
 Future<Accord?> demanderAccordResponsable(
   BuildContext context, {
   required String titre,
   required String explication,
+  VerifierResponsable? verifier,
+  String libelleValider = 'Autoriser',
 }) {
   return showDialog<Accord>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _FenetreAccord(titre: titre, explication: explication),
+    builder: (_) => _FenetreAccord(
+      titre: titre,
+      explication: explication,
+      verifier: verifier,
+      libelleValider: libelleValider,
+    ),
   );
 }
 
 class _FenetreAccord extends ConsumerStatefulWidget {
-  const _FenetreAccord({required this.titre, required this.explication});
+  const _FenetreAccord({
+    required this.titre,
+    required this.explication,
+    this.verifier,
+    required this.libelleValider,
+  });
 
   final String titre;
   final String explication;
+  final VerifierResponsable? verifier;
+  final String libelleValider;
 
   @override
   ConsumerState<_FenetreAccord> createState() => _FenetreAccordState();
@@ -83,9 +106,12 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
       _erreur = null;
     });
     try {
-      final responsable = await ref
-          .read(autorisationRepositoryProvider)
-          .verifier(code: _code.text, secret: _pin);
+      final verifier = widget.verifier;
+      final responsable = verifier != null
+          ? await verifier(_code.text, _pin, _motif.text.trim())
+          : await ref
+                .read(autorisationRepositoryProvider)
+                .verifier(code: _code.text, secret: _pin);
       if (!mounted) return;
       Navigator.of(context).pop(Accord(responsable, _motif.text.trim()));
     } on StateError catch (e) {
@@ -235,7 +261,9 @@ class _FenetreAccordState extends ConsumerState<_FenetreAccord> {
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
-          child: Text(_verification ? 'Vérification…' : 'Autoriser'),
+          child: Text(
+            _verification ? 'Vérification…' : widget.libelleValider,
+          ),
         ),
       ],
     );

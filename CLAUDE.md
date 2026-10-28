@@ -243,7 +243,8 @@ réceptionniste partait avec la session du ménage, revenait en 403 et bloquait
 sa file. `outbox_entries.author_id` est posé par la session
 (`declarerAuteur`, dans `sync_statuses`) ; les écritures d'un collègue
 attendent sa prochaine connexion sur la tablette, et la pastille le dit
-(« 1 · RECEP01 »). Un refus derrière une écriture de collègue en attente ne
+(« 1 · RECEP01 ») — ou un responsable les envoie à sa place (voir
+« Envoyer à la place d'un absent »). Un refus derrière une écriture de collègue en attente ne
 bloque pas : il en dépend peut-être (`DrainStop.attenteAutrui`). Les entrées
 sans session (code oublié, changement de PIN) n'ont pas d'auteur et partent
 avec n'importe qui.
@@ -747,6 +748,30 @@ de proche en proche celles qui en partagent une avec une entrée qui attend.
   Le « N saisies attendent derrière » du rapport de blocage ne compte plus
   que ce que le refus retient (`retenuesDerriere`).
 
+## Envoyer à la place d'un absent (28 octobre)
+
+Une écriture dont l'auteur ne repassait jamais sur la tablette y restait
+pour toujours. Désormais la pastille « 1 · RECEP01 » s'appuie : un
+**responsable** (`sync.monitor`) tape son code et un motif, et les
+écritures de l'absent partent aussitôt (`features/sync/envoi_pour_un_absent.dart`,
+`data/repositories/envoi_pour_autrui.dart`). **En ligne seulement.**
+
+- `POST /auth/delegate` (session de qui tient la tablette) vérifie le code
+  comme `/auth/authorize` (même verrouillage à cinq échecs) et rend un
+  **jeton de dix minutes au nom de l'absent**, sans rafraîchissement, avec
+  `act` = le responsable. Les écritures se jugent donc avec **les droits de
+  leur auteur**, et un encaissement tombe dans **sa** caisse : un
+  administrateur qui délègue ne prête pas ses droits.
+- Ce jeton **ne sert qu'à écrire** : `GET` et `/auth/*` refusés (403).
+  Il vaut aussi pour un agent **désactivé** — c'est le cas de l'agent parti.
+- Trace : `SYNC_DELEGATE` à la délivrance (motif, qui l'a demandé), puis
+  `SYNC_DELEGATED_WRITE` à chaque écriture, au nom du responsable, dans la
+  même transaction que l'écriture (`get_current_user`, `app/api/deps.py`).
+- La tablette vide la file **pour l'absent** (`OutboxSender.drain(pour:)`)
+  avec un `TokenStore` qui ne connaît que ce jeton : la session de l'agent
+  connecté n'est pas touchée. Les écritures de l'agent connecté ne partent
+  pas dans ce passage.
+
 ## Ce qui manque
 
 - **Le droit `INTERNET` manque au manifeste principal**
@@ -776,9 +801,6 @@ de proche en proche celles qui en partagent une avec une entrée qui attend.
   ménage : le serveur ne l'annule pas (`annulations.py`). L'ardoise retirée
   par une arrivée annulée, elle, se retire désormais sur les autres postes
   (`removed` de `GET /sync/changes`).
-- **Une écriture dont l'auteur ne repasse jamais sur la tablette** y reste :
-  il faudra qu'un responsable puisse l'envoyer à sa place, avec son code
-  (le serveur ne sait pas encore recevoir une écriture au nom d'un autre).
 - `SyncOp.DELETE` n'est ni produit ni traité, et `SyncState.conflict` n'est
   utilisé nulle part — pas d'arbitrage de conflit.
 - **Quand quelque chose a changé, la descente relit encore tout** : les

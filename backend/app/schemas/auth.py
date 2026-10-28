@@ -84,6 +84,25 @@ class AuthorizeOut(BaseModel):
     last_name: str
 
 
+class DelegateIn(BaseModel):
+    """Le code d'un responsable, pour remonter les ecritures d'un agent
+    absent restees sur la tablette."""
+
+    author_id: uuid.UUID
+    employee_code: str
+    secret: str
+    reason: str = Field(min_length=3, max_length=500)
+    # L'identifiant stable de la tablette (`sync_statuses.device_id`), pour
+    # la trace.
+    device_id: uuid.UUID | None = None
+
+
+class DelegateOut(BaseModel):
+    access_token: str
+    expires_in: int
+    approver: AuthorizeOut
+
+
 class ResetSecretIn(BaseModel):
     """Un agent a oublie son code ; un responsable valide sur place.
 

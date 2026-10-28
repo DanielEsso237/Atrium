@@ -180,14 +180,18 @@ class OutboxSender {
   /// Un passage hors ligne ou sans session s'arrete net : rien de ce qui
   /// suit ne passerait mieux. Un refus, lui, ne retient que son groupe ; le
   /// passage dit `bloque` s'il y en a eu un, meme si le reste est parti.
-  Future<DrainReport> drain({int max = 200}) async {
+  ///
+  /// [pour] : l'agent dont on remonte les ecritures, a la place de celui de
+  /// la session -- un responsable les envoie pour un absent, avec un jeton
+  /// a son nom (`EnvoiPourAutrui`).
+  Future<DrainReport> drain({int max = 200, String? pour}) async {
     var envoyees = 0;
     var tentatives = 0;
     var dernier = 0;
     final retenue = Retenue();
     String? refus;
     var attenteAutrui = false;
-    final auteur = await db.auteurDeLaFile();
+    final auteur = pour ?? await db.auteurDeLaFile();
 
     while (tentatives < max) {
       final entree = await _suivante(dernier);
@@ -241,12 +245,12 @@ class OutboxSender {
           _Methode.delete => await api.delete(envoi.chemin),
         };
       } on ApiException catch (e) {
-        final arret = await _apresEchec(entree, e);
+        final arret = await _apresEchec(entree, e, auteur);
         if (arret == DrainStop.horsLigne ||
             arret == DrainStop.sessionInvalide) {
           return DrainReport(
             envoyees: envoyees,
-            restantes: await _restantes(),
+            restantes: await _restantes(auteur),
             arret: arret,
             detail: e.message,
           );
@@ -270,7 +274,7 @@ class OutboxSender {
 
     return DrainReport(
       envoyees: envoyees,
-      restantes: await _restantes(),
+      restantes: await _restantes(auteur),
       // Un refus prime : il attend une decision. Une attente de collegue
       // ensuite : sa prochaine connexion relancera la file.
       arret: refus != null
@@ -376,7 +380,11 @@ class OutboxSender {
   }
 
   /// Traduit l'echec en decision : reessayer plus tard, ou bloquer.
-  Future<DrainStop> _apresEchec(OutboxEntryRow entree, ApiException e) async {
+  Future<DrainStop> _apresEchec(
+    OutboxEntryRow entree,
+    ApiException e,
+    String? auteur,
+  ) async {
     switch (e.failure) {
       // Pannes passageres : la file reste intacte et PENDING. On ne compte
       // meme pas ca comme une erreur de l'entree -- elle n'a rien fait de mal.
@@ -400,7 +408,7 @@ class OutboxSender {
       case ApiFailure.notFound:
       case ApiFailure.conflict:
       case ApiFailure.invalid:
-        if (await _collegueEnAttenteAvant(entree)) {
+        if (await _collegueEnAttenteAvant(entree, auteur)) {
           await _compterTentative(entree, e.message);
           return DrainStop.attenteAutrui;
         }
@@ -430,26 +438,31 @@ class OutboxSender {
 
   /// Celles que la session en cours peut remonter : une file qui ne compte
   /// que des ecritures de collegues est, pour elle, terminee.
-  Future<int> _restantes() async {
+  Future<int> _restantes(String? auteur) async {
     final r = await db
         .customSelect(
           'SELECT COUNT(*) AS n FROM outbox_entries '
-          "WHERE status IN ('PENDING','FAILED') AND $sqlEnvoyableParLAgent",
-          readsFrom: {db.outboxEntries, db.syncStatuses},
+          "WHERE status IN ('PENDING','FAILED') "
+          'AND (author_id IS NULL OR author_id = ?)',
+          variables: [Variable<String>(auteur)],
+          readsFrom: {db.outboxEntries},
         )
         .getSingle();
     return r.read<int>('n');
   }
 
   /// Une ecriture d'un collegue, plus ancienne, attend-elle encore ?
-  Future<bool> _collegueEnAttenteAvant(OutboxEntryRow entree) async {
+  Future<bool> _collegueEnAttenteAvant(
+    OutboxEntryRow entree,
+    String? auteur,
+  ) async {
     final r = await db
         .customSelect(
           'SELECT 1 FROM outbox_entries '
           "WHERE status IN ('PENDING','FAILED') AND id < ? "
-          'AND NOT $sqlEnvoyableParLAgent LIMIT 1',
-          variables: [Variable.withInt(entree.id)],
-          readsFrom: {db.outboxEntries, db.syncStatuses},
+          'AND author_id IS NOT NULL AND author_id IS NOT ? LIMIT 1',
+          variables: [Variable.withInt(entree.id), Variable<String>(auteur)],
+          readsFrom: {db.outboxEntries},
         )
         .get();
     return r.isNotEmpty;

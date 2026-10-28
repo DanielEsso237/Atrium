@@ -27,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, permission_codes
 from app.core.config import settings
 from app.core.security import (
+    DUREE_DELEGATION,
     create_access_token,
+    create_delegated_token,
     hash_refresh_token,
     hash_secret,
     new_refresh_token,
@@ -42,6 +44,8 @@ from app.schemas.auth import (
     ChangePinIn,
     ChangePinOut,
     CredentialOut,
+    DelegateIn,
+    DelegateOut,
     LoginIn,
     RefreshIn,
     ResetSecretIn,
@@ -242,6 +246,56 @@ async def me(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+async def _verifier_responsable(
+    session: AsyncSession,
+    user: User,
+    employee_code: str,
+    secret: str,
+    permission: str,
+) -> User:
+    """Le code d'un responsable, saisi sur la tablette de `user`.
+
+    Soumis au meme verrouillage que la connexion : sans cela, la route
+    servirait a deviner des PIN.
+    """
+    # 403 et non 401 : un 401 dit a la tablette que la session de l'agent
+    # connecte est finie, et elle le deconnecterait pour un code mal tape.
+    refus = HTTPException(status.HTTP_403_FORBIDDEN, "Code du responsable incorrect.")
+    responsable = await session.scalar(
+        select(User).where(
+            User.employee_code == employee_code.strip().upper(),
+            User.hotel_id == user.hotel_id,
+            User.deleted_at.is_(None),
+        )
+    )
+    if responsable is None:
+        raise refus
+    now = dt.datetime.now(dt.timezone.utc)
+    if est_verrouille(responsable, now):
+        raise HTTPException(
+            status.HTTP_423_LOCKED,
+            "Compte du responsable bloque apres cinq codes faux.",
+        )
+    if not secret_accepte(secret, responsable.password_hash, responsable.pin_hash):
+        compter_echec(responsable, now)
+        await session.commit()
+        raise refus
+    if not responsable.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte du responsable desactive.")
+    debloquer(responsable)
+    await session.commit()
+    # populate_existing : les roles et leurs droits relus apres le commit,
+    # meme quand le responsable est l'agent connecte.
+    responsable = await session.get(User, responsable.id, populate_existing=True)
+    if permission not in permission_codes(responsable):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"{responsable.first_name} {responsable.last_name} n'a pas le droit "
+            f"d'autoriser ce geste (permission {permission}).",
+        )
+    return responsable
+
+
 @router.post("/authorize", response_model=AuthorizeOut)
 async def authorize(
     payload: AuthorizeIn,
@@ -260,45 +314,74 @@ async def authorize(
     Reserve a un agent connecte, et soumis au meme verrouillage que la
     connexion : sans cela, la route servirait a deviner des PIN.
     """
-    # 403 et non 401 : un 401 dit a la tablette que la session de l'agent
-    # connecte est finie, et elle le deconnecterait pour un code mal tape.
-    refus = HTTPException(status.HTTP_403_FORBIDDEN, "Code du responsable incorrect.")
-    responsable = await session.scalar(
-        select(User).where(
-            User.employee_code == payload.employee_code.strip().upper(),
-            User.hotel_id == user.hotel_id,
-            User.deleted_at.is_(None),
-        )
+    responsable = await _verifier_responsable(
+        session, user, payload.employee_code, payload.secret, payload.permission
     )
-    if responsable is None:
-        raise refus
-    now = dt.datetime.now(dt.timezone.utc)
-    if est_verrouille(responsable, now):
-        raise HTTPException(
-            status.HTTP_423_LOCKED,
-            "Compte du responsable bloque apres cinq codes faux.",
-        )
-    if not secret_accepte(payload.secret, responsable.password_hash, responsable.pin_hash):
-        compter_echec(responsable, now)
-        await session.commit()
-        raise refus
-    if not responsable.is_active:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte du responsable desactive.")
-    debloquer(responsable)
-    await session.commit()
-    # populate_existing : les roles et leurs droits relus apres le commit,
-    # meme quand le responsable est l'agent connecte.
-    responsable = await session.get(User, responsable.id, populate_existing=True)
-    if payload.permission not in permission_codes(responsable):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            f"{responsable.first_name} {responsable.last_name} n'a pas le droit "
-            f"d'autoriser ce geste (permission {payload.permission}).",
-        )
     return AuthorizeOut(
         user_id=responsable.id,
         first_name=responsable.first_name,
         last_name=responsable.last_name,
+    )
+
+
+@router.post("/delegate", response_model=DelegateOut)
+async def delegate(
+    payload: DelegateIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> DelegateOut:
+    """Remonter les ecritures d'un agent absent, sur le code d'un responsable.
+
+    Une tablette passe de main en main, et chacun n'y remonte que ses
+    ecritures : celles d'un agent qui ne repasse pas restaient pour toujours.
+    Le responsable (`sync.monitor`) tape son code ; le serveur rend un jeton
+    court **au nom de l'agent absent** -- ses ecritures se jugent avec ses
+    droits et tombent dans sa caisse --, qui ne sert qu'a ecrire, et chaque
+    ecriture faite avec lui se trace au nom du responsable.
+    """
+    responsable = await _verifier_responsable(
+        session, user, payload.employee_code, payload.secret, "sync.monitor"
+    )
+    auteur = await session.scalar(
+        select(User).where(
+            User.id == payload.author_id,
+            User.hotel_id == user.hotel_id,
+            User.deleted_at.is_(None),
+        )
+    )
+    if auteur is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Agent inconnu.")
+    # La tablette se presente sous son identifiant stable, qui est celui de
+    # sa ligne (`PUT /devices/me`). Inconnue, la trace s'en passe.
+    tablette = None
+    if payload.device_id is not None:
+        connue = await session.get(Device, payload.device_id)
+        if connue is not None and connue.hotel_id == user.hotel_id:
+            tablette = connue.id
+    session.add(
+        AuditLog(
+            user_id=responsable.id,
+            device_id=tablette,
+            entity_table="users",
+            entity_id=auteur.id,
+            action="SYNC_DELEGATE",
+            after={
+                "on_behalf_of": str(auteur.id),
+                "requested_by": str(user.id),
+                "reason": payload.reason,
+            },
+            occurred_at=dt.datetime.now(dt.timezone.utc),
+        )
+    )
+    await session.commit()
+    return DelegateOut(
+        access_token=create_delegated_token(auteur.id, responsable.id, tablette),
+        expires_in=int(DUREE_DELEGATION.total_seconds()),
+        approver=AuthorizeOut(
+            user_id=responsable.id,
+            first_name=responsable.first_name,
+            last_name=responsable.last_name,
+        ),
     )
 
 
